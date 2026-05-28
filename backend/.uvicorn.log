@@ -1,0 +1,44 @@
+INFO:     Will watch for changes in these directories: ['/Users/dustinef/Documents/ADM-Thesis/kareerly_system']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [33639] using StatReload
+INFO:     Started server process [33642]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:57890 - "POST /api/resume/analyze HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57891 - "OPTIONS /api/matches/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57891 - "POST /api/matches/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57896 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'frontend/node_modules/flatted/python/flatted.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [33642]
+INFO:     Started server process [36639]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:58203 - "POST /api/resume/analyze HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58206 - "OPTIONS /api/matches/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58206 - "POST /api/matches/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58210 - "GET /api/skills/search?q=Python&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58210 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58212 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58265 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58266 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58273 - "POST /api/resume/analyze HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58277 - "GET /api/skills/search?q=Amazon%20Seller%20Central&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58277 - "GET /api/skills/search?q=Amazon%20Seller%20Central&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58277 - "GET /api/skills/search?q=Amazon%20Seller%20Central&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58277 - "GET /api/skills/search?q=Amazon%20Seller%20Central&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58277 - "GET /api/skills/search?q=Amazon%20Seller%20Central&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58291 - "OPTIONS /api/matches/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58291 - "POST /api/matches/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58291 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58294 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58397 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58398 - "GET /api/jobs/list?limit=300 HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [36639]
+INFO:     Stopping reloader process [33639]

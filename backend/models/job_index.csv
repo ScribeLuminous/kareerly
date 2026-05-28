@@ -1,0 +1,1082 @@
+﻿job_id,category_id,job_category,job_subcategory,job_title,job_description,required_skills_comma_separated,required_skill_ids,mapped_required_skill_names,nice_to_have_skills_optional,nice_to_have_skill_ids,mapped_nice_to_have_skill_names,skill_gap_reliability,skill_id_mapping_status,skill_id_mapping_notes,experience_level_required,location,work_type,salary_range_monthly_php,external_job_link_optional,source_dataset,job_text_for_matching
+JOB-001,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",DIGITAL ANALYTICS ENGINEER,"Our Digital Experience Platform is looking for Digital Analytics Engineer  will support data governance, quality, and analytics enablement across the organization. This role is responsible for transforming business and operational requirements into reliable, scalable data models and analytics solutions. It ensures the accuracy, consistency, and trustworthiness of product and behavioral data, enabling stakeholders to make informed, data-driven decisions. The position identifies data gaps, validates data integrity, and collaborates with cross-functional teams to improve data pipelines, maintain analytical assets, and ensure alignment with business goals and best practices.
+
+What you'll do
+Design and implement scalable analytics solutions that address business and operational needs across markets.
+Own changes end-to-end, including development, testing, deployment, and production validation.
+Build reliable and maintainable data solutions following best practices that enable reuse and scalability.
+Continuously improve data assets through incremental enhancements, refactoring, and workflow optimization.
+Collaborate with Product, QA, and Engineering teams to clarify requirements and validate assumptions early.
+Communicate progress, risks, and trade-offs effectively to ensure alignment with stakeholders.
+Deliver accurate, well-documented, and trustworthy data outputs while prioritizing system reliability and simplicity.","Analytics Solutions Design, Scalable Analytics, Full Lifecycle Development (End-to-End), Testing, Deployment, Production Validation, Data Engineering, Software Best Practices, Code Refactoring, Workflow Optimization, Cross-functional Collaboration, Requirement Gathering, Stakeholder Communication, Risk Management, Documentation, System Reliability, Product Analytics, Digital Analytics, Behavioral Data Analysis, Event-Based Measurement, Tag Management Systems, In-Product Instrumentation, SQL, JavaScript, Data Validation, Troubleshooting, Data Quality Assurance, Data Reconciliation, Debugging Tools",SK004;SK003;SK159;SK130;SK020;SK119;SK052;SK139;SK005;SK002;SK007;SK123;SK190,SQL; Web Development; SAS language; Data science; Business Communication; Risk Reporting; Case Documentation; Establish an Information Security Management System; Data Analysis; JavaScript Programming; Technical Support; Data mining; ICT debugging tools,"A/B Testing, Experimentation Frameworks, Data Warehousing, ETL/ELT Pipeline Development, Python, dbt (Data Build Tool), Mixpanel, Amplitude, Google Analytics 4 (GA4), Google Tag Manager (GTM), Segment (CDP), CI/CD (Continuous Integration/Continuous Deployment), Git, Version Control, Data Modeling, Cloud Computing (AWS/GCP/Azure), BI Tooling (Tableau/Looker), Data Governance, Automated Testing, Performance Optimization",SK157;SK195;SK003;SK001;SK004;SK011;SK006;SK005,MATLAB; Data security principles; Web Development; Python Programming; SQL; Cloud Computing; Data Visualization; Data Analysis,high,mapped,unmapped_required_terms=Deployment | Production Validation | Software Best Practices | Code Refactoring | Workflow Optimization | Cross-functional Collaboration | Requirement Gathering | Event-Based Measurement | In-Product Instrumentation; unmapped_nice_terms=B Testing | Experimentation Frameworks | ETL | dbt (Data Build Tool) | Mixpanel | Amplitude | Google Tag Manager (GTM) | Segment (CDP) | CI | CD (Continuous Integration,Mid Level,Manila,Hybrid,₱50000–₱80000/month,https://ph.jobstreet.com/job/91993003,Kareerly_Job_DB,"digital analytics engineer our digital experience platform is looking for digital analytics engineer  will support data governance, quality, and analytics enablement across the organization. this role is responsible for transforming business and operational requirements into reliable, scalable data models and analytics solutions. it ensures the accuracy, consistency, and trustworthiness of product and behavioral data, enabling stakeholders to make informed, data-driven decisions. the position identifies data gaps, validates data integrity, and collaborates with cross-functional teams to improve data pipelines, maintain analytical assets, and ensure alignment with business goals and best practices.
+
+what you'll do
+design and implement scalable analytics solutions that address business and operational needs across markets.
+own changes end-to-end, including development, testing, deployment, and production validation.
+build reliable and maintainable data solutions following best practices that enable reuse and scalability.
+continuously improve data assets through incremental enhancements, refactoring, and workflow optimization.
+collaborate with product, qa, and engineering teams to clarify requirements and validate assumptions early.
+communicate progress, risks, and trade-offs effectively to ensure alignment with stakeholders.
+deliver accurate, well-documented, and trustworthy data outputs while prioritizing system reliability and simplicity. analytics solutions design, scalable analytics, full lifecycle development (end-to-end), testing, deployment, production validation, data engineering, software best practices, code refactoring, workflow optimization, cross-functional collaboration, requirement gathering, stakeholder communication, risk management, documentation, system reliability, product analytics, digital analytics, behavioral data analysis, event-based measurement, tag management systems, in-product instrumentation, sql, javascript, data validation, troubleshooting, data quality assurance, data reconciliation, debugging tools sql; web development; sas language; data science; business communication; risk reporting; case documentation; establish an information security management system; data analysis; javascript programming; technical support; data mining; ict debugging tools technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level manila hybrid"
+JOB-002,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",Accounting Assistant,"Assist with bookkeeping, invoice checking, and financial reporting.","Bookkeeping, Excel, Financial Reporting",SK012;SK005;SK013;SK001;SK002;SK003,Bookkeeping; Data Analysis; Financial Reporting; Python Programming; JavaScript Programming; Web Development,QuickBooks,SK012,Bookkeeping,high,mapped_with_category_fallback,category fallback skills added to ensure skill-gap computation,Entry Level,Laguna,Onsite,"₱30,000–₱50,000/month",https://philjobnet.gov.ph/,Kareerly_Job_DB,"accounting assistant assist with bookkeeping, invoice checking, and financial reporting. bookkeeping, excel, financial reporting bookkeeping; data analysis; financial reporting; python programming; javascript programming; web development technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure entry level laguna onsite"
+JOB-003,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",Customer Service Representative,"Handle client inquiries through phone, email, and chat support.","Customer Service, English Communication, Client Handling",SK029;SK031;SK030;SK264,Customer Service; English Communication; Client Handling; Execute email marketing,CRM Tools,,,medium,mapped,unmapped_nice_terms=CRM Tools,Entry Level,Quezon City,Onsite,"₱30,000–₱50,000/month",,Kareerly_Job_DB,"customer service representative handle client inquiries through phone, email, and chat support. customer service, english communication, client handling customer service; english communication; client handling; execute email marketing technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure entry level quezon city onsite"
+JOB-004,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",IT Operation Analyst,"The role will work closely with the Service Management Team to ensure incidents and requests are properly managed in the ITSM tool (Halo), service data is accurate, and outputs contribute to monthly and quarterly reporting, trend analysis, and service improvement activities.     What you’ll do (duties and responsibilities)
+
+Act as the first point of contact for incidents and service requests in the NOC
+Manage tickets in the ITSM tool (Halo), ensuring accurate logging, categorization, prioritization, and SLA adherence
+Monitor ticket progress, provide updates, and ensure timely resolution and escalation when needed
+Support incident coordination and escalation , including Major Incident process activities (notifications, bridge setup, stakeholder comms)
+Liaise with NOC engineers to ensure proper ticket assignment and resolution tracking
+Support Service Delivery Managers with service reporting, trend analysis, and SLA performance tracking
+Ensure ITSM data quality and documentation accuracy across all tickets
+Assist in identifying recurring issues and service improvement opportunities","Experience using an ITSM tool (Halo preferred)
+At least 6 months experience in a IT Operation, Service Desk or IT support role
+Understanding of incident management and SLA-driven environments
+Experience with Microsoft 365 applications (Outlook, Excel, PowerPoint)
+Strong attention to detail, especially around data accuracy and documentation
+Interest in ITSM, reporting, and service improvement",SK191;SK169;SK005;SK122;SK154;SK013;SK139;SK131;SK126;SK166,Implement a firewall; Database management systems; Data Analysis; Perform data mining; Analyse large-scale data in healthcare; Financial Reporting; Establish an Information Security Management System; Analyse big data; Apply statistical analysis techniques; Manage system security,ITIL Foundation certification,,,high,mapped,unmapped_required_terms=Experience using an ITSM tool (Halo preferred) | Service Desk or IT support role | Experience with Microsoft 365 applications (Outlook | PowerPoint) | Strong attention to detail | and service improvement; unmapped_nice_terms=ITIL Foundation certification,Entry Level,United Kingdom,Remote,"₱30,000–₱50,000/month",https://ph.indeed.com/viewjob?jk=96e3042faa4b65fb&from=appshareandroid,Kareerly_Job_DB,"it operation analyst the role will work closely with the service management team to ensure incidents and requests are properly managed in the itsm tool (halo), service data is accurate, and outputs contribute to monthly and quarterly reporting, trend analysis, and service improvement activities.     what you’ll do (duties and responsibilities)
+
+act as the first point of contact for incidents and service requests in the noc
+manage tickets in the itsm tool (halo), ensuring accurate logging, categorization, prioritization, and sla adherence
+monitor ticket progress, provide updates, and ensure timely resolution and escalation when needed
+support incident coordination and escalation , including major incident process activities (notifications, bridge setup, stakeholder comms)
+liaise with noc engineers to ensure proper ticket assignment and resolution tracking
+support service delivery managers with service reporting, trend analysis, and sla performance tracking
+ensure itsm data quality and documentation accuracy across all tickets
+assist in identifying recurring issues and service improvement opportunities experience using an itsm tool (halo preferred)
+at least 6 months experience in a it operation, service desk or it support role
+understanding of incident management and sla-driven environments
+experience with microsoft 365 applications (outlook, excel, powerpoint)
+strong attention to detail, especially around data accuracy and documentation
+interest in itsm, reporting, and service improvement implement a firewall; database management systems; data analysis; perform data mining; analyse large-scale data in healthcare; financial reporting; establish an information security management system; analyse big data; apply statistical analysis techniques; manage system security technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure entry level united kingdom remote"
+JOB-005,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",IT Support Engineer,"The Level 2 IT Support Engineer provides advanced technical support to clients by resolving escalated issues, managing cloud and Microsoft environments, and supporting security and infrastructure operations. This role requires strong technical expertise, excellent communication skills, and the ability to work independently while collaborating within the team and interacting with clients in a customer-facing capacity.","Proven experience in a Level 2 IT Support Help Desk role preferably within an MSP environment, Strong hands-on experience with Active Directory AD Hosted Exchange Microsoft 365 administration and security, Basic networking knowledge, Clear and concise English communication skills both written and verbal, Customer-facing experience supporting diverse clients, Ability to work independently prioritize tasks and manage multiple tickets effectively, Experience using MS Teams for team collaboration and client communication, Strong troubleshooting skills across Windows environments and common business applications",SK007;SK128;SK031;SK020;SK012;SK005;SK154,Technical Support; ICT security legislation; English Communication; Business Communication; Bookkeeping; Data Analysis; Analyse large-scale data in healthcare,,,,high,mapped,unmapped_required_terms=Basic networking knowledge | Customer-facing experience supporting diverse clients | Ability to work independently prioritize tasks and manage multiple tickets effectively,Mid Level,Quezon City,Hybrid,"₱30,000–₱50,000/month",https://ph.indeed.com/q-digital-technology-solutions-expert-jobs.html?vjk=35ff66f5f4bd0ffb,Kareerly_Job_DB,"it support engineer the level 2 it support engineer provides advanced technical support to clients by resolving escalated issues, managing cloud and microsoft environments, and supporting security and infrastructure operations. this role requires strong technical expertise, excellent communication skills, and the ability to work independently while collaborating within the team and interacting with clients in a customer-facing capacity. proven experience in a level 2 it support help desk role preferably within an msp environment, strong hands-on experience with active directory ad hosted exchange microsoft 365 administration and security, basic networking knowledge, clear and concise english communication skills both written and verbal, customer-facing experience supporting diverse clients, ability to work independently prioritize tasks and manage multiple tickets effectively, experience using ms teams for team collaboration and client communication, strong troubleshooting skills across windows environments and common business applications technical support; ict security legislation; english communication; business communication; bookkeeping; data analysis; analyse large-scale data in healthcare technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level quezon city hybrid"
+JOB-006,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",Digital Solutions Analyst,"The DX Expert is responsible for driving digital transformation initiatives by leveraging low‑code/no‑code platforms, particularly Microsoft Power Platform, to improve business processes, enhance system functionality, and deliver data‑driven insights. This role combines technical expertise, business acumen, and stakeholder management to design, implement, and optimize scalable digital solutions aligned with organizational goals. Lead continuous improvement initiatives to enhance business system functionality, Define system configurations across end-to-end business processes and maintain documentation, Design and develop scalable solutions using Power Platform (Power Apps, Power Automate, Power BI, Dataverse), Integrate solutions with data sources such as SharePoint, Microsoft 365, and other enterprise systems, Ensure solutions are secure, reliable, and aligned with organizational standards, Stay updated on platform features, best practices, and innovations, Provide data-driven recommendations for process improvements, Promote data quality and ensure alignment with downstream processes, Maintain strict data confidentiality and safeguarding practices, Educate stakeholders on adherence to GBS standards and its impact on business success, Define, track, and communicate operational performance metrics, Drive issue resolution and manage stakeholder conflicts effectively, Build strong relationships with stakeholders, internal customers, and cross-functional teams, Gather insights by probing stakeholders effectively, Challenge ideas constructively to drive better outcomes, Influence stakeholders to adopt recommended solutions, Facilitate collaboration to gain alignment and commitment, Gather and analyze requirements, Assign responsibilities to junior analysts and guide execution, Collaborate with cross-functional teams on projects and enhancements, Review deliverables for accuracy prior to deployment, Ensure successful handover to end-users, Align training programs with organizational strategy, Design and deliver customized training sessions for diverse user groups, Develop coaching plans to address skill gaps within teams, Promote citizen development by mentoring non-technical users","Bachelor’s degree in Industrial Engineering Information Technology Business or related field, Experience in Power Platform (Power Apps, Power Automate, Power BI, Dataverse), Strong analytical and problem-solving skills, Experience in process improvement automation or digital transformation initiatives",SK001;SK006;SK125;SK095;SK012;SK040;SK005;SK122;SK146;SK444,Python Programming; Data Visualization; Cyber attack counter-measures; Delivery Coordination; Bookkeeping; Graphic Design; Data Analysis; Perform data mining; ICT security standards; Comply with quality standards related to healthcare practice,,,,high,mapped,unmapped_required_terms=Experience in Power Platform (Power Apps | Power Automate | Dataverse) | Strong analytical and problem-solving skills,Mid Level,Cebu City,Onsite,₱30000–₱50000/month,https://ph.indeed.com/q-digital-technology-solutions-expert-jobs.html?vjk=7cbe34f634762391,Kareerly_Job_DB,"digital solutions analyst the dx expert is responsible for driving digital transformation initiatives by leveraging low‑code/no‑code platforms, particularly microsoft power platform, to improve business processes, enhance system functionality, and deliver data‑driven insights. this role combines technical expertise, business acumen, and stakeholder management to design, implement, and optimize scalable digital solutions aligned with organizational goals. lead continuous improvement initiatives to enhance business system functionality, define system configurations across end-to-end business processes and maintain documentation, design and develop scalable solutions using power platform (power apps, power automate, power bi, dataverse), integrate solutions with data sources such as sharepoint, microsoft 365, and other enterprise systems, ensure solutions are secure, reliable, and aligned with organizational standards, stay updated on platform features, best practices, and innovations, provide data-driven recommendations for process improvements, promote data quality and ensure alignment with downstream processes, maintain strict data confidentiality and safeguarding practices, educate stakeholders on adherence to gbs standards and its impact on business success, define, track, and communicate operational performance metrics, drive issue resolution and manage stakeholder conflicts effectively, build strong relationships with stakeholders, internal customers, and cross-functional teams, gather insights by probing stakeholders effectively, challenge ideas constructively to drive better outcomes, influence stakeholders to adopt recommended solutions, facilitate collaboration to gain alignment and commitment, gather and analyze requirements, assign responsibilities to junior analysts and guide execution, collaborate with cross-functional teams on projects and enhancements, review deliverables for accuracy prior to deployment, ensure successful handover to end-users, align training programs with organizational strategy, design and deliver customized training sessions for diverse user groups, develop coaching plans to address skill gaps within teams, promote citizen development by mentoring non-technical users bachelor’s degree in industrial engineering information technology business or related field, experience in power platform (power apps, power automate, power bi, dataverse), strong analytical and problem-solving skills, experience in process improvement automation or digital transformation initiatives python programming; data visualization; cyber attack counter-measures; delivery coordination; bookkeeping; graphic design; data analysis; perform data mining; ict security standards; comply with quality standards related to healthcare practice technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level cebu city onsite"
+JOB-007,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure","Senior Analyst, IT Applications","As the global leader in high-speed connectivity, Ciena is committed to a people-first approach. Our teams enjoy a culture focused on prioritizing a flexible work environment that empowers individual growth, well-being, and belonging. We’re a technology company that leads with our humanity—driving our business priorities alongside meaningful social, community, and societal impact.
+
+As a senior member of Ciena’s collaboration technology team, this role strengthens the digital workplace by ensuring reliable, scalable, and secure Microsoft 365 services. It drives operational excellence across enterprise collaboration tools and plays a key role in enabling seamless communication, global teamwork, and efficient productivity across the organization. This role sits at the center of how employees collaborate every day. You’ll shape how Collaboration services are governed, secured, and evolved at enterprise scale, with great influence over platform direction","10+ years overall IT experience including 6-8+ years of deep hands-on Microsoft 365 ownership in a large enterprise environment, Deep hands-on expertise with Microsoft Teams including Teams Rooms Teams Phone and large-scale meeting solutions, Strong knowledge of SharePoint Online architecture governance and site management, Experience using Datadog or similar tools to monitor collaboration services, Demonstrated delivery of technical projects from design through implementation, Solid understanding of Entra ID security controls and compliance capabilities (including DLP retention and eDiscovery), Experience working within an ITIL-based service environment such as ServiceNow",SK135;SK154;SK169;SK190;SK040;SK128;SK621;SK001;SK046;SK125,Integrated development environment software; Analyse large-scale data in healthcare; Database management systems; ICT debugging tools; Graphic Design; ICT security legislation; Adhere to health well-being and safety; Python Programming; Classroom Management; Cyber attack counter-measures,"Exposure to Microsoft Copilot AI feature readiness and governance considerations within Microsoft 365 environments, PowerShell automation experience for Microsoft 365 administration, Background in large-scale Microsoft Teams or SharePoint migrations, Microsoft certifications such as MS-102 MS-700 PL-100 or PL-300, Experience supporting global or highly distributed enterprise environments, Familiarity with integrating collaboration platforms with network AV or voice systems, Exposure to governance frameworks that extend across cloud collaboration tools, Ability to influence platform strategy through data-driven insights",SK154;SK169;SK190;SK149,Analyse large-scale data in healthcare; Database management systems; ICT debugging tools; Information security strategy,high,mapped,unmapped_nice_terms=Exposure to Microsoft Copilot AI feature readiness and governance considerations within Microsoft 365 environments | PowerShell automation experience for Microsoft 365 administration | Microsoft certifications such as MS-102 MS-700 PL-100 or PL-300 | Experience supporting global or highly distributed enterprise environments,Senior,United States of America,Remote,₱80000+/month,https://ph.indeed.com/q-digital-technology-solutions-expert-jobs.html?vjk=d0ef9f0c372bcdbd,Kareerly_Job_DB,"senior analyst, it applications as the global leader in high-speed connectivity, ciena is committed to a people-first approach. our teams enjoy a culture focused on prioritizing a flexible work environment that empowers individual growth, well-being, and belonging. we’re a technology company that leads with our humanity—driving our business priorities alongside meaningful social, community, and societal impact.
+
+as a senior member of ciena’s collaboration technology team, this role strengthens the digital workplace by ensuring reliable, scalable, and secure microsoft 365 services. it drives operational excellence across enterprise collaboration tools and plays a key role in enabling seamless communication, global teamwork, and efficient productivity across the organization. this role sits at the center of how employees collaborate every day. you’ll shape how collaboration services are governed, secured, and evolved at enterprise scale, with great influence over platform direction 10+ years overall it experience including 6-8+ years of deep hands-on microsoft 365 ownership in a large enterprise environment, deep hands-on expertise with microsoft teams including teams rooms teams phone and large-scale meeting solutions, strong knowledge of sharepoint online architecture governance and site management, experience using datadog or similar tools to monitor collaboration services, demonstrated delivery of technical projects from design through implementation, solid understanding of entra id security controls and compliance capabilities (including dlp retention and ediscovery), experience working within an itil-based service environment such as servicenow integrated development environment software; analyse large-scale data in healthcare; database management systems; ict debugging tools; graphic design; ict security legislation; adhere to health well-being and safety; python programming; classroom management; cyber attack counter-measures technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure senior united states of america remote"
+JOB-008,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",Information Systems Audit Specialist,"Support audit planning by identifying system and application risks
+Develop and execute audit programs for applications, ERP systems, and ITGC
+Perform system walkthroughs and evaluate control design and operating effectiveness
+Test ITGC controls including access management, change management, and IT operations
+Apply data analytics to validate data integrity and system processing accuracy
+Identify control gaps, root causes, and audit findings
+Document audit work papers and prepare audit reports
+Present audit results and discuss findings with stakeholders
+Monitor implementation of audit recommendations and agreed action plans
+Recommend improvements to system controls, processes, and automation opportunities
+Review system implementations and enhancements from a control and risk perspective","IT Audit, Audit Planning, Risk Identification, System Risk Assessment, Application Risk Assessment, Audit Program Development, ERP Audit, ITGC Testing, System Walkthroughs, Control Design Evaluation, Control Operating Effectiveness, Access Management Controls, Change Management Controls, IT Operations Controls, Data Analytics, Data Integrity Validation, Control Gap Analysis, Root Cause Analysis, Audit Findings, Audit Work Papers, Audit Reporting, Stakeholder Presentation, Audit Recommendations Monitoring, Process Improvement, Automation Opportunities, System Implementation Review, IT Controls Review",SK187;SK139;SK003;SK040;SK005;SK178;SK007;SK132;SK169;SK004,Audit techniques; Establish an Information Security Management System; Web Development; Graphic Design; Data Analysis; Review meteorological forecast data; Technical Support; Develop code exploits; Database management systems; SQL,,,,high,mapped,unmapped_required_terms=Audit Planning | Risk Identification | Application Risk Assessment | ITGC Testing | Control Operating Effectiveness | IT Operations Controls | Root Cause Analysis | Audit Findings | Audit Work Papers | Audit Reporting | Stakeholder Presentation | Process Improvement | Automation Opportunities,Mid Level,Makati City,Onsite,₱30000–₱50000/month,https://ph.jobstreet.com/job/92254419?type=standard&ref=search-standalone#sol=c0554274b6eeef40430eb7b3cebb84df0bf7572e,Kareerly_Job_DB,"information systems audit specialist support audit planning by identifying system and application risks
+develop and execute audit programs for applications, erp systems, and itgc
+perform system walkthroughs and evaluate control design and operating effectiveness
+test itgc controls including access management, change management, and it operations
+apply data analytics to validate data integrity and system processing accuracy
+identify control gaps, root causes, and audit findings
+document audit work papers and prepare audit reports
+present audit results and discuss findings with stakeholders
+monitor implementation of audit recommendations and agreed action plans
+recommend improvements to system controls, processes, and automation opportunities
+review system implementations and enhancements from a control and risk perspective it audit, audit planning, risk identification, system risk assessment, application risk assessment, audit program development, erp audit, itgc testing, system walkthroughs, control design evaluation, control operating effectiveness, access management controls, change management controls, it operations controls, data analytics, data integrity validation, control gap analysis, root cause analysis, audit findings, audit work papers, audit reporting, stakeholder presentation, audit recommendations monitoring, process improvement, automation opportunities, system implementation review, it controls review audit techniques; establish an information security management system; web development; graphic design; data analysis; review meteorological forecast data; technical support; develop code exploits; database management systems; sql technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level makati city onsite"
+JOB-009,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure", Software Developer,"Design, develop, and maintain web and mobile
+applications. Write clean, scalable code and
+collaborate with cross-functional teams to deliver
+full-cycle software solutions aligned with business
+needs.","Python / JavaScript / Java, REST APIs,
+Git, Agile/Scrum, SQL",SK001;SK002;SK133;SK003;SK213;SK004;SK040;SK012;SK103,Python Programming; JavaScript Programming; Java (computer programming); Web Development; Agile project management; SQL; Graphic Design; Bookkeeping; Animal Care,"AWS / Azure / GCP, Docker,
+TypeScript, React / Node.js",SK011;SK002,Cloud Computing; JavaScript Programming,high,mapped,unmapped_nice_terms=Docker | React | Node.js,Mid Level,"BGC, Taguig City",Hybrid,₱50000–₱80000/month,https://ph.jobstreet.com/software-developer-jobs/in-Taguig-City-Metro-Manila,Kareerly_Job_DB," software developer design, develop, and maintain web and mobile
+applications. write clean, scalable code and
+collaborate with cross-functional teams to deliver
+full-cycle software solutions aligned with business
+needs. python / javascript / java, rest apis,
+git, agile/scrum, sql python programming; javascript programming; java (computer programming); web development; agile project management; sql; graphic design; bookkeeping; animal care technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level bgc, taguig city hybrid"
+JOB-010,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",Data Analyst,"Collect, clean, and analyze large datasets to
+uncover trends and actionable insights. Build
+dashboards and reports to support business
+decision-making across departments.","SQL, Excel / Google Sheets, Power BI /
+Tableau, Data Cleaning, Statistical
+Analysis",SK004;SK005;SK006;SK126;SK071;SK012,SQL; Data Analysis; Data Visualization; Apply statistical analysis techniques; Masonry; Bookkeeping,"Python (Pandas/NumPy),
+Looker, A/B Testing, Google
+Analytics",SK001;SK006;SK157;SK005;SK004,Python Programming; Data Visualization; MATLAB; Data Analysis; SQL,high,mapped,unmapped_nice_terms=NumPy) | B Testing,Mid Level,"Makati City, Metro Manila",Hybrid,₱30000–₱50000/month,https://www.kalibrr.com/home/te/Data-Analyst/l/Makati,Kareerly_Job_DB,"data analyst collect, clean, and analyze large datasets to
+uncover trends and actionable insights. build
+dashboards and reports to support business
+decision-making across departments. sql, excel / google sheets, power bi /
+tableau, data cleaning, statistical
+analysis sql; data analysis; data visualization; apply statistical analysis techniques; masonry; bookkeeping technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level makati city, metro manila hybrid"
+JOB-011,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",IT Support Specialist,"Provide first- and second-level technical support for
+hardware, software, and network issues. Manage
+ticketing systems, troubleshoot user problems, and
+maintain IT asset inventory.","Help Desk Support, Windows / macOS,
+Network Troubleshooting, Active
+Directory, Ticketing Systems",SK007;SK009;SK352;SK492;SK001;SK169;SK146;SK098,Technical Support; Network Administration; Computer graphics; Computer engineering; Python Programming; Database management systems; ICT security standards; Inventory Management,"ITIL Certification, Microsoft
+365 Admin, VPN / Remote
+Tools",SK005;SK129,Data Analysis; Use scripting programming,high,mapped,unmapped_required_terms=Windows | macOS | Directory | Ticketing Systems; unmapped_nice_terms=ITIL Certification | 365 Admin | VPN | Remote,Entry Level,"Quezon City, Metro Manila",Onsite,₱30000–₱50000/month,https://ph.jobstreet.com/it-support-specialist-jobs/in-Quezon-City-Metro-Manila,Kareerly_Job_DB,"it support specialist provide first- and second-level technical support for
+hardware, software, and network issues. manage
+ticketing systems, troubleshoot user problems, and
+maintain it asset inventory. help desk support, windows / macos,
+network troubleshooting, active
+directory, ticketing systems technical support; network administration; computer graphics; computer engineering; python programming; database management systems; ict security standards; inventory management technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure entry level quezon city, metro manila onsite"
+JOB-012,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",Cybersecurity Analyst ,"Monitor systems for security threats, conduct
+vulnerability assessments, and implement controls
+to protect organizational data and infrastructure
+from cyber risks. ","SIEM Tools, Vulnerability Assessment,
+Incident Response, Network Security,
+Risk Analysis",SK010;SK047;SK122;SK125,Cybersecurity Awareness; Student Assessment; Perform data mining; Cyber attack counter-measures,"CISSP / CompTIA Security+,
+Ethical Hacking, Penetration
+Testing, ISO 27001",SK159,SAS language,medium,mapped,unmapped_required_terms=SIEM Tools | Vulnerability Assessment | Incident Response | Risk Analysis; unmapped_nice_terms=CISSP | CompTIA Security+ | Ethical Hacking | Penetration | ISO 27001,Mid Level,"Ortigas, Pasig City ",Hybrid,₱50000–₱80000/month,https://www.linkedin.com/jobs/cybersecurity-analyst-jobs-pasig-city-metro-manila,Kareerly_Job_DB,"cybersecurity analyst  monitor systems for security threats, conduct
+vulnerability assessments, and implement controls
+to protect organizational data and infrastructure
+from cyber risks.  siem tools, vulnerability assessment,
+incident response, network security,
+risk analysis cybersecurity awareness; student assessment; perform data mining; cyber attack counter-measures technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level ortigas, pasig city  hybrid"
+JOB-013,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure","Business Intelligence
+Developer","Build and maintain BI solutions including data
+warehouses, ETL pipelines, and interactive
+dashboards. Translate business requirements into
+scalable reporting infrastructure.","SQL, ETL Processes, Power BI / Tableau,
+Data Warehousing, Data Modeling",SK004;SK006;SK195;SK122;SK098;SK012,SQL; Data Visualization; Data security principles; Perform data mining; Inventory Management; Bookkeeping,"dbt, Snowflake / BigQuery,
+Python, DAX / M Language",SK001,Python Programming,high,mapped,unmapped_required_terms=ETL Processes; unmapped_nice_terms=dbt | Snowflake | BigQuery | DAX | M Language,Mid Level,"Mandaluyong City, Metro
+Manila",Hybrid,₱50000–₱80000/month,https://www.kalibrr.com/home/te/Business-Intelligence-Developer/l/Mandaluyong,Kareerly_Job_DB,"business intelligence
+developer build and maintain bi solutions including data
+warehouses, etl pipelines, and interactive
+dashboards. translate business requirements into
+scalable reporting infrastructure. sql, etl processes, power bi / tableau,
+data warehousing, data modeling sql; data visualization; data security principles; perform data mining; inventory management; bookkeeping technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level mandaluyong city, metro
+manila hybrid"
+JOB-014,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",Systems Administrator ,"Manage and maintain servers, cloud infrastructure,
+and enterprise systems. Ensure high availability,
+perform backups, and oversee patch management
+and access controls.","Linux / Windows Server, Virtualization
+(VMware/Hyper-V), Cloud Admin
+(AWS/Azure), Networking, Backup &
+Recovery",SK011;SK166;SK147;SK001;SK002;SK003,Cloud Computing; Manage system security; Ensure information security; Python Programming; JavaScript Programming; Web Development,"Terraform, Kubernetes, ITIL,
+CompTIA Server+, Scripting
+(Bash/PowerShell)",SK129,Use scripting programming,high,mapped_with_category_fallback,unmapped_required_terms=Linux | Windows Server | Virtualization | (VMware | Hyper-V) | Cloud Admin | Networking | Backup & | Recovery; unmapped_nice_terms=Terraform | Kubernetes | ITIL | CompTIA Server+ | (Bash | PowerShell); category fallback skills added to ensure skill-gap computation,Mid Level,"Cebu City, Cebu",Hybrid,₱30000–₱50000/month,https://ph.jobstreet.com/systems-administrator-jobs/in-Cebu-City,Kareerly_Job_DB,"systems administrator  manage and maintain servers, cloud infrastructure,
+and enterprise systems. ensure high availability,
+perform backups, and oversee patch management
+and access controls. linux / windows server, virtualization
+(vmware/hyper-v), cloud admin
+(aws/azure), networking, backup &
+recovery cloud computing; manage system security; ensure information security; python programming; javascript programming; web development technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level cebu city, cebu hybrid"
+JOB-015,K01,"Technology, Data, and Digital Systems","Software and Applications
+Data, Analytics, and Statistics
+Networks, Databases, and IT Support
+Telecommunications and Digital Infrastructure",Digital Project Manager,"Plan, execute, and deliver digital and technology
+projects on time and within budget. Coordinate
+cross-functional teams, manage stakeholder
+expectations, and track milestones using agile and
+waterfall methodologies.","Project Management, Agile / Scrum,
+Stakeholder Management, Risk
+Management, JIRA / Confluence",SK021;SK213;SK020;SK008;SK125;SK048;SK001;SK332,Project Coordination; Agile project management; Business Communication; Database Management; Cyber attack counter-measures; Training Facilitation; Python Programming; Identify requirements of the work in the artistic performance,"PMP / PRINCE2
+Certification, Software
+Development Background,
+Change Management",SK216;SK001;SK139,Prince2 project management; Python Programming; Establish an Information Security Management System,high,mapped,unmapped_required_terms=Risk | JIRA | Confluence; unmapped_nice_terms=PMP | Certification | Development Background,Mid Level,"BGC, Taguig City",Hybrid,₱50000–₱80000/month,https://www.linkedin.com/jobs/digital-project-manager-jobs-taguig-city-metro-manila,Kareerly_Job_DB,"digital project manager plan, execute, and deliver digital and technology
+projects on time and within budget. coordinate
+cross-functional teams, manage stakeholder
+expectations, and track milestones using agile and
+waterfall methodologies. project management, agile / scrum,
+stakeholder management, risk
+management, jira / confluence project coordination; agile project management; business communication; database management; cyber attack counter-measures; training facilitation; python programming; identify requirements of the work in the artistic performance technology, data, and digital systems software and applications
+data, analytics, and statistics
+networks, databases, and it support
+telecommunications and digital infrastructure mid level bgc, taguig city hybrid"
+JOB-016,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Financial Analyst ,"Analyze financial data, prepare variance reports,
+and deliver insights to support strategic decisions. Monitor budgets, cash flows, and KPIs across business units.","Financial Modeling, MS Excel, Data
+Analysis, Budgeting & Forecasting,
+Financial Reporting",SK013;SK005;SK001;SK259;SK254;SK235;SK012,Financial Reporting; Data Analysis; Python Programming; Economics; Manage financial and material resources; Handle cash flow; Bookkeeping,"SAP/Oracle ERP, Power BI,
+CFA Level 1",SK006,Data Visualization,high,mapped,unmapped_nice_terms=SAP | Oracle ERP | CFA Level 1,Mid Level,"Makati City, Metro Manila",Hybrid,₱30000–₱50000/month,https://ph.jobstreet.com/financial-analyst-jobs/in-Makati-City-Metro-Manila,Kareerly_Job_DB,"financial analyst  analyze financial data, prepare variance reports,
+and deliver insights to support strategic decisions. monitor budgets, cash flows, and kpis across business units. financial modeling, ms excel, data
+analysis, budgeting & forecasting,
+financial reporting financial reporting; data analysis; python programming; economics; manage financial and material resources; handle cash flow; bookkeeping business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level makati city, metro manila hybrid"
+JOB-017,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Administrative Officer,"Oversee day-to-day office operations including scheduling, document management, procurement coordination, and executive support.","Office Management, MS Office Suite,
+Calendar Management, Record Keeping,
+Communication",SK015;SK016;SK020;SK209;SK254,Office Administration; Document Management; Business Communication; Sell office equipment; Manage financial and material resources,"Google Workspace, Project
+Tools, Notarial Knowledge",SK021;SK129,Project Coordination; Use scripting programming,high,mapped,unmapped_required_terms=Calendar Management; unmapped_nice_terms=Google Workspace | Notarial Knowledge,Junior,"Quezon City, Metro Manila",Onsite,₱20000–₱30000/month,https://www.kalibrr.com/home/te/Administrative-Officer/l/Quezon-City,Kareerly_Job_DB,"administrative officer oversee day-to-day office operations including scheduling, document management, procurement coordination, and executive support. office management, ms office suite,
+calendar management, record keeping,
+communication office administration; document management; business communication; sell office equipment; manage financial and material resources business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations junior quezon city, metro manila onsite"
+JOB-018,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Accounting Associate,"Handle AP/AR, bank reconciliations, and monthly
+closing. Support BIR tax compliance and audit
+preparation under Philippine GAAP.","AP/AR, Bank Reconciliation, BIR
+Compliance, QuickBooks/Xero, Philippine
+GAAP",SK012;SK112;SK013;SK254,Bookkeeping; Regulatory Compliance; Financial Reporting; Manage financial and material resources,"CPA License, SAP
+Financials, IFRS",SK259;SK013,Economics; Financial Reporting,medium,mapped,unmapped_required_terms=AP | AR | BIR | GAAP; unmapped_nice_terms=CPA License | SAP,Entry Level,"Pasig City, Metro Manila",Remote,₱20000–₱30000/month,https://www.linkedin.com/jobs/accounting-associate-jobs-pasig-city-metro-manila,Kareerly_Job_DB,"accounting associate handle ap/ar, bank reconciliations, and monthly
+closing. support bir tax compliance and audit
+preparation under philippine gaap. ap/ar, bank reconciliation, bir
+compliance, quickbooks/xero, philippine
+gaap bookkeeping; regulatory compliance; financial reporting; manage financial and material resources business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations entry level pasig city, metro manila remote"
+JOB-019,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Business Development Manager,"Identify growth opportunities, forge partnerships,
+and lead revenue expansion. Own proposals and
+contract negotiations for new market entry.","B2B Strategy, Market Research, Contract
+Negotiation, CRM, Stakeholder
+Management",SK028;SK001;SK032;SK276;SK607;SK008;SK012,Market Research; Python Programming; Negotiation; Customer relationship management; Make recommendation on nutrition to public policy makers; Database Management; Bookkeeping,"MBA, FMCG/Tech Network,
+P&L; Management",SK008,Database Management,high,mapped,unmapped_required_terms=B2B Strategy; unmapped_nice_terms=MBA | FMCG | Tech Network | P&L,Senior,"BGC, Taguig City",Hybrid,₱80000+/month,https://ph.jobstreet.com/business-development-manager-jobs/in-Taguig-City-Metro-Manila,Kareerly_Job_DB,"business development manager identify growth opportunities, forge partnerships,
+and lead revenue expansion. own proposals and
+contract negotiations for new market entry. b2b strategy, market research, contract
+negotiation, crm, stakeholder
+management market research; python programming; negotiation; customer relationship management; make recommendation on nutrition to public policy makers; database management; bookkeeping business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations senior bgc, taguig city hybrid"
+JOB-020,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Payroll Specialist,"Process end-to-end payroll for 200+ staff with
+accuracy and timeliness. Ensure full compliance
+with SSS, PhilHealth, Pag-IBIG, and BIR
+regulations.","Payroll Processing,
+SSS/PhilHealth/Pag-IBIG, BIR
+Annualization, HRIS, Attention to Detail",SK014;SK258;SK254;SK012,Payroll Processing; Support social service users to manage their financial affairs; Manage financial and material resources; Bookkeeping,"GreatDay/PayrollHero, Labor
+Law, CHRP",SK062,Medication Assistance,medium,mapped,unmapped_required_terms=SSS | PhilHealth | Pag-IBIG | BIR | Annualization | HRIS; unmapped_nice_terms=GreatDay | PayrollHero | Law | CHRP,Mid Level,"Cebu City, Cebu",Remote,₱20000–₱30000/month,https://www.kalibrr.com/home/te/Payroll-Specialist/l/Cebu-City,Kareerly_Job_DB,"payroll specialist process end-to-end payroll for 200+ staff with
+accuracy and timeliness. ensure full compliance
+with sss, philhealth, pag-ibig, and bir
+regulations. payroll processing,
+sss/philhealth/pag-ibig, bir
+annualization, hris, attention to detail payroll processing; support social service users to manage their financial affairs; manage financial and material resources; bookkeeping business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level cebu city, cebu remote"
+JOB-021,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Internal Auditor,"Conduct risk-based audits of financial and
+operational processes. Report findings and
+recommend controls to improve governance and
+compliance.","Audit Methodology, Risk Assessment,
+Internal Controls, MS Excel, Report
+Writing",SK005;SK013;SK034;SK047;SK112,Data Analysis; Financial Reporting; Content Writing; Student Assessment; Regulatory Compliance,"CPA/CIA Certification, SAP
+Audit, Data Analytics",SK163;SK005,Execute ICT audits; Data Analysis,high,mapped,unmapped_required_terms=Audit Methodology | Risk Assessment | Internal Controls; unmapped_nice_terms=CPA | CIA Certification | SAP,Mid Level,"Mandaluyong City, Metro
+Manila",Hybrid,"₱30,000–₱50,000/month",https://www.linkedin.com/jobs/internal-auditor-jobs-mandaluyong-city-metro-manila,Kareerly_Job_DB,"internal auditor conduct risk-based audits of financial and
+operational processes. report findings and
+recommend controls to improve governance and
+compliance. audit methodology, risk assessment,
+internal controls, ms excel, report
+writing data analysis; financial reporting; content writing; student assessment; regulatory compliance business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level mandaluyong city, metro
+manila hybrid"
+JOB-022,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Tax Specialist,"Prepare and file BIR returns (VAT, CIT, EWT),
+manage tax assessments, and ensure accurate
+statutory compliance. Liaise with BIR examiners
+during audits.","BIR Tax Filing, VAT/CIT/EWT, Tax
+Compliance, MS Excel, Philippine Tax
+Law",SK112;SK005;SK233;SK258;SK254,Regulatory Compliance; Data Analysis; Prepare financial statements; Support social service users to manage their financial affairs; Manage financial and material resources,"CPA License, Transfer
+Pricing, IFRS",SK013,Financial Reporting,high,mapped,unmapped_required_terms=BIR Tax Filing | VAT | CIT | EWT | Tax | Philippine Tax | Law; unmapped_nice_terms=CPA License | Transfer | Pricing,Mid Level,"Makati City, Metro Manila",Onsite,"₱30,000–₱50,000/month",https://ph.jobstreet.com/tax-specialist-jobs/in-Makati-City-Metro-Manila,Kareerly_Job_DB,"tax specialist prepare and file bir returns (vat, cit, ewt),
+manage tax assessments, and ensure accurate
+statutory compliance. liaise with bir examiners
+during audits. bir tax filing, vat/cit/ewt, tax
+compliance, ms excel, philippine tax
+law regulatory compliance; data analysis; prepare financial statements; support social service users to manage their financial affairs; manage financial and material resources business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level makati city, metro manila onsite"
+JOB-023,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Treasury Analyst,"Manage daily cash positioning, bank relationships,
+and liquidity forecasting. Assist in FX hedging and
+optimizing working capital for the organization","Cash Management, Liquidity Forecasting,
+FX Hedging, Banking Relations, MS Excel",SK244;SK013;SK259;SK005;SK203,Management systems standards; Financial Reporting; Economics; Data Analysis; Manage human resources,"Bloomberg Terminal, CTP
+Certification, ERP Treasury
+Module",,,high,mapped,unmapped_required_terms=FX Hedging; unmapped_nice_terms=Bloomberg Terminal | CTP | Certification | ERP Treasury | Module,Mid Level,"BGC, Taguig City",Onsite,₱30000–₱50000/month,https://www.kalibrr.com/home/te/Treasury-Analyst/l/Taguig,Kareerly_Job_DB,"treasury analyst manage daily cash positioning, bank relationships,
+and liquidity forecasting. assist in fx hedging and
+optimizing working capital for the organization cash management, liquidity forecasting,
+fx hedging, banking relations, ms excel management systems standards; financial reporting; economics; data analysis; manage human resources business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level bgc, taguig city onsite"
+JOB-024,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Operations Manager,"Lead end-to-end operational processes, drive
+efficiency improvements, and manage
+cross-functional teams to meet SLA targets and
+business objective","Operations Management, Process
+Improvement, Team Leadership, KPI
+Tracking, Problem Solving",SK206;SK014;SK120;SK022;SK016;SK027;SK012,Operations management; Payroll Processing; Policy Support; Operations Support; Document Management; Social Media Management; Bookkeeping,"Six Sigma/Lean, ERP
+Systems, PMP Certification",SK211;SK001,Lean project management; Python Programming,high,mapped,unmapped_required_terms=Improvement | KPI | Tracking | Problem Solving; unmapped_nice_terms=ERP | PMP Certification,Senior,"Alabang, Muntinlupa",Hybrid,₱30000–₱50000/month,https://www.linkedin.com/jobs/operations-manager-jobs-muntinlupa-metro-manila,Kareerly_Job_DB,"operations manager lead end-to-end operational processes, drive
+efficiency improvements, and manage
+cross-functional teams to meet sla targets and
+business objective operations management, process
+improvement, team leadership, kpi
+tracking, problem solving operations management; payroll processing; policy support; operations support; document management; social media management; bookkeeping business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations senior alabang, muntinlupa hybrid"
+JOB-025,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Executive Assistant,"Provide high-level administrative support to C-suite
+executives including complex scheduling, travel
+management, board meeting coordination, and
+confidential correspondence.","Executive Support, Calendar & Travel
+Management, MS Office, Communication,
+Discretion",SK207;SK081;SK008;SK015;SK020;SK251;SK235,Support implementation of quality management systems; Tourism Assistance; Database Management; Office Administration; Business Communication; Provide financial product information; Handle cash flow,"Board Secretariat
+Experience, Notarial
+Background, Fluent English",SK232,Hire human resources,high,mapped,unmapped_required_terms=Discretion; unmapped_nice_terms=Board Secretariat | Notarial | Background | Fluent English,Mid Level,"Makati City, Metro Manila",Hybrid,₱30000–₱50000/month,https://ph.jobstreet.com/executive-assistant-jobs/in-Makati-City-Metro-Manila,Kareerly_Job_DB,"executive assistant provide high-level administrative support to c-suite
+executives including complex scheduling, travel
+management, board meeting coordination, and
+confidential correspondence. executive support, calendar & travel
+management, ms office, communication,
+discretion support implementation of quality management systems; tourism assistance; database management; office administration; business communication; provide financial product information; handle cash flow business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level makati city, metro manila hybrid"
+JOB-026,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Compliance Officer,"Monitor and enforce adherence to regulatory
+requirements (SEC, BSP, PSE). Develop
+compliance programs, conduct training, and prepare
+regulatory reports.","Regulatory Compliance, Risk
+Management, Report Writing, SEC/BSP
+Regulations, Auditing",SK112;SK008;SK034;SK012;SK254;SK234;SK046,Regulatory Compliance; Database Management; Content Writing; Bookkeeping; Manage financial and material resources; Develop organisational policies; Classroom Management,"JD/Law Background, CAMS
+Certification, AML
+Knowledge",SK025,Product Knowledge,high,mapped,unmapped_required_terms=Risk | SEC | BSP | Auditing; unmapped_nice_terms=JD | Law Background | CAMS | Certification | AML,Senior,"Ortigas, Pasig City",Remote,₱80000+/month,https://www.linkedin.com/jobs/compliance-officer-jobs-pasig-city-metro-manila,Kareerly_Job_DB,"compliance officer monitor and enforce adherence to regulatory
+requirements (sec, bsp, pse). develop
+compliance programs, conduct training, and prepare
+regulatory reports. regulatory compliance, risk
+management, report writing, sec/bsp
+regulations, auditing regulatory compliance; database management; content writing; bookkeeping; manage financial and material resources; develop organisational policies; classroom management business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations senior ortigas, pasig city remote"
+JOB-027,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Budget Analyst,"Assist in annual budget preparation, monitor
+departmental spending against budgets, and
+prepare variance analysis reports for senior
+management.","Budget Preparation, Variance Analysis,
+MS Excel, Financial Reporting, Cost
+Analysis",SK005;SK013;SK246;SK017;SK235;SK008,Data Analysis; Financial Reporting; Prepare airport annual budget; Data Encoding; Handle cash flow; Database Management,"SAP BPC, Power BI, CPA
+License",SK006;SK580,Data Visualization; Driver's license structure,high,mapped,unmapped_required_terms=Budget Preparation | Variance Analysis | Cost; unmapped_nice_terms=SAP BPC | CPA,Junior,"Quezon City, Metro Manila ",Hybrid,₱30000–₱50000/month,https://www.kalibrr.com/home/te/Budget-Analyst/l/Quezon-City,Kareerly_Job_DB,"budget analyst assist in annual budget preparation, monitor
+departmental spending against budgets, and
+prepare variance analysis reports for senior
+management. budget preparation, variance analysis,
+ms excel, financial reporting, cost
+analysis data analysis; financial reporting; prepare airport annual budget; data encoding; handle cash flow; database management business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations junior quezon city, metro manila  hybrid"
+JOB-028,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Procurement Officer,"Source and evaluate suppliers, negotiate contracts,
+and manage purchase orders to ensure timely
+delivery of goods and services within budget.","Supplier Sourcing, Contract Negotiation,
+Purchase Order Management, ERP, Cost
+Reduction",SK032;SK246;SK012;SK013;SK014;SK015,Negotiation; Prepare airport annual budget; Bookkeeping; Financial Reporting; Payroll Processing; Office Administration,"CIPS Certification, SAP MM,
+Supplier Relationship
+Management",SK008,Database Management,high,mapped_with_category_fallback,unmapped_required_terms=Supplier Sourcing | Purchase Order Management | ERP | Cost | Reduction; unmapped_nice_terms=CIPS Certification | SAP MM | Supplier Relationship; category fallback skills added to ensure skill-gap computation,Mid Level,"Caloocan City, Metro Manila ",Remote,₱30000–₱50000/month,https://ph.jobstreet.com/procurement-officer-jobs/in-Caloocan-City-Metro-Manila,Kareerly_Job_DB,"procurement officer source and evaluate suppliers, negotiate contracts,
+and manage purchase orders to ensure timely
+delivery of goods and services within budget. supplier sourcing, contract negotiation,
+purchase order management, erp, cost
+reduction negotiation; prepare airport annual budget; bookkeeping; financial reporting; payroll processing; office administration business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level caloocan city, metro manila  remote"
+JOB-029,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Risk Analyst,"Identify, assess, and monitor operational and
+financial risks. Develop risk mitigation frameworks
+and provide analysis to support enterprise risk
+management","Risk Assessment, Data Analysis, Risk
+Modeling, Report Writing, MS Excel",SK005;SK013;SK034;SK249;SK047;SK233;SK008,Data Analysis; Financial Reporting; Content Writing; Identify necessary human resources; Student Assessment; Prepare financial statements; Database Management,"FRM/PRM Certification,
+Python/R, Credit Risk
+Background",SK001,Python Programming,high,mapped,unmapped_required_terms=Risk Assessment | Risk; unmapped_nice_terms=FRM | PRM Certification | R | Credit Risk | Background,Mid Level,"Makati City, Metro Manila",Hybrid,"₱30,000–₱50,000/month",https://www.linkedin.com/jobs/risk-analyst-jobs-makati-city-metro-manila,Kareerly_Job_DB,"risk analyst identify, assess, and monitor operational and
+financial risks. develop risk mitigation frameworks
+and provide analysis to support enterprise risk
+management risk assessment, data analysis, risk
+modeling, report writing, ms excel data analysis; financial reporting; content writing; identify necessary human resources; student assessment; prepare financial statements; database management business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level makati city, metro manila hybrid"
+JOB-030,K02,"Business, Finance, and Office Administration","Finance, Accounting, and Bookkeeping
+Office Administration and Clerical Support
+Human Resources and Business Services
+Management and Organizational Operations",Corporate Secretary,"Maintain corporate books, prepare board
+resolutions, handle SEC filings, and ensure
+compliance with the Revised Corporation Code and
+other statutory requirements.","Corporate Governance, SEC Filing, Board
+Documentation, Philippine Corporation
+Code, Legal Drafting",SK052;SK114;SK254;SK012;SK013;SK014,Case Documentation; Legal Documentation; Manage financial and material resources; Bookkeeping; Financial Reporting; Payroll Processing,"Bar Passers Preferred,
+Notary Public, AMLA
+Compliance",SK112,Regulatory Compliance,high,mapped_with_category_fallback,unmapped_required_terms=Corporate Governance | SEC Filing | Board | Philippine Corporation | Code; unmapped_nice_terms=Bar Passers Preferred | Notary Public | AMLA; category fallback skills added to ensure skill-gap computation,Mid Level,"Makati City, Metro Manila",Remote,₱50000–₱80000/month,https://www.kalibrr.com/home/te/Corporate-Secretary/l/Makati,Kareerly_Job_DB,"corporate secretary maintain corporate books, prepare board
+resolutions, handle sec filings, and ensure
+compliance with the revised corporation code and
+other statutory requirements. corporate governance, sec filing, board
+documentation, philippine corporation
+code, legal drafting case documentation; legal documentation; manage financial and material resources; bookkeeping; financial reporting; payroll processing business, finance, and office administration finance, accounting, and bookkeeping
+office administration and clerical support
+human resources and business services
+management and organizational operations mid level makati city, metro manila remote"
+JOB-031,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support","Digital Marketing
+Specialist","Plan and execute campaigns across paid and
+organic channels. Manage SEO/SEM, email
+marketing, and social ads to drive traffic and
+qualified leads.","Google Ads, Meta Ads Manager,
+SEO/SEM, Email Marketing, Google
+Analytics 4",SK026;SK264;SK005;SK004;SK263;SK023;SK051,Digital Marketing; Execute email marketing; Data Analysis; SQL; Plan digital marketing; Sales Techniques; Community Engagement,"HubSpot Certification,
+Programmatic Ads, A/B
+Testing",SK159,SAS language,high,mapped,unmapped_required_terms=Meta Ads Manager; unmapped_nice_terms=HubSpot Certification | Programmatic Ads | A | B,Mid Level,"Ortigas, Pasig City",Hybrid,₱30000–₱50000/month,https://www.linkedin.com/jobs/digital-marketing-specialist-jobs-pasig-city-metro-manila,Kareerly_Job_DB,"digital marketing
+specialist plan and execute campaigns across paid and
+organic channels. manage seo/sem, email
+marketing, and social ads to drive traffic and
+qualified leads. google ads, meta ads manager,
+seo/sem, email marketing, google
+analytics 4 digital marketing; execute email marketing; data analysis; sql; plan digital marketing; sales techniques; community engagement sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support mid level ortigas, pasig city hybrid"
+JOB-032,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support",Sales Executive,"Acquire new corporate clients through prospecting
+and presentations. Manage the full B2B sales cycle
+from lead generation to contract close.","Prospecting, Sales Presentations, CRM
+(Salesforce/HubSpot), Negotiation, Target
+Achievement",SK023;SK276;SK032;SK044,Sales Techniques; Customer relationship management; Negotiation; Content Planning,"SaaS Sales, SPIN Selling,
+Tagalog & English",SK023,Sales Techniques,medium,mapped,unmapped_required_terms=Prospecting | HubSpot) | Achievement; unmapped_nice_terms=SPIN Selling | Tagalog & English,Junior,"Davao City, Davao del Sur",Onsite,₱20000–₱30000/month,https://ph.jobstreet.com/sales-executive-jobs/in-Davao-City,Kareerly_Job_DB,"sales executive acquire new corporate clients through prospecting
+and presentations. manage the full b2b sales cycle
+from lead generation to contract close. prospecting, sales presentations, crm
+(salesforce/hubspot), negotiation, target
+achievement sales techniques; customer relationship management; negotiation; content planning sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support junior davao city, davao del sur onsite"
+JOB-033,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support","Customer Success
+Manager","Own post-sale relationships for key accounts,
+driving adoption, renewals, and upsells. Serve as
+primary advocate ensuring client satisfaction and
+long-term retention","Account Management, Onboarding,
+Customer Retention, Problem Solving,
+CRM Tools",SK276;SK095;SK293;SK023;SK024;SK025,Customer relationship management; Delivery Coordination; Ensure client orientation; Sales Techniques; Retail Operations; Product Knowledge,"SaaS Background,
+NPS/CSAT, Gainsight",,,high,mapped_with_category_fallback,unmapped_required_terms=Account Management | Onboarding | Problem Solving | CRM Tools; unmapped_nice_terms=SaaS Background | NPS | CSAT | Gainsight; category fallback skills added to ensure skill-gap computation,Mid Level,"BGC, Taguig City",Hybrid,₱50000–₱80000/month,https://www.linkedin.com/jobs/customer-success-manager-jobs-taguig-city-metro-manila,Kareerly_Job_DB,"customer success
+manager own post-sale relationships for key accounts,
+driving adoption, renewals, and upsells. serve as
+primary advocate ensuring client satisfaction and
+long-term retention account management, onboarding,
+customer retention, problem solving,
+crm tools customer relationship management; delivery coordination; ensure client orientation; sales techniques; retail operations; product knowledge sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support mid level bgc, taguig city hybrid"
+JOB-034,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support","Brand & Marketing
+Manage","Lead brand strategy and go-to-market execution.
+Collaborate with creative, sales, and product teams
+to ensure consistent messaging across all
+touchpoints.","Brand Strategy, Integrated Campaigns,
+Budget Management, Market Research,
+Team Leadership",SK040;SK028;SK120;SK023;SK034,Graphic Design; Market Research; Policy Support; Sales Techniques; Content Writing,"FMCG / Retail Background,
+ATL & BTL, MBA",SK024,Retail Operations,high,mapped,unmapped_required_terms=Integrated Campaigns | Budget Management; unmapped_nice_terms=FMCG | ATL & BTL | MBA,Senior,"Mandaluyong City, Metro
+Manila",Hybrid,₱50000–₱80000/month,https://www.kalibrr.com/home/te/Brand-Marketing-Manager/l/Mandaluyong,Kareerly_Job_DB,"brand & marketing
+manage lead brand strategy and go-to-market execution.
+collaborate with creative, sales, and product teams
+to ensure consistent messaging across all
+touchpoints. brand strategy, integrated campaigns,
+budget management, market research,
+team leadership graphic design; market research; policy support; sales techniques; content writing sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support senior mandaluyong city, metro
+manila hybrid"
+JOB-035,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support","Customer Service
+Representative","Handle inbound inquiries via phone, chat, and email
+for a PH e-commerce brand. Resolve concerns,
+process returns, and maintain high CSAT scores.
+Communication, Customer Handling,
+Zendesk/Freshdesk, Problem Resolution,","Communication, Customer Handling,
+Zendesk / Freshdesk, Problem
+Resolution, Typing",SK020;SK276;SK430;SK027;SK029;SK314;SK264;SK299,Business Communication; Customer relationship management; Undertake healthcare examination; Social Media Management; Customer Service; Handle complaints; Execute email marketing; Establish an ICT customer support process,"E-commerce Background,
+Shopify, AI Chat Tools",,,high,mapped,unmapped_required_terms=Zendesk | Freshdesk | Typing; unmapped_nice_terms=E-commerce Background | Shopify | AI Chat Tools,Entry Level,"Iloilo City, Iloilo",Remote,₱20000–₱30000/month,https://ph.jobstreet.com/customer-service-representative-jobs/in-Iloilo-City,Kareerly_Job_DB,"customer service
+representative handle inbound inquiries via phone, chat, and email
+for a ph e-commerce brand. resolve concerns,
+process returns, and maintain high csat scores.
+communication, customer handling,
+zendesk/freshdesk, problem resolution, communication, customer handling,
+zendesk / freshdesk, problem
+resolution, typing business communication; customer relationship management; undertake healthcare examination; social media management; customer service; handle complaints; execute email marketing; establish an ict customer support process sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support entry level iloilo city, iloilo remote"
+JOB-036,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support",Account Executive,"Manage a portfolio of mid-market clients, grow
+revenue through upselling, and act as the first line of
+contact for renewals and escalations.","Account Management, Upselling,
+Relationship Building, CRM, Forecasting",SK276;SK013;SK296;SK273,Customer relationship management; Financial Reporting; Manage guest support services; Build a strategic marketing plan for destination management,"B2B Software Sales,
+Salesforce, Consultative
+Selling",SK023;SK276;SK053,Sales Techniques; Customer relationship management; Counselling Support,medium,mapped,unmapped_required_terms=Account Management | Upselling | Relationship Building; unmapped_nice_terms=Consultative,Mid Level,"Cebu City, Cebu",Hybrid,₱30000–₱50000/month,https://www.linkedin.com/jobs/account-executive-jobs-cebu-city,Kareerly_Job_DB,"account executive manage a portfolio of mid-market clients, grow
+revenue through upselling, and act as the first line of
+contact for renewals and escalations. account management, upselling,
+relationship building, crm, forecasting customer relationship management; financial reporting; manage guest support services; build a strategic marketing plan for destination management sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support mid level cebu city, cebu hybrid"
+JOB-037,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support",SEO Specialist,"Drive organic traffic growth through on-page,
+off-page, and technical SEO strategies. Conduct
+keyword research, link-building campaigns, and
+performance audits","On-page/Off-page SEO, Technical SEO,
+Ahrefs / SEMrush, Keyword Research,
+Google Search Console",SK047;SK272;SK262;SK030,Student Assessment; Perform market research in footwear; Plan social media marketing campaigns; Client Handling,"Content Marketing, Schema
+Markup, WordPress",SK023;SK454;SK124,Sales Techniques; Blueprints; Web programming,medium,mapped,unmapped_required_terms=On-page | Off-page SEO | Technical SEO | Ahrefs | SEMrush | Keyword Research | Google Search Console; unmapped_nice_terms=WordPress,Mid Level,Remote (Philippines),Remote,₱20000–₱30000/month,https://www.kalibrr.com/home/te/SEO-Specialist,Kareerly_Job_DB,"seo specialist drive organic traffic growth through on-page,
+off-page, and technical seo strategies. conduct
+keyword research, link-building campaigns, and
+performance audits on-page/off-page seo, technical seo,
+ahrefs / semrush, keyword research,
+google search console student assessment; perform market research in footwear; plan social media marketing campaigns; client handling sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support mid level remote (philippines) remote"
+JOB-038,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support","Email Marketing
+Specialist","Design, write, and execute email campaigns and
+automated sequences. Manage list segmentation,
+A/B testing, and deliverability optimization.","Klaviyo / Mailchimp, Email Copywriting,
+Segmentation, A/B Testing, HTML Email
+Marketing Automation,",SK034;SK023;SK264;SK040;SK296,Content Writing; Sales Techniques; Execute email marketing; Graphic Design; Manage guest support services,"Marketing Automation,
+HubSpot, E-commerce
+Background",SK023,Sales Techniques,high,mapped,unmapped_required_terms=Klaviyo | Mailchimp | Segmentation | A | B Testing | HTML Email; unmapped_nice_terms=HubSpot | E-commerce | Background,Junior,"Quezon City, Metro Manila",Hybrid,₱20000–₱30000/month,https://www.linkedin.com/jobs/email-marketing-specialist-jobs-quezon-city-metro-manila,Kareerly_Job_DB,"email marketing
+specialist design, write, and execute email campaigns and
+automated sequences. manage list segmentation,
+a/b testing, and deliverability optimization. klaviyo / mailchimp, email copywriting,
+segmentation, a/b testing, html email
+marketing automation, content writing; sales techniques; execute email marketing; graphic design; manage guest support services sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support junior quezon city, metro manila hybrid"
+JOB-039,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support",Trade Marketing Officer,"Develop and execute in-store activations, trade
+promotions, and channel strategies to drive sell-out
+across organized and traditional trade channels.","Trade Marketing, Channel Management,
+Promotions Planning, POSM
+Coordination, Sales Analytics",SK023;SK019;SK004;SK067;SK302,Sales Techniques; Recruitment Coordination; SQL; Technical Drafting; Sales argumentation,"FMCG Background, Nielsen /
+IRI Data, Shopper Marketing",SK023,Sales Techniques,high,mapped,unmapped_required_terms=Channel Management | Promotions Planning | POSM; unmapped_nice_terms=FMCG Background | Nielsen | IRI Data,Mid Level,"Pasig City, Metro Manila ",Onsite,₱30000–₱50000/month,https://ph.jobstreet.com/trade-marketing-jobs/in-Pasig-City-Metro-Manila,Kareerly_Job_DB,"trade marketing officer develop and execute in-store activations, trade
+promotions, and channel strategies to drive sell-out
+across organized and traditional trade channels. trade marketing, channel management,
+promotions planning, posm
+coordination, sales analytics sales techniques; recruitment coordination; sql; technical drafting; sales argumentation sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support mid level pasig city, metro manila  onsite"
+JOB-040,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support",Sales Manager,"Lead a team of 8-12 sales reps to achieve quarterly
+revenue targets. Coach team performance, manage
+key accounts, and align sales strategy with
+business goals.","Sales Leadership, Team Coaching,
+Forecasting, Key Account Management,
+CRM",SK023;SK013;SK276;SK008;SK012,Sales Techniques; Financial Reporting; Customer relationship management; Database Management; Bookkeeping,"SaaS or FMCG Background,
+P&L; Ownership, Sales Ops",SK023,Sales Techniques,high,mapped,unmapped_required_terms=Team Coaching | Key Account Management; unmapped_nice_terms=SaaS or FMCG Background | P&L | Ownership,Senior,"Makati City, Metro Manila",Hybrid,₱80000+/month,https://www.linkedin.com/jobs/sales-manager-jobs-makati-city-metro-manila,Kareerly_Job_DB,"sales manager lead a team of 8-12 sales reps to achieve quarterly
+revenue targets. coach team performance, manage
+key accounts, and align sales strategy with
+business goals. sales leadership, team coaching,
+forecasting, key account management,
+crm sales techniques; financial reporting; customer relationship management; database management; bookkeeping sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support senior makati city, metro manila hybrid"
+JOB-041,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support","Product Marketing
+Manager","Define positioning, messaging, and go-to-market
+strategy for new product launches. Partner with
+product, sales, and design teams to drive adoption
+and awareness.","Product Positioning, GTM Strategy,
+Competitive Analysis, Content Creation,
+Cross-functional Collaboration",SK034;SK023;SK265;SK024;SK040,Content Writing; Sales Techniques; Content marketing strategy; Retail Operations; Graphic Design,"B2B SaaS, UX Research,
+SQL Basics",,,high,mapped,unmapped_required_terms=Product Positioning | GTM Strategy | Competitive Analysis | Cross-functional Collaboration; unmapped_nice_terms=B2B SaaS | UX Research | SQL Basics,Senior,"BGC, Taguig City",Hybrid,₱50000–₱80000/month,https://www.kalibrr.com/home/te/Product-Marketing-Manager/l/Taguig,Kareerly_Job_DB,"product marketing
+manager define positioning, messaging, and go-to-market
+strategy for new product launches. partner with
+product, sales, and design teams to drive adoption
+and awareness. product positioning, gtm strategy,
+competitive analysis, content creation,
+cross-functional collaboration content writing; sales techniques; content marketing strategy; retail operations; graphic design sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support senior bgc, taguig city hybrid"
+JOB-042,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support",CRM Specialist,"Configure, manage, and optimize CRM platforms to
+support sales and marketing workflows. Maintain
+data quality, build reports, and train end-users.","Salesforce / HubSpot CRM, Data
+Hygiene, Workflow Automation, Reporting
+& Dashboards, Training",SK276;SK001;SK091;SK013;SK046;SK008;SK023;SK005;SK285,Customer relationship management; Python Programming; Workplace Safety; Financial Reporting; Classroom Management; Database Management; Sales Techniques; Data Analysis; Prepare market research reports,"Marketing Automation, SQL,
+API Integration Basics",SK023;SK004,Sales Techniques; SQL,high,mapped,unmapped_required_terms=HubSpot CRM | Workflow Automation | & Dashboards; unmapped_nice_terms=API Integration Basics,Mid Level,"Mandaluyong City, Metro
+Manila",Hybrid,₱30000–₱50000/month,https://www.linkedin.com/jobs/crm-specialist-jobs-mandaluyong-city-metro-manila,Kareerly_Job_DB,"crm specialist configure, manage, and optimize crm platforms to
+support sales and marketing workflows. maintain
+data quality, build reports, and train end-users. salesforce / hubspot crm, data
+hygiene, workflow automation, reporting
+& dashboards, training customer relationship management; python programming; workplace safety; financial reporting; classroom management; database management; sales techniques; data analysis; prepare market research reports sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support mid level mandaluyong city, metro
+manila hybrid"
+JOB-043,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support","Market Research
+Analyst","Design and execute consumer research studies,
+analyze market trends, and synthesize insights to
+inform product, pricing, and campaign strategies.","Quantitative & Qualitative Research,
+SPSS / STATA, Survey Design, Data
+Visualization, Report Writing",SK028;SK040;SK001;SK006;SK034;SK272,Market Research; Graphic Design; Python Programming; Data Visualization; Content Writing; Perform market research in footwear,"Nielsen / Kantar Background,
+Focus Group Moderation,
+Python / R",SK001,Python Programming,high,mapped,unmapped_required_terms=SPSS | STATA; unmapped_nice_terms=Nielsen | Kantar Background | Focus Group Moderation | R,Mid Level,"Ortigas, Pasig City",Hybrid,₱30000–₱50000/month,https://ph.jobstreet.com/market-research-analyst-jobs/in-Pasig-City-Metro-Manila,Kareerly_Job_DB,"market research
+analyst design and execute consumer research studies,
+analyze market trends, and synthesize insights to
+inform product, pricing, and campaign strategies. quantitative & qualitative research,
+spss / stata, survey design, data
+visualization, report writing market research; graphic design; python programming; data visualization; content writing; perform market research in footwear sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support mid level ortigas, pasig city hybrid"
+JOB-044,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support", E-commerce Specialist,"Manage product listings, inventory syncing, and
+promotions across Lazada, Shopee, and the
+brand's D2C site. Optimize conversion rates and
+track performance metrics.","Shopee / Lazada Seller Center, Product
+Listing Optimization, Inventory
+Management, Promotions Planning,
+Analytics",SK024;SK098;SK008;SK004;SK296;SK030;SK435,Retail Operations; Inventory Management; Database Management; SQL; Manage guest support services; Client Handling; Provide anti-cancer medical treatment,"Shopify, Meta Shopping Ads,
+Logistics Operations",SK553,Supply chain management,high,mapped,unmapped_required_terms=Shopee | Lazada Seller Center | Listing Optimization | Promotions Planning; unmapped_nice_terms=Shopify | Meta Shopping Ads,Junior,"Pasig City, Metro Manila ",Hybrid,₱20000–₱30000/month,https://www.linkedin.com/jobs/e-commerce-specialist-jobs-pasig-city-metro-manila,Kareerly_Job_DB," e-commerce specialist manage product listings, inventory syncing, and
+promotions across lazada, shopee, and the
+brand's d2c site. optimize conversion rates and
+track performance metrics. shopee / lazada seller center, product
+listing optimization, inventory
+management, promotions planning,
+analytics retail operations; inventory management; database management; sql; manage guest support services; client handling; provide anti-cancer medical treatment sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support junior pasig city, metro manila  hybrid"
+JOB-045,K03,"Sales, Marketing, and Customer Relations","Sales and Retail
+Marketing and Public Relations
+Customer Service and Client Information
+Purchasing, Brokerage, and Commercial Support","Influencer Marketing
+Coordinator","Identify, onboard, and manage influencer
+partnerships across TikTok, Instagram, and
+YouTube. Track campaign deliverables, negotiate
+rates, and measure ROI.","Influencer Sourcing, Campaign
+Coordination, Contract Management,
+Analytics, Communication",SK262;SK019;SK004;SK020;SK023;SK030;SK032;SK090,Plan social media marketing campaigns; Recruitment Coordination; SQL; Business Communication; Sales Techniques; Client Handling; Negotiation; Production Monitoring,"Affiliates / Affiliate Platforms,
+Video Content Knowledge,
+Network in PH Creator
+Space",SK272;SK069,Perform market research in footwear; Engineering Measurement,high,mapped,unmapped_required_terms=Influencer Sourcing | Contract Management; unmapped_nice_terms=Affiliates | Affiliate Platforms | Video Content Knowledge,Junior,"Makati City, Metro Manila",Hybrid,₱20000–₱30000/month,https://www.kalibrr.com/home/te/Influencer-Marketing-Coordinator/l/Makati,Kareerly_Job_DB,"influencer marketing
+coordinator identify, onboard, and manage influencer
+partnerships across tiktok, instagram, and
+youtube. track campaign deliverables, negotiate
+rates, and measure roi. influencer sourcing, campaign
+coordination, contract management,
+analytics, communication plan social media marketing campaigns; recruitment coordination; sql; business communication; sales techniques; client handling; negotiation; production monitoring sales, marketing, and customer relations sales and retail
+marketing and public relations
+customer service and client information
+purchasing, brokerage, and commercial support junior makati city, metro manila hybrid"
+JOB-046,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Graphic Designer,"Create compelling visuals for digital and print
+campaigns - social media assets, marketing
+collaterals, and brand identity materials aligned with
+guidelines.","Adobe Photoshop, Adobe Illustrator,
+Canva, Layout & Typography, Brand
+Identity Design",SK040;SK283;SK034;SK023;SK256,Graphic Design; Brand marketing techniques; Content Writing; Sales Techniques; International financial reporting standards,"After Effects, UI/UX Basics,
+Photography",SK042;SK038,UI Design; Photography,high,mapped,unmapped_nice_terms=After Effects | UX Basics,Junior,"Cebu City, Cebu",Hybrid,₱20000–₱30000/month,https://www.linkedin.com/jobs/graphic-designer-jobs-cebu-city,Kareerly_Job_DB,"graphic designer create compelling visuals for digital and print
+campaigns - social media assets, marketing
+collaterals, and brand identity materials aligned with
+guidelines. adobe photoshop, adobe illustrator,
+canva, layout & typography, brand
+identity design graphic design; brand marketing techniques; content writing; sales techniques; international financial reporting standards creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support junior cebu city, cebu hybrid"
+JOB-047,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support","Content Writer /
+Copywriter","Produce SEO-optimized blog articles, web copy, ad
+scripts, and social content. Adapt tone and voice to
+multiple client brand guidelines.","SEO Writing, Copywriting, Research,
+Content Strategy, Grammarly /
+Hemingway",SK034;SK035;SK028;SK036;SK322;SK051,Content Writing; Copywriting; Market Research; Proofreading; Rewrite manuscripts; Community Engagement,"WordPress CMS, Surfer
+SEO / Ahrefs, Script Writing",SK026;SK034,Digital Marketing; Content Writing,high,mapped,unmapped_required_terms=Content Strategy | Grammarly | Hemingway; unmapped_nice_terms=WordPress CMS | Surfer | Ahrefs,Entry Level,Remote (Philippines),Remote,₱20000–₱30000/month,https://www.kalibrr.com/home/te/Content-Writer,Kareerly_Job_DB,"content writer /
+copywriter produce seo-optimized blog articles, web copy, ad
+scripts, and social content. adapt tone and voice to
+multiple client brand guidelines. seo writing, copywriting, research,
+content strategy, grammarly /
+hemingway content writing; copywriting; market research; proofreading; rewrite manuscripts; community engagement creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support entry level remote (philippines) remote"
+JOB-048,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Social Media Manager,"Manage brand presence across Facebook,
+Instagram, TikTok, and LinkedIn. Plan content
+calendars, engage communities, and report on
+growth metrics.","Content Planning, Community
+Management, Meta Business Suite,
+TikTok for Business, Analytics",SK044;SK046;SK008;SK012;SK004;SK034;SK317,Content Planning; Classroom Management; Database Management; Bookkeeping; SQL; Content Writing; Accept feedback on artistic performance,"Paid Social Ads, CapCut /
+Premiere, Influencer
+Coordination",SK051;SK019,Community Engagement; Recruitment Coordination,high,mapped,unmapped_nice_terms=CapCut | Premiere | Influencer,Mid Level,"Makati City, Metro Manila",Hybrid,₱20000–₱30000/month,https://www.linkedin.com/jobs/social-media-manager-jobs-makati-city-metro-manila,Kareerly_Job_DB,"social media manager manage brand presence across facebook,
+instagram, tiktok, and linkedin. plan content
+calendars, engage communities, and report on
+growth metrics. content planning, community
+management, meta business suite,
+tiktok for business, analytics content planning; classroom management; database management; bookkeeping; sql; content writing; accept feedback on artistic performance creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support mid level makati city, metro manila hybrid"
+JOB-049,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Video Editor,"Edit short-form and long-form video for YouTube,
+TikTok, and brand campaigns. Deliver
+broadcast-quality work with motion graphics, color
+grading, and audio design.","Adobe Premiere Pro, DaVinci Resolve,
+After Effects, Color Grading, Audio Mixing",SK039;SK334;SK040;SK034;SK035;SK036,Video Editing; Design graphics; Graphic Design; Content Writing; Copywriting; Proofreading,"Blender 3D, Drone Footage,
+YouTube SEO",,,high,mapped_with_category_fallback,unmapped_required_terms=Adobe Premiere Pro | DaVinci Resolve | After Effects | Color Grading | Audio Mixing; unmapped_nice_terms=Blender 3D | Drone Footage | YouTube SEO; category fallback skills added to ensure skill-gap computation,Mid Level,"Quezon City, Metro Manila ",Hybrid,₱30000–₱50000/month,https://ph.jobstreet.com/video-editor-jobs/in-Quezon-City-Metro-Manila,Kareerly_Job_DB,"video editor edit short-form and long-form video for youtube,
+tiktok, and brand campaigns. deliver
+broadcast-quality work with motion graphics, color
+grading, and audio design. adobe premiere pro, davinci resolve,
+after effects, color grading, audio mixing video editing; design graphics; graphic design; content writing; copywriting; proofreading creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support mid level quezon city, metro manila  hybrid"
+JOB-050,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support","PR & Communications
+Specialist","Execute public relations strategies, manage media
+relations, and craft press materials. Support crisis
+communications and build brand reputation.","Media Relations, Press Release Writing,
+Crisis Comms, Stakeholder Engagement,
+Brand Messaging",SK034;SK313;SK023;SK020,Content Writing; Public relations; Sales Techniques; Business Communication,"Cision / Meltwater, Influencer
+PR, Events Management",SK281;SK313,Marketing management; Public relations,medium,mapped,unmapped_required_terms=Crisis Comms | Stakeholder Engagement | Brand Messaging; unmapped_nice_terms=Meltwater | Influencer | Events Management,Mid Level,"Alabang, Muntinlupa City ",Hybrid,₱20000–₱30000/month,https://ph.jobstreet.com/video-editor-jobs/in-Quezon-City-Metro-Manila,Kareerly_Job_DB,"pr & communications
+specialist execute public relations strategies, manage media
+relations, and craft press materials. support crisis
+communications and build brand reputation. media relations, press release writing,
+crisis comms, stakeholder engagement,
+brand messaging content writing; public relations; sales techniques; business communication creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support mid level alabang, muntinlupa city  hybrid"
+JOB-051,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",UI/UX Designer,"Design intuitive user interfaces and seamless digital
+experiences. Conduct user research, build
+wireframes, prototypes, and collaborate with
+developers to ship polished products.","Figma, User Research, Wireframing &
+Prototyping, Usability Testing, Design
+Systems",SK042;SK040;SK001;SK047;SK003;SK345,UI Design; Graphic Design; Python Programming; Student Assessment; Web Development; Teach design and applied arts principles,"Framer / Webflow,
+HTML/CSS Basics,
+Mobile-first Design",SK003;SK040,Web Development; Graphic Design,high,mapped,unmapped_required_terms=User Research | Wireframing & | Prototyping | Usability Testing; unmapped_nice_terms=Framer | Webflow | CSS Basics,Mid Level,"BGC, Taguig City",Hybrid,₱50000–₱80000/month,https://www.linkedin.com/jobs/pr-and-communications-specialist-jobs-muntinlupa-metro-manila,Kareerly_Job_DB,"ui/ux designer design intuitive user interfaces and seamless digital
+experiences. conduct user research, build
+wireframes, prototypes, and collaborate with
+developers to ship polished products. figma, user research, wireframing &
+prototyping, usability testing, design
+systems ui design; graphic design; python programming; student assessment; web development; teach design and applied arts principles creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support mid level bgc, taguig city hybrid"
+JOB-052,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Photographer,"Capture high-quality product, event, and lifestyle
+photos for marketing campaigns. Handle
+post-processing and maintain organized asset
+libraries.","Studio & On-location Photography, Adobe
+Lightroom, Photoshop Retouching,
+Lighting, Art Direction",SK038;SK325;SK040;SK497;SK081;SK345;SK023;SK054,Photography; Graphics editor software; Graphic Design; Maintain lighting equipment; Tourism Assistance; Teach design and applied arts principles; Sales Techniques; Records Organization,"Drone Photography, Video
+Production, Food/Fashion
+Photography",SK038;SK039;SK024;SK078;SK467,Photography; Video Editing; Retail Operations; Front Desk Support; Make technical drawings of fashion pieces,high,mapped,unmapped_required_terms=Lightroom | Art Direction,Junior,"Pasig City, Metro Manila ",Onsite,₱50000–₱80000/month,https://www.kalibrr.com/home/te/UI-UX-Designer/l/Taguig,Kareerly_Job_DB,"photographer capture high-quality product, event, and lifestyle
+photos for marketing campaigns. handle
+post-processing and maintain organized asset
+libraries. studio & on-location photography, adobe
+lightroom, photoshop retouching,
+lighting, art direction photography; graphics editor software; graphic design; maintain lighting equipment; tourism assistance; teach design and applied arts principles; sales techniques; records organization creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support junior pasig city, metro manila  onsite"
+JOB-053,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Motion Graphics Artist,"Create 2D/3D animations and motion graphics for
+social media, explainer videos, and broadcast
+campaigns. Work closely with creative directors to
+bring concepts to life.","Adobe After Effects, Cinema 4D / Blender,
+Motion Design, Storyboarding,
+Compositing",SK040;SK321;SK027;SK337;SK034;SK348,Graphic Design; Develop animations; Social Media Management; Set up broadcast equipment; Content Writing; Adapt designers’ work to the performance venue,"3D Rendering, Character
+Animation, Premiere Pro",SK431;SK321,Psychological healthcare services; Develop animations,high,mapped,unmapped_required_terms=Adobe After Effects | Cinema 4D | Blender | Storyboarding | Compositing; unmapped_nice_terms=3D Rendering | Premiere Pro,Mid Level,"Quezon City, Metro Manila",Hybrid,₱20000–₱30000/month,https://www.linkedin.com/jobs/photographer-jobs-pasig-city-metro-manila,Kareerly_Job_DB,"motion graphics artist create 2d/3d animations and motion graphics for
+social media, explainer videos, and broadcast
+campaigns. work closely with creative directors to
+bring concepts to life. adobe after effects, cinema 4d / blender,
+motion design, storyboarding,
+compositing graphic design; develop animations; social media management; set up broadcast equipment; content writing; adapt designers’ work to the performance venue creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support mid level quezon city, metro manila hybrid"
+JOB-054,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Creative Director,"Lead the creative vision for brand campaigns, digital
+content, and marketing materials. Mentor designers
+and writers while collaborating with clients and
+stakeholders.","Creative Leadership, Art Direction, Brand
+Strategy, Campaign Ideation, Team
+Management",SK034;SK283;SK149;SK008;SK125;SK016;SK023,Content Writing; Brand marketing techniques; Information security strategy; Database Management; Cyber attack counter-measures; Document Management; Sales Techniques,"Advertising Agency
+Background, Pitching &
+Presentation, Budget
+Management",SK308;SK006;SK242;SK008,Liaise with advertising agencies; Data Visualization; Control financial resources; Database Management,high,mapped,unmapped_required_terms=Art Direction | Campaign Ideation | Team; unmapped_nice_terms=Background | Pitching &,Senior,"Makati City, Metro Manila",Hybrid,₱30000–₱50000/month,https://ph.jobstreet.com/motion-graphics-artist-jobs/in-Quezon-City-Metro-Manila,Kareerly_Job_DB,"creative director lead the creative vision for brand campaigns, digital
+content, and marketing materials. mentor designers
+and writers while collaborating with clients and
+stakeholders. creative leadership, art direction, brand
+strategy, campaign ideation, team
+management content writing; brand marketing techniques; information security strategy; database management; cyber attack counter-measures; document management; sales techniques creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support senior makati city, metro manila hybrid"
+JOB-055,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Podcast Producer,"Plan, record, edit, and publish podcast episodes.
+Manage show scheduling, guest coordination, audio
+post-production, and distribution across streaming
+platforms.","Audio Editing (Audacity / Adobe Audition),
+Show Planning, RSS Distribution, Guest
+Coordination, Storytelling",SK043;SK030;SK019;SK034;SK039;SK325;SK098;SK268,Audio Editing; Client Handling; Recruitment Coordination; Content Writing; Video Editing; Graphics editor software; Inventory Management; Social media marketing techniques,"Spotify for Podcasters, Script
+Writing, Video Podcast
+Production",SK349;SK002;SK034;SK024,Write prescriptions for medication in dentistry; JavaScript Programming; Content Writing; Retail Operations,high,mapped,unmapped_required_terms=Adobe Audition) | Show Planning | RSS Distribution; unmapped_nice_terms=Video Podcast,Junior,Remote (Philippines),Remote,₱80000+/month,https://www.linkedin.com/jobs/creative-director-jobs-makati-city-metro-manila,Kareerly_Job_DB,"podcast producer plan, record, edit, and publish podcast episodes.
+manage show scheduling, guest coordination, audio
+post-production, and distribution across streaming
+platforms. audio editing (audacity / adobe audition),
+show planning, rss distribution, guest
+coordination, storytelling audio editing; client handling; recruitment coordination; content writing; video editing; graphics editor software; inventory management; social media marketing techniques creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support junior remote (philippines) remote"
+JOB-056,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Illustrator,"Create original digital illustrations for editorial,
+brand, and product use. Collaborate with art
+directors and marketing teams on concept
+development and visual storytelling.","Adobe Illustrator, Procreate, Digital
+Illustration, Visual Storytelling, Character
+Design",SK040;SK125;SK034;SK431;SK283;SK023,Graphic Design; Cyber attack counter-measures; Content Writing; Psychological healthcare services; Brand marketing techniques; Sales Techniques,"Animation Basics, Print
+Production Knowledge,
+Comic / Sequential Art",SK073,Electrical Installation,high,mapped,unmapped_required_terms=Procreate | Illustration; unmapped_nice_terms=Animation Basics | Production Knowledge | Comic | Sequential Art,Junior,"Cebu City, Cebu",Remote,₱20000–₱30000/month,https://www.linkedin.com/jobs/illustrator-jobs-cebu-city,Kareerly_Job_DB,"illustrator create original digital illustrations for editorial,
+brand, and product use. collaborate with art
+directors and marketing teams on concept
+development and visual storytelling. adobe illustrator, procreate, digital
+illustration, visual storytelling, character
+design graphic design; cyber attack counter-measures; content writing; psychological healthcare services; brand marketing techniques; sales techniques creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support junior cebu city, cebu remote"
+JOB-057,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Web Designer,"Design and build visually engaging, responsive
+websites using modern tools. Collaborate with
+developers and marketers to ensure a seamless
+user experience and on-brand presentation.","Figma, HTML/CSS, Webflow /
+WordPress, Responsive Design, Visual
+Design",SK042;SK003;SK006;SK040,UI Design; Web Development; Data Visualization; Graphic Design,"JavaScript Basics, Shopify,
+CRO Principles",SK002,JavaScript Programming,medium,mapped,unmapped_required_terms=Webflow | WordPress; unmapped_nice_terms=Shopify | CRO Principles,Mid Level,"Pasig City, Metro Manila",Hybrid,₱20000–₱30000/month,https://ph.jobstreet.com/web-designer-jobs/in-Pasig-City-Metro-Manila,Kareerly_Job_DB,"web designer design and build visually engaging, responsive
+websites using modern tools. collaborate with
+developers and marketers to ensure a seamless
+user experience and on-brand presentation. figma, html/css, webflow /
+wordpress, responsive design, visual
+design ui design; web development; data visualization; graphic design creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support mid level pasig city, metro manila hybrid"
+JOB-058,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Scriptwriter,"Write scripts for corporate videos, TVC/OVC ads,
+social content, and branded entertainment. Develop
+compelling narratives aligned with brand voice and
+audience insights.","Scriptwriting, Storytelling, Creative
+Concepting, Research, Dialogue Writing",SK034;SK037;SK028;SK323;SK051;SK321,Content Writing; Creative Concept Development; Market Research; Write job descriptions; Community Engagement; Develop animations,"Film / TV Production
+Background, Voiceover
+Direction, Comedy Writing",SK257;SK034,Coordinate activities in audio recording studio; Content Writing,high,mapped,unmapped_nice_terms=Film | TV Production | Background | Voiceover,Junior,"Mandaluyong City, Metro
+Manila",Hybrid,₱30000–₱50000/month,https://www.linkedin.com/jobs/scriptwriter-jobs-mandaluyong-city-metro-manila,Kareerly_Job_DB,"scriptwriter write scripts for corporate videos, tvc/ovc ads,
+social content, and branded entertainment. develop
+compelling narratives aligned with brand voice and
+audience insights. scriptwriting, storytelling, creative
+concepting, research, dialogue writing content writing; creative concept development; market research; write job descriptions; community engagement; develop animations creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support junior mandaluyong city, metro
+manila hybrid"
+JOB-059,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Brand Designer,"Develop and evolve brand identities including logos,
+visual systems, and guidelines. Ensure brand
+consistency across all touchpoints from digital to
+physical collaterals.","Brand Identity Design, Adobe Illustrator,
+Figma, Typography, Visual Systems",SK040;SK042;SK330;SK125,Graphic Design; UI Design; Translate requirements into visual design; Cyber attack counter-measures,"Packaging Design, Motion
+Identity, Print Production",SK040;SK023,Graphic Design; Sales Techniques,medium,mapped,unmapped_required_terms=Visual Systems; unmapped_nice_terms=Print Production,Mid Level,"BGC, Taguig City",Hybrid,₱20000–₱30000/month,https://www.kalibrr.com/home/te/Brand-Designer/l/Taguig,Kareerly_Job_DB,"brand designer develop and evolve brand identities including logos,
+visual systems, and guidelines. ensure brand
+consistency across all touchpoints from digital to
+physical collaterals. brand identity design, adobe illustrator,
+figma, typography, visual systems graphic design; ui design; translate requirements into visual design; cyber attack counter-measures creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support mid level bgc, taguig city hybrid"
+JOB-060,K04,"Creative, Media, and Communications","Writing, Journalism, and Language
+Creative and Performing Arts
+Design, Multimedia, and Cultural Work
+Broadcasting and Content Support",Media Buyer / Planner,"Plan and purchase media placements across digital,
+OOH, print, and broadcast channels. Optimize
+spend, negotiate rates, and report campaign
+performance against targets.","Media Planning, Digital Buying
+(Google/Meta), OOH Coordination,
+Budget Management, Analytics",SK278;SK125;SK005;SK004;SK034;SK073;SK345;SK332,Media planning; Cyber attack counter-measures; Data Analysis; SQL; Content Writing; Electrical Installation; Teach design and applied arts principles; Identify requirements of the work in the artistic performance,"Programmatic Buying
+(DV360/TTD), Nielsen
+Media, Agency Experience",SK034,Content Writing,high,mapped,unmapped_required_terms=Meta) | OOH Coordination | Budget Management; unmapped_nice_terms=Programmatic Buying | (DV360 | TTD) | Nielsen | Agency Experience,Mid Level,"Makati City, Metro Manila ",Hybrid,₱30000–₱50000/month,https://www.linkedin.com/jobs/media-buyer-planner-jobs-makati-city-metro-manila,Kareerly_Job_DB,"media buyer / planner plan and purchase media placements across digital,
+ooh, print, and broadcast channels. optimize
+spend, negotiate rates, and report campaign
+performance against targets. media planning, digital buying
+(google/meta), ooh coordination,
+budget management, analytics media planning; cyber attack counter-measures; data analysis; sql; content writing; electrical installation; teach design and applied arts principles; identify requirements of the work in the artistic performance creative, media, and communications writing, journalism, and language
+creative and performing arts
+design, multimedia, and cultural work
+broadcasting and content support mid level makati city, metro manila  hybrid"
