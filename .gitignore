@@ -1,4 +1,52 @@
-cat >> .gitignore <<'EOF'
-backend/jobs_record.csv
-backend/.venv/
+# Operating-system and editor files
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.sw?
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
 .venv/
+venv/
+backend/.venv/
+
+# Python caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime files and private uploads
+uploads/*
+backend/uploads/*
+!uploads/.gitkeep
+!backend/uploads/.gitkeep
+*.log
+*.pid
+
+# Frontend dependencies and builds
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Downloaded model caches
+.cache/
+huggingface/
+transformers_cache/
+
+# Large legacy source data retained locally for evaluation
+backend/evaluation/legacy/source_data/jobs_record_source.csv
+
+# Private resume review material
+backend/evaluation/private_resume_review/

@@ -17,20 +17,22 @@ from pathlib import Path
 
 REQUIRED_BACKEND_FILES = [
     "backend/app/__init__.py",
-    "backend/app/resume_parser.py",
-    "backend/app/skill_extractor.py",
-    "backend/app/resume_analyzer.py",
-    "backend/app/job_matcher.py",
-    "backend/app/learning_recommender.py",
     "backend/app/main.py",
-    "backend/main.py",
-    "backend/app/schemas.py",
+    "backend/app/models/__init__.py",
+    "backend/app/models/schemas.py",
+    "backend/app/services/__init__.py",
+    "backend/app/services/resume_parser.py",
+    "backend/app/services/skill_extractor.py",
+    "backend/app/services/resume_analyzer.py",
+    "backend/app/services/job_matcher.py",
+    "backend/app/services/learning_recommender.py",
+    "backend/app/services/cross_encoder_service.py",
 ]
 
 REQUIRED_DATA_FILES = [
     "backend/data/skills_reference.csv",
     "backend/data/learning_resources.csv",
-    "backend/models/job_index.csv",
+    "backend/baseline_models/job_index.csv",
 ]
 
 OPTIONAL_DATA_FILES = [
@@ -38,12 +40,12 @@ OPTIONAL_DATA_FILES = [
 ]
 
 REQUIRED_MODEL_FILES = [
-    "backend/models/tfidf_vectorizer.joblib",
-    "backend/models/job_tfidf_matrix.npz",
+    "backend/baseline_models/tfidf_vectorizer.joblib",
+    "backend/baseline_models/job_tfidf_matrix.npz",
 ]
 
 OPTIONAL_MODEL_FILES = [
-    "backend/models/model_metadata.json",
+    "backend/baseline_models/model_metadata.json",
 ]
 
 EVALUATION_TARGETS = [
@@ -74,11 +76,11 @@ SERVER_ONLY_PACKAGES = [
 ]
 
 MODULE_IMPORT_TESTS = [
-    "app.resume_parser",
-    "app.skill_extractor",
-    "app.resume_analyzer",
-    "app.learning_recommender",
-    "app.job_matcher",
+    "app.services.resume_parser",
+    "app.services.skill_extractor",
+    "app.services.resume_analyzer",
+    "app.services.learning_recommender",
+    "app.services.job_matcher",
 ]
 
 

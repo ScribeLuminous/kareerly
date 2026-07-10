@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 from typing import Any, Optional
 
 import joblib
@@ -8,14 +9,16 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from .learning_recommender import (
     add_skill_gap_fields,
+    get_learning_resources_source,
     prioritize_skill_gaps,
     recommend_learning_resources,
 )
+from .supabase_jobs import load_internal_jobs_dataframe
 
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BACKEND_DIR / "data"
-MODELS_DIR = BACKEND_DIR / "models"
+MODELS_DIR = BACKEND_DIR / "baseline_models"
 
 REFERENCE_JOBS_PATH = DATA_DIR / "reference_jobs.csv"
 TFIDF_VECTORIZER_PATH = MODELS_DIR / "tfidf_vectorizer.joblib"
@@ -68,6 +71,29 @@ def role_or_industry_preference_score(job: pd.Series, preferences: Optional[dict
     return min(score, 1.0)
 
 
+def role_level_preference_score(job: pd.Series, preferences: Optional[dict] = None) -> float:
+    if not preferences:
+        return 0.0
+
+    role_level = safe_text(preferences.get("role_level") or preferences.get("job_level")).lower()
+    experience = safe_text(job.get("job_level") or job.get("experience_level_required")).lower()
+
+    if not role_level or role_level in {"any", "not sure"}:
+        return 0.0
+
+    if role_level in experience:
+        return 1.0
+    if "entry" in role_level and any(term in experience for term in ["entry", "junior", "associate", "fresh"]):
+        return 1.0
+    if "junior" in role_level and any(term in experience for term in ["entry", "junior", "associate"]):
+        return 1.0
+    if "mid" in role_level and any(term in experience for term in ["mid", "intermediate"]):
+        return 1.0
+    if "senior" in role_level and any(term in experience for term in ["senior", "lead"]):
+        return 1.0
+    return 0.0
+
+
 def work_setup_preference_score(job: pd.Series, preferences: Optional[dict] = None) -> float:
     if not preferences:
         return 0.0
@@ -96,17 +122,85 @@ def work_setup_preference_score(job: pd.Series, preferences: Optional[dict] = No
     return 0.0
 
 
+def salary_preference_score(job: pd.Series, preferences: Optional[dict] = None) -> float:
+    if not preferences:
+        return 0.0
+
+    salary_pref = safe_text(preferences.get("salary_expectation") or preferences.get("salary")).lower()
+    salary = safe_text(job.get("salary_range_monthly_php")).lower()
+
+    if not salary_pref or salary_pref in {"any", "not sure"}:
+        return 0.0
+    if salary_pref in salary:
+        return 1.0
+    pref_numbers = re.findall(r"\d+", salary_pref)
+    if pref_numbers and all(number in salary.replace(",", "") for number in pref_numbers):
+        return 1.0
+    return 0.0
+
+
+def career_preference_alignment_score(job: pd.Series, preferences: Optional[dict] = None) -> float:
+    if not preferences:
+        return 0.0
+
+    signals = [
+        (0.35, role_or_industry_preference_score(job, preferences)),
+        (0.25, work_setup_preference_score(job, preferences)),
+        (0.25, role_level_preference_score(job, preferences)),
+        (0.15, salary_preference_score(job, preferences)),
+    ]
+    return round(sum(weight * score for weight, score in signals), 4)
+
+
+def build_development_progress(skill_gaps: list[dict]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+
+    for gap in skill_gaps:
+        category_name = safe_text(gap.get("category_name") or gap.get("skill_category")) or "Other"
+        bucket = grouped.setdefault(
+            category_name,
+            {
+                "category_name": category_name,
+                "progress_score": 0,
+                "progress_label": "Not Started / Missing",
+                "skill_records": [],
+                "related_skill_records": [],
+                "missing_skills": [],
+                "covered_skills": [],
+                "supporting_evidence": 0,
+                "completed_learning": 0,
+                "in_progress_count": 0,
+                "completed_count": 0,
+                "evidence_uploaded_count": 0,
+            },
+        )
+        skill_name = safe_text(gap.get("skill_name"))
+        if skill_name and skill_name not in bucket["skill_records"]:
+            bucket["skill_records"].append(skill_name)
+            bucket["related_skill_records"].append(skill_name)
+            bucket["missing_skills"].append(skill_name)
+
+    return list(grouped.values())
+
+
 class JobMatcher:
     def __init__(self):
         self.vectorizer = self._load_vectorizer()
-        self.job_tfidf_matrix = self._load_job_matrix()
-        self.jobs = self._load_jobs()
+        self.jobs_source = "model_csv"
+        self.jobs = self._load_supabase_jobs()
+
+        if self.jobs.empty:
+            self.job_tfidf_matrix = self._load_job_matrix()
+            self.jobs = self._load_jobs()
+        else:
+            self.jobs_source = "supabase_internal_jobs"
+            self.job_tfidf_matrix = self.vectorizer.transform(self.jobs["job_text_for_matching"].fillna("").astype(str))
 
         if self.job_tfidf_matrix.shape[0] != len(self.jobs):
             raise ValueError(
-                "Model mismatch: job_tfidf_matrix row count does not match job_index.csv row count. "
+                "Model mismatch: job_tfidf_matrix row count does not match the loaded job rows. "
                 f"Matrix rows: {self.job_tfidf_matrix.shape[0]}, Job rows: {len(self.jobs)}. "
-                "Regenerate job_index.csv and job_tfidf_matrix.npz from the same reference_jobs.csv."
+                "Regenerate job_index.csv and job_tfidf_matrix.npz from the same reference_jobs.csv, or check Supabase internal_jobs data."
             )
 
     def _load_vectorizer(self):
@@ -118,6 +212,16 @@ class JobMatcher:
         if not JOB_TFIDF_MATRIX_PATH.exists():
             raise FileNotFoundError(f"Missing job TF-IDF matrix: {JOB_TFIDF_MATRIX_PATH}")
         return sparse.load_npz(JOB_TFIDF_MATRIX_PATH)
+
+    def _load_supabase_jobs(self) -> pd.DataFrame:
+        jobs = load_internal_jobs_dataframe()
+        if jobs.empty:
+            return jobs
+
+        jobs.columns = [column.strip() for column in jobs.columns]
+        if "job_text_for_matching" not in jobs.columns:
+            jobs["job_text_for_matching"] = ""
+        return jobs
 
     def _load_jobs(self) -> pd.DataFrame:
         if not JOB_INDEX_PATH.exists():
@@ -193,10 +297,18 @@ class JobMatcher:
                 "warnings": ["No resume text was provided for job matching."],
             }
 
-        resume_vector = self.vectorizer.transform([resume_text_for_matching])
-        similarities = cosine_similarity(resume_vector, self.job_tfidf_matrix).flatten()
+        preference_query = " ".join(
+            safe_text((preferences or {}).get(key))
+            for key in ["industry", "target_role", "role", "role_level", "job_level", "work_setup", "salary_expectation", "skill_to_develop"]
+        )
+        retrieval_query = f"{resume_text_for_matching} {preference_query}".strip()
 
-        top_indices = similarities.argsort()[::-1][:top_n_retrieval]
+        resume_vector = self.vectorizer.transform([resume_text_for_matching])
+        retrieval_vector = self.vectorizer.transform([retrieval_query])
+        similarities = cosine_similarity(resume_vector, self.job_tfidf_matrix).flatten()
+        retrieval_similarities = cosine_similarity(retrieval_vector, self.job_tfidf_matrix).flatten()
+
+        top_indices = retrieval_similarities.argsort()[::-1][:top_n_retrieval]
 
         base_results = []
 
@@ -211,12 +323,20 @@ class JobMatcher:
                     "job_title": safe_text(job.get("job_title")),
                     "job_category": safe_text(job.get("job_category")),
                     "job_subcategory": safe_text(job.get("job_subcategory")),
+                    "company": safe_text(job.get("company_name")),
                     "location": safe_text(job.get("location")),
                     "work_type": safe_text(job.get("work_type")),
+                    "employment_type": safe_text(job.get("employment_type")),
+                    "job_level": safe_text(job.get("experience_level_required")),
+                    "salary_range_monthly_php": safe_text(job.get("salary_range_monthly_php")),
+                    "external_job_link_optional": safe_text(job.get("external_job_link_optional")),
+                    "job_url": safe_text(job.get("external_job_link_optional")),
+                    "job_source": safe_text(job.get("job_source")) or "internal",
                     "source_dataset": safe_text(job.get("source_dataset")),
                     "required_skill_ids": safe_text(job.get("required_skill_ids")),
                     "must_have_skill_ids": safe_text(job.get("must_have_skill_ids")),
                     "required_skills": safe_text(job.get("required_skills_comma_separated")),
+                    "preferred_skills": safe_text(job.get("nice_to_have_skills_optional")),
                     "skill_gap_reliability": safe_text(job.get("skill_gap_reliability")),
                     "text_similarity": round(text_similarity, 4),
                 }
@@ -228,11 +348,12 @@ class JobMatcher:
             candidate_skill_ids=candidate_skill_ids,
         )
 
-        fit_now_matches = sorted(
+        all_fit_now_matches = sorted(
             enriched_results,
             key=lambda item: safe_float(item.get("fit_now_score"), default=0.0),
             reverse=True,
-        )[:top_n_output]
+        )
+        fit_now_matches = all_fit_now_matches[:top_n_output]
 
         aspiration_candidates = []
 
@@ -243,31 +364,50 @@ class JobMatcher:
             skill_coverage = safe_float(item.get("skill_coverage"), default=0.0)
             role_pref = role_or_industry_preference_score(job_row, preferences)
             work_pref = work_setup_preference_score(job_row, preferences)
+            level_pref = role_level_preference_score(job_row, preferences)
+            salary_pref = salary_preference_score(job_row, preferences)
+            preference_alignment = career_preference_alignment_score(job_row, preferences)
 
             aspiration_score = (
-                0.45 * text_similarity
-                + 0.25 * skill_coverage
-                + 0.20 * role_pref
-                + 0.10 * work_pref
+                0.60 * preference_alignment
+                + 0.25 * text_similarity
+                + 0.15 * skill_coverage
             )
 
             aspiration_item = dict(item)
             aspiration_item["role_or_industry_preference"] = round(role_pref, 4)
             aspiration_item["work_setup_preference"] = round(work_pref, 4)
+            aspiration_item["role_level_preference"] = round(level_pref, 4)
+            aspiration_item["salary_preference"] = round(salary_pref, 4)
+            aspiration_item["preference_alignment_score"] = round(preference_alignment, 4)
             aspiration_item["aspiration_score"] = round(aspiration_score, 4)
             aspiration_item["aspiration_percentage"] = round(aspiration_score * 100, 2)
 
             aspiration_candidates.append(aspiration_item)
 
-        aspiration_matches = sorted(
-            aspiration_candidates,
-            key=lambda item: safe_float(item.get("aspiration_score"), default=0.0),
-            reverse=True,
-        )[:top_n_output]
+        fit_job_ids = {safe_text(item.get("job_id")) for item in fit_now_matches if safe_text(item.get("job_id"))}
+        all_aspiration_matches = [
+            item for item in sorted(
+                aspiration_candidates,
+                key=lambda item: safe_float(item.get("aspiration_score"), default=0.0),
+                reverse=True,
+            )
+            if safe_text(item.get("job_id")) not in fit_job_ids
+        ]
+        aspiration_matches = all_aspiration_matches[:top_n_output]
 
-        # Use the broader retrieved set for skill-gap basis, not only the final top 10.
+        top_gap_basis_map: dict[str, dict[str, Any]] = {}
+        for item in fit_now_matches + aspiration_matches:
+            job_id = safe_text(item.get("job_id")) or safe_text(item.get("job_title"))
+            if not job_id or job_id in top_gap_basis_map:
+                continue
+            top_gap_basis_map[job_id] = item
+            if len(top_gap_basis_map) >= top_n_output:
+                break
+
         skill_gaps = prioritize_skill_gaps(
-            match_results=enriched_results,
+            match_results=list(top_gap_basis_map.values()) or enriched_results[:top_n_output],
+            preferences=preferences,
             max_gaps=8,
         )
 
@@ -276,6 +416,7 @@ class JobMatcher:
             preferences=preferences,
             max_recommendations=8,
         )
+        development_progress = build_development_progress(skill_gaps)
 
         warnings = []
 
@@ -292,9 +433,18 @@ class JobMatcher:
         return {
             "fit_now_matches": fit_now_matches,
             "aspiration_matches": aspiration_matches,
+            "all_fit_now_matches": all_fit_now_matches,
+            "all_aspiration_matches": all_aspiration_matches,
+            "total_qualifying_matches": len({safe_text(item.get("job_id")) or safe_text(item.get("job_title")) for item in all_fit_now_matches + all_aspiration_matches}),
             "skill_gaps": skill_gaps,
             "learning_recommendations": learning_recommendations,
+            "development_progress": development_progress,
             "warnings": warnings,
+            "metadata": {
+                "jobs_source": self.jobs_source,
+                "learning_resources_source": get_learning_resources_source(),
+                "total_jobs_scored": len(self.jobs),
+            },
         }
 
 
@@ -317,11 +467,17 @@ def match_jobs(
 
 def list_available_jobs(limit: int = 200) -> list[dict[str, Any]]:
     safe_limit = max(1, min(limit, 500))
-    if not JOB_INDEX_PATH.exists():
-        return []
+    jobs = load_internal_jobs_dataframe(limit=safe_limit)
 
-    jobs = pd.read_csv(JOB_INDEX_PATH, dtype=str, keep_default_na=False)
-    jobs.columns = [str(column).strip().lstrip("\ufeff") for column in jobs.columns]
+    if jobs.empty:
+        if not JOB_INDEX_PATH.exists():
+            return []
+
+        jobs = pd.read_csv(JOB_INDEX_PATH, dtype=str, keep_default_na=False)
+        jobs.columns = [str(column).strip().lstrip("\ufeff") for column in jobs.columns]
+    else:
+        jobs.columns = [str(column).strip().lstrip("\ufeff") for column in jobs.columns]
+
 
     output: list[dict[str, Any]] = []
     for index, row in jobs.head(safe_limit).iterrows():
@@ -330,7 +486,9 @@ def list_available_jobs(limit: int = 200) -> list[dict[str, Any]]:
         required_skills = [skill.strip() for skill in required_skills_raw.split(",") if skill.strip()]
         source_dataset = safe_text(record.get("source_dataset"))
         external_link = safe_text(record.get("external_job_link_optional"))
-        company_name = source_dataset.replace("_", " ").strip().title() if source_dataset else "Kareerly Partner Employer"
+        company_name = safe_text(record.get("company_name")) or (
+            source_dataset.replace("_", " ").strip().title() if source_dataset else "Kareerly Internal Jobs"
+        )
 
         output.append(
             {
@@ -346,6 +504,7 @@ def list_available_jobs(limit: int = 200) -> list[dict[str, Any]]:
                 "external_job_link_optional": external_link,
                 "source_dataset": source_dataset,
                 "company_name": company_name,
+                "job_source": safe_text(record.get("job_source")) or "internal",
             }
         )
 

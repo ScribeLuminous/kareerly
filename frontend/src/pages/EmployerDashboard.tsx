@@ -43,10 +43,11 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Logo from '../components/Logo';
+import { supabase } from '../lib/supabase';
 import './employer-dashboard-v5.css';
 
 type EmployerDashboardProps = {
-  employer: { name: string; email: string; company: string } | null;
+  employer: { id?: string; name: string; email: string; company: string } | null;
   onHome: () => void;
   onLogin: () => void;
   onSignUp: () => void;
@@ -105,6 +106,7 @@ type IconName =
 
 type EmployerJob = {
   id: string;
+  databaseId?: string;
   title: string;
   category: string;
   subcategory: string;
@@ -119,6 +121,27 @@ type EmployerJob = {
   deadline: string;
   status: JobStatus;
   postedDate: string;
+};
+
+type EmployerJobPostRow = {
+  id: string;
+  job_id: string;
+  category_code: string | null;
+  category_name: string | null;
+  job_subcategory?: string | null;
+  job_title: string;
+  company_name: string | null;
+  location: string | null;
+  work_setup: string | null;
+  employment_type: string | null;
+  job_level: string | null;
+  salary_min_php: number | null;
+  salary_max_php: number | null;
+  job_description: string | null;
+  required_skills: string | null;
+  preferred_skills: string | null;
+  posting_status: string | null;
+  created_at: string | null;
 };
 
 type MessageEntry = {
@@ -146,6 +169,35 @@ type CandidateApplication = {
   messages: MessageEntry[];
 };
 
+type JobApplicationRow = {
+  id: string;
+  user_id: string;
+  job_source?: 'internal' | 'employer' | null;
+  job_id: string;
+  job_title?: string | null;
+  company_name?: string | null;
+  candidate_name?: string | null;
+  candidate_email?: string | null;
+  candidate_location?: string | null;
+  match_score?: number | null;
+  matched_skills?: string[] | null;
+  missing_skills?: string[] | null;
+  message_request_state?: MessageRequestState | null;
+  status?: string | null;
+  created_at?: string | null;
+  applied_at?: string | null;
+};
+
+type ApplicationMessageRow = {
+  id: string;
+  application_id: string;
+  sender_user_id: string;
+  sender_role: 'candidate' | 'employer';
+  message_kind: 'request' | 'message';
+  message_text: string;
+  created_at: string | null;
+};
+
 type NotificationItem = {
   id: string;
   title: string;
@@ -168,12 +220,235 @@ type JobFormState = {
   status: JobStatus;
 };
 
-const jobSubcategoryMap: Record<string, string[]> = {
-  engineering: ['Frontend', 'Backend', 'Full Stack', 'DevOps', 'QA / Testing'],
-  data: ['Data Analyst', 'Data Engineer', 'Data Scientist', 'Business Intelligence', 'Analytics'],
-  sales: ['Account Executive', 'Sales Manager', 'Business Development', 'Digital Marketing'],
-  operations: ['Operations Manager', 'Project Manager', 'Process Improvement'],
-  design: ['UI/UX Designer', 'Graphic Designer', 'Product Designer'],
+const jobCategoryOptions = [
+  {
+    code: 'K01',
+    label: 'K01 - Technology, Data, and Digital Systems',
+    value: 'Technology, Data, and Digital Systems',
+    subcategories: [
+      'Data, Analytics, and Statistics',
+      'Networks, Databases, and IT Support',
+      'Software and Applications',
+      'Telecommunications and Digital Infrastructure',
+    ],
+  },
+  {
+    code: 'K02',
+    label: 'K02 - Business, Finance, and Office Administration',
+    value: 'Business, Finance, and Office Administration',
+    subcategories: [
+      'Executive Assistance',
+      'Finance, Accounting, and Bookkeeping',
+      'Human Resources and Business Services',
+      'Management and Organizational Operations',
+      'Office Administration and Clerical Support',
+      'Virtual Administration',
+    ],
+  },
+  {
+    code: 'K03',
+    label: 'K03 - Sales, Marketing, and Customer Relations',
+    value: 'Sales, Marketing, and Customer Relations',
+    subcategories: [
+      'Customer Service and Client Information',
+      'Marketing and Public Relations',
+      'Purchasing, Brokerage, and Commercial Support',
+      'Sales and Retail',
+    ],
+  },
+  {
+    code: 'K04',
+    label: 'K04 - Creative, Media, and Communications',
+    value: 'Creative, Media, and Communications',
+    subcategories: [
+      'Broadcasting and Content Support',
+      'Creative and Performing Arts',
+      'Design, Multimedia, and Cultural Work',
+      'Writing, Journalism, and Language',
+    ],
+  },
+  {
+    code: 'K05',
+    label: 'K05 - Education, Training, and Community Services',
+    value: 'Education, Training, and Community Services',
+    subcategories: [
+      'Libraries, Archives, and Curatorial Work',
+      'Social, Religious, and Community Work',
+      'Teaching and Academic Support',
+      'Training and Instruction',
+    ],
+  },
+  {
+    code: 'K06',
+    label: 'K06 - Healthcare, Caregiving, and Wellness',
+    value: 'Healthcare, Caregiving, and Wellness',
+    subcategories: [
+      'Fitness, Wellness, and Rehabilitation Support',
+      'Medical and Clinical Professionals',
+      'Nursing, Midwifery, and Caregiving',
+      'Pharmacy, Laboratory, and Health Support',
+    ],
+  },
+  {
+    code: 'K07',
+    label: 'K07 - Engineering, Construction, and Skilled Trades',
+    value: 'Engineering, Construction, and Skilled Trades',
+    subcategories: [
+      'Construction and Building Trades',
+      'Electrical, Electronics, and Mechanical Trades',
+      'Engineering and Architecture',
+      'Technical Drafting, Surveying, and Control',
+    ],
+  },
+  {
+    code: 'K08',
+    label: 'K08 - Hospitality, Tourism, Food, and Personal Services',
+    value: 'Hospitality, Tourism, Food, and Personal Services',
+    subcategories: [
+      'Food Service and Culinary Work',
+      'Hospitality and Accommodation',
+      'Personal Services and Housekeeping',
+      'Travel, Tourism, and Events',
+    ],
+  },
+  {
+    code: 'K09',
+    label: 'K09 - Logistics, Manufacturing, and Operations',
+    value: 'Logistics, Manufacturing, and Operations',
+    subcategories: [
+      'Assembly and Production Support',
+      'Manufacturing and Plant Operations',
+      'Transport, Driving, and Delivery',
+      'Warehouse, Inventory, and Distribution',
+    ],
+  },
+  {
+    code: 'K10',
+    label: 'K10 - Agriculture, Forestry, Fishery, and Environmental Work',
+    value: 'Agriculture, Forestry, Fishery, and Environmental Work',
+    subcategories: ['Crop and Horticulture', 'Fishery and Aquatic Work', 'Forestry and Conservation', 'Livestock and Animal Production'],
+  },
+  {
+    code: 'K11',
+    label: 'K11 - Public Service, Legal, and Protective Services',
+    value: 'Public Service, Legal, and Protective Services',
+    subcategories: [
+      'Government and Regulatory Services',
+      'Legal Services',
+      'Policy, Leadership, and Public Administration',
+      'Protective and Security Services',
+    ],
+  },
+];
+
+const jobSubcategoryMap = jobCategoryOptions.reduce<Record<string, string[]>>((map, category) => {
+  map[category.value] = category.subcategories;
+  return map;
+}, {});
+
+const MIN_EMPLOYER_SALARY = 10000;
+
+const getSalaryAmounts = (value: string): { minimum: number; maximum: number } => {
+  const amounts = Array.from(value.matchAll(/[0-9][0-9,\s.]*/g))
+    .map((match) => Number(match[0].replace(/[^\d]/g, '')))
+    .filter((amount) => Number.isFinite(amount) && amount > 0);
+  return {
+    minimum: amounts[0] || 0,
+    maximum: amounts[1] || amounts[0] || 0,
+  };
+};
+
+const toSalaryInputValue = (value: string): string => {
+  const { minimum, maximum } = getSalaryAmounts(value);
+  if (!minimum && !maximum) return '';
+  return `${minimum || ''}-${maximum || ''}`;
+};
+
+const formatPesoSalary = (value: string): string => {
+  const { minimum, maximum } = getSalaryAmounts(value);
+  if (!minimum || !maximum) return '';
+  return `₱${minimum.toLocaleString('en-PH')} - ${maximum.toLocaleString('en-PH')}`;
+};
+
+const getCategoryCode = (categoryValue: string): string => jobCategoryOptions.find((category) => category.value === categoryValue)?.code || '';
+
+const splitSkills = (value: string | null | undefined): string[] =>
+  String(value || '')
+    .split(',')
+    .map((skill) => skill.trim())
+    .filter(Boolean);
+
+const mapPostingStatusToJobStatus = (status: string | null | undefined): JobStatus => {
+  if (status === 'active' || status === 'open') return 'open';
+  if (status === 'closed') return 'closed';
+  return 'draft';
+};
+
+const mapApplicationStatus = (status: string | null | undefined): CandidateStatus => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'shortlisted') return 'Shortlisted';
+  if (normalized === 'interviewing') return 'Interviewing';
+  if (normalized === 'hired') return 'Hired';
+  if (normalized === 'rejected') return 'Rejected';
+  if (normalized === 'withdrawn') return 'Withdrawn';
+  return 'Pending';
+};
+
+const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
+  id: row.job_id,
+  databaseId: row.id,
+  title: row.job_title,
+  category: row.category_name || '',
+  subcategory: row.job_subcategory || '',
+  experienceLevel: row.job_level || '',
+  description: row.job_description || '',
+  requiredSkills: splitSkills(row.required_skills),
+  niceToHaveSkills: splitSkills(row.preferred_skills),
+  workSetup: row.work_setup || '',
+  city: (row.location || '').split(',')[0]?.trim() || '',
+  province: (row.location || '').split(',').slice(1).join(',').trim(),
+  salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
+  deadline: '',
+  status: mapPostingStatusToJobStatus(row.posting_status),
+  postedDate: row.created_at ? row.created_at.slice(0, 10) : todayIso(),
+});
+
+const mapMessageRequestState = (state: string | null | undefined): MessageRequestState => {
+  if (state === 'pending' || state === 'accepted' || state === 'declined' || state === 'ignored') return state;
+  return 'none';
+};
+
+const toMessageEntry = (row: ApplicationMessageRow): MessageEntry => ({
+  from: row.sender_role === 'employer' ? 'employer' : 'candidate',
+  text: row.message_text,
+  time: row.created_at ? formatDateLabel(row.created_at.slice(0, 10)) : 'Just now',
+});
+
+const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], messages: ApplicationMessageRow[] = []): CandidateApplication => {
+  const relatedJob = jobs.find((job) => job.id === row.job_id);
+  const status = mapApplicationStatus(row.status);
+  const matchedSkills = Array.isArray(row.matched_skills) ? row.matched_skills.filter(Boolean) : [];
+  const missingSkills = Array.isArray(row.missing_skills) ? row.missing_skills.filter(Boolean) : [];
+  const matchPercent = Math.max(0, Math.min(100, Math.round(Number(row.match_score || 0))));
+
+  return {
+    id: row.id,
+    fullName: row.candidate_name || row.candidate_email || `Candidate ${String(row.user_id || row.id).slice(0, 8)}`,
+    role: row.job_title || relatedJob?.title || 'Untitled role',
+    jobId: row.job_id,
+    matchPercent,
+    matchedSkills,
+    missingSkills,
+    status,
+    appliedDate: (row.applied_at || row.created_at || todayIso()).slice(0, 10),
+    location: row.candidate_location || 'Location not provided',
+    matchSummary: matchPercent > 0 ? `${matchPercent}% candidate-side match at application time.` : 'Candidate applied without a saved match score.',
+    strengthNote: matchedSkills.length > 0 ? `Matched skills: ${matchedSkills.slice(0, 4).join(', ')}` : 'Matched skills were not captured yet.',
+    gapNote: missingSkills.length > 0 ? `Potential gaps: ${missingSkills.slice(0, 4).join(', ')}` : 'No major missing skills were captured.',
+    recommendation: status === 'Withdrawn' ? 'Application withdrawn by candidate.' : 'Review candidate application details and decide next status.',
+    messageRequestState: mapMessageRequestState(row.message_request_state),
+    messages: messages.map(toMessageEntry),
+  };
 };
 
 const emptyJobForm: JobFormState = {
@@ -189,262 +464,11 @@ const emptyJobForm: JobFormState = {
   status: 'draft',
 };
 
-const initialJobs: EmployerJob[] = [
-  {
-    id: 'job-1',
-    title: 'Junior Data Analyst',
-    category: 'data',
-    subcategory: 'Data Analyst',
-    experienceLevel: 'Entry-level / Fresh Graduate',
-    description:
-      'Support data preparation, dashboard updates, and reporting workflows for internal business teams.',
-    requiredSkills: ['SQL', 'Excel', 'Data Cleaning', 'Power BI'],
-    niceToHaveSkills: ['Python', 'Tableau'],
-    workSetup: 'Remote',
-    city: 'Makati',
-    province: 'NCR',
-    salaryRange: 'PHP 25,000 - PHP 40,000',
-    deadline: '2026-06-30',
-    status: 'open',
-    postedDate: '2026-05-20',
-  },
-  {
-    id: 'job-2',
-    title: 'Senior Frontend Engineer',
-    category: 'engineering',
-    subcategory: 'Frontend',
-    experienceLevel: 'Senior (5+ yrs)',
-    description:
-      'Lead feature development for our web platform and collaborate with product/design on scalable interfaces.',
-    requiredSkills: ['React', 'JavaScript', 'CSS', 'Git', 'System Design'],
-    niceToHaveSkills: ['TypeScript', 'Testing', 'CI/CD'],
-    workSetup: 'Hybrid',
-    city: 'Taguig',
-    province: 'NCR',
-    salaryRange: 'PHP 90,000 - PHP 130,000',
-    deadline: '2026-06-15',
-    status: 'open',
-    postedDate: '2026-05-15',
-  },
-];
+const initialJobs: EmployerJob[] = [];
 
-const initialApplications: CandidateApplication[] = [
-  {
-    id: 'CDT-001',
-    fullName: 'Daniela Abad',
-    role: 'Junior Data Analyst',
-    jobId: 'job-1',
-    matchPercent: 95,
-    matchedSkills: ['SQL', 'Excel', 'Data Cleaning'],
-    missingSkills: ['Power BI'],
-    status: 'Interviewing',
-    appliedDate: '2026-05-22',
-    location: 'Metro Manila, NCR',
-    matchSummary:
-      'Strong alignment with 3 of 4 required skills. Power BI is the main gap. Recommended for interview.',
-    strengthNote: 'Strong technical foundation in SQL, Excel, and data cleaning tasks.',
-    gapNote: 'Power BI remains the primary missing required skill for this role.',
-    recommendation:
-      'Applicant meets the 90%+ threshold. Interview is recommended to validate adaptability.',
-    messageRequestState: 'accepted',
-    messages: [
-      {
-        from: 'employer',
-        text: 'Good day! We would like to schedule an initial interview this week. Are you available Thursday or Friday, 10 AM to 4 PM?',
-        time: 'May 24, 2026 · 8:14 AM',
-      },
-      {
-        from: 'candidate',
-        text: 'Thank you for reaching out! Thursday at 2 PM works for me.',
-        time: 'May 24, 2026 · 9:02 AM',
-      },
-    ],
-  },
-  {
-    id: 'CDT-002',
-    fullName: 'Marco Santos',
-    role: 'Senior Frontend Engineer',
-    jobId: 'job-2',
-    matchPercent: 92,
-    matchedSkills: ['React', 'JavaScript', 'CSS', 'Git'],
-    missingSkills: ['System Design'],
-    status: 'Shortlisted',
-    appliedDate: '2026-05-20',
-    location: 'Pasig, NCR',
-    matchSummary:
-      'Very strong frontend profile. One gap remains in system design. Priority review candidate.',
-    strengthNote: 'Excellent React and JavaScript expertise with strong implementation history.',
-    gapNote: 'System design skills are not evidenced in submitted profile artifacts.',
-    recommendation: 'Move to Interviewing when role bandwidth allows for architecture assessment.',
-    messageRequestState: 'none',
-    messages: [],
-  },
-  {
-    id: 'CDT-003',
-    fullName: 'Andrea Cruz',
-    role: 'Junior Data Analyst',
-    jobId: 'job-1',
-    matchPercent: 79,
-    matchedSkills: ['Excel', 'Data Entry'],
-    missingSkills: ['SQL', 'Power BI', 'Python'],
-    status: 'Withdrawn',
-    appliedDate: '2026-05-10',
-    location: 'Caloocan, NCR',
-    matchSummary: 'Candidate withdrew this application. Record is closed and read-only.',
-    strengthNote: 'Base administrative and spreadsheet familiarity.',
-    gapNote: 'Multiple required analytics skills remain uncovered.',
-    recommendation: 'No further action available — application withdrawn by candidate.',
-    messageRequestState: 'none',
-    messages: [],
-  },
-  {
-    id: 'CDT-004',
-    fullName: 'Jared Dela Cruz',
-    role: 'Junior Data Analyst',
-    jobId: 'job-1',
-    matchPercent: 88,
-    matchedSkills: ['SQL', 'Tableau'],
-    missingSkills: ['Power BI', 'Python'],
-    status: 'Pending',
-    appliedDate: '2026-05-18',
-    location: 'Quezon City, NCR',
-    matchSummary:
-      'Good alignment with relevant SQL and dashboard skills; improvement needed for BI and scripting.',
-    strengthNote: 'SQL and Tableau coverage suggests workable reporting readiness.',
-    gapNote: 'Power BI and Python are still missing and should be validated via assessment.',
-    recommendation: 'Shortlist for next-pass review and technical screen.',
-    messageRequestState: 'none',
-    messages: [],
-  },
-  {
-    id: 'CDT-005',
-    fullName: 'Riza Mendoza',
-    role: 'Senior Frontend Engineer',
-    jobId: 'job-2',
-    matchPercent: 72,
-    matchedSkills: ['JavaScript'],
-    missingSkills: ['React', 'CSS', 'Git', 'System Design'],
-    status: 'Pending',
-    appliedDate: '2026-05-15',
-    location: 'Manila, NCR',
-    matchSummary:
-      'Partial alignment with notable gaps in core frontend stack requirements for this opening.',
-    strengthNote: 'Has JavaScript fundamentals that could support growth for junior pipelines.',
-    gapNote: 'Missing React, CSS, Git, and system design knowledge for this senior role.',
-    recommendation: 'Proceed only if pipeline is limited and role requirements are adjusted.',
-    messageRequestState: 'none',
-    messages: [],
-  },
-  {
-    id: 'CDT-006',
-    fullName: 'Paolo Reyes',
-    role: 'Senior Frontend Engineer',
-    jobId: 'job-2',
-    matchPercent: 90,
-    matchedSkills: ['React', 'JavaScript', 'Git'],
-    missingSkills: ['System Design', 'Advanced CSS'],
-    status: 'Interviewing',
-    appliedDate: '2026-05-24',
-    location: 'Mandaluyong, NCR',
-    matchSummary:
-      'High-potential profile. Good practical engineering fit with one architectural depth gap.',
-    strengthNote: 'Strong role-aligned coding stack with production-ready project experience.',
-    gapNote: 'System design depth requires deeper interviewer validation.',
-    recommendation: 'Interview already initiated; await response to messaging request.',
-    messageRequestState: 'pending',
-    messages: [],
-  },
-  {
-    id: 'CDT-007',
-    fullName: 'Hana Ibanez',
-    role: 'Junior Data Analyst',
-    jobId: 'job-1',
-    matchPercent: 97,
-    matchedSkills: ['SQL', 'Excel', 'Data Cleaning', 'Power BI'],
-    missingSkills: [],
-    status: 'Hired',
-    appliedDate: '2026-05-07',
-    location: 'Quezon City, NCR',
-    matchSummary: 'Strong end-to-end role fit with complete required-skill coverage. Candidate hired.',
-    strengthNote: 'All required role competencies are validated with strong interview outcomes.',
-    gapNote: 'No critical skill gaps noted for this role.',
-    recommendation: 'Candidate accepted and moved to hired status.',
-    messageRequestState: 'accepted',
-    messages: [
-      {
-        from: 'employer',
-        text: 'Congratulations, we are happy to move forward with your offer package.',
-        time: 'May 20, 2026 · 11:15 AM',
-      },
-      {
-        from: 'candidate',
-        text: 'Thank you very much. I’m excited to join the team.',
-        time: 'May 20, 2026 · 11:34 AM',
-      },
-    ],
-  },
-  {
-    id: 'CDT-008',
-    fullName: 'Rafael Mendoza',
-    role: 'Senior Frontend Engineer',
-    jobId: 'job-2',
-    matchPercent: 68,
-    matchedSkills: ['JavaScript'],
-    missingSkills: ['React', 'CSS', 'Git', 'System Design'],
-    status: 'Rejected',
-    appliedDate: '2026-05-08',
-    location: 'Manila, NCR',
-    matchSummary: 'Application closed after review due to major role-skill gaps for this opening.',
-    strengthNote: 'Has foundational JavaScript knowledge.',
-    gapNote: 'Multiple required role skills remain missing for the target level.',
-    recommendation: 'Final status set to Rejected for this job requisition.',
-    messageRequestState: 'none',
-    messages: [],
-  },
-];
+const initialApplications: CandidateApplication[] = [];
 
-const initialNotifications: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    type: 'match',
-    title: 'New Top Match - 95% fit',
-    message: 'Candidate CDT-001 applied for Junior Data Analyst.',
-    time: '2 hours ago',
-    unread: true,
-  },
-  {
-    id: 'notif-2',
-    type: 'app',
-    title: '3 new applications received',
-    message: 'Senior Frontend Engineer now has 27 total applicants.',
-    time: '4 hours ago',
-    unread: true,
-  },
-  {
-    id: 'notif-3',
-    type: 'msg',
-    title: 'Message request accepted',
-    message: 'CDT-001 accepted your interview message request.',
-    time: '5 hours ago',
-    unread: true,
-  },
-  {
-    id: 'notif-4',
-    type: 'warn',
-    title: 'Application withdrawn',
-    message: 'CDT-003 withdrew their application for Data Analyst.',
-    time: 'Yesterday',
-    unread: true,
-  },
-  {
-    id: 'notif-5',
-    type: 'job',
-    title: 'Job posting updated',
-    message: 'Junior Data Analyst is now Open and accepting applications.',
-    time: '2 days ago',
-    unread: false,
-  },
-];
+const initialNotifications: NotificationItem[] = [];
 
 const iconMap: Record<IconName, IconDefinition> = {
   menu: faBars,
@@ -596,6 +620,8 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [jobs, setJobs] = useState<EmployerJob[]>(initialJobs);
+  const [employerProfileId, setEmployerProfileId] = useState('');
+  const [isSavingJob, setIsSavingJob] = useState(false);
   const [applications, setApplications] = useState<CandidateApplication[]>(initialApplications);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
@@ -618,6 +644,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   const [selectedThreadId, setSelectedThreadId] = useState<string>('');
   const [messageSearch, setMessageSearch] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
+  const [draftRequestCandidateId, setDraftRequestCandidateId] = useState<string>('');
   const [reviewModalId, setReviewModalId] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; action: ReviewAction | null; candidateId: string | null }>({
     open: false,
@@ -627,16 +654,15 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   const [deleteProfileModalOpen, setDeleteProfileModalOpen] = useState(false);
   const [accountProfile, setAccountProfile] = useState({
     company: companyName,
-    industry: 'Information Technology',
-    size: '51-200 employees',
-    location: 'Manila, NCR, Philippines',
-    website: 'https://techcorp.ph',
-    about:
-      'TechCorp Inc is a Manila-based IT solutions company specializing in data engineering, analytics, and software development.',
+    industry: 'Enter industry',
+    size: 'Enter company size',
+    location: 'Enter company location',
+    website: 'Enter website',
+    about: 'Enter a short company description',
     contactPerson: contactName,
-    contactRole: 'HR Manager',
+    contactRole: 'Enter contact role',
     contactEmail: employer.email,
-    contactNumber: '+63 917 456 7890',
+    contactNumber: 'Enter contact number',
   });
   const toastTimerRef = useRef<number | null>(null);
 
@@ -761,9 +787,13 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     return applications.filter(
       (candidate) =>
         (candidate.status === 'Interviewing' || candidate.status === 'Hired') &&
-        (candidate.messageRequestState === 'accepted' || candidate.messageRequestState === 'pending'),
+        (
+          candidate.messageRequestState === 'accepted'
+          || candidate.messageRequestState === 'pending'
+          || candidate.id === draftRequestCandidateId
+        ),
     );
-  }, [applications]);
+  }, [applications, draftRequestCandidateId]);
 
   const filteredMessageThreads = useMemo(() => {
     const query = messageSearch.trim().toLowerCase();
@@ -794,7 +824,8 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   }, [filteredMessageThreads, selectedThreadId]);
 
   const selectedThreadCandidate = filteredMessageThreads.find((candidate) => candidate.id === selectedThreadId) || null;
-  const canSendMessage = selectedThreadCandidate?.messageRequestState === 'accepted';
+  const isDraftRequestThread = Boolean(selectedThreadCandidate && selectedThreadCandidate.id === draftRequestCandidateId && selectedThreadCandidate.messageRequestState === 'none');
+  const canSendMessage = selectedThreadCandidate?.messageRequestState === 'accepted' || isDraftRequestThread;
 
   const reviewCandidate = applications.find((candidate) => candidate.id === reviewModalId) || null;
   const reviewJob = reviewCandidate ? jobMap.get(reviewCandidate.jobId) || null : null;
@@ -816,6 +847,109 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadEmployerJobs = async () => {
+      if (!employer.id) return;
+
+      const { data: profile, error: profileError } = await supabase
+        .from('employer_profiles')
+        .select('id')
+        .eq('user_id', employer.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.warn('Unable to load employer profile:', profileError);
+        if (isMounted) showToast('Unable to load employer profile from Supabase.', 'warn');
+        return;
+      }
+
+      const profileId = profile?.id ? String(profile.id) : '';
+      if (!profileId) return;
+      if (isMounted) setEmployerProfileId(profileId);
+
+      const { data, error } = await supabase
+        .from('employer_job_posts')
+        .select('*')
+        .eq('employer_id', profileId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Unable to load employer job posts:', error);
+        if (isMounted) showToast('Unable to load saved job posts from Supabase.', 'warn');
+        return;
+      }
+
+      if (!isMounted) return;
+      const savedJobs = Array.isArray(data) ? (data as EmployerJobPostRow[]).map(toEmployerJob) : [];
+      setJobs(savedJobs);
+      setSelectedJobId(savedJobs[0]?.id || '');
+    };
+
+    void loadEmployerJobs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [employer.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadJobApplications = async () => {
+      const jobIds = Array.from(new Set(jobs.map((job) => job.id).filter(Boolean)));
+      if (jobIds.length === 0) {
+        setApplications([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('*')
+        .in('job_id', jobIds)
+        .order('applied_at', { ascending: false });
+
+      if (error) {
+        console.warn('Unable to load job applications:', error);
+        if (isMounted) showToast('Unable to load applicants from Supabase.', 'warn');
+        return;
+      }
+
+      if (!isMounted) return;
+      const rows = Array.isArray(data) ? (data as JobApplicationRow[]) : [];
+      const applicationIds = rows.map((row) => row.id).filter(Boolean);
+      let messagesByApplication = new Map<string, ApplicationMessageRow[]>();
+
+      if (applicationIds.length > 0) {
+        const { data: messageData, error: messageError } = await supabase
+          .from('application_messages')
+          .select('*')
+          .in('application_id', applicationIds)
+          .order('created_at', { ascending: true });
+
+        if (messageError) {
+          console.warn('Unable to load application messages:', messageError);
+        } else {
+          messagesByApplication = (Array.isArray(messageData) ? (messageData as ApplicationMessageRow[]) : []).reduce((map, message) => {
+            const current = map.get(message.application_id) || [];
+            current.push(message);
+            map.set(message.application_id, current);
+            return map;
+          }, new Map<string, ApplicationMessageRow[]>());
+        }
+      }
+
+      setApplications(rows.map((row) => toCandidateApplication(row, jobs, messagesByApplication.get(row.id) || [])));
+    };
+
+    void loadJobApplications();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [jobs]);
 
   const markNotificationsRead = () => {
     setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
@@ -861,7 +995,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       description: job.description,
       workSetup: job.workSetup,
       location: toFormLocation(job),
-      salaryRange: job.salaryRange,
+      salaryRange: toSalaryInputValue(job.salaryRange),
       deadline: job.deadline,
       status: job.status,
     });
@@ -888,22 +1022,36 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
 
   const addSkillDraft = (kind: 'required' | 'nice') => {
     const raw = kind === 'required' ? requiredSkillInput : niceSkillInput;
-    const value = raw.trim();
-    if (!value) return;
+    const values = raw
+      .split(',')
+      .map((skill) => skill.trim())
+      .filter(Boolean);
+    if (values.length === 0) return;
+
+    const uniqueValues = values.filter((skill, index, list) => {
+      const normalized = skill.toLowerCase();
+      return list.findIndex((item) => item.toLowerCase() === normalized) === index;
+    });
+
     if (kind === 'required') {
-      if (requiredSkillsDraft.some((skill) => skill.toLowerCase() === value.toLowerCase())) {
+      const existing = new Set(requiredSkillsDraft.map((skill) => skill.toLowerCase()));
+      const nextSkills = uniqueValues.filter((skill) => !existing.has(skill.toLowerCase()));
+      if (nextSkills.length === 0) {
         showToast('Required skill already added.', 'warn');
         return;
       }
-      setRequiredSkillsDraft((current) => [...current, value]);
+      setRequiredSkillsDraft((current) => [...current, ...nextSkills]);
       setRequiredSkillInput('');
       return;
     }
-    if (niceSkillsDraft.some((skill) => skill.toLowerCase() === value.toLowerCase())) {
+
+    const existing = new Set(niceSkillsDraft.map((skill) => skill.toLowerCase()));
+    const nextSkills = uniqueValues.filter((skill) => !existing.has(skill.toLowerCase()));
+    if (nextSkills.length === 0) {
       showToast('Nice-to-have skill already added.', 'warn');
       return;
     }
-    setNiceSkillsDraft((current) => [...current, value]);
+    setNiceSkillsDraft((current) => [...current, ...nextSkills]);
     setNiceSkillInput('');
   };
 
@@ -925,64 +1073,99 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     if (!jobForm.workSetup.trim()) return 'Work Setup is required.';
     if (!jobForm.location.trim()) return 'Location is required.';
     if (!jobForm.salaryRange.trim()) return 'Salary Range is required.';
+    const { minimum: minimumSalary, maximum: maximumSalary } = getSalaryAmounts(jobForm.salaryRange);
+    if (!minimumSalary || !maximumSalary) return 'Enter a complete salary range.';
+    if (minimumSalary < MIN_EMPLOYER_SALARY) return 'Minimum salary must be at least ₱10,000.';
+    if (maximumSalary < minimumSalary) return 'Maximum salary must be greater than or equal to the minimum salary.';
     if (!jobForm.deadline.trim()) return 'Application Deadline is required.';
     return null;
   };
 
-  const saveJobForm = (mode: 'draft' | 'post') => {
+  const saveJobForm = async (mode: 'draft' | 'post') => {
     const error = validateJobForm();
     if (error) {
       showToast(error, 'warn');
       return;
     }
+    if (!employerProfileId) {
+      showToast('Employer profile is still loading. Please try again in a moment.', 'warn');
+      return;
+    }
+    setIsSavingJob(true);
     const status: JobStatus = mode === 'draft' ? 'draft' : jobForm.status === 'closed' ? 'closed' : 'open';
     const { city, province } = parseFormLocation(jobForm.location);
+    const location = `${city}${province ? `, ${province}` : ''}`.trim();
+    const { minimum: salaryMinPhp, maximum: salaryMaxPhp } = getSalaryAmounts(jobForm.salaryRange);
+    const currentJob = jobsPanelMode === 'edit' && selectedJobId ? jobs.find((job) => job.id === selectedJobId) || null : null;
+    const jobId = currentJob?.id || `EMP-${Date.now()}`;
+    const postingStatus = status === 'open' ? 'active' : status;
+    const payload = {
+      job_id: jobId,
+      employer_id: employerProfileId,
+      category_code: getCategoryCode(jobForm.category),
+      category_name: jobForm.category,
+      job_subcategory: jobForm.subcategory,
+      job_title: jobForm.title.trim(),
+      company_name: companyName,
+      location,
+      work_setup: jobForm.workSetup,
+      employment_type: 'Full-time',
+      job_level: jobForm.experienceLevel,
+      salary_min_php: salaryMinPhp,
+      salary_max_php: salaryMaxPhp,
+      job_description: jobForm.description.trim(),
+      required_skills: requiredSkillsDraft.join(', '),
+      preferred_skills: niceSkillsDraft.join(', '),
+      must_have_skill_ids: '',
+      posting_status: postingStatus,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { data: savedPost, error: saveError } = await supabase
+      .from('employer_job_posts')
+      .upsert(payload, { onConflict: 'job_id' })
+      .select('*')
+      .single();
+
+    if (saveError && String(saveError.message || '').includes('job_subcategory')) {
+      const { job_subcategory: _jobSubcategory, ...payloadWithoutSubcategory } = payload;
+      const retryResult = await supabase
+        .from('employer_job_posts')
+        .upsert(payloadWithoutSubcategory, { onConflict: 'job_id' })
+        .select('*')
+        .single();
+      savedPost = retryResult.data;
+      saveError = retryResult.error;
+    }
+
+    if (saveError) {
+      console.warn('Unable to save job post:', saveError);
+      showToast('Unable to save job post to Supabase. Please try again.', 'danger');
+      setIsSavingJob(false);
+      return;
+    }
+
+    const savedJob = toEmployerJob(savedPost as EmployerJobPostRow);
+
     if (jobsPanelMode === 'edit' && selectedJobId) {
       setJobs((current) =>
         current.map((job) =>
           job.id === selectedJobId
             ? {
-                ...job,
-                title: jobForm.title.trim(),
-                category: jobForm.category,
-                subcategory: jobForm.subcategory,
-                experienceLevel: jobForm.experienceLevel,
-                description: jobForm.description.trim(),
-                requiredSkills: requiredSkillsDraft,
-                niceToHaveSkills: niceSkillsDraft,
-                workSetup: jobForm.workSetup,
-                city: city || job.city,
-                province: province || job.province,
-                salaryRange: jobForm.salaryRange.trim(),
+                ...savedJob,
                 deadline: jobForm.deadline,
-                status,
               }
             : job,
         ),
       );
       showToast(mode === 'draft' ? 'Job draft saved.' : 'Job posting updated.', 'success');
     } else {
-      const newJob: EmployerJob = {
-        id: `job-${Date.now()}`,
-        title: jobForm.title.trim(),
-        category: jobForm.category,
-        subcategory: jobForm.subcategory,
-        experienceLevel: jobForm.experienceLevel,
-        description: jobForm.description.trim(),
-        requiredSkills: requiredSkillsDraft,
-        niceToHaveSkills: niceSkillsDraft,
-        workSetup: jobForm.workSetup,
-        city,
-        province,
-        salaryRange: jobForm.salaryRange.trim(),
-        deadline: jobForm.deadline,
-        status,
-        postedDate: todayIso(),
-      };
+      const newJob: EmployerJob = { ...savedJob, deadline: jobForm.deadline };
       setJobs((current) => [newJob, ...current]);
       setSelectedJobId(newJob.id);
       showToast(mode === 'draft' ? 'Job saved as draft.' : 'Job posted successfully.', 'success');
     }
+    setIsSavingJob(false);
     setJobsPanelMode('detail');
   };
 
@@ -1007,7 +1190,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     setConfirmModal({ open: false, action: null, candidateId: null });
   };
 
-  const applyStatusChange = () => {
+  const applyStatusChange = async () => {
     if (!confirmModal.action || !confirmModal.candidateId) return;
     const nextStatus: CandidateStatus =
       confirmModal.action === 'shortlisted'
@@ -1017,6 +1200,21 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
           : confirmModal.action === 'hired'
             ? 'Hired'
             : 'Rejected';
+    const dbStatus = nextStatus.toLowerCase();
+    const { error } = await supabase
+      .from('job_applications')
+      .update({
+        status: dbStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', confirmModal.candidateId);
+
+    if (error) {
+      console.warn('Unable to update application status:', error);
+      showToast('Unable to update applicant status in Supabase.', 'danger');
+      return;
+    }
+
     setApplications((current) =>
       current.map((candidate) =>
         candidate.id === confirmModal.candidateId && !['Hired', 'Rejected', 'Withdrawn'].includes(candidate.status)
@@ -1037,35 +1235,17 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   };
 
   const sendMessageRequest = (candidateId: string) => {
-    let changed = false;
-    setApplications((current) =>
-      current.map((candidate) => {
-        if (candidate.id !== candidateId) return candidate;
-        if (candidate.status !== 'Interviewing') return candidate;
-        if (candidate.messageRequestState !== 'none') return candidate;
-        changed = true;
-        return { ...candidate, messageRequestState: 'pending' };
-      }),
-    );
-    if (!changed) {
+    const candidate = applications.find((item) => item.id === candidateId);
+    if (!candidate || candidate.status !== 'Interviewing' || candidate.messageRequestState !== 'none') {
       showToast('Message request is not available for this applicant.', 'warn');
       return;
     }
-    setNotifications((current) => [
-      {
-        id: `notif-${Date.now()}`,
-        type: 'msg',
-        title: 'Message request sent',
-        message: `${candidateId} message request is now pending candidate acceptance.`,
-        time: 'Just now',
-        unread: true,
-      },
-      ...current,
-    ]);
-    showToast(`Message request sent to ${candidateId}.`, 'success');
+    setDraftRequestCandidateId(candidateId);
+    setMessageDraft(`Hi ${candidate.fullName}, we'd like to coordinate next steps for your ${candidate.role} application.`);
     goPage('messages');
     setSelectedThreadId(candidateId);
     closeReview();
+    showToast('Customize your message request, then press Send.', 'success');
   };
 
   const selectThreadFromCandidates = (candidateId: string) => {
@@ -1078,18 +1258,72 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     showToast('No active message thread for this candidate yet.', 'warn');
   };
 
-  const sendMessage = () => {
-    if (!selectedThreadCandidate || selectedThreadCandidate.messageRequestState !== 'accepted') return;
+  const sendMessage = async () => {
+    if (!selectedThreadCandidate || !canSendMessage) return;
     const text = messageDraft.trim();
     if (!text) return;
-    const entry: MessageEntry = { from: 'employer', text, time: 'Just now' };
+    const isRequest = selectedThreadCandidate.id === draftRequestCandidateId && selectedThreadCandidate.messageRequestState === 'none';
+    const { data: savedMessage, error: messageError } = await supabase
+      .from('application_messages')
+      .insert({
+        application_id: selectedThreadCandidate.id,
+        sender_user_id: employer.id,
+        sender_role: 'employer',
+        message_kind: isRequest ? 'request' : 'message',
+        message_text: text,
+      })
+      .select('*')
+      .single();
+
+    if (messageError) {
+      console.warn('Unable to save message:', messageError);
+      showToast('Unable to save message request. Please try again.', 'danger');
+      return;
+    }
+
+    if (isRequest) {
+      const { error: applicationError } = await supabase
+        .from('job_applications')
+        .update({
+          message_request_state: 'pending',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedThreadCandidate.id);
+
+      if (applicationError) {
+        console.warn('Unable to update message request state:', applicationError);
+        showToast('Message saved, but request status could not be updated.', 'warn');
+      }
+    }
+
+    const entry: MessageEntry = savedMessage ? toMessageEntry(savedMessage as ApplicationMessageRow) : { from: 'employer', text, time: 'Just now' };
     setApplications((current) =>
       current.map((candidate) =>
-        candidate.id === selectedThreadCandidate.id ? { ...candidate, messages: [...candidate.messages, entry] } : candidate,
+        candidate.id === selectedThreadCandidate.id
+          ? {
+              ...candidate,
+              messageRequestState: isRequest ? 'pending' : candidate.messageRequestState,
+              messages: [...candidate.messages, entry],
+            }
+          : candidate,
       ),
     );
+    if (isRequest) {
+      setDraftRequestCandidateId('');
+      setNotifications((current) => [
+        {
+          id: `notif-${Date.now()}`,
+          type: 'msg',
+          title: 'Message request sent',
+          message: `${selectedThreadCandidate.id} message request is now pending candidate acceptance.`,
+          time: 'Just now',
+          unread: true,
+        },
+        ...current,
+      ]);
+    }
     setMessageDraft('');
-    showToast('Message sent.', 'success');
+    showToast(isRequest ? 'Message request sent and saved.' : 'Message sent and saved.', 'success');
   };
 
   const requestDeleteEmployerProfile = () => {
@@ -1554,6 +1788,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                       onRemoveNice={(skill) => removeSkillDraft('nice', skill)}
                       onSaveDraft={() => saveJobForm('draft')}
                       onPost={() => saveJobForm('post')}
+                      saving={isSavingJob}
                     />
                   )}
                 </div>
@@ -1780,7 +2015,11 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                             {candidate.role} · <span className={getStatusBadgeClass(candidate.status)}>{candidate.status}</span>
                           </div>
                           <span className={`emp-msg-req ${candidate.messageRequestState}`}>
-                            {candidate.messageRequestState === 'accepted' ? 'Accepted' : 'Request Pending'}
+                            {candidate.id === draftRequestCandidateId && candidate.messageRequestState === 'none'
+                              ? 'Draft Request'
+                              : candidate.messageRequestState === 'accepted'
+                                ? 'Accepted'
+                                : 'Request Pending'}
                           </span>
                         </button>
                       ))
@@ -1801,7 +2040,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                           </h4>
                           <p className="text-xs text-soft">
                             {selectedThreadCandidate.status} · {selectedThreadCandidate.matchPercent}% match · Message request{' '}
-                            {selectedThreadCandidate.messageRequestState === 'accepted' ? 'accepted' : 'pending'}
+                            {isDraftRequestThread ? 'draft' : selectedThreadCandidate.messageRequestState === 'accepted' ? 'accepted' : 'pending'}
                           </p>
                         </div>
                         <div className="emp-msg-hd-actions">
@@ -1816,6 +2055,17 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                         </div>
                       </div>
                       <div className="emp-msg-body">
+                        {isDraftRequestThread && (
+                          <div className="emp-msg-status-box pending">
+                            <div className="mb-1 font-bold">
+                              <UIIcon name="paper-plane" className="mr-1" />
+                              Customize Message Request
+                            </div>
+                            <div className="text-xs">
+                              Type the message you want the candidate to receive. The request will be saved when you press Send.
+                            </div>
+                          </div>
+                        )}
                         {selectedThreadCandidate.messageRequestState === 'pending' && (
                           <div className="emp-msg-status-box pending">
                             <div className="mb-1 font-bold">
@@ -1827,6 +2077,17 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                             </div>
                           </div>
                         )}
+                        {selectedThreadCandidate.messageRequestState !== 'accepted' && selectedThreadCandidate.messages.map((entry, index) => (
+                          <div key={`${selectedThreadCandidate.id}-${index}`} className="flex flex-col">
+                            <div className={`emp-msg-bubble-sender ${entry.from === 'employer' ? 'text-right' : ''}`}>
+                              {entry.from === 'employer' ? `${companyName} HR (You)` : selectedThreadCandidate.id}
+                            </div>
+                            <div className={entry.from === 'employer' ? 'emp-msg-bubble-employer' : 'emp-msg-bubble-candidate'}>
+                              {entry.text}
+                            </div>
+                            <div className={`emp-msg-bubble-time ${entry.from === 'employer' ? 'text-right' : ''}`}>{entry.time}</div>
+                          </div>
+                        ))}
                         {selectedThreadCandidate.messageRequestState === 'accepted' && (
                           <>
                             <div className="emp-msg-status-box accepted">
@@ -1857,7 +2118,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                           rows={1}
                           placeholder={
                             canSendMessage
-                              ? 'Type your message...'
+                              ? isDraftRequestThread ? 'Write your message request...' : 'Type your message...'
                               : 'Waiting for candidate acceptance. Composer is disabled.'
                           }
                           disabled={!canSendMessage}
@@ -2574,6 +2835,7 @@ function JobEditorPanel({
   onRemoveNice,
   onSaveDraft,
   onPost,
+  saving,
 }: {
   editing: boolean;
   form: JobFormState;
@@ -2591,8 +2853,14 @@ function JobEditorPanel({
   onRemoveNice: (skill: string) => void;
   onSaveDraft: () => void;
   onPost: () => void;
+  saving: boolean;
 }) {
   const subcategoryOptions = form.category ? jobSubcategoryMap[form.category] || [] : [];
+  const [salaryMinimum = '', salaryMaximum = ''] = form.salaryRange.split('-');
+  const updateSalaryRange = (field: 'minimum' | 'maximum', value: string) => {
+    const sanitizedValue = value.replace(/[^\d]/g, '');
+    onUpdateForm('salaryRange', field === 'minimum' ? `${sanitizedValue}-${salaryMaximum}` : `${salaryMinimum}-${sanitizedValue}`);
+  };
 
   return (
     <div className="emp-job-editor">
@@ -2610,17 +2878,17 @@ function JobEditorPanel({
       <div className="emp-form-grid">
         <div className="emp-form-group">
           <label className="emp-form-label required">Job Title</label>
-          <input className="emp-input" value={form.title} onChange={(event) => onUpdateForm('title', event.target.value)} placeholder="e.g., Junior Data Analyst" />
+          <input className="emp-input" value={form.title} onChange={(event) => onUpdateForm('title', event.target.value)} placeholder="Enter job title" />
         </div>
         <div className="emp-form-group">
           <label className="emp-form-label required">Category</label>
           <select className="emp-select" value={form.category} onChange={(event) => onUpdateForm('category', event.target.value)}>
             <option value="">Select category</option>
-            <option value="engineering">Engineering</option>
-            <option value="data">Data &amp; Analytics</option>
-            <option value="sales">Sales &amp; Marketing</option>
-            <option value="operations">Operations</option>
-            <option value="design">Design &amp; Creative</option>
+            {jobCategoryOptions.map((category) => (
+              <option key={category.code} value={category.value}>
+                {category.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -2661,19 +2929,57 @@ function JobEditorPanel({
         </div>
         <div className="emp-form-group">
           <label className="emp-form-label required">Location</label>
-          <input className="emp-input" value={form.location} onChange={(event) => onUpdateForm('location', event.target.value)} placeholder="e.g., Makati, NCR" />
+          <input className="emp-input" value={form.location} onChange={(event) => onUpdateForm('location', event.target.value)} placeholder="City, Province" />
         </div>
       </div>
 
       <div className="emp-form-grid">
         <div className="emp-form-group">
           <label className="emp-form-label required">Salary Range</label>
-          <input
-            className="emp-input"
-            value={form.salaryRange}
-            onChange={(event) => onUpdateForm('salaryRange', event.target.value)}
-            placeholder="e.g., PHP 25,000 - PHP 40,000"
-          />
+          <div className="emp-money-range">
+            <div className="emp-money-input">
+              <span className="emp-money-prefix">₱</span>
+              <input
+                className="emp-input"
+                value={salaryMinimum}
+                onChange={(event) => updateSalaryRange('minimum', event.target.value)}
+                onKeyDown={(event) => {
+                  if (['e', 'E', '+', '-', '.'].includes(event.key)) {
+                    event.preventDefault();
+                  }
+                }}
+                placeholder="0"
+                required
+                type="number"
+                min={MIN_EMPLOYER_SALARY}
+                step="1000"
+                inputMode="numeric"
+                aria-label="Minimum salary"
+              />
+            </div>
+            <span className="emp-money-separator">-</span>
+            <div className="emp-money-input">
+              <span className="emp-money-prefix">₱</span>
+              <input
+                className="emp-input"
+                value={salaryMaximum}
+                onChange={(event) => updateSalaryRange('maximum', event.target.value)}
+                onKeyDown={(event) => {
+                  if (['e', 'E', '+', '-', '.'].includes(event.key)) {
+                    event.preventDefault();
+                  }
+                }}
+                placeholder="0"
+                required
+                type="number"
+                min={MIN_EMPLOYER_SALARY}
+                step="1000"
+                inputMode="numeric"
+                aria-label="Maximum salary"
+              />
+            </div>
+          </div>
+          <div className="emp-form-hint">Enter a salary range. Minimum salary is ₱10,000.</div>
         </div>
         <div className="emp-form-group">
           <label className="emp-form-label required">Application Deadline</label>
@@ -2701,7 +3007,7 @@ function JobEditorPanel({
             <input
               className="emp-input"
               value={requiredSkillInput}
-              placeholder="e.g., SQL"
+              placeholder="e.g., SQL, Excel, Python"
               onChange={(event) => onRequiredInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
@@ -2735,7 +3041,7 @@ function JobEditorPanel({
             <input
               className="emp-input"
               value={niceSkillInput}
-              placeholder="e.g., Power BI"
+              placeholder="e.g., Figma, Power BI"
               onChange={(event) => onNiceInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
@@ -2774,13 +3080,13 @@ function JobEditorPanel({
       </div>
 
       <div className="emp-job-editor-actions">
-        <button className="emp-btn-secondary" type="button" onClick={onSaveDraft}>
+        <button className="emp-btn-secondary" type="button" onClick={onSaveDraft} disabled={saving}>
           <UIIcon name="bookmark" />
-          Save Draft
+          {saving ? 'Saving...' : 'Save Draft'}
         </button>
-        <button className="emp-btn-primary" type="button" onClick={onPost}>
+        <button className="emp-btn-primary" type="button" onClick={onPost} disabled={saving}>
           <UIIcon name="paper-plane" />
-          Post Job
+          {saving ? 'Posting...' : 'Post Job'}
         </button>
       </div>
     </div>

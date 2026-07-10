@@ -11,17 +11,31 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { JobMatchRunResults, LearningRecommendation, MatchResultItem, PrioritizedSkillGap, ResumeAnalysisResult } from '../types';
-import { extractMatchPercent, formatMatchPercentLabel, normalizePercentValue } from '../lib/matchScoring';
+import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, formatMatchPercentLabel, parseNumericValue } from '../lib/matchScoring';
 
 type SnapshotStepProps = {
   isLoggedIn: boolean;
+  onSignUp: () => void;
   onViewDashboard: () => void;
 };
 
-function formatMetricPercent(value: unknown): string {
-  const normalized = normalizePercentValue(value);
-  if (normalized === null) return '—';
-  return `${Math.round(normalized)}%`;
+const PRESERVED_ACRONYMS = new Set(['SQL', 'HTML', 'CSS', 'CRM', 'API', 'UI', 'UX', 'HR', 'QA', 'SEO', 'AWS', 'PHP', 'BI', 'ETL']);
+
+function cleanSkillLabel(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const withoutPrefix = trimmed.replace(/^SK[_-]?/i, '');
+  return withoutPrefix
+    .replace(/_/g, ' ')
+    .split(/(\s+|\/|-|\(|\))/)
+    .map((part) => {
+      if (!part.trim()) return part;
+      const upper = part.toUpperCase();
+      if (PRESERVED_ACRONYMS.has(upper)) return upper;
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join('')
+    .trim();
 }
 
 function buildSkillNameLookup(
@@ -57,7 +71,7 @@ function buildSkillNameLookup(
 
 function toSkillLabels(skillIds: string[] | undefined, skillNameLookup: Map<string, string>): string[] {
   if (!Array.isArray(skillIds)) return [];
-  return skillIds.map((skillId) => skillNameLookup.get(skillId) || skillId);
+  return skillIds.map((skillId) => cleanSkillLabel(skillNameLookup.get(skillId) || skillId)).filter(Boolean);
 }
 
 function getMatchedSkillText(match: MatchResultItem, skillNameLookup: Map<string, string>): string {
@@ -65,7 +79,7 @@ function getMatchedSkillText(match: MatchResultItem, skillNameLookup: Map<string
     return toSkillLabels(match.matched_skill_ids, skillNameLookup).slice(0, 6).join(', ');
   }
   if (Array.isArray(match.matched_skills) && match.matched_skills.length > 0) {
-    return match.matched_skills.slice(0, 6).join(', ');
+    return match.matched_skills.map(cleanSkillLabel).slice(0, 6).join(', ');
   }
   return '';
 }
@@ -75,9 +89,33 @@ function getMissingSkillText(match: MatchResultItem, skillNameLookup: Map<string
     return toSkillLabels(match.missing_skill_ids, skillNameLookup).slice(0, 6).join(', ');
   }
   if (Array.isArray(match.missing_skills) && match.missing_skills.length > 0) {
-    return match.missing_skills.slice(0, 6).join(', ');
+    return match.missing_skills.map(cleanSkillLabel).slice(0, 6).join(', ');
   }
   return '';
+}
+
+function getMatchCategoryLabel(matchType: 'fit_now' | 'aspiration', percent: number | null): string {
+  if (percent === null || percent <= 0) return 'Partial Match';
+  if (matchType === 'fit_now') return 'Fit-Now';
+  if (percent >= 60) return 'Aspiration';
+  return 'Partial Match';
+}
+
+function buildMatchExplanation(
+  matchType: 'fit_now' | 'aspiration',
+  matchedText: string,
+  missingText: string,
+): string {
+  const matchedLead = matchedText ? `This role matches your experience in ${matchedText}.` : 'This role connects to your current profile, but no strong matching skills were identified yet.';
+  const missingLead = missingText
+    ? `Strengthening ${missingText} could improve your fit.`
+    : 'No major missing skills were identified from the current analysis.';
+
+  if (matchType === 'fit_now') {
+    return `${matchedLead} ${missingLead}`;
+  }
+
+  return `${matchedLead} Building ${missingText || 'the recommended missing skills'} can help you prepare for similar opportunities.`;
 }
 
 function MatchRow({
@@ -93,6 +131,8 @@ function MatchRow({
   const missingText = getMissingSkillText(match, skillNameLookup);
   const matchPercent = extractMatchPercent(match, matchType);
   const matchPercentLabel = formatMatchPercentLabel(matchPercent);
+  const matchCategoryLabel = getMatchCategoryLabel(matchType, matchPercent);
+  const explanation = buildMatchExplanation(matchType, matchedText, missingText);
 
   return (
     <div className="rounded-lg bg-bg px-4 py-3">
@@ -106,34 +146,37 @@ function MatchRow({
             matchPercent === null ? 'bg-bdr text-soft' : 'bg-rust text-white'
           }`}
         >
-          {matchPercentLabel}
+          {matchPercentLabel} {matchPercent !== null ? `• ${matchCategoryLabel}` : ''}
         </div>
       </div>
-      <div className="mt-2 text-xs leading-relaxed text-soft">
-        Text similarity: {formatMetricPercent(match.text_similarity)} · Skill coverage: {formatMetricPercent(match.skill_coverage)}
-      </div>
       <div className="mt-2 space-y-1 text-xs">
-        <div className="text-green">{matchedText ? `Matched skills: ${matchedText}` : 'Matched skills: Not available yet.'}</div>
-        <div className="text-soft">{missingText ? `Missing skills: ${missingText}` : 'Missing skills: None found (or not provided).'}</div>
+        <div className="text-green">{matchedText ? `Matched Skills: ${matchedText}` : 'Matched Skills: None identified yet.'}</div>
+        <div className="text-soft">{missingText ? `Missing Skills: ${missingText}` : 'Missing Skills: No major missing skills identified.'}</div>
       </div>
+      <div className="mt-2 text-xs leading-relaxed text-soft">{explanation}</div>
     </div>
   );
 }
 
 function SkillGapRow({ gap }: { gap: PrioritizedSkillGap }) {
+  const gapCount = extractSkillGapMatchCount(gap);
+  const gapPercent = extractSkillGapMatchPercent(gap);
+  const gapText =
+    gapCount !== null && gapPercent !== null
+      ? `Missing in ${gapCount} match${gapCount === 1 ? '' : 'es'} (${formatMatchPercentLabel(gapPercent)})`
+      : gapCount !== null
+        ? `Missing in ${gapCount} match${gapCount === 1 ? '' : 'es'}`
+        : gapPercent !== null
+          ? `Match impact: ${formatMatchPercentLabel(gapPercent)}`
+          : 'Missing count not available.';
+
   return (
     <div className="rounded-lg bg-bg px-4 py-3 text-sm">
       <div className="flex items-center justify-between gap-3">
-        <span className="font-semibold text-dark">{gap.skill_name}</span>
+        <span className="font-semibold text-dark">{cleanSkillLabel(gap.skill_name)}</span>
         <span className="text-xs text-soft">{gap.severity || 'To work on'}</span>
       </div>
-      <div className="mt-1 text-xs text-soft">
-        {typeof gap.appears_in_top_matches === 'number'
-          ? `Missing in ${gap.appears_in_top_matches} match${gap.appears_in_top_matches === 1 ? '' : 'es'}`
-          : typeof gap.missing_count === 'number'
-            ? `Missing in ${gap.missing_count} match${gap.missing_count === 1 ? '' : 'es'}`
-            : 'Missing count not available.'}
-      </div>
+      <div className="mt-1 text-xs text-soft">{gapText}</div>
     </div>
   );
 }
@@ -156,7 +199,13 @@ function LearningRow({ recommendation }: { recommendation: LearningRecommendatio
   );
 }
 
-export default function SnapshotStep({ isLoggedIn, onViewDashboard }: SnapshotStepProps) {
+function resolveSnapshotCount(metadataCount: unknown, fallbackItems: unknown[] | undefined): number {
+  const parsedCount = parseNumericValue(metadataCount);
+  if (parsedCount !== null && parsedCount >= 0) return Math.round(parsedCount);
+  return Array.isArray(fallbackItems) ? fallbackItems.length : 0;
+}
+
+export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: SnapshotStepProps) {
   const { state, goToStep } = useOnboarding();
   const resumeAnalysis = state.resumeAnalysis;
   const matchResults = state.matchResults;
@@ -200,6 +249,13 @@ export default function SnapshotStep({ isLoggedIn, onViewDashboard }: SnapshotSt
   const aspirationMatches = reportData.aspiration_matches;
   const skillGaps = reportData.skill_gaps;
   const learningRecommendations = reportData.learning_recommendations;
+  const fullFitNowMatches = matchResults.fit_now_matches || [];
+  const fullSkillGaps = matchResults.skill_gaps || matchResults.prioritized_skill_gaps || [];
+  const fullLearningRecommendations = matchResults.learning_recommendations || [];
+  const fitNowSnapshotCount = resolveSnapshotCount(matchResults.debug_summary?.fit_now_count, fullFitNowMatches);
+  const skillGapSnapshotCount = resolveSnapshotCount(undefined, fullSkillGaps);
+  const learningSnapshotCount = resolveSnapshotCount(undefined, fullLearningRecommendations);
+  const isGuestReport = accessControl?.user_mode === 'guest' || !isLoggedIn;
   const topFitNow = fitNowMatches[0];
   const topFitNowPercent = topFitNow ? extractMatchPercent(topFitNow, 'fit_now') : null;
   const skillNameLookup = buildSkillNameLookup(resumeAnalysis, matchResults);
@@ -221,7 +277,7 @@ export default function SnapshotStep({ isLoggedIn, onViewDashboard }: SnapshotSt
             <FontAwesomeIcon icon={faBullseye} aria-hidden="true" />
           </div>
           <div className="text-sm font-bold text-dark mb-2">Fit-Now Matches</div>
-          <div className="text-4xl font-bold text-rust mb-1">{String(fitNowMatches.length)}</div>
+          <div className="text-4xl font-bold text-rust mb-1">{String(fitNowSnapshotCount)}</div>
           <div className="text-xs text-soft leading-relaxed">
             Best match: {topFitNow?.job_title || 'Not available yet'} {topFitNow ? `at ${formatMatchPercentLabel(topFitNowPercent)}.` : ''}
           </div>
@@ -232,7 +288,7 @@ export default function SnapshotStep({ isLoggedIn, onViewDashboard }: SnapshotSt
             <FontAwesomeIcon icon={faChartLine} aria-hidden="true" />
           </div>
           <div className="text-sm font-bold text-dark mb-2">Skill Gaps Identified</div>
-          <div className="text-4xl font-bold text-rust mb-1">{String(skillGaps.length)}</div>
+          <div className="text-4xl font-bold text-rust mb-1">{String(skillGapSnapshotCount)}</div>
           <div className="text-xs text-soft leading-relaxed">
             Most important: {skillGaps[0]?.skill_name || 'Not available yet'}.
           </div>
@@ -243,7 +299,7 @@ export default function SnapshotStep({ isLoggedIn, onViewDashboard }: SnapshotSt
             <FontAwesomeIcon icon={faGraduationCap} aria-hidden="true" />
           </div>
           <div className="text-sm font-bold text-dark mb-2">Learning Recommendations</div>
-          <div className="text-4xl font-bold text-rust mb-1">{String(learningRecommendations.length)}</div>
+          <div className="text-4xl font-bold text-rust mb-1">{String(learningSnapshotCount)}</div>
           <div className="text-xs text-soft leading-relaxed">Personalized learning options to close your top gaps.</div>
         </div>
       </div>
@@ -322,12 +378,18 @@ export default function SnapshotStep({ isLoggedIn, onViewDashboard }: SnapshotSt
             Save and View Dashboard
           </button>
         </div>
-      ) : (
-        <div className="bg-bg border border-bdr rounded-xl p-4 mb-6 text-center">
-          <div className="text-sm font-bold text-dark mb-1">Want to save this report and view a full dashboard?</div>
-          <div className="text-xs text-soft">Sign up or log in to save progress, applications, and ongoing recommendations.</div>
+      ) : isGuestReport ? (
+        <div className="bg-rust-l border border-rust rounded-xl p-4 mb-6 text-center">
+          <div className="text-sm font-bold text-rust mb-3">Sign up to save this report and view your full dashboard.</div>
+          <button
+            type="button"
+            onClick={onSignUp}
+            className="inline-flex items-center justify-center gap-1.5 bg-rust text-white font-bold py-3 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150"
+          >
+            Sign up to Save Report
+          </button>
         </div>
-      )}
+      ) : null}
 
       <button
         onClick={() => goToStep(3)}

@@ -220,8 +220,7 @@ def load_skills_reference() -> set[str]:
 def get_model_resources() -> tuple[pd.DataFrame, set[str], TfidfVectorizer, Any]:
     df = load_jobs_dataset()
     df, skill_vocabulary = prepare_features(df)
-
-    # augment skill vocabulary with external skills reference (if available)
+    
     try:
         skills_ref = load_skills_reference()
         if skills_ref:

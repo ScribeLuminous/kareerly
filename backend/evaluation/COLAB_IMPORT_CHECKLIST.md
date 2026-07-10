@@ -9,27 +9,27 @@ Below are the backend files needed to run the current baseline pipeline in Colab
 
 ### Core baseline modules
 
-- `backend/app/resume_parser.py`
+- `backend/app/services/resume_parser.py`
   - **Purpose:** Extracts and cleans resume text from PDF/DOCX.
   - **Key functions:** `extract_text_from_pdf`, `extract_text_from_docx`, `extract_resume_text`, `clean_resume_text`, `normalize_for_matching`.
   - **Local imports:** none.
 
-- `backend/app/skill_extractor.py`
+- `backend/app/services/skill_extractor.py`
   - **Purpose:** Loads `skills_reference.csv`, builds alias index, extracts matched skills from resume sections.
   - **Key functions/classes:** `SkillExtractor` (`_load_skills_reference`, `_build_alias_index`, `extract_skills_from_sections`), `_normalize_alias`, `_split_alias_terms`.
   - **Local imports:** none.
 
-- `backend/app/resume_analyzer.py`
+- `backend/app/services/resume_analyzer.py`
   - **Purpose:** End-to-end resume analysis wrapper (section detection + skill extraction + normalized text output).
   - **Key functions:** `analyze_resume_file`, `detect_resume_sections`, `extract_education_indicators`, `extract_certification_indicators`, `extract_experience_indicators`.
-  - **Local imports:** `backend/app/skill_extractor.py`, `backend/app/resume_parser.py`.
+  - **Local imports:** `backend/app/services/skill_extractor.py`, `backend/app/services/resume_parser.py`.
 
-- `backend/app/job_matcher.py`
+- `backend/app/services/job_matcher.py`
   - **Purpose:** Loads TF-IDF artifacts, computes cosine similarity, computes Fit-Now/Aspiration, builds skill gaps and recommendations.
   - **Key functions/classes:** `JobMatcher` (`_load_vectorizer`, `_load_job_matrix`, `_load_jobs`, `match_jobs`), module functions `match_jobs`, `list_available_jobs`, `role_or_industry_preference_score`, `work_setup_preference_score`.
-  - **Local imports:** `backend/app/learning_recommender.py`.
+  - **Local imports:** `backend/app/services/learning_recommender.py`.
 
-- `backend/app/learning_recommender.py`
+- `backend/app/services/learning_recommender.py`
   - **Purpose:** Skill coverage, gap prioritization, and course recommendation scoring.
   - **Key functions:** `compute_skill_coverage_by_id`, `add_skill_gap_fields`, `prioritize_skill_gaps`, `recommend_learning_resources`, `compute_certification_score`.
   - **Local imports:** none.
@@ -39,14 +39,9 @@ Below are the backend files needed to run the current baseline pipeline in Colab
 - `backend/app/main.py`
   - **Purpose:** FastAPI app routes (`/api/resume/analyze`, `/api/matches/run`, etc.) using baseline modules.
   - **Key functions:** `analyze_resume`, `run_matches`, `search_skills`, `jobs_list`, `_is_valid_certificate_pdf`.
-  - **Local imports:** `backend/app/job_matcher.py`, `backend/app/resume_analyzer.py`, `backend/app/schemas.py`, `backend/app/skill_extractor.py`.
+  - **Local imports:** `backend/app/services/job_matcher.py`, `backend/app/services/resume_analyzer.py`, `backend/app/models/schemas.py`, `backend/app/services/skill_extractor.py`.
 
-- `backend/main.py`
-  - **Purpose:** Alternate FastAPI entrypoint using the same backend modules.
-  - **Key functions:** `analyze_resume`, `run_matches`, `jobs_list`, `_is_valid_certificate_pdf`.
-  - **Local imports:** `backend/app/job_matcher.py`, `backend/app/resume_analyzer.py`, `backend/app/skill_extractor.py`.
-
-- `backend/app/schemas.py`
+- `backend/app/models/schemas.py`
   - **Purpose:** Request/response schema models for API validation (`RunMatchesRequest`, etc.).
   - **Local imports:** none.
 
@@ -60,7 +55,7 @@ Below are the backend files needed to run the current baseline pipeline in Colab
 
 - `backend/data/skills_reference.csv`
   - **Purpose:** Canonical skill IDs, names, and aliases for extraction + gap metadata.
-  - **Loaded by:** `backend/app/skill_extractor.py`, `backend/app/learning_recommender.py`.
+  - **Loaded by:** `backend/app/services/skill_extractor.py`, `backend/app/services/learning_recommender.py`.
   - **Required columns (used in code):**
     - `skill_id`, `skill_name`
     - `skill_category`, `skill_subcategory`
@@ -69,7 +64,7 @@ Below are the backend files needed to run the current baseline pipeline in Colab
 
 - `backend/data/learning_resources.csv`
   - **Purpose:** Candidate course/certification options used in recommendation ranking.
-  - **Loaded by:** `backend/app/learning_recommender.py`.
+  - **Loaded by:** `backend/app/services/learning_recommender.py`.
   - **Required columns (used in code):**
     - `resource_id`, `skill_ids`
     - `course_or_certification_title`, `course_or_certification_description`
@@ -79,9 +74,9 @@ Below are the backend files needed to run the current baseline pipeline in Colab
     - `external_course_or_certification_link`
   - **Status:** Required.
 
-- `backend/models/job_index.csv`
+- `backend/baseline_models/job_index.csv`
   - **Purpose:** Job metadata rows aligned to TF-IDF matrix rows.
-  - **Loaded by:** `backend/app/job_matcher.py`.
+  - **Loaded by:** `backend/app/services/job_matcher.py`.
   - **Required columns (code defaults if missing):**
     - `job_id`, `job_title`, `job_category`, `job_subcategory`
     - `location`, `work_type`, `source_dataset`
@@ -94,7 +89,7 @@ Below are the backend files needed to run the current baseline pipeline in Colab
 
 - `backend/data/reference_jobs.csv`
   - **Purpose:** Fallback source for skill ID fields if `job_index.csv` lacks `required_skill_ids`.
-  - **Loaded by:** `backend/app/job_matcher.py` (only if needed and file exists).
+  - **Loaded by:** `backend/app/services/job_matcher.py` (only if needed and file exists).
   - **Columns used for merge when present:**
     - `job_id`, `required_skill_ids`, `nice_to_have_skill_ids`
     - `mapped_required_skill_names`, `mapped_nice_to_have_skill_names`
@@ -103,22 +98,22 @@ Below are the backend files needed to run the current baseline pipeline in Colab
 
 ## 3) Required model artifacts
 
-- `backend/models/tfidf_vectorizer.joblib`
+- `backend/baseline_models/tfidf_vectorizer.joblib`
   - **Purpose:** Saved TF-IDF vectorizer used to transform resume text.
-  - **Loaded by:** `backend/app/job_matcher.py` (`_load_vectorizer`).
+  - **Loaded by:** `backend/app/services/job_matcher.py` (`_load_vectorizer`).
   - **If missing:** `FileNotFoundError`, matcher initialization fails.
 
-- `backend/models/job_tfidf_matrix.npz`
+- `backend/baseline_models/job_tfidf_matrix.npz`
   - **Purpose:** Sparse TF-IDF matrix for all indexed jobs.
-  - **Loaded by:** `backend/app/job_matcher.py` (`_load_job_matrix`).
+  - **Loaded by:** `backend/app/services/job_matcher.py` (`_load_job_matrix`).
   - **If missing:** `FileNotFoundError`, matcher initialization fails.
 
-- `backend/models/job_index.csv`
+- `backend/baseline_models/job_index.csv`
   - **Purpose:** Row-aligned job metadata referenced by similarity index.
-  - **Loaded by:** `backend/app/job_matcher.py` (`_load_jobs`).
+  - **Loaded by:** `backend/app/services/job_matcher.py` (`_load_jobs`).
   - **If missing:** `FileNotFoundError`, matcher initialization fails.
 
-- `backend/models/model_metadata.json`
+- `backend/baseline_models/model_metadata.json`
   - **Purpose:** Metadata/documentation of training/model settings.
   - **Loaded by runtime:** not required by current app modules.
   - **If missing:** runtime unaffected; metadata/reporting loses provenance.
@@ -183,7 +178,7 @@ PROJECT_DIR = Path("/content/drive/MyDrive/kareerly_system")
 BACKEND_DIR = PROJECT_DIR / "backend"
 APP_DIR = BACKEND_DIR / "app"
 DATA_DIR = BACKEND_DIR / "data"
-MODELS_DIR = BACKEND_DIR / "models"
+MODELS_DIR = BACKEND_DIR / "baseline_models"
 EVAL_DIR = BACKEND_DIR / "evaluation"
 
 if str(BACKEND_DIR) not in sys.path:
@@ -197,11 +192,11 @@ print("MODELS_DIR:", MODELS_DIR)
 print("EVAL_DIR:", EVAL_DIR)
 
 # --- Import smoke test ---
-from app.resume_parser import extract_resume_text, normalize_for_matching
-from app.skill_extractor import SkillExtractor
-from app.resume_analyzer import analyze_resume_file
-from app.learning_recommender import recommend_learning_resources
-from app.job_matcher import JobMatcher, match_jobs
+from app.services.resume_parser import extract_resume_text, normalize_for_matching
+from app.services.skill_extractor import SkillExtractor
+from app.services.resume_analyzer import analyze_resume_file
+from app.services.learning_recommender import recommend_learning_resources
+from app.services.job_matcher import JobMatcher, match_jobs
 
 print("✅ Baseline backend imports succeeded.")
 ```
@@ -232,15 +227,15 @@ Minimum required:
 - `backend/app/` (entire folder)
 - `backend/data/skills_reference.csv`
 - `backend/data/learning_resources.csv`
-- `backend/models/tfidf_vectorizer.joblib`
-- `backend/models/job_tfidf_matrix.npz`
-- `backend/models/job_index.csv`
+- `backend/baseline_models/tfidf_vectorizer.joblib`
+- `backend/baseline_models/job_tfidf_matrix.npz`
+- `backend/baseline_models/job_index.csv`
 - `backend/evaluation/colab_import_test.py`
 
 Strongly recommended:
 
 - `backend/data/reference_jobs.csv`
-- `backend/models/model_metadata.json`
+- `backend/baseline_models/model_metadata.json`
 - `backend/evaluation/sample_resumes/`
 - `backend/evaluation/expected_skills.csv`
 - `backend/evaluation/expected_job_matches.csv`

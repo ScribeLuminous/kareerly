@@ -41,15 +41,18 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, runJobMatches, validateCertificateFile } from '../lib/api';
+import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, runJobMatches, runMatchesFromResume, validateCertificateFile } from '../lib/api';
 import type { AvailableJobItem } from '../lib/api';
-import type { LearningRecommendation as RunLearningRecommendation } from '../types';
-import { extractMatchPercent, formatMatchPercentLabel } from '../lib/matchScoring';
+import { supabase } from '../lib/supabase';
+import { updateCandidateProfile } from '../lib/auth';
+import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
+import type { DevelopmentProgressRecord, LearningRecommendation as RunLearningRecommendation } from '../types';
+import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
 import type { CourseRecommendation, JobMatch, MatchResultItem, ParsedResume, PrioritizedSkillGap, SkillGap, SurveyAnswers } from '../types';
 import './candidate-dashboard-v5.css';
 
 type DashboardProps = {
-  currentUser: { name: string; email: string } | null;
+  currentUser: { id?: string; name: string; email: string } | null;
   onHome: () => void;
   onLogin: () => void;
   onSignUp: () => void;
@@ -68,7 +71,7 @@ type DashboardPage =
   | 'upskilling'
   | 'messages';
 
-type JobFilter = 'all' | 'fit-now' | 'aspiration' | 'internal' | 'external' | 'saved';
+type JobFilter = 'top' | 'fit-now' | 'aspiration' | 'all' | 'internal' | 'external' | 'saved';
 type UpskillTab = 'recommended' | 'inprogress' | 'completed' | 'by-gap';
 type ToastType = '' | 'success' | 'warn' | 'danger';
 type ApplicationStatus = 'Pending' | 'Shortlisted' | 'Interviewing' | 'Hired' | 'Rejected' | 'Withdrawn';
@@ -119,15 +122,21 @@ type IconName =
 
 type DashboardJob = {
   id: string;
+  jobSource: 'internal' | 'employer';
   title: string;
   company: string;
   location: string;
   setup: string;
+  employmentType?: string;
   salary: string;
   matchScore: number;
   hasMatchScore: boolean;
   matchCategory: 'fit-now' | 'aspiration';
   sourceType: 'internal' | 'external';
+  requiredSkills: string[];
+  preferredSkills: string[];
+  responsibilities: string[];
+  description?: string;
   matchedSkills: string[];
   missingSkills: string[];
   explanation: string;
@@ -144,9 +153,16 @@ type DashboardGap = {
   skill: string;
   severity: SeverityLevel;
   affectedCount: number;
+  affectedPercent?: number;
+  priorityScore?: number;
+  categoryName?: string;
+  requirementImportance?: string;
+  learningResourceAvailable?: boolean;
   recommendedLevel: string;
   category: SkillCategory;
   relatedJobs: string[];
+  topResources?: DashboardCourse[];
+  skillId?: string;
 };
 
 type DashboardCourse = {
@@ -162,9 +178,38 @@ type DashboardCourse = {
   source: 'backend';
 };
 
+type CategoryProgressRow = {
+  category: SkillCategory;
+  percent: number;
+  missing: number;
+  matched: number;
+  completed: number;
+  inProgress: number;
+  evidenceUploaded: number;
+  relatedSkillRecords: string[];
+  recentActivity?: string;
+};
+
+type SkillProgressStatus = 'missing' | 'started' | 'in_progress' | 'completed' | 'evidenced' | 'covered';
+
+type SkillProgressRecord = {
+  skillId?: string;
+  skillName: string;
+  category: SkillCategory;
+  categoryName?: string;
+  status: SkillProgressStatus;
+  progressPercent: number;
+  selectedResourceId?: string;
+  evidenceFilename?: string;
+  evidenceUploadedAt?: string;
+};
+
+type EvidenceType = 'Certificate' | 'Course Completion' | 'Portfolio' | 'Project' | 'Training' | 'Other';
+
 type DashboardApplication = {
   id: string;
   jobId: string;
+  jobSource: 'internal' | 'employer';
   jobTitle: string;
   company: string;
   matchScore: number;
@@ -173,30 +218,77 @@ type DashboardApplication = {
   sourceType: 'internal' | 'external';
 };
 
+type JobApplicationRow = {
+  id: string;
+  user_id: string;
+  job_source: 'internal' | 'employer';
+  job_id: string;
+  job_title?: string | null;
+  company_name?: string | null;
+  candidate_name?: string | null;
+  candidate_email?: string | null;
+  candidate_location?: string | null;
+  match_score?: number | null;
+  matched_skills?: string[] | null;
+  missing_skills?: string[] | null;
+  status?: string | null;
+  created_at?: string | null;
+  applied_at?: string | null;
+};
+
 type EvidenceUploadRecord = {
   id: string;
   title: string;
+  evidenceType: EvidenceType;
+  relatedSkill: string;
+  category: string;
   uploadedAt: string;
+  notes?: string;
+  fileName?: string;
+  fileUrl?: string;
   status: 'Pending Verification' | 'Verified';
+};
+
+const PROGRESS_EMPTY_TEXT = 'No skill progress recorded yet. Your development progress will appear here after you start a recommended course, upload evidence, or update your resume with newly gained skills.';
+const SKILL_PROGRESS_PERCENT: Record<SkillProgressStatus, number> = {
+  missing: 0,
+  started: 10,
+  in_progress: 35,
+  completed: 70,
+  evidenced: 90,
+  covered: 100,
 };
 
 type ResumeAnalyzeResponse = Awaited<ReturnType<typeof analyzeResume>>;
 
 const defaultSurveyAnswers: SurveyAnswers = {
-  industry: 'tech',
-  role: 'data analyst',
-  setup: 'remote',
-  salary: 'entry',
-  skill: 'python',
+  industry: '',
+  role: '',
+  setup: '',
+  salary: '',
+  skill: '',
 };
 
 const industryLabels: Record<string, string> = {
-  tech: 'Technology & Software',
-  finance: 'Finance & Banking',
-  bpo: 'BPO & Customer Service',
-  healthcare: 'Healthcare & Medical',
+  tech: 'Technology, Data, Business & Finance',
+  finance: 'Technology, Data, Business & Finance',
+  bpo: 'Sales, Marketing, Customer Service & Creative Media',
+  healthcare: 'Education, Healthcare, Hospitality & Community Services',
+  'tech-business-finance': 'Technology, Data, Business & Finance',
+  'sales-marketing-service-creative': 'Sales, Marketing, Customer Service & Creative Media',
+  'education-healthcare-hospitality-community': 'Education, Healthcare, Hospitality & Community Services',
+  'engineering-manufacturing-agriculture-logistics': 'Engineering, Manufacturing, Agriculture, Logistics & Field Operations',
+  'public-service-legal-protective-other': 'Public Service, Legal, Protective Services & Other',
   other: 'Other',
 };
+
+const careerAreaOptions = [
+  { value: 'tech-business-finance', label: 'Technology, Data, Business & Finance' },
+  { value: 'sales-marketing-service-creative', label: 'Sales, Marketing, Customer Service & Creative Media' },
+  { value: 'education-healthcare-hospitality-community', label: 'Education, Healthcare, Hospitality & Community Services' },
+  { value: 'engineering-manufacturing-agriculture-logistics', label: 'Engineering, Manufacturing, Agriculture, Logistics & Field Operations' },
+  { value: 'public-service-legal-protective-other', label: 'Public Service, Legal, Protective Services & Other' },
+] as const;
 
 const setupLabels: Record<string, string> = {
   remote: '100% Work from Home',
@@ -261,11 +353,139 @@ function UIIcon({ name, className = '' }: { name: IconName; className?: string }
 }
 
 function normalizeSkill(value: string): string {
-  return value.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim();
+  return cleanSkillDisplayName(value).toLowerCase().replace(/\s*\([^)]*\)/g, '').trim();
 }
 
+const PRESERVED_ACRONYMS = new Set(['SQL', 'HTML', 'CSS', 'CRM', 'API', 'UI', 'UX', 'HR', 'QA', 'SEO', 'AWS', 'PHP', 'BI', 'ETL', 'PDF']);
+
 function titleCase(value: string): string {
-  return value.replace(/\b\w/g, (char) => char.toUpperCase());
+  return value
+    .split(/(\s+|\/|-|\(|\))/)
+    .map((part) => {
+      if (!part.trim()) return part;
+      const upper = part.toUpperCase();
+      if (PRESERVED_ACRONYMS.has(upper)) return upper;
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join('');
+}
+
+function cleanSkillDisplayName(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const withoutPrefix = trimmed.replace(/^SK[_-]?/i, '');
+  const normalized = withoutPrefix.replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return titleCase(normalized);
+}
+
+function cleanSkillList(skills: string[]): string[] {
+  return skills.map(cleanSkillDisplayName).filter(Boolean);
+}
+
+function extractStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => extractStringList(item)).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/\r?\n|;|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function getMatchReadinessLabel(score: number): string {
+  if (score >= 90) return 'Excellent Match';
+  if (score >= 80) return 'Strong Match';
+  if (score >= 60) return 'Good Match';
+  if (score >= 40) return 'Growth Match';
+  if (score >= 1) return 'Partial Match';
+  return 'Match pending';
+}
+
+function getMatchReadinessClass(score: number): string {
+  if (score >= 80) return 'top';
+  if (score >= 60) return 'good';
+  if (score >= 1) return 'partial';
+  return 'develop';
+}
+
+function getMatchBadgeLabel(job: DashboardJob): string {
+  const score = job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : 0;
+  return `${score}% · ${getMatchReadinessLabel(score)}`;
+}
+
+function getConfidenceLabel(job: DashboardJob): 'High' | 'Medium' | 'Low' {
+  if (job.matchScore >= 80 && job.matchedSkills.length >= 2) return 'High';
+  if (job.matchScore >= 50 || job.matchedSkills.length > 0) return 'Medium';
+  return 'Low';
+}
+
+function buildJobExplanation(job: DashboardJob): string {
+  const score = job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : 0;
+  const matchedCount = job.matchedSkills.length;
+  const missingCount = job.missingSkills.length;
+  const firstMissing = cleanSkillDisplayName(job.missingSkills[0] || '');
+
+  if (score >= 80) {
+    return `Your profile aligns well with this role because ${matchedCount > 0 ? 'many important skills are already present' : 'your background is closely related'}. ${firstMissing ? `Strengthening ${firstMissing} can improve your readiness even further.` : 'You appear close to role-ready based on your current profile.'}`;
+  }
+
+  if (score >= 60) {
+    return `You already have several important skills for this role. ${firstMissing ? `Improving ${firstMissing}${missingCount > 1 ? ' and the other missing skills' : ''} can make you a stronger candidate.` : 'A little more targeted preparation can strengthen your readiness.'}`;
+  }
+
+  if (job.matchCategory === 'aspiration') {
+    return `This role aligns with your career interests, although additional skills are still needed. ${firstMissing ? `Start by building ${firstMissing} to prepare for similar opportunities.` : 'The recommended learning pathways can help you prepare for similar opportunities.'}`;
+  }
+
+  return `This role has some connection to your current profile, but several key skills are still missing. ${firstMissing ? `Completing learning steps for ${firstMissing} can improve your compatibility with similar roles.` : 'Completing the recommended learning steps can improve your compatibility with similar roles.'}`;
+}
+
+function buildKareerGuidanceHeading(job: DashboardJob): 'Why this job matches you' | 'Current Alignment' {
+  if (job.hasMatchScore && (job.matchScore > 0 || job.matchedSkills.length > 0)) return 'Why this job matches you';
+  return 'Current Alignment';
+}
+
+function buildKareerGuidanceText(job: DashboardJob): string {
+  if (job.hasMatchScore && (job.matchScore > 0 || job.matchedSkills.length > 0)) {
+    return buildJobExplanation(job);
+  }
+  return 'This role is not currently among your strongest matches because several required skills have not yet been identified in your profile. You can still apply if you are interested, or use the recommended learning pathway to improve your readiness.';
+}
+
+function buildKareerScoreSupport(job: DashboardJob): string {
+  if (!job.hasMatchScore) return 'Kareerly provides guidance only. You are still welcome to explore and apply for this opportunity.';
+  if (job.matchScore >= 80) return "You appear to meet many of the employer's requirements.";
+  if (job.matchScore >= 60) return 'You meet several requirements but may benefit from strengthening some skills.';
+  return 'This role may require additional skills, but you are still welcome to apply.';
+}
+
+function getRecommendedNextStep(job: DashboardJob): string {
+  const firstMissing = cleanSkillDisplayName(job.missingSkills[0] || '');
+  if (firstMissing) return `Start with ${firstMissing} because it is one of the clearest skills to improve for this role.`;
+  if (job.matchedSkills.length > 0) return `Build on your current strengths and keep your resume updated as you gain more related experience.`;
+  return 'Review the recommended learning pathways to build stronger alignment with similar roles.';
+}
+
+function getCareerGuidance(job: DashboardJob): string {
+  if (job.matchScore >= 80 && job.missingSkills.length <= 2) return 'You are already a strong candidate for this role.';
+  if (job.missingSkills.length > 0 && job.missingSkills.length <= 3) return `This role is achievable after improving ${job.missingSkills.length === 1 ? 'one key skill' : `${job.missingSkills.length} key skills`}.`;
+  if (job.missingSkills.length > 0) return `Consider completing the recommended ${cleanSkillDisplayName(job.missingSkills[0])} learning pathway before applying.`;
+  return 'You can apply now while continuing to strengthen your profile over time.';
+}
+
+function getLearningForJob(job: DashboardJob, courses: DashboardCourse[]): DashboardCourse[] {
+  const missing = job.missingSkills.map((skill) => normalizeSkill(skill));
+  if (missing.length === 0) return courses.slice(0, 3);
+  const matched = courses.filter((course) => missing.some((skill) => normalizeSkill(course.gapTag).includes(skill) || skill.includes(normalizeSkill(course.gapTag))));
+  return (matched.length > 0 ? matched : courses).slice(0, 3);
+}
+
+function formatGapMissingCount(gap: DashboardGap): string {
+  return `Missing in ${gap.affectedCount} match${gap.affectedCount === 1 ? '' : 'es'}`;
 }
 
 function scoreColorClass(score: number): string {
@@ -276,7 +496,7 @@ function scoreColorClass(score: number): string {
 }
 
 function getMatchScoreBadge(job: DashboardJob): string {
-  return formatMatchPercentLabel(job.hasMatchScore ? job.matchScore : null);
+  return getMatchBadgeLabel(job);
 }
 
 function getMatchScoreColor(job: DashboardJob): string {
@@ -418,7 +638,7 @@ function inferJobMetadata(title: string, matchedSkills: string[], missingSkills:
       category: 'Data & Analytics',
       subCategory: /business intelligence|bi/.test(value) ? 'Business Intelligence' : /research/.test(value) ? 'Research & Statistics' : 'Data Analysis',
       jobLevel: /senior|lead/.test(value) ? 'Senior' : /junior/.test(value) ? 'Junior' : /trainee|intern/.test(value) ? 'Trainee' : 'Entry Level',
-      niceToHaveSkills: ['Data Storytelling', 'Dashboard Design', 'Stakeholder Communication'],
+      niceToHaveSkills: [],
     };
   }
 
@@ -427,7 +647,7 @@ function inferJobMetadata(title: string, matchedSkills: string[], missingSkills:
       category: 'Engineering',
       subCategory: 'Data Engineering',
       jobLevel: /senior|lead/.test(value) ? 'Senior' : /junior/.test(value) ? 'Junior' : 'Mid-Level',
-      niceToHaveSkills: ['Cloud Data Warehouse', 'CI/CD Pipelines', 'Data Governance'],
+      niceToHaveSkills: [],
     };
   }
 
@@ -436,7 +656,7 @@ function inferJobMetadata(title: string, matchedSkills: string[], missingSkills:
       category: 'Operations & Support',
       subCategory: 'Technical Support',
       jobLevel: /senior|lead/.test(value) ? 'Senior' : 'Entry Level',
-      niceToHaveSkills: ['Customer Support Tools', 'Incident Management', 'Documentation'],
+      niceToHaveSkills: [],
     };
   }
 
@@ -444,7 +664,7 @@ function inferJobMetadata(title: string, matchedSkills: string[], missingSkills:
     category: 'General Opportunities',
     subCategory: 'Career Path',
     jobLevel: 'Entry to Mid-Level',
-    niceToHaveSkills: ['Communication', 'Problem Solving', 'Adaptability'],
+    niceToHaveSkills: [],
   };
 }
 
@@ -455,29 +675,43 @@ function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration')
   const metaText = `${match.company || ''} ${match.job_title || ''} ${match.explanation || ''}`.trim();
   const dynamic = match as unknown as Record<string, unknown>;
   const externalUrl = typeof dynamic.job_url === 'string' ? dynamic.job_url : typeof dynamic.url === 'string' ? dynamic.url : undefined;
-  const sourceType = getInternalExternalHint(metaText);
+  const jobSource = dynamic.job_source === 'employer' ? 'employer' : 'internal';
+  const sourceType: 'internal' | 'external' = externalUrl ? 'external' : getInternalExternalHint(metaText);
   const location = match.location || 'Location not specified';
   const setup = location.toLowerCase().includes('remote') ? 'Remote' : location.toLowerCase().includes('hybrid') ? 'Hybrid' : 'Onsite';
-  const matchedSkills = (match.matched_skills || []).map(titleCase);
-  const missingSkills = (match.missing_skills || []).map(titleCase);
+  const matchedSkills = cleanSkillList(match.matched_skills || []);
+  const missingSkills = cleanSkillList(match.missing_skills || []);
+  const requiredSkills = Array.from(new Set([...cleanSkillList(extractStringList(match.required_skills)), ...matchedSkills, ...missingSkills]));
+  const preferredSkills = cleanSkillList(extractStringList(match.preferred_skills));
+  const responsibilities = extractStringList((match as unknown as Record<string, unknown>).responsibilities);
   const inferredMeta = inferJobMetadata(match.job_title || '', matchedSkills, missingSkills);
   const categoryLabel = typeof dynamic.category === 'string' && dynamic.category.trim() ? dynamic.category : inferredMeta.category;
   const subCategoryLabel = typeof dynamic.sub_category === 'string' && dynamic.sub_category.trim() ? dynamic.sub_category : inferredMeta.subCategory;
   const jobLevel = typeof dynamic.job_level === 'string' && dynamic.job_level.trim() ? dynamic.job_level : inferredMeta.jobLevel;
   return {
     id: match.job_id || `${match.job_title}-${match.company}-${category}`,
+    jobSource,
     title: match.job_title || 'Untitled role',
     company: match.company || 'Unknown company',
     location,
     setup,
-    salary: 'Salary varies by employer',
+    employmentType: titleCase(match.employment_type || 'Not specified'),
+    salary: typeof dynamic.salary_range_monthly_php === 'string' && dynamic.salary_range_monthly_php.trim() ? dynamic.salary_range_monthly_php : 'Salary varies by employer',
     matchScore: score,
     hasMatchScore: normalizedScore !== null,
     matchCategory: category,
     sourceType,
+    requiredSkills,
+    preferredSkills,
+    responsibilities,
+    description: typeof (match as unknown as Record<string, unknown>).job_description === 'string'
+      ? String((match as unknown as Record<string, unknown>).job_description)
+      : typeof (match as unknown as Record<string, unknown>).description === 'string'
+        ? String((match as unknown as Record<string, unknown>).description)
+        : undefined,
     matchedSkills,
     missingSkills,
-    explanation: match.explanation || 'Match explanation is not available yet.',
+    explanation: match.explanation || '',
     category: titleCase(categoryLabel),
     subCategory: titleCase(subCategoryLabel),
     jobLevel: titleCase(jobLevel),
@@ -489,23 +723,30 @@ function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration')
 function mapModelMatch(match: JobMatch): DashboardJob {
   const score = Math.max(0, Math.min(100, Math.round(match.matchScore)));
   const category: 'fit-now' | 'aspiration' = score >= 75 ? 'fit-now' : 'aspiration';
-  const matchedSkills = (match.requiredSkills || []).filter((skill) => !(match.missingSkills || []).includes(skill)).map(titleCase);
-  const missingSkills = (match.missingSkills || []).map(titleCase);
+  const matchedSkills = cleanSkillList((match.requiredSkills || []).filter((skill) => !(match.missingSkills || []).includes(skill)));
+  const missingSkills = cleanSkillList(match.missingSkills || []);
+  const requiredSkills = Array.from(new Set([...matchedSkills, ...missingSkills]));
   const inferredMeta = inferJobMetadata(match.title, matchedSkills, missingSkills);
   return {
     id: match.id,
+    jobSource: 'internal',
     title: match.title,
     company: match.company || 'Unknown company',
     location: 'Philippines',
     setup: 'Flexible',
+    employmentType: 'Not specified',
     salary: 'Salary varies by employer',
     matchScore: score,
     hasMatchScore: true,
     matchCategory: category,
     sourceType: 'internal',
+    requiredSkills,
+    preferredSkills: [],
+    responsibilities: [],
+    description: undefined,
     matchedSkills,
     missingSkills,
-    explanation: score >= 75 ? 'Strong alignment with your current profile and skill set.' : 'Aspiration role with specific skill gaps to close.',
+    explanation: '',
     category: inferredMeta.category,
     subCategory: inferredMeta.subCategory,
     jobLevel: inferredMeta.jobLevel,
@@ -519,22 +760,31 @@ function mapAvailableJob(job: AvailableJobItem): DashboardJob {
   const workType = (job.work_type || '').toLowerCase();
   const setup = workType.includes('remote') ? 'Remote' : workType.includes('hybrid') ? 'Hybrid' : workType.includes('onsite') || workType.includes('on-site') ? 'Onsite' : 'Flexible';
   const sourceType: 'internal' | 'external' = job.external_job_link_optional ? 'external' : 'internal';
-  const requiredSkills = Array.isArray(job.required_skills) ? job.required_skills.map(titleCase).slice(0, 12) : [];
+  const jobSource: 'internal' | 'employer' = job.job_source === 'employer' ? 'employer' : 'internal';
+  const requiredSkills = Array.isArray(job.required_skills) ? cleanSkillList(job.required_skills).slice(0, 12) : [];
+  const preferredSkills = cleanSkillList(extractStringList(job.preferred_skills));
+  const responsibilities = extractStringList(job.responsibilities);
 
   return {
     id: job.job_id || `${job.job_title}-${job.company_name || 'company'}`,
+    jobSource,
     title: job.job_title || 'Untitled role',
     company: job.company_name || 'Kareerly Partner Employer',
     location,
     setup,
+    employmentType: titleCase(job.employment_type || 'Not specified'),
     salary: job.salary_range_monthly_php || 'Salary varies by employer',
     matchScore: 0,
     hasMatchScore: false,
     matchCategory: 'aspiration',
     sourceType,
-    matchedSkills: requiredSkills,
-    missingSkills: [],
-    explanation: 'This role is available in the current Kareerly job database and can be explored without resume upload.',
+    requiredSkills,
+    preferredSkills,
+    responsibilities,
+    description: job.job_description || job.description || undefined,
+    matchedSkills: [],
+    missingSkills: requiredSkills,
+    explanation: 'This role is available from the current internal jobs table and can be explored without resume upload.',
     category: titleCase(job.job_category || 'General Opportunities'),
     subCategory: titleCase(job.job_subcategory || 'Career Path'),
     jobLevel: titleCase(job.experience_level_required || 'Entry Level'),
@@ -543,15 +793,132 @@ function mapAvailableJob(job: AvailableJobItem): DashboardJob {
   };
 }
 
+function mergeSupabaseJobDetails(job: DashboardJob, detail?: AvailableJobItem): DashboardJob {
+  if (!detail) return job;
+  const requiredSkills = Array.isArray(detail.required_skills) ? cleanSkillList(detail.required_skills) : cleanSkillList(extractStringList(detail.required_skills));
+  const preferredSkills = cleanSkillList(extractStringList(detail.preferred_skills));
+  const responsibilities = extractStringList(detail.responsibilities);
+  const workType = detail.work_type || detail.work_setup || '';
+  const setup = workType || job.setup;
+
+  return {
+    ...job,
+    title: detail.job_title || job.title,
+    company: detail.company_name || job.company,
+    location: detail.location || job.location,
+    setup,
+    employmentType: titleCase(detail.employment_type || job.employmentType || 'Not specified'),
+    salary: detail.salary_range_monthly_php || job.salary,
+    requiredSkills: requiredSkills.length > 0 ? requiredSkills : job.requiredSkills,
+    preferredSkills: preferredSkills.length > 0 ? preferredSkills : job.preferredSkills,
+    responsibilities: responsibilities.length > 0 ? responsibilities : job.responsibilities,
+    description: detail.job_description || detail.description || job.description,
+    category: titleCase(detail.job_category || job.category || ''),
+    subCategory: titleCase(detail.job_subcategory || job.subCategory || ''),
+    jobLevel: titleCase(detail.experience_level_required || detail.job_level || job.jobLevel || ''),
+    externalUrl: detail.external_job_link_optional || job.externalUrl,
+  };
+}
+
+function mapApplicationStatus(status: string | null | undefined): ApplicationStatus {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'shortlisted') return 'Shortlisted';
+  if (normalized === 'interviewing') return 'Interviewing';
+  if (normalized === 'hired') return 'Hired';
+  if (normalized === 'rejected') return 'Rejected';
+  if (normalized === 'withdrawn') return 'Withdrawn';
+  return 'Pending';
+}
+
+function mapApplicationRow(row: JobApplicationRow, jobs: DashboardJob[]): DashboardApplication {
+  const relatedJob = jobs.find((job) => job.id === row.job_id && job.jobSource === row.job_source);
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    jobSource: row.job_source || relatedJob?.jobSource || 'internal',
+    jobTitle: row.job_title || relatedJob?.title || 'Untitled role',
+    company: row.company_name || relatedJob?.company || 'Kareerly Partner Employer',
+    matchScore: Number(row.match_score ?? relatedJob?.matchScore ?? 0),
+    status: mapApplicationStatus(row.status),
+    dateApplied: (row.applied_at || row.created_at || dateTodayIso()).slice(0, 10),
+    sourceType: 'internal',
+  };
+}
+
+function normalizeSavedResumeAnalysis(record: Awaited<ReturnType<typeof loadLatestResume>>): ResumeAnalyzeResponse | null {
+  const analysis = record?.extracted_profile_json;
+  if (!analysis) return null;
+  const resumeText = analysis.normalized_for_matching?.resume_text_for_matching || record.parsed_text || '';
+  return {
+    ...analysis,
+    normalized_for_matching: {
+      ...(analysis.normalized_for_matching || {}),
+      resume_text_for_matching: resumeText,
+    },
+    parsedResume: analysis.parsedResume || {
+      skills: (analysis.candidate_profile?.skills || []).map((skill) => ({ name: skill.skill_name })),
+      education: [],
+      experience: [],
+      rawText: resumeText,
+      cleanedText: resumeText,
+      normalized_for_matching: {
+        resume_text_for_matching: resumeText,
+      },
+    },
+    jobMatches: analysis.jobMatches || [],
+    skillGaps: analysis.skillGaps || [],
+    courseRecommendations: analysis.courseRecommendations || [],
+  } as ResumeAnalyzeResponse;
+}
+
 function mapRunGap(gap: PrioritizedSkillGap): DashboardGap {
   const severity = mapSeverity(String(gap.severity || 'Moderate'));
+  const affectedCount = extractSkillGapMatchCount(gap) ?? 0;
+  const affectedPercent = extractSkillGapMatchPercent(gap);
   return {
-    skill: titleCase(gap.skill_name || 'Unnamed skill'),
+    skill: cleanSkillDisplayName(gap.skill_name || 'Unnamed skill'),
     severity,
-    affectedCount: gap.appears_in_top_matches ?? gap.missing_count ?? 0,
+    affectedCount,
+    affectedPercent: affectedPercent === null ? undefined : Math.round(affectedPercent),
+    priorityScore: parseNumericValue(gap.priority_score) ?? undefined,
+    categoryName: gap.category_name || gap.skill_category || '',
+    requirementImportance: gap.requirement_importance || '',
+    learningResourceAvailable: Boolean(gap.learning_resource_available),
     recommendedLevel: severity === 'Critical' ? 'Beginner -> Intermediate' : severity === 'High' ? 'Beginner -> Intermediate' : 'Beginner',
     category: classifySkillCategory(gap.skill_name || ''),
-    relatedJobs: (gap.related_jobs || []).slice(0, 4),
+    relatedJobs: (gap.related_jobs || []).map(titleCase).slice(0, 4),
+    topResources: (gap.recommended_learning_resources || []).map(mapRunLearningRecommendation),
+    skillId: gap.skill_id,
+  };
+}
+
+function parseProgressPercent(record: DevelopmentProgressRecord): number {
+  const rawValue = record.progress_score ?? record.progress_percentage ?? record.progress_percent ?? record.percentage;
+  const numeric = parseNumericValue(rawValue);
+  if (numeric === null) return 0;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function inferEvidenceType(title: string): EvidenceType {
+  const value = title.toLowerCase();
+  if (value.includes('certificate')) return 'Certificate';
+  if (value.includes('course')) return 'Course Completion';
+  if (value.includes('portfolio')) return 'Portfolio';
+  if (value.includes('project')) return 'Project';
+  if (value.includes('training')) return 'Training';
+  return 'Other';
+}
+
+function inferEvidenceCategory(title: string): string {
+  return classifySkillCategory(cleanSkillDisplayName(title));
+}
+
+function normalizeProgressLabel(percent: number, backendLabel?: string): ProgressStatus {
+  const derived = categoryStatus(percent);
+  if (!backendLabel?.trim()) return derived;
+  return {
+    ...derived,
+    label: backendLabel.trim(),
   };
 }
 
@@ -562,7 +929,7 @@ function mapModelGap(gap: SkillGap, matches: JobMatch[]): DashboardGap {
     .map((match) => match.title)
     .slice(0, 4);
   return {
-    skill: titleCase(gap.skill),
+    skill: cleanSkillDisplayName(gap.skill),
     severity,
     affectedCount: gap.frequency || related.length,
     recommendedLevel: severity === 'Critical' ? 'Beginner -> Intermediate' : severity === 'High' ? 'Beginner -> Intermediate' : 'Beginner',
@@ -572,7 +939,7 @@ function mapModelGap(gap: SkillGap, matches: JobMatch[]): DashboardGap {
 }
 
 function mapCourse(rec: CourseRecommendation): DashboardCourse {
-  const primaryGap = rec.matchedSkillGaps?.[0] || rec.course?.skillsTargeted?.[0] || rec.course?.title || 'General';
+  const primaryGap = cleanSkillDisplayName(rec.matchedSkillGaps?.[0] || rec.course?.skillsTargeted?.[0] || rec.course?.title || 'General');
   return {
     id: rec.id || rec.courseId,
     title: rec.course?.title || 'Untitled course',
@@ -581,14 +948,14 @@ function mapCourse(rec: CourseRecommendation): DashboardCourse {
     level: rec.course?.difficulty || 'beginner',
     certificateAvailable: Boolean(rec.course?.certificateAvailable),
     isFree: Boolean(rec.course?.isFree),
-    gapTag: titleCase(primaryGap),
+    gapTag: primaryGap,
     url: rec.course?.url,
     source: 'backend',
   };
 }
 
 function mapRunLearningRecommendation(rec: RunLearningRecommendation): DashboardCourse {
-  const gapTag = rec.skills_youll_gain || rec.title || 'General';
+  const gapTag = cleanSkillDisplayName(rec.skills_youll_gain || rec.title || 'General');
   return {
     id: rec.resource_id || rec.title,
     title: rec.title || 'Untitled course',
@@ -597,7 +964,7 @@ function mapRunLearningRecommendation(rec: RunLearningRecommendation): Dashboard
     level: rec.level || 'beginner',
     certificateAvailable: Boolean(rec.certification_score && rec.certification_score > 0),
     isFree: !String(rec.cost_type || '').toLowerCase().includes('paid'),
-    gapTag: titleCase(gapTag),
+    gapTag,
     url: rec.url || undefined,
     source: 'backend',
   };
@@ -619,15 +986,6 @@ function dateTodayIso(): string {
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function dateOffsetIso(daysAgo: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
 
@@ -655,6 +1013,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     setResumeFile,
     setParsedResume,
     setResumeAnalysis,
+    setSavedResumeId,
     setResults,
     setMatchResults,
     setSurveyAnswers,
@@ -667,7 +1026,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [jobSearch, setJobSearch] = useState('');
-  const [jobFilter, setJobFilter] = useState<JobFilter>('all');
+  const [jobFilter, setJobFilter] = useState<JobFilter>('top');
   const [upskillTab, setUpskillTab] = useState<UpskillTab>('recommended');
   const [selectedKareerId, setSelectedKareerId] = useState<string>('');
   const [savedJobs, setSavedJobs] = useState<Set<string>>(() => new Set());
@@ -682,6 +1041,9 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [withdrawTarget, setWithdrawTarget] = useState<DashboardApplication | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
+  const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+  const [editingEvidence, setEditingEvidence] = useState<EvidenceUploadRecord | null>(null);
+  const [deleteEvidenceTarget, setDeleteEvidenceTarget] = useState<EvidenceUploadRecord | null>(null);
   const [resumeStep, setResumeStep] = useState<'upload' | 'decision' | 'review'>('upload');
   const [resumeDragOver, setResumeDragOver] = useState(false);
   const [resumeUploadFile, setResumeUploadFile] = useState<File | null>(null);
@@ -689,6 +1051,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [reviewSkills, setReviewSkills] = useState<string[]>([]);
   const [newSkillInput, setNewSkillInput] = useState('');
   const [resumePostRefreshTarget, setResumePostRefreshTarget] = useState<'dashboard' | 'preferences'>('dashboard');
+  const [savedResumeFileName, setSavedResumeFileName] = useState('');
   const [skillNames, setSkillNames] = useState<string[]>(() => extractSkillsFromResume(state.resume));
   const [selectedThreadJobId, setSelectedThreadJobId] = useState<string>('');
   const [messageStates, setMessageStates] = useState<Record<string, MessageRequestState>>({});
@@ -697,11 +1060,22 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [messageReplies, setMessageReplies] = useState<Record<string, Array<{ from: 'employer' | 'candidate'; text: string; time: string }>>>({});
   const [startedCourseIds, setStartedCourseIds] = useState<Set<string>>(() => new Set());
   const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(() => new Set());
-  const [extraPreferences, setExtraPreferences] = useState({ jobLevel: 'Entry Level', preferredLocation: 'Metro Manila / Laguna' });
+  const [extraPreferences, setExtraPreferences] = useState({ jobLevel: '', preferredLocation: '' });
   const [availableJobs, setAvailableJobs] = useState<AvailableJobItem[]>([]);
-  const [evidenceRecords, setEvidenceRecords] = useState<EvidenceUploadRecord[]>([
-    { id: 'ev-001', title: 'TESDA NC II - Data Analytics', uploadedAt: dateTodayIso(), status: 'Verified' },
-  ]);
+  const [evidenceRecords, setEvidenceRecords] = useState<EvidenceUploadRecord[]>([]);
+  const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>({});
+  const [profileForm, setProfileForm] = useState({
+    contactNumber: '',
+    birthday: '',
+    address: '',
+    location: '',
+    highestEducationalAttainment: '',
+    degreeProgram: '',
+    schoolUniversity: '',
+    yearGraduated: '',
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveNotice, setProfileSaveNotice] = useState<string | null>(null);
 
   const toastTimeoutRef = useRef<number | null>(null);
 
@@ -709,11 +1083,197 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const displayEmail = currentUser.email;
   const initials = getInitials(displayName, displayEmail);
   const surveyAnswers = state.surveyAnswers || defaultSurveyAnswers;
+  const candidateProfile = state.resumeAnalysis?.candidate_profile;
+  const educationIndicators = candidateProfile?.education_indicators || [];
+  const certificationIndicators = candidateProfile?.certification_indicators || [];
+  const experienceIndicators = candidateProfile?.experience_indicators || [];
+  const matchedLocation = extraPreferences.preferredLocation || surveyAnswers.setup || '';
 
   useEffect(() => {
     const extracted = extractSkillsFromResume(state.resume);
     if (extracted.length > 0) setSkillNames(extracted);
   }, [state.resume?.skills]);
+
+  const updateSkillProgressStatus = (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => {
+    setSkillProgressRecords((current) => {
+      const existing = current[skillKey];
+      if (!existing) return current;
+      return {
+        ...current,
+        [skillKey]: {
+          ...existing,
+          status,
+          progressPercent: SKILL_PROGRESS_PERCENT[status],
+          selectedResourceId: selectedResourceId || existing.selectedResourceId,
+        },
+      };
+    });
+  };
+
+  const uploadSkillEvidence = (skillKey: string, file: File | null) => {
+    if (!file) return;
+    setSkillProgressRecords((current) => {
+      const existing = current[skillKey];
+      if (!existing) return current;
+      return {
+        ...current,
+        [skillKey]: {
+          ...existing,
+          status: 'evidenced',
+          progressPercent: SKILL_PROGRESS_PERCENT.evidenced,
+          evidenceFilename: file.name,
+          evidenceUploadedAt: dateTodayIso(),
+        },
+      };
+    });
+  };
+
+  useEffect(() => {
+    const educationItems = educationIndicators.length
+      ? educationIndicators.map((item, index) => ({
+          id: `edu-${index}`,
+          title: item,
+          evidenceType: inferEvidenceType(item),
+          relatedSkill: titleCase(item),
+          category: inferEvidenceCategory(item),
+          uploadedAt: dateTodayIso(),
+          status: 'Verified' as const,
+        }))
+      : [];
+
+    const certificationItems = certificationIndicators.length
+      ? certificationIndicators.map((item, index) => ({
+          id: `cert-${index}`,
+          title: item,
+          evidenceType: inferEvidenceType(item),
+          relatedSkill: titleCase(item),
+          category: inferEvidenceCategory(item),
+          uploadedAt: dateTodayIso(),
+          status: 'Pending Verification' as const,
+        }))
+      : [];
+
+    const experienceItems = experienceIndicators.length
+      ? experienceIndicators.map((item, index) => ({
+          id: `exp-${index}`,
+          title: item,
+          evidenceType: inferEvidenceType(item),
+          relatedSkill: titleCase(item),
+          category: inferEvidenceCategory(item),
+          uploadedAt: dateTodayIso(),
+          status: 'Verified' as const,
+        }))
+      : [];
+
+    setEvidenceRecords([...certificationItems, ...experienceItems, ...educationItems]);
+  }, [educationIndicators.join('|'), certificationIndicators.join('|'), experienceIndicators.join('|')]);
+
+  useEffect(() => {
+    let isMounted = true;
+    void (async () => {
+      const { data } = await supabase
+        .from('candidate_profiles')
+        .select('birthday, location, education_json')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+      if (!isMounted || !data) return;
+      const education = (data.education_json as Record<string, string> | null) || {};
+      setProfileForm((current) => ({
+        ...current,
+        contactNumber: education.contactNumber || '',
+        address: education.address || '',
+        birthday: data.birthday || '',
+        location: data.location || '',
+        highestEducationalAttainment: education.highestEducationalAttainment || '',
+        degreeProgram: education.degreeProgram || '',
+        schoolUniversity: education.schoolUniversity || '',
+        yearGraduated: education.yearGraduated || '',
+      }));
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+    void (async () => {
+      if (!currentUser.id) return;
+      if ((state.resumeAnalysis || state.savedResumeId) && savedResumeFileName) return;
+      const latestResume = await loadLatestResume({ userId: currentUser.id });
+      if (!isMounted || !latestResume) return;
+
+      setSavedResumeFileName(latestResume.original_filename || 'Saved resume');
+      if (state.resumeAnalysis || state.resumeFile || state.savedResumeId) {
+        if (!state.savedResumeId) setSavedResumeId(latestResume.id);
+        return;
+      }
+
+      const analysis = normalizeSavedResumeAnalysis(latestResume);
+      if (!analysis) return;
+
+      applyAnalysisResult(analysis);
+      setSavedResumeId(latestResume.id);
+      const restoredSkills = extractSkillsFromResume(analysis.parsedResume);
+      if (restoredSkills.length > 0) setSkillNames(restoredSkills);
+      showInlineNotice(`Loaded saved resume${latestResume.original_filename ? `: ${latestResume.original_filename}` : ''}.`, 'success');
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser.id, savedResumeFileName, state.resumeAnalysis, state.resumeFile, state.savedResumeId]);
+
+  const saveCandidateProfile = async () => {
+    if (!currentUser.id) return;
+    setIsSavingProfile(true);
+    setProfileSaveNotice(null);
+    try {
+      await updateCandidateProfile({
+        userId: currentUser.id,
+        birthday: profileForm.birthday,
+        location: profileForm.location,
+        contactNumber: profileForm.contactNumber,
+        address: profileForm.address,
+        educationJson: {
+          highestEducationalAttainment: profileForm.highestEducationalAttainment,
+          degreeProgram: profileForm.degreeProgram,
+          schoolUniversity: profileForm.schoolUniversity,
+          yearGraduated: profileForm.yearGraduated,
+        },
+      });
+
+      const { data } = await supabase
+        .from('candidate_profiles')
+        .select('birthday, location, education_json')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+
+      if (data) {
+        const education = (data.education_json as Record<string, string> | null) || {};
+        setProfileForm((current) => ({
+          ...current,
+          contactNumber: education.contactNumber || profileForm.contactNumber,
+          address: education.address || profileForm.address,
+          birthday: data.birthday || '',
+          location: data.location || '',
+          highestEducationalAttainment: education.highestEducationalAttainment || '',
+          degreeProgram: education.degreeProgram || '',
+          schoolUniversity: education.schoolUniversity || '',
+          yearGraduated: education.yearGraduated || '',
+        }));
+      }
+
+      setProfileSaveNotice('Personal details saved successfully.');
+      showToast('Personal details saved.', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to save personal details.';
+      showToast(message, 'danger');
+      setProfileSaveNotice(null);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -736,8 +1296,11 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
   const jobs = useMemo<DashboardJob[]>(() => {
     if (state.matchResults) {
-      const fitNow = (state.matchResults.fit_now_matches || []).map((match) => mapRunMatch(match, 'fit-now'));
-      const aspiration = (state.matchResults.aspiration_matches || []).map((match) => mapRunMatch(match, 'aspiration'));
+      const fitNow = (state.matchResults.all_fit_now_matches || state.matchResults.fit_now_matches || []).map((match) => mapRunMatch(match, 'fit-now'));
+      const fitNowIds = new Set(fitNow.map((job) => job.id));
+      const aspiration = (state.matchResults.all_aspiration_matches || state.matchResults.aspiration_matches || [])
+        .map((match) => mapRunMatch(match, 'aspiration'))
+        .filter((job) => !fitNowIds.has(job.id));
       return [...fitNow, ...aspiration].sort((a, b) => b.matchScore - a.matchScore);
     }
     if (state.results?.jobMatches?.length) {
@@ -745,6 +1308,31 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     }
     return [];
   }, [state.matchResults, state.results?.jobMatches]);
+
+  useEffect(() => {
+    let isMounted = true;
+    void (async () => {
+      if (!currentUser.id) return;
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('applied_at', { ascending: false });
+
+      if (error) {
+        console.warn('Unable to load applications:', error);
+        return;
+      }
+
+      if (!isMounted) return;
+      const rows = Array.isArray(data) ? (data as JobApplicationRow[]) : [];
+      setApplications(rows.map((row) => mapApplicationRow(row, jobs)));
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser.id, jobs]);
 
   const gaps = useMemo<DashboardGap[]>(() => {
     if (state.matchResults?.skill_gaps?.length) {
@@ -766,47 +1354,123 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     return (state.results?.courseRecommendations || []).map(mapCourse);
   }, [state.matchResults?.learning_recommendations, state.results?.courseRecommendations]);
 
-  const totalMatchesGenerated = useMemo(() => {
-    const apiTotal = state.matchResults?.metadata?.total_jobs_scored;
-    if (typeof apiTotal === 'number' && Number.isFinite(apiTotal) && apiTotal >= 0) return apiTotal;
-
-    const legacyTotal = state.results?.summary?.totalMatches;
-    if (typeof legacyTotal === 'number' && Number.isFinite(legacyTotal) && legacyTotal >= 0) return legacyTotal;
-
-    return jobs.length;
-  }, [jobs.length, state.matchResults?.metadata?.total_jobs_scored, state.results?.summary?.totalMatches]);
-
   useEffect(() => {
-    if (applications.length > 0) return;
-    const internalJobs = jobs.filter((job) => job.sourceType === 'internal');
-    if (internalJobs.length === 0) return;
-    const seededStatuses: ApplicationStatus[] = ['Shortlisted', 'Pending', 'Interviewing', 'Hired', 'Rejected', 'Withdrawn'];
-    const seeded = internalJobs.slice(0, 6).map((job, index) => ({
-      id: `${job.id}-seeded-${index}`,
-      jobId: job.id,
-      jobTitle: job.title,
-      company: job.company,
-      matchScore: job.matchScore,
-      status: seededStatuses[index] || 'Pending',
-      dateApplied: dateOffsetIso((index + 1) * 4),
-      sourceType: 'internal' as const,
-    }));
-    setApplications(seeded);
-  }, [applications.length, jobs]);
+    if (gaps.length === 0) return;
+    setSkillProgressRecords((current) => {
+      const next = { ...current };
+      const activeKeys = new Set<string>();
 
-  const categoryProgress = useMemo(() => {
-    const baseCategories: SkillCategory[] = [
-      'Core Office Tools',
-      'Programming & Scripting',
-      'Statistical Analysis',
-      'Data Visualization',
-      'Data Engineering',
-      'Other',
-    ];
+      gaps.forEach((gap) => {
+        const key = (gap.skillId || normalizeSkill(gap.skill)).toUpperCase();
+        activeKeys.add(key);
+        if (!next[key]) {
+          next[key] = {
+            skillId: gap.skillId,
+            skillName: gap.skill,
+            category: gap.category,
+            categoryName: gap.categoryName || gap.category,
+            status: 'missing',
+            progressPercent: SKILL_PROGRESS_PERCENT.missing,
+            selectedResourceId: gap.topResources?.[0]?.id,
+          };
+        } else {
+          next[key] = {
+            ...next[key],
+            skillId: gap.skillId || next[key].skillId,
+            skillName: gap.skill,
+            category: gap.category,
+            categoryName: gap.categoryName || gap.category,
+            selectedResourceId: next[key].selectedResourceId || gap.topResources?.[0]?.id,
+          };
+        }
+      });
+
+      Object.entries(next).forEach(([key, record]) => {
+        if (!activeKeys.has(key) && record.status !== 'covered') {
+          next[key] = {
+            ...record,
+            status: 'covered',
+            progressPercent: SKILL_PROGRESS_PERCENT.covered,
+          };
+        }
+      });
+
+      return next;
+    });
+  }, [gaps]);
+
+  const categoryProgress = useMemo<CategoryProgressRow[]>(() => {
+    const progressEntries = Object.values(skillProgressRecords);
+    if (progressEntries.length > 0) {
+      const grouped = new Map<SkillCategory, SkillProgressRecord[]>();
+      progressEntries.forEach((record) => {
+        const list = grouped.get(record.category) || [];
+        list.push(record);
+        grouped.set(record.category, list);
+      });
+
+      return Array.from(grouped.entries()).map(([category, records]) => {
+        const relatedSkillRecords = records.map((record) => record.skillName);
+        const percent = Math.round(records.reduce((sum, record) => sum + record.progressPercent, 0) / Math.max(records.length, 1));
+        const completed = records.filter((record) => ['completed', 'evidenced', 'covered'].includes(record.status)).length;
+        const inProgress = records.filter((record) => ['started', 'in_progress'].includes(record.status)).length;
+        const evidenceUploaded = records.filter((record) => Boolean(record.evidenceFilename)).length;
+        const missing = records.filter((record) => !['covered'].includes(record.status)).length;
+        const matched = records.filter((record) => record.status === 'covered').length;
+
+        return {
+          category,
+          percent,
+          missing,
+          matched,
+          completed,
+          inProgress,
+          evidenceUploaded,
+          relatedSkillRecords,
+          recentActivity: records.find((record) => record.evidenceUploadedAt)?.evidenceUploadedAt
+            ? `Recent evidence uploaded ${formatDateLabel(records.find((record) => record.evidenceUploadedAt)?.evidenceUploadedAt || '')}`
+            : undefined,
+        };
+      }).sort((a, b) => b.percent - a.percent);
+    }
+
+    const backendProgress = state.matchResults?.development_progress || [];
+    if (backendProgress.length > 0) {
+      return backendProgress
+        .map((row) => {
+          const categoryName = String(row.category_name || row.category || 'Other').trim();
+          const relatedSkillRecords = Array.isArray(row.related_skill_records)
+            ? row.related_skill_records
+            : Array.isArray(row.related_skills)
+              ? row.related_skills
+              : Array.isArray(row.skill_records)
+                ? row.skill_records
+              : [];
+          const missingSkills = Array.isArray(row.missing_skills) ? row.missing_skills : [];
+          const coveredSkills = Array.isArray(row.covered_skills) ? row.covered_skills : [];
+
+          return {
+            category: classifySkillCategory(categoryName) === 'Other' ? (titleCase(categoryName) as SkillCategory) : classifySkillCategory(categoryName),
+            percent: parseProgressPercent(row),
+            missing: missingSkills.length,
+            matched: coveredSkills.length,
+            completed: Math.max(0, parseNumericValue(row.completed_count ?? row.completed_learning) ?? 0),
+            inProgress: Math.max(0, parseNumericValue(row.in_progress_count) ?? 0),
+            evidenceUploaded: Math.max(0, parseNumericValue(row.evidence_uploaded_count ?? row.supporting_evidence) ?? 0),
+            relatedSkillRecords: relatedSkillRecords.filter(Boolean).map(titleCase),
+            recentActivity: typeof (row as Record<string, unknown>).recent_activity === 'string'
+              ? String((row as Record<string, unknown>).recent_activity)
+              : undefined,
+          };
+        })
+        .filter((row) => row.relatedSkillRecords.length > 0 || row.missing > 0 || row.matched > 0 || row.completed > 0 || row.inProgress > 0 || row.evidenceUploaded > 0)
+        .sort((a, b) => b.percent - a.percent);
+    }
 
     const missingByCategory = new Map<SkillCategory, Set<string>>();
     const matchedByCategory = new Map<SkillCategory, Set<string>>();
     const courseIdsByCategory = new Map<SkillCategory, Set<string>>();
+    const evidenceByCategory = new Map<SkillCategory, number>();
 
     const addSkill = (map: Map<SkillCategory, Set<string>>, skill: string) => {
       const category = classifySkillCategory(skill);
@@ -826,11 +1490,18 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       job.missingSkills.forEach((skill) => addSkill(missingByCategory, skill));
     });
     courses.forEach((course) => addCourse(courseIdsByCategory, course));
+    evidenceRecords.forEach((record) => {
+      const category = classifySkillCategory(record.category || record.relatedSkill || record.title);
+      evidenceByCategory.set(category, (evidenceByCategory.get(category) || 0) + 1);
+    });
 
-    const dynamicCategories = new Set<SkillCategory>(baseCategories);
+    const dynamicCategories = new Set<SkillCategory>();
     missingByCategory.forEach((_skills, category) => dynamicCategories.add(category));
     matchedByCategory.forEach((_skills, category) => dynamicCategories.add(category));
     courseIdsByCategory.forEach((_ids, category) => dynamicCategories.add(category));
+    evidenceByCategory.forEach((_count, category) => dynamicCategories.add(category));
+
+    if (dynamicCategories.size === 0) return [];
 
     return Array.from(dynamicCategories).map((category) => {
       const missing = missingByCategory.get(category)?.size || 0;
@@ -838,7 +1509,12 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       const courseIds = Array.from(courseIdsByCategory.get(category) || []);
       const completed = courseIds.filter((courseId) => completedCourseIds.has(courseId)).length;
       const startedOnly = courseIds.filter((courseId) => startedCourseIds.has(courseId) && !completedCourseIds.has(courseId)).length;
-      const hasProgressEvidence = completed > 0 || startedOnly > 0;
+      const evidenceUploaded = evidenceByCategory.get(category) || 0;
+      const hasProgressEvidence = completed > 0 || startedOnly > 0 || evidenceUploaded > 0 || missing > 0 || matched > 0;
+      const relatedSkillRecords = [
+        ...Array.from(missingByCategory.get(category) || []).map(titleCase),
+        ...Array.from(matchedByCategory.get(category) || []).map(titleCase),
+      ];
 
       let percent = 0;
 
@@ -846,7 +1522,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         const totalRelevantCourses = Math.max(1, courseIds.length, completed + startedOnly);
         const learningCompletion = (completed / totalRelevantCourses) * 100;
         const skillGapReduction = missing + matched > 0 ? (matched / (missing + matched)) * 100 : 0;
-        const uploadedEvidence = (completed / totalRelevantCourses) * 100;
+        const uploadedEvidence = evidenceUploaded > 0 ? Math.min(100, (evidenceUploaded / Math.max(1, relatedSkillRecords.length || evidenceUploaded)) * 100) : 0;
         const recentActivity = ((completed + startedOnly) / totalRelevantCourses) * 100;
 
         percent = Math.round(
@@ -857,29 +1533,48 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         );
       }
 
-      return { category, percent, missing, matched, completed };
-    });
-  }, [completedCourseIds, courses, gaps, jobs, startedCourseIds]);
+      return {
+        category,
+        percent,
+        missing,
+        matched,
+        completed,
+        inProgress: startedOnly,
+        evidenceUploaded,
+        relatedSkillRecords: Array.from(new Set(relatedSkillRecords)),
+        recentActivity: completed > 0 ? `${completed} completed learning record${completed === 1 ? '' : 's'}` : startedOnly > 0 ? `${startedOnly} learning record${startedOnly === 1 ? '' : 's'} in progress` : evidenceUploaded > 0 ? `${evidenceUploaded} evidence upload${evidenceUploaded === 1 ? '' : 's'}` : undefined,
+      };
+    })
+      .filter((row) => row.relatedSkillRecords.length > 0 || row.missing > 0 || row.matched > 0 || row.completed > 0 || row.inProgress > 0 || row.evidenceUploaded > 0)
+      .sort((a, b) => b.percent - a.percent);
+  }, [completedCourseIds, courses, evidenceRecords, gaps, jobs, skillProgressRecords, startedCourseIds, state.matchResults?.development_progress]);
 
   const metricCards = useMemo(() => {
     const fitNowCount = jobs.filter((job) => job.matchCategory === 'fit-now').length;
     const aspirationCount = jobs.filter((job) => job.matchCategory === 'aspiration').length;
     const topFitNowCount = Math.min(fitNowCount, TOP_MATCHES_PER_CATEGORY);
     const topAspirationCount = Math.min(aspirationCount, TOP_MATCHES_PER_CATEGORY);
-    const scoredJobs = jobs.filter((job) => job.hasMatchScore);
-    const profileReadiness = scoredJobs.length > 0 ? Math.round(scoredJobs.reduce((sum, job) => sum + job.matchScore, 0) / scoredJobs.length) : 0;
+    const hasResumeUploaded = Boolean(state.resumeFile || state.resume || state.resumeAnalysis);
+    const confirmedSkillsCount = skillNames.length || state.resumeAnalysis?.normalized_for_matching?.skill_ids?.length || 0;
+    const hasPreferencesCompleted = Boolean(surveyAnswers.industry && surveyAnswers.role && surveyAnswers.setup && surveyAnswers.salary);
+    const hasProfileDetails = Boolean(profileForm.location || profileForm.highestEducationalAttainment || profileForm.degreeProgram || profileForm.schoolUniversity || profileForm.yearGraduated);
+    const profileCompletion =
+      (hasResumeUploaded ? 30 : 0) +
+      (confirmedSkillsCount > 0 ? 30 : 0) +
+      (hasPreferencesCompleted ? 25 : 0) +
+      (hasProfileDetails || educationIndicators.length > 0 || experienceIndicators.length > 0 ? 15 : 0);
     return [
       {
-        label: 'Profile Readiness',
-        value: `${profileReadiness}%`,
-        detail: state.resumeFile ? `Resume uploaded ${formatDateLabel(dateTodayIso())}` : 'Resume not uploaded yet',
+        label: 'Profile Completion',
+        value: `${profileCompletion}%`,
+        detail: hasResumeUploaded ? `${confirmedSkillsCount} skills confirmed · ${hasPreferencesCompleted ? 'preferences saved' : 'preferences incomplete'}` : 'Resume not uploaded yet',
         iconClass: 'green',
         valueColor: 'var(--green)',
         icon: 'check-circle' as IconName,
       },
       {
-        label: 'Top Job Matches',
-        value: String(totalMatchesGenerated),
+        label: 'Job Matches',
+        value: String(fitNowCount + aspirationCount),
         detail: `Showing top ${topFitNowCount} Fit-Now · ${topAspirationCount} Aspiration`,
         iconClass: 'amber',
         valueColor: 'var(--amber)',
@@ -902,7 +1597,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         icon: 'layers' as IconName,
       },
     ];
-  }, [applications, gaps, jobs, state.resumeFile, totalMatchesGenerated]);
+  }, [applications, educationIndicators.length, experienceIndicators.length, gaps, jobs, profileForm.degreeProgram, profileForm.highestEducationalAttainment, profileForm.location, profileForm.schoolUniversity, profileForm.yearGraduated, skillNames.length, state.resume, state.resumeAnalysis, state.resumeFile, surveyAnswers.industry, surveyAnswers.role, surveyAnswers.salary, surveyAnswers.setup]);
 
   const topJobHighlights = useMemo(() => jobs.slice(0, 3), [jobs]);
 
@@ -948,11 +1643,28 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     });
   }, [notificationRows]);
 
+  const fitNowJobs = useMemo(() => jobs.filter((job) => job.matchCategory === 'fit-now'), [jobs]);
+  const aspirationJobs = useMemo(() => jobs.filter((job) => job.matchCategory === 'aspiration'), [jobs]);
+  const topFitNowJobs = useMemo(() => fitNowJobs.slice(0, TOP_MATCHES_PER_CATEGORY), [fitNowJobs]);
+  const topAspirationJobs = useMemo(() => aspirationJobs.slice(0, TOP_MATCHES_PER_CATEGORY), [aspirationJobs]);
+  const topMatches = useMemo(() => [...topFitNowJobs, ...topAspirationJobs], [topAspirationJobs, topFitNowJobs]);
+  const topFitNowMatchesCount = topFitNowJobs.length;
+  const topAspirationMatchesCount = topAspirationJobs.length;
+  const topAllMatchesCount = topMatches.length;
+  const totalQualifyingMatchesCount = jobs.length;
+
   const filteredJobs = useMemo(() => {
     const query = jobSearch.trim().toLowerCase();
-    return jobs.filter((job) => {
-      if (jobFilter === 'fit-now' && job.matchCategory !== 'fit-now') return false;
-      if (jobFilter === 'aspiration' && job.matchCategory !== 'aspiration') return false;
+    const visiblePool =
+      jobFilter === 'top'
+        ? topMatches
+        : jobFilter === 'fit-now'
+          ? topFitNowJobs
+          : jobFilter === 'aspiration'
+            ? topAspirationJobs
+            : jobs;
+
+    return visiblePool.filter((job) => {
       if (jobFilter === 'internal' && job.sourceType !== 'internal') return false;
       if (jobFilter === 'external' && job.sourceType !== 'external') return false;
       if (jobFilter === 'saved' && !savedJobs.has(job.id)) return false;
@@ -962,13 +1674,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         .toLowerCase()
         .includes(query);
     });
-  }, [jobFilter, jobSearch, jobs, savedJobs]);
-
-  const fitNowJobs = useMemo(() => jobs.filter((job) => job.matchCategory === 'fit-now'), [jobs]);
-  const aspirationJobs = useMemo(() => jobs.filter((job) => job.matchCategory === 'aspiration'), [jobs]);
-  const topFitNowMatchesCount = Math.min(fitNowJobs.length, TOP_MATCHES_PER_CATEGORY);
-  const topAspirationMatchesCount = Math.min(aspirationJobs.length, TOP_MATCHES_PER_CATEGORY);
-  const topAllMatchesCount = topFitNowMatchesCount + topAspirationMatchesCount;
+  }, [jobFilter, jobSearch, jobs, savedJobs, topAspirationJobs, topFitNowJobs, topMatches]);
 
   const kareersList = useMemo(() => {
     const map = new Map<string, DashboardJob>();
@@ -1094,7 +1800,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     });
   };
 
-  const runMatchingWithSkills = async (resume: ParsedResume, skills: string[], answers: SurveyAnswers) => {
+  const runMatchingWithSkills = async (resume: ParsedResume, skills: string[], answers: SurveyAnswers, resumeFileOverride?: File | null) => {
     const resumeText = extractResumeText(resume);
     if (!resumeText) return null;
     const inputSkillIds = skills
@@ -1123,18 +1829,67 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
     if (finalCandidateSkillIds.length === 0) return null;
 
-    const result = await runJobMatches({
-      resume_text_for_matching: resumeText,
-      candidate_skill_ids: finalCandidateSkillIds,
-      preferences: {
-        industry: getPreferenceLabel(industryLabels, answers.industry),
-        job_level: answers.role,
-        work_setup: getPreferenceLabel(setupLabels, answers.setup),
-        salary_expectation: getPreferenceLabel(salaryLabels, answers.salary),
-        skill_to_develop: answers.skill,
-      },
-    });
+    const preferencePayload = {
+      industry: getPreferenceLabel(industryLabels, answers.industry),
+      target_role: answers.role,
+      role_level: answers.role,
+      work_setup: getPreferenceLabel(setupLabels, answers.setup),
+      salary_expectation: getPreferenceLabel(salaryLabels, answers.salary),
+      skill_to_develop: answers.skill,
+    };
+
+    const activeResumeFile = resumeFileOverride || state.resumeFile;
+    const confirmedSkillRecords = (state.selectedSkills || [])
+      .filter((skill) => finalCandidateSkillIds.includes(skill.skill_id?.trim().toUpperCase() || ''))
+      .slice(0, 20);
+    const runTextMatcher = () =>
+      runJobMatches({
+          user_mode: 'logged_in',
+          view_mode: 'full',
+          resume_text_for_matching: resumeText,
+          candidate_skill_ids: finalCandidateSkillIds,
+          preferences: {
+            industry: preferencePayload.industry,
+            target_role: preferencePayload.target_role,
+            role_level: preferencePayload.role_level,
+            role: preferencePayload.target_role,
+            work_setup: preferencePayload.work_setup,
+            salary_expectation: preferencePayload.salary_expectation,
+            skill_to_develop: preferencePayload.skill_to_develop,
+          },
+      });
+
+    let result = null;
+    if (activeResumeFile) {
+      try {
+        result = await runMatchesFromResume({
+          resumeFile: activeResumeFile,
+          userMode: 'logged_in',
+          viewMode: 'full',
+          confirmedSkills: confirmedSkillRecords,
+          preferences: preferencePayload,
+        });
+      } catch (error) {
+        console.warn('File-based matching failed; falling back to text matching:', error);
+      }
+    }
+
+    if (!result || (result.fit_now_matches || []).length === 0) {
+      result = await runTextMatcher();
+    }
+
+    if (result.extracted_skills?.length) {
+      applyAnalysisResult(buildResumeAnalysisFromMatchResults(result));
+    }
     setMatchResults(result);
+    if (currentUser?.id) {
+      await saveMatchHistory({
+        userId: currentUser.id,
+        resumeId: state.savedResumeId,
+        preferences: answers,
+        results: result,
+      });
+    }
     return result;
   };
 
@@ -1145,10 +1900,20 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       const data = await analyzeResume(file, answers);
       setResumeFile(file);
       applyAnalysisResult(data);
+      if (currentUser?.id) {
+        const resumeId = await saveResumeAnalysis({
+          userId: currentUser.id,
+          fileName: file.name,
+          file,
+          analysis: data,
+        });
+        setSavedResumeId(resumeId);
+        setSavedResumeFileName(file.name);
+      }
       const extracted = extractSkillsFromResume(data.parsedResume);
       const finalSkills = (overrideSkills && overrideSkills.length > 0 ? overrideSkills : extracted.length > 0 ? extracted : skillNames).filter(Boolean);
       setSkillNames(finalSkills);
-      await runMatchingWithSkills(data.parsedResume, finalSkills, answers);
+      await runMatchingWithSkills(data.parsedResume, finalSkills, answers, file);
       showInlineNotice('Resume and skills updated. Job matches, gaps, and recommendations were refreshed.', 'success');
       showToast('Dashboard data refreshed from updated resume.', 'success');
     } catch (error) {
@@ -1162,6 +1927,18 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
   const handlePreferencesSave = async (answers: SurveyAnswers) => {
     setSurveyAnswers(answers);
+    if (currentUser?.id) {
+      await updateCandidateProfile({
+        userId: currentUser.id,
+        preferredIndustry: getPreferenceLabel(industryLabels, answers.industry),
+        targetRole: answers.role,
+        preferredWorkSetup: getPreferenceLabel(setupLabels, answers.setup),
+        expectedSalary: getPreferenceLabel(salaryLabels, answers.salary),
+        skillToDevelop: answers.skill,
+      }).catch((error) => {
+        console.warn('Unable to save preferences to Supabase:', error);
+      });
+    }
     if (!state.resumeFile) {
       showInlineNotice('Preferences saved. Upload a resume to refresh recommendations.', 'warn');
       showToast('Preferences saved.', 'success');
@@ -1192,8 +1969,15 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     }
   };
 
-  const openJobDetails = (job: DashboardJob) => {
-    setSelectedJob(job);
+  const openJobDetails = async (job: DashboardJob) => {
+    let hydratedJob = job;
+    try {
+      const detail = await fetchJobDetails(job.id, job.jobSource);
+      hydratedJob = mergeSupabaseJobDetails(job, detail.job);
+    } catch (error) {
+      console.warn('Unable to refresh job details from Supabase:', error);
+    }
+    setSelectedJob(hydratedJob);
     setJobDetailOpen(true);
   };
 
@@ -1208,29 +1992,65 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     showToast(alreadySaved ? 'Job removed from saved list.' : 'Job saved.', 'success');
   };
 
-  const applyToInternalJob = (job: DashboardJob) => {
+  const applyToInternalJob = async (job: DashboardJob): Promise<boolean> => {
     if (job.sourceType === 'external') {
       showToast('External opportunities are link-outs only.', 'warn');
-      return;
+      return false;
     }
-    setApplications((current) => {
-      const exists = current.some((app) => app.jobId === job.id && app.status !== 'Withdrawn');
-      if (exists) return current;
-      return [
-        {
-          id: `${job.id}-${Date.now()}`,
-          jobId: job.id,
-          jobTitle: job.title,
-          company: job.company,
-          matchScore: job.matchScore,
-          status: 'Pending',
-          dateApplied: dateTodayIso(),
-          sourceType: 'internal',
-        },
-        ...current,
-      ];
-    });
+    const existing = applications.find((app) => app.jobId === job.id && app.jobSource === job.jobSource && app.status !== 'Withdrawn');
+    if (existing) {
+      showToast('You have already applied for this job.', 'warn');
+      return false;
+    }
+
+    const payload = {
+      user_id: currentUser.id,
+      job_source: job.jobSource,
+      job_id: job.id,
+      job_title: job.title,
+      company_name: job.company,
+      candidate_name: currentUser.name,
+      candidate_email: currentUser.email,
+      candidate_location: profileForm.location,
+      match_score: Math.round(job.matchScore || 0),
+      matched_skills: job.matchedSkills,
+      missing_skills: job.missingSkills,
+      status: 'pending',
+      applied_at: new Date().toISOString(),
+      withdrawn_at: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('job_applications')
+      .upsert(payload, { onConflict: 'user_id,job_source,job_id' })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.warn('Unable to submit application:', error);
+      showToast('Unable to submit application. Please try again.', 'danger');
+      return false;
+    }
+
+    const savedApplication = mapApplicationRow(data as JobApplicationRow, jobs);
+    setApplications((current) => [savedApplication, ...current.filter((app) => app.id !== savedApplication.id)]);
     showToast('Application submitted.', 'success');
+    return true;
+  };
+
+  const applyToJob = async (jobId: string): Promise<boolean> => {
+    const job = kareersList.find((item) => item.id === jobId) || jobs.find((item) => item.id === jobId) || null;
+    if (!job) {
+      showToast('Job details could not be found for application.', 'warn');
+      return false;
+    }
+    return applyToInternalJob(job);
+  };
+
+  const getApplicationStatus = (jobId: string, jobSource: 'internal' | 'employer'): ApplicationStatus | null => {
+    const activeApplication = applications.find((app) => app.jobId === jobId && app.jobSource === jobSource && app.status !== 'Withdrawn');
+    return activeApplication?.status || null;
   };
 
   const openWithdraw = (application: DashboardApplication) => {
@@ -1238,11 +2058,26 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     setWithdrawModalOpen(true);
   };
 
-  const confirmWithdraw = () => {
+  const confirmWithdraw = async () => {
     if (!withdrawTarget) return;
-    setApplications((current) =>
-      current.map((app) => (app.id === withdrawTarget.id && ['Pending', 'Shortlisted', 'Interviewing'].includes(app.status) ? { ...app, status: 'Withdrawn' } : app)),
-    );
+    if (!['Pending', 'Shortlisted', 'Interviewing'].includes(withdrawTarget.status)) return;
+    const { error } = await supabase
+      .from('job_applications')
+      .update({
+        status: 'withdrawn',
+        withdrawn_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', withdrawTarget.id)
+      .eq('user_id', currentUser.id);
+
+    if (error) {
+      console.warn('Unable to withdraw application:', error);
+      showToast('Unable to withdraw application. Please try again.', 'danger');
+      return;
+    }
+
+    setApplications((current) => current.map((app) => (app.id === withdrawTarget.id ? { ...app, status: 'Withdrawn' } : app)));
     setWithdrawModalOpen(false);
     showToast(`${withdrawTarget.jobTitle} application withdrawn.`, 'warn');
   };
@@ -1357,8 +2192,18 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       setResumeFile(resumeUploadFile);
       applyAnalysisResult(resumeAnalyzeData);
       setSkillNames(confirmed);
+      if (currentUser.id) {
+        const resumeId = await saveResumeAnalysis({
+          userId: currentUser.id,
+          fileName: resumeUploadFile.name,
+          file: resumeUploadFile,
+          analysis: resumeAnalyzeData,
+        });
+        setSavedResumeId(resumeId);
+        setSavedResumeFileName(resumeUploadFile.name);
+      }
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
-      await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs);
+      await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, resumeUploadFile);
       setResumeModalOpen(false);
       setResumeStep('upload');
       showInlineNotice('Resume updated. Matches, skill gaps, recommendations, and progress were refreshed.', 'success');
@@ -1395,8 +2240,18 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       setResumeFile(resumeUploadFile);
       applyAnalysisResult(resumeAnalyzeData);
       setSkillNames(confirmed);
+      if (currentUser.id) {
+        const resumeId = await saveResumeAnalysis({
+          userId: currentUser.id,
+          fileName: resumeUploadFile.name,
+          file: resumeUploadFile,
+          analysis: resumeAnalyzeData,
+        });
+        setSavedResumeId(resumeId);
+        setSavedResumeFileName(resumeUploadFile.name);
+      }
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
-      await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs);
+      await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, resumeUploadFile);
       setResumeModalOpen(false);
       setResumeStep('upload');
       showInlineNotice('Resume updated. Matches, skill gaps, recommendations, and progress were refreshed.', 'success');
@@ -1428,10 +2283,26 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     onUpdateResume();
   };
 
-  const handleEvidenceUpload = async (file: File | null) => {
-    if (!file) return;
+  const handleEvidenceSave = async (draft: {
+    id?: string;
+    title: string;
+    evidenceType: EvidenceType;
+    relatedSkill: string;
+    category: string;
+    notes?: string;
+    file: File | null;
+  }) => {
+    const isEditing = Boolean(draft.id);
+    const existingRecord = draft.id ? evidenceRecords.find((record) => record.id === draft.id) || null : null;
+    const file = draft.file;
+    const fileName = file?.name.trim() || existingRecord?.fileName || '';
 
-    const fileName = file.name.trim();
+    if (!isEditing && !file) {
+      showToast('Please upload a PDF evidence file before saving.', 'warn');
+      return;
+    }
+
+    if (file) {
     const lowerName = fileName.toLowerCase();
     const isPdfExtension = lowerName.endsWith('.pdf');
     const isPdfMime = file.type === 'application/pdf' || file.type === '';
@@ -1451,23 +2322,40 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       showToast('Screenshot/photo-like filenames are blocked. Please upload the original certificate PDF.', 'warn');
       return;
     }
+    }
 
     setLoading(true);
     setError(null);
     try {
-      const validation = await validateCertificateFile(file);
+      let validationMessage = 'Evidence saved with safeguards. Marked as Pending Verification.';
+      if (file) {
+        const validation = await validateCertificateFile(file);
+        validationMessage = validation.message || validationMessage;
+      }
 
-      setEvidenceRecords((current) => [
-        {
-          id: `ev-${Date.now()}`,
-          title: fileName.replace(/\.pdf$/i, ''),
-          uploadedAt: dateTodayIso(),
-          status: 'Pending Verification',
-        },
-        ...current,
-      ]);
+      const nextRecord: EvidenceUploadRecord = {
+        id: draft.id || `ev-${Date.now()}`,
+        title: draft.title.trim(),
+        evidenceType: draft.evidenceType,
+        relatedSkill: draft.relatedSkill.trim(),
+        category: draft.category.trim() || 'Other',
+        uploadedAt: dateTodayIso(),
+        notes: draft.notes?.trim() || '',
+        fileName: file?.name || existingRecord?.fileName,
+        fileUrl: file ? URL.createObjectURL(file) : existingRecord?.fileUrl,
+        status: 'Pending Verification',
+      };
 
-      showToast(validation.message || 'Certificate uploaded with safeguards. Marked as Pending Verification.', 'success');
+      setEvidenceRecords((current) => {
+        if (draft.id) {
+          return current.map((record) => (record.id === draft.id ? nextRecord : record));
+        }
+        return [nextRecord, ...current];
+      });
+
+      setEvidenceModalOpen(false);
+      setEditingEvidence(null);
+      showToast(validationMessage, 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to validate certificate upload.';
       setError(message);
@@ -1477,11 +2365,43 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     }
   };
 
+  const openEvidenceUploadModal = () => {
+    setEditingEvidence(null);
+    setEvidenceModalOpen(true);
+  };
+
+  const handleViewEvidence = (record: EvidenceUploadRecord) => {
+    if (!record.fileUrl) {
+      showToast('No viewable PDF is attached to this evidence record yet.', 'warn');
+      return;
+    }
+    window.open(record.fileUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleReplaceEvidence = (record: EvidenceUploadRecord) => {
+    setEditingEvidence(record);
+    setEvidenceModalOpen(true);
+  };
+
+  const handleDeleteEvidence = (record: EvidenceUploadRecord) => {
+    setDeleteEvidenceTarget(record);
+  };
+
+  const confirmDeleteEvidence = () => {
+    if (!deleteEvidenceTarget) return;
+    setEvidenceRecords((current) => current.filter((record) => record.id !== deleteEvidenceTarget.id));
+    setDeleteEvidenceTarget(null);
+    showToast('Evidence record deleted.', 'success');
+  };
+
   const closeModal = () => {
     setJobDetailOpen(false);
     setWithdrawModalOpen(false);
     setDeleteModalOpen(false);
     setResumeModalOpen(false);
+    setEvidenceModalOpen(false);
+    setEditingEvidence(null);
+    setDeleteEvidenceTarget(null);
   };
 
   const hasData = jobs.length > 0 || gaps.length > 0 || courses.length > 0;
@@ -1652,7 +2572,10 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                 <div className="cand-profile-avatar">{initials}</div>
                 <div className="text-left">
                   <div className="text-[13px] font-bold text-dark">{displayName}</div>
-                  <div className="cand-profile-location"><UIIcon name="location" className="cand-profile-location-icon" />Metro Manila</div>
+                  <div className="cand-profile-location">
+                    <UIIcon name="location" className="cand-profile-location-icon" />
+                    {matchedLocation || 'Location not set'}
+                  </div>
                 </div>
                 <UIIcon name="sliders" className="cand-profile-setting-icon" />
               </button>
@@ -1674,6 +2597,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
           {activePage === 'dashboard' && (
             <DashboardOverview
               hasData={hasData}
+              isLoading={state.isLoading}
               metrics={metricCards}
               categoryProgress={categoryProgress}
               topJobHighlights={topJobHighlights}
@@ -1692,10 +2616,12 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
           {activePage === 'jobmatches' && (
             <JobMatchesPage
               jobs={filteredJobs}
-              allMatchesCount={topAllMatchesCount}
+              topMatchesCount={topAllMatchesCount}
+              allMatchesCount={totalQualifyingMatchesCount}
               jobSearch={jobSearch}
               jobFilter={jobFilter}
               savedJobs={savedJobs}
+              applications={applications}
               fitNowCount={topFitNowMatchesCount}
               aspirationCount={topAspirationMatchesCount}
               onSearch={setJobSearch}
@@ -1717,6 +2643,11 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               gaps={gaps}
               jobs={jobs}
               categoryProgress={categoryProgress}
+              courses={courses}
+              evidenceRecords={evidenceRecords}
+              skillProgressRecords={skillProgressRecords}
+              onUpdateSkillProgress={updateSkillProgressStatus}
+              onUploadSkillEvidence={uploadSkillEvidence}
               onOpenUpskilling={() => setActivePage('upskilling')}
               onOpenResume={openResumeModal}
             />
@@ -1758,11 +2689,19 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               user={{ name: displayName, email: displayEmail }}
               uiLanguage={uiLanguage}
               evidenceRecords={evidenceRecords}
+              profile={profileForm}
+              savedResumeFileName={savedResumeFileName}
+              isSavingProfile={isSavingProfile}
+              profileSaveNotice={profileSaveNotice}
               onLanguage={setUiLanguage}
               onOpenDelete={() => setDeleteModalOpen(true)}
               onOpenResume={openResumeModal}
-              onUploadEvidence={handleEvidenceUpload}
-              onSave={() => showToast('Account details saved.', 'success')}
+              onOpenEvidenceUpload={openEvidenceUploadModal}
+              onViewEvidence={handleViewEvidence}
+              onReplaceEvidence={handleReplaceEvidence}
+              onDeleteEvidence={handleDeleteEvidence}
+              onProfileChange={setProfileForm}
+              onSave={saveCandidateProfile}
             />
           )}
 
@@ -1772,8 +2711,14 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               selectedId={selectedKareerId}
               selected={selectedKareer}
               savedJobs={savedJobs}
+              applications={applications}
               onSelect={setSelectedKareerId}
+              onApply={applyToJob}
+              onWithdraw={openWithdraw}
+              onGetApplicationStatus={getApplicationStatus}
+              onSave={toggleSaved}
               onOpenMatches={() => setActivePage('jobmatches')}
+              onOpenApplications={() => setActivePage('applications')}
               onOpenUpskilling={() => setActivePage('upskilling')}
             />
           )}
@@ -1826,10 +2771,16 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       {jobDetailOpen && selectedJob && (
         <JobDetailModal
           job={selectedJob}
+          application={applications.find((app) => app.jobId === selectedJob.id && app.jobSource === selectedJob.jobSource && app.status !== 'Withdrawn') || null}
+          courses={courses}
           onClose={() => setJobDetailOpen(false)}
-          onApply={() => {
-            applyToInternalJob(selectedJob);
+          onApply={async () => {
+            const applied = await applyToInternalJob(selectedJob);
+            if (applied) setJobDetailOpen(false);
+          }}
+          onWithdraw={(application) => {
             setJobDetailOpen(false);
+            openWithdraw(application);
           }}
           onSave={() => toggleSaved(selectedJob.id)}
           isSaved={savedJobs.has(selectedJob.id)}
@@ -1859,6 +2810,18 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         />
       )}
 
+      {evidenceModalOpen && (
+        <EvidenceFormModal
+          loading={state.isLoading}
+          record={editingEvidence}
+          onClose={() => {
+            setEvidenceModalOpen(false);
+            setEditingEvidence(null);
+          }}
+          onSave={handleEvidenceSave}
+        />
+      )}
+
       {withdrawModalOpen && withdrawTarget && (
         <ConfirmModal
           title="Withdraw Application?"
@@ -1885,9 +2848,20 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         />
       )}
 
+      {deleteEvidenceTarget && (
+        <ConfirmModal
+          title="Delete Evidence?"
+          description="Are you sure you want to delete this evidence? This may reduce your Skill Development Progress score if the evidence supports an active skill gap."
+          danger
+          onCancel={() => setDeleteEvidenceTarget(null)}
+          onConfirm={confirmDeleteEvidence}
+          confirmLabel="Delete Evidence"
+        />
+      )}
+
       {toast && <div className={`cand-toast ${toast.type}`}>{toast.message}</div>}
 
-      {(jobDetailOpen || resumeModalOpen || withdrawModalOpen || deleteModalOpen) && (
+      {(jobDetailOpen || resumeModalOpen || withdrawModalOpen || deleteModalOpen || evidenceModalOpen || Boolean(deleteEvidenceTarget)) && (
         <button type="button" className="fixed inset-0 z-[450] h-0 w-0 opacity-0" aria-label="close modal by background" onClick={closeModal} />
       )}
     </div>
@@ -1910,7 +2884,7 @@ function buildNotificationRows(jobs: DashboardJob[], applications: DashboardAppl
       iconClass: 'match',
       iconName: 'briefcase',
       title: `${Math.min(3, jobs.length)} new job matches found`,
-      message: 'Your profile has updated role opportunities in Data & Analytics.',
+      message: 'Your profile has updated role opportunities.',
       time: '2 hours ago',
       unread: true,
     });
@@ -1964,6 +2938,7 @@ function NavItem({ active, onClick, icon, children }: { active: boolean; onClick
 
 function DashboardOverview({
   hasData,
+  isLoading,
   metrics,
   categoryProgress,
   topJobHighlights,
@@ -1978,8 +2953,9 @@ function DashboardOverview({
   onOpenMessages,
 }: {
   hasData: boolean;
+  isLoading: boolean;
   metrics: Array<{ label: string; value: string; detail: string; iconClass: string; valueColor: string; icon: IconName }>;
-  categoryProgress: Array<{ category: SkillCategory; percent: number; missing: number; matched: number; completed: number }>;
+  categoryProgress: CategoryProgressRow[];
   topJobHighlights: DashboardJob[];
   recentApplications: DashboardApplication[];
   topMissingSkills: DashboardGap[];
@@ -1992,15 +2968,15 @@ function DashboardOverview({
   onOpenMessages: () => void;
 }) {
   const summaryTabs = [
+    { id: 'steps', label: 'Next Steps', icon: 'list' },
     { id: 'progress', label: 'Progress', icon: 'chart' },
     { id: 'matches', label: 'Job Highlights', icon: 'briefcase' },
-    { id: 'gaps', label: 'Missing Skills', icon: 'lightbulb' },
+    { id: 'gaps', label: 'Priority Skills', icon: 'lightbulb' },
     { id: 'applications', label: 'Applications', icon: 'clock' },
-    { id: 'steps', label: 'Next Steps', icon: 'list' },
     { id: 'upskilling', label: 'Upskilling', icon: 'book' },
   ] as const;
   type SummaryTab = (typeof summaryTabs)[number]['id'];
-  const [activeSummaryTab, setActiveSummaryTab] = useState<SummaryTab>('progress');
+  const [activeSummaryTab, setActiveSummaryTab] = useState<SummaryTab>('steps');
 
   return (
     <div>
@@ -2068,13 +3044,18 @@ function DashboardOverview({
                       <span className="cand-sdp-pct">{row.percent}%</span>
                       <span className={status.className}>{status.label}</span>
                     </div>
-                    <div className="mt-1 text-[11px] text-soft">{status.interpretation}</div>
+                    <div className="mt-1 text-[11px] text-soft">
+                      {row.relatedSkillRecords.length} related skill{row.relatedSkillRecords.length === 1 ? '' : 's'} · {row.completed} completed learning · {row.evidenceUploaded} evidence uploaded
+                      {row.recentActivity ? ` · ${row.recentActivity}` : ''}
+                    </div>
                   </div>
                 );
               })}
             </div>
+          ) : isLoading ? (
+            <div className="cand-empty">Loading your skill development progress...</div>
           ) : (
-            <div className="cand-empty">No progress data yet. Upload a resume and generate matches first.</div>
+            <div className="cand-gap-empty-state">{PROGRESS_EMPTY_TEXT}</div>
           )}
           <div className="cand-sdp-disclaimer">
             Skill Development Progress is a career-guidance indicator only, not formal skill verification, credential authentication, or a job-readiness guarantee.
@@ -2104,7 +3085,7 @@ function DashboardOverview({
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="cand-match-badge" style={{ background: getMatchScoreColor(job) }}>
+                    <div className={`cand-match-badge friendly ${getMatchReadinessClass(job.matchScore)}`}>
                       {getMatchScoreBadge(job)}
                     </div>
                     <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
@@ -2151,20 +3132,20 @@ function DashboardOverview({
 
       {activeSummaryTab === 'gaps' && (
         <div className="cand-card mb-6">
-          <h2 className="cand-card-title"><UIIcon name="lightbulb" className="cand-title-icon" />Top Missing Skills</h2>
+          <h2 className="cand-card-title"><UIIcon name="lightbulb" className="cand-title-icon" />Priority Skills to Develop</h2>
           {topMissingSkills.length > 0 ? (
             <>
               {topMissingSkills.map((gap) => (
                 <div key={gap.skill} className="flex items-center justify-between border-b border-bdr py-3 last:border-b-0">
                   <div>
                     <div className="text-sm font-bold text-dark">{gap.skill}</div>
-                    <div className="text-xs text-soft">{gap.affectedCount} job matches affected</div>
+                    <div className="text-xs text-soft">{formatGapMissingCount(gap)}</div>
                   </div>
                   <span className={`cand-gap-priority ${severityClass(gap.severity)}`}>{gap.severity}</span>
                 </div>
               ))}
               <button className="cand-btn-secondary mt-4 w-full justify-center" type="button" onClick={onOpenGaps}>
-                View All Skill Gaps
+                View All Priority Skills
               </button>
             </>
           ) : (
@@ -2196,7 +3177,7 @@ function DashboardOverview({
 
       {activeSummaryTab === 'upskilling' && (
         <div className="cand-card mb-6">
-          <h2 className="cand-card-title"><UIIcon name="book" className="cand-title-icon" />Recommended Upskilling Path</h2>
+          <h2 className="cand-card-title"><UIIcon name="book" className="cand-title-icon" />Recommended Learning Pathways</h2>
           {courseRecommendations.length > 0 ? (
             <>
               {courseRecommendations.map((course) => (
@@ -2223,10 +3204,12 @@ function DashboardOverview({
 
 function JobMatchesPage({
   jobs,
+  topMatchesCount,
   allMatchesCount,
   jobSearch,
   jobFilter,
   savedJobs,
+  applications,
   fitNowCount,
   aspirationCount,
   onSearch,
@@ -2237,35 +3220,37 @@ function JobMatchesPage({
   onVisitSite,
 }: {
   jobs: DashboardJob[];
+  topMatchesCount: number;
   allMatchesCount: number;
   jobSearch: string;
   jobFilter: JobFilter;
   savedJobs: Set<string>;
+  applications: DashboardApplication[];
   fitNowCount: number;
   aspirationCount: number;
   onSearch: (value: string) => void;
   onFilter: (value: JobFilter) => void;
   onSave: (jobId: string) => void;
-  onApply: (job: DashboardJob) => void;
+  onApply: (job: DashboardJob) => Promise<boolean>;
   onView: (job: DashboardJob) => void;
   onVisitSite: (job: DashboardJob) => void;
 }) {
   const fitNowJobs = jobs.filter((job) => job.matchCategory === 'fit-now');
   const aspirationJobs = jobs.filter((job) => job.matchCategory === 'aspiration');
-  const topFitNowJobs = fitNowJobs.slice(0, TOP_MATCHES_PER_CATEGORY);
-  const topAspirationJobs = aspirationJobs.slice(0, TOP_MATCHES_PER_CATEGORY);
 
   const groupedSections =
     jobFilter === 'fit-now'
-      ? [{ key: 'fit-now', title: 'Fit-Now Matches', icon: 'check-circle' as IconName, items: topFitNowJobs }]
+      ? [{ key: 'fit-now', title: 'Fit-Now Opportunities', icon: 'check-circle' as IconName, items: fitNowJobs }]
       : jobFilter === 'aspiration'
-        ? [{ key: 'aspiration', title: 'Aspiration Matches', icon: 'rocket' as IconName, items: topAspirationJobs }]
+        ? [{ key: 'aspiration', title: 'Aspiration Opportunities', icon: 'rocket' as IconName, items: aspirationJobs }]
         : [
-            { key: 'fit-now', title: 'Fit-Now Matches', icon: 'check-circle' as IconName, items: topFitNowJobs },
-            { key: 'aspiration', title: 'Aspiration Matches', icon: 'rocket' as IconName, items: topAspirationJobs },
+            { key: 'fit-now', title: 'Fit-Now Opportunities', icon: 'check-circle' as IconName, items: fitNowJobs },
+            { key: 'aspiration', title: 'Aspiration Opportunities', icon: 'rocket' as IconName, items: aspirationJobs },
           ];
 
-  const renderJobCard = (job: DashboardJob) => (
+  const renderJobCard = (job: DashboardJob) => {
+    const activeApplication = applications.find((app) => app.jobId === job.id && app.jobSource === job.jobSource && app.status !== 'Withdrawn') || null;
+    return (
     <div key={job.id} className="cand-job-card">
       <div className="cand-job-top">
         <div className="cand-job-left">
@@ -2292,8 +3277,8 @@ function JobMatchesPage({
           </div>
         </div>
         <div className="text-right">
-          <div className="cand-match-badge" style={{ background: getMatchScoreColor(job) }}>
-            {getMatchScoreBadge(job)}
+          <div className={`cand-match-badge friendly ${getMatchReadinessClass(job.matchScore)}`}>
+            {getMatchBadgeLabel(job)}
           </div>
           <div>
             <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
@@ -2303,28 +3288,43 @@ function JobMatchesPage({
         </div>
       </div>
 
-      <p className="cand-job-desc-preview">{job.explanation}</p>
-
-      <div className="cand-skill-row">
-        {job.matchedSkills.slice(0, 6).map((skill) => (
-          <span key={`${job.id}-match-${skill}`} className="cand-skill-match">
-            <UIIcon name="check-circle" className="cand-chip-icon" /> {skill}
-          </span>
-        ))}
-        {job.missingSkills.slice(0, 6).map((skill) => (
-          <span key={`${job.id}-missing-${skill}`} className="cand-skill-miss">
-            {skill}
-          </span>
-        ))}
+      <div className="cand-job-section">
+        <div className="cand-job-section-label">Why this job matches you</div>
+        <p className="cand-job-desc-preview">{buildJobExplanation(job)}</p>
       </div>
 
-      <div className="cand-explain"><UIIcon name="lightbulb" className="cand-inline-info-icon" />{job.explanation}</div>
+      <div className="cand-job-section">
+        <div className="cand-job-section-label">Your Matching Skills</div>
+        <div className="cand-skill-row">
+          {job.matchedSkills.length > 0 ? job.matchedSkills.slice(0, 6).map((skill) => (
+            <span key={`${job.id}-match-${skill}`} className="cand-skill-match">
+              <UIIcon name="check-circle" className="cand-chip-icon" /> {cleanSkillDisplayName(skill)}
+            </span>
+          )) : <span className="cand-covered-empty">Matched skills not detected yet.</span>}
+        </div>
+      </div>
+
+      <div className="cand-job-section">
+        <div className="cand-job-section-label">Skills to Improve</div>
+        <div className="cand-skill-row">
+          {job.missingSkills.length > 0 ? job.missingSkills.slice(0, 6).map((skill) => (
+            <span key={`${job.id}-missing-${skill}`} className="cand-skill-miss">
+              {cleanSkillDisplayName(skill)}
+            </span>
+          )) : <span className="cand-covered-empty">No major missing skills detected for this role.</span>}
+        </div>
+      </div>
+
+      <div className="cand-explain">
+        <UIIcon name="lightbulb" className="cand-inline-info-icon" />
+        <strong>Recommended Next Step:</strong> {getRecommendedNextStep(job)}
+      </div>
 
       <div className="cand-actions">
         {job.sourceType === 'internal' ? (
           <>
-            <button className="cand-btn-primary" type="button" onClick={() => onApply(job)}>
-              <UIIcon name="paper-plane" className="cand-btn-icon" />Apply
+            <button className="cand-btn-primary" type="button" onClick={() => onApply(job)} disabled={Boolean(activeApplication)}>
+              <UIIcon name="paper-plane" className="cand-btn-icon" />{activeApplication ? 'Applied ✓' : 'Apply'}
             </button>
             <button className="cand-btn-secondary" type="button" onClick={() => onView(job)}>
               <UIIcon name="eye" className="cand-btn-icon" />View Details
@@ -2345,7 +3345,8 @@ function JobMatchesPage({
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div>
@@ -2363,9 +3364,10 @@ function JobMatchesPage({
         </div>
 
         <div className="cand-tab-row">
-          <FilterTab active={jobFilter === 'all'} onClick={() => onFilter('all')}>All Matches ({allMatchesCount})</FilterTab>
+          <FilterTab active={jobFilter === 'top'} onClick={() => onFilter('top')}>Top Matches ({topMatchesCount})</FilterTab>
           <FilterTab active={jobFilter === 'fit-now'} onClick={() => onFilter('fit-now')}><UIIcon name="check-circle" className="cand-tab-icon green" />Fit-Now ({fitNowCount})</FilterTab>
           <FilterTab active={jobFilter === 'aspiration'} onClick={() => onFilter('aspiration')}><UIIcon name="rocket" className="cand-tab-icon mauve" />Aspiration ({aspirationCount})</FilterTab>
+          <FilterTab active={jobFilter === 'all'} onClick={() => onFilter('all')}>Show All Matches ({allMatchesCount})</FilterTab>
         </div>
       </div>
 
@@ -2411,12 +3413,22 @@ function SkillGapsPage({
   gaps,
   jobs,
   categoryProgress,
+  courses,
+  evidenceRecords,
+  skillProgressRecords,
+  onUpdateSkillProgress,
+  onUploadSkillEvidence,
   onOpenUpskilling,
   onOpenResume,
 }: {
   gaps: DashboardGap[];
   jobs: DashboardJob[];
-  categoryProgress: Array<{ category: SkillCategory; percent: number; missing: number; matched: number; completed: number }>;
+  categoryProgress: CategoryProgressRow[];
+  courses: DashboardCourse[];
+  evidenceRecords: EvidenceUploadRecord[];
+  skillProgressRecords: Record<string, SkillProgressRecord>;
+  onUpdateSkillProgress: (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => void;
+  onUploadSkillEvidence: (skillKey: string, file: File | null) => void;
   onOpenUpskilling: () => void;
   onOpenResume: () => void;
 }) {
@@ -2424,8 +3436,8 @@ function SkillGapsPage({
     () => categoryProgress.slice().sort((a, b) => a.percent - b.percent),
     [categoryProgress],
   );
-  const [showCovered, setShowCovered] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<SkillCategory>(sortedCategories[0]?.category || 'Data Engineering');
+  const [activeSkillGapView, setActiveSkillGapView] = useState<'board' | 'progress'>('board');
+  const [selectedCategory, setSelectedCategory] = useState<SkillCategory>(sortedCategories[0]?.category || 'Other');
 
   useEffect(() => {
     if (sortedCategories.length === 0) return;
@@ -2457,14 +3469,56 @@ function SkillGapsPage({
     return map;
   }, [gaps]);
 
-  const critical = gaps.filter((gap) => gap.severity === 'Critical');
-  const high = gaps.filter((gap) => gap.severity === 'High');
-  const moderate = gaps.filter((gap) => gap.severity === 'Moderate');
+  const boardGaps = useMemo(() => {
+    return gaps.map((gap) => {
+      let boardSeverity: SeverityLevel = 'Moderate';
+      if (gap.affectedCount >= 3) boardSeverity = 'Critical';
+      else if (gap.affectedCount === 2) boardSeverity = 'High';
+      return { ...gap, boardSeverity };
+    });
+  }, [gaps]);
+
+  const critical = boardGaps.filter((gap) => gap.boardSeverity === 'Critical');
+  const high = boardGaps.filter((gap) => gap.boardSeverity === 'High');
+  const moderate = boardGaps.filter((gap) => gap.boardSeverity === 'Moderate');
   const totalCoveredSkills = Array.from(coveredByCategory.values()).reduce((sum, skills) => sum + skills.length, 0);
+  const progressEntries = Object.values(skillProgressRecords);
+  const activeMissingCount = progressEntries.filter((record) => ['missing', 'started', 'in_progress'].includes(record.status)).length || gaps.length;
+  const inProgressCount = progressEntries.filter((record) => ['started', 'in_progress'].includes(record.status)).length;
+  const completedCount = progressEntries.filter((record) => ['completed', 'evidenced', 'covered'].includes(record.status)).length;
+  const evidenceUploadedCount = progressEntries.filter((record) => Boolean(record.evidenceFilename)).length || evidenceRecords.length;
   const selectedCategoryRow = categoryProgress.find((row) => row.category === selectedCategory) || null;
   const selectedMissing = missingByCategory.get(selectedCategory) || [];
   const selectedCovered = coveredByCategory.get(selectedCategory) || [];
-  const selectedStatus = selectedCategoryRow ? categoryStatus(selectedCategoryRow.percent) : null;
+  const selectedStatus = selectedCategoryRow ? normalizeProgressLabel(selectedCategoryRow.percent) : null;
+  const hasAnyProgressData = gaps.length > 0 || categoryProgress.some((row) => row.percent > 0 || row.relatedSkillRecords.length > 0);
+  const recommendedResourceByGap = useMemo(() => {
+    const map = new Map<string, DashboardCourse>();
+    gaps.forEach((gap) => {
+      if (gap.topResources?.[0]) {
+        map.set(gap.skill, gap.topResources[0]);
+        return;
+      }
+      const match = courses.find((course) => {
+        const gapName = normalizeSkill(gap.skill);
+        const gapId = (gap.skillId || '').trim().toUpperCase();
+        const courseGapTag = normalizeSkill(course.gapTag || '');
+        const courseTitle = normalizeSkill(course.title || '');
+        return courseGapTag === gapName
+          || courseTitle.includes(gapName)
+          || (gapId && course.id.toUpperCase().includes(gapId));
+      });
+      if (match) map.set(gap.skill, match);
+    });
+    return map;
+  }, [courses, gaps]);
+  const summaryCards = [
+    { label: 'Missing Skills', value: activeMissingCount, tone: 'critical', icon: 'puzzle' as IconName, subtitle: 'Still missing from top matches' },
+    { label: 'In Progress', value: inProgressCount, tone: 'high', icon: 'graduation' as IconName, subtitle: 'Active learning underway' },
+    { label: 'Completed / Covered', value: Math.max(totalCoveredSkills, completedCount), tone: 'progress', icon: 'check-circle' as IconName, subtitle: 'Covered by skills or learning' },
+    { label: 'Evidence Uploaded', value: evidenceUploadedCount, tone: 'evidence', icon: 'upload' as IconName, subtitle: 'Supporting documents on file' },
+  ] as const;
+  const emptyProgressText = PROGRESS_EMPTY_TEXT;
 
   return (
     <div>
@@ -2473,180 +3527,228 @@ function SkillGapsPage({
         <p className="cand-page-subtitle">Missing skills identified from your job matches with guided development tracking</p>
       </div>
 
-      <div className="cand-gap-summary-row">
-        <SummaryCounter label="Critical Gaps" value={critical.length} color="var(--red)" />
-        <SummaryCounter label="High Priority" value={high.length} color="var(--amber)" />
-        <SummaryCounter label="Moderate Gaps" value={moderate.length} color="var(--mauve)" />
-        <button className="cand-gap-summary-card cand-summary-action" type="button" onClick={() => setShowCovered((value) => !value)}>
-          <div className="cand-gap-summary-num" style={{ color: 'var(--green)' }}>{totalCoveredSkills}</div>
-          <div className="cand-gap-summary-label">Skills Covered</div>
-          <div className="cand-summary-link">{showCovered ? 'Hide' : 'View all'}</div>
-        </button>
+      <div className="cand-gap-toolbar">
+        <div className="cand-gap-insights-bar">
+          {summaryCards.map((card) => (
+            <div key={card.label} className={`cand-gap-insight ${card.tone}`}>
+              <div className="cand-gap-insight-label"><UIIcon name={card.icon} className="cand-mini-icon" />{card.label}</div>
+              <div className="cand-gap-insight-value">{card.value}</div>
+              <div className="cand-gap-insight-subtitle">{card.subtitle}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="cand-tab-row cand-gap-view-tabs" role="tablist" aria-label="Skill gaps views">
+          <button
+            className={`cand-tab-btn ${activeSkillGapView === 'board' ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={activeSkillGapView === 'board'}
+            onClick={() => setActiveSkillGapView('board')}
+          >
+            <UIIcon name="columns" className="cand-tab-icon" />Skill Gap Board
+          </button>
+          <button
+            className={`cand-tab-btn ${activeSkillGapView === 'progress' ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={activeSkillGapView === 'progress'}
+            onClick={() => setActiveSkillGapView('progress')}
+          >
+            <UIIcon name="chart" className="cand-tab-icon" />Development Progress
+          </button>
+        </div>
       </div>
 
-      {showCovered && (
-        <div className="cand-covered-panel">
-          {sortedCategories.length > 0 ? (
-            sortedCategories.map((row) => {
-              const covered = coveredByCategory.get(row.category) || [];
-              return (
-                <div key={`covered-${row.category}`} className="cand-covered-group">
-                  <div className="cand-covered-title">{row.category}</div>
-                  <div className="cand-covered-chips">
-                    {covered.length > 0 ? covered.map((skill) => (
-                      <span key={`${row.category}-${skill}`} className="cand-covered-chip">
-                        <UIIcon name="check-circle" className="cand-covered-icon" />
-                        {skill}
-                      </span>
-                    )) : <span className="cand-covered-empty">No covered skills yet.</span>}
-                  </div>
-                </div>
-              );
-            })
+      {activeSkillGapView === 'board' ? (
+        <>
+          <h2 className="cand-card-title mb-3"><UIIcon name="columns" className="cand-title-icon" />Skill Gap Board</h2>
+          {!hasAnyProgressData ? (
+            <div className="cand-gap-empty-state">{emptyProgressText}</div>
           ) : (
-            <div className="cand-empty">No covered skills yet. Confirm skills from your resume to populate this panel.</div>
-          )}
-        </div>
-      )}
-
-      <h2 className="cand-card-title mb-3"><UIIcon name="columns" className="cand-title-icon" />Skill Gap Board</h2>
-      <div className="cand-gap-kanban">
-        {[
-          { key: 'critical', title: 'Critical', icon: 'shield' as IconName, items: critical },
-          { key: 'high', title: 'High Priority', icon: 'lightbulb' as IconName, items: high },
-          { key: 'moderate', title: 'Moderate', icon: 'list' as IconName, items: moderate },
-        ].map((column) => (
-          <div key={column.key} className="cand-gap-col">
-            <div className={`cand-gap-col-head ${column.key}`}>
-              <UIIcon name={column.icon} className="cand-gap-col-icon" />
-              {column.title}
-              <span className="cand-gap-col-count">{column.items.length}</span>
-            </div>
-            <div className="cand-gap-col-body">
-              {column.items.length > 0 ? column.items.map((gap) => {
-                const gapProgress = categoryProgress.find((row) => row.category === gap.category)?.percent || 0;
-                const gapStatus = categoryStatus(gapProgress);
-                return (
-                  <div key={`${column.key}-${gap.skill}`} className="cand-gap-k-card">
-                    <div className="cand-gap-top">
-                      <span className="cand-gap-name">{gap.skill}</span>
-                      <span className={`cand-gap-priority ${severityClass(gap.severity)}`}>{gap.severity}</span>
-                    </div>
-                    <div className="cand-gap-meta">
-                      <span><UIIcon name="briefcase" className="cand-mini-icon" />{gap.affectedCount} job matches affected</span>
-                      <span><UIIcon name="target" className="cand-mini-icon" />{gap.category}</span>
-                    </div>
-                    <div className="cand-gap-progress">
-                      <div className="cand-gap-progress-bar">
-                        <div className="cand-gap-progress-fill" style={{ width: `${gapProgress}%`, background: categoryBarColor(gap.category) }} />
+          <div className="cand-gap-kanban">
+            {[
+              { key: 'critical', title: 'Critical', icon: 'shield' as IconName, severity: 'Critical' as SeverityLevel, items: critical },
+              { key: 'high', title: 'High Priority', icon: 'lightbulb' as IconName, severity: 'High' as SeverityLevel, items: high },
+              { key: 'moderate', title: 'Moderate', icon: 'list' as IconName, severity: 'Moderate' as SeverityLevel, items: moderate },
+            ].map((column) => (
+              <div key={column.key} className="cand-gap-col">
+                <div className={`cand-gap-col-head ${column.key}`}>
+                  <UIIcon name={column.icon} className="cand-gap-col-icon" />
+                  {column.title}
+                  <span className="cand-gap-col-count">{column.items.length}</span>
+                </div>
+                <div className="cand-gap-col-body">
+                  {column.items.length > 0 ? column.items.map((gap) => {
+                    const progressKey = (gap.skillId || normalizeSkill(gap.skill)).toUpperCase();
+                    const progressRecord = skillProgressRecords[progressKey];
+                    const gapProgress = progressRecord?.progressPercent ?? categoryProgress.find((row) => row.category === gap.category)?.percent ?? 0;
+                    const gapStatus = categoryStatus(gapProgress);
+                    const recommendedResource = recommendedResourceByGap.get(gap.skill);
+                    return (
+                      <div key={`${column.key}-${gap.skill}`} className="cand-gap-k-card">
+                        <div className="cand-gap-top">
+                          <span className="cand-gap-name">{cleanSkillDisplayName(gap.skill)}</span>
+                          <span className={`cand-gap-priority ${severityClass(column.severity)}`}>{column.title}</span>
+                        </div>
+                        <div className="cand-gap-meta">
+                          <span><UIIcon name="briefcase" className="cand-mini-icon" />{formatGapMissingCount(gap)}</span>
+                          <span><UIIcon name="target" className="cand-mini-icon" />{gap.category}</span>
+                        </div>
+                        <div className="text-[11px] text-soft">
+                          This skill is prioritized because it appears as a missing requirement in {gap.affectedCount} of your recommended roles.
+                        </div>
+                        <div className="cand-gap-jobs">
+                          {gap.relatedJobs.map((jobTitle) => (
+                            <span key={`${gap.skill}-${jobTitle}`} className="cand-gap-chip">{jobTitle}</span>
+                          ))}
+                        </div>
+                        <div className="cand-gap-learning">
+                          <div className="cand-gap-label">Recommended Learning Resource</div>
+                          <div className="cand-gap-value">
+                            {recommendedResource ? `${recommendedResource.title} (${recommendedResource.provider})` : 'No recommended learning resource available yet.'}
+                          </div>
+                          {gap.topResources && gap.topResources.length > 1 ? (
+                            <div className="mt-2 text-[11px] text-soft">
+                              More options: {gap.topResources.slice(1, 3).map((resource) => resource.title).join(' · ')}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="cand-gap-progress">
+                          <div className="cand-gap-progress-bar">
+                            <div className="cand-gap-progress-fill" style={{ width: `${gapProgress}%`, background: categoryBarColor(gap.category) }} />
+                          </div>
+                          <span className="cand-gap-progress-text">{gapProgress}%</span>
+                          <span className={gapStatus.className}>{gapStatus.label}</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-soft">{gapStatus.interpretation}</div>
+                        <div className="cand-gap-actions">
+                          <button className="cand-gap-start" type="button" onClick={() => onUpdateSkillProgress(progressKey, 'started', recommendedResource?.id)}>
+                            <UIIcon name="graduation" className="cand-btn-icon" />Start Learning
+                          </button>
+                          <button className="cand-gap-resource" type="button" onClick={() => onUpdateSkillProgress(progressKey, 'in_progress', recommendedResource?.id)}>
+                            Mark In Progress
+                          </button>
+                          <button className="cand-gap-resource" type="button" onClick={() => onUpdateSkillProgress(progressKey, 'completed', recommendedResource?.id)}>
+                            Mark Completed
+                          </button>
+                          <label className="cand-gap-resource cand-gap-upload">
+                            Upload Evidence
+                            <input
+                              type="file"
+                              accept="application/pdf,.pdf"
+                              className="hidden"
+                              onChange={(event) => onUploadSkillEvidence(progressKey, event.target.files?.[0] || null)}
+                            />
+                          </label>
+                          <button className="cand-gap-resource" type="button" onClick={onOpenUpskilling}>
+                            View Top 3
+                          </button>
+                        </div>
                       </div>
-                      <span className="cand-gap-progress-text">{gapProgress}%</span>
-                      <span className={gapStatus.className}>{gapStatus.label}</span>
+                    );
+                  }) : <div className="cand-gap-empty">No items in this column.</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+          )}
+        </>
+      ) : (
+        <>
+          <h2 className="cand-card-title mb-2"><UIIcon name="chart" className="cand-title-icon" />Skill Development Progress by Category</h2>
+          <p className="mb-3 text-xs text-soft">
+            Progress is an explainable career-guidance indicator, not a mastery-verification score.
+          </p>
+
+          {!hasAnyProgressData ? (
+            <div className="cand-gap-empty-state">{emptyProgressText}</div>
+          ) : (
+          <div className="cand-sdp-dual">
+            <div className="cand-sdp-list">
+              <div className="cand-sdp-list-head">Categories & Progress</div>
+              {sortedCategories.length > 0 ? sortedCategories.map((row) => {
+                const rowStatus = normalizeProgressLabel(row.percent);
+                return (
+                  <button key={`sdp-row-${row.category}`} type="button" className={`cand-sdp-row-item ${selectedCategory === row.category ? 'active' : ''}`} onClick={() => setSelectedCategory(row.category)}>
+                    <div className="cand-sdp-row-left">
+                      <div className="cand-sdp-row-name">{row.category}</div>
+                      <div className={rowStatus.className}>{rowStatus.label}</div>
+                      <div className="mt-1 text-[11px] text-soft">{rowStatus.interpretation}</div>
+                      <div className="cand-sdp-mini-bar">
+                        <div className="cand-sdp-mini-fill" style={{ width: `${row.percent}%`, background: categoryBarColor(row.category) }} />
+                      </div>
                     </div>
-                    <div className="mt-1 text-[11px] text-soft">{gapStatus.interpretation}</div>
-                    <div className="cand-gap-jobs">
-                      {(gap.relatedJobs.length > 0 ? gap.relatedJobs : ['Related job roles']).map((jobTitle) => (
-                        <span key={`${gap.skill}-${jobTitle}`} className="cand-gap-chip">{jobTitle}</span>
-                      ))}
+                    <div className="cand-sdp-row-right">
+                      <div className="cand-sdp-row-pct">{row.percent}%</div>
+                      <div className="cand-sdp-row-counts">{row.missing} missing · {Math.max(row.matched, row.completed)} covered</div>
+                      <div className="cand-sdp-row-counts">{row.evidenceUploaded} evidence · {row.completed} completed learning</div>
                     </div>
-                    <button className="cand-gap-resource" type="button" onClick={onOpenUpskilling}>
-                      <UIIcon name="graduation" className="cand-btn-icon" />View {gap.skill} learning resources
+                  </button>
+                );
+              }) : <div className="cand-gap-empty-state">{emptyProgressText}</div>}
+            </div>
+
+            <div className="cand-sdp-detail">
+              {selectedCategoryRow ? (
+                <>
+                  <div className="cand-sdp-detail-head">
+                    <h3 className="cand-sdp-detail-title">{selectedCategory}</h3>
+                    <span className={selectedStatus?.className || ''}>{selectedStatus?.label}</span>
+                  </div>
+                  <div className="mb-2 text-xs text-soft">{selectedStatus?.interpretation}</div>
+                  <div className="cand-sdp-detail-bar-row">
+                    <div className="cand-sdp-detail-bar">
+                      <div className="cand-sdp-detail-fill" style={{ width: `${selectedCategoryRow.percent}%`, background: categoryBarColor(selectedCategory) }} />
+                    </div>
+                    <span className="cand-sdp-detail-pct">{selectedCategoryRow.percent}%</span>
+                  </div>
+                  <div className="cand-sdp-row-counts mb-3">
+                    {selectedCategoryRow.evidenceUploaded} supporting evidence · {selectedCategoryRow.completed} completed learning
+                  </div>
+
+                  <div className="cand-sdp-detail-section">Missing Skills</div>
+                  <div className="cand-skill-row">
+                    {selectedMissing.length > 0 ? selectedMissing.map((skill) => <span key={`missing-${selectedCategory}-${skill}`} className="cand-skill-miss">{skill}</span>) : <span className="cand-covered-empty">No missing skills in this category.</span>}
+                  </div>
+
+                  <div className="cand-sdp-detail-section">Completed / Covered</div>
+                  <div className="cand-skill-row">
+                    {selectedCovered.length > 0 ? selectedCovered.map((skill) => <span key={`covered-${selectedCategory}-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>) : <span className="cand-covered-empty">No completed or covered skills yet.</span>}
+                  </div>
+
+                  <div className="cand-sdp-detail-section">Related Skill Records</div>
+                  <div className="cand-skill-row">
+                    {selectedCategoryRow.relatedSkillRecords.length > 0 ? selectedCategoryRow.relatedSkillRecords.map((skill) => (
+                      <span key={`record-${selectedCategory}-${skill}`} className="cand-gap-chip">{cleanSkillDisplayName(skill)}</span>
+                    )) : <span className="cand-covered-empty">No related skill records yet.</span>}
+                  </div>
+
+                  <div className="cand-sdp-detail-section">Recommended Next Action</div>
+                  <div className="cand-sdp-next-action">
+                    {selectedMissing.length > 0 ? `Focus on ${selectedMissing[0]} to improve category alignment.` : 'Maintain momentum by continuing related upskilling content.'}
+                  </div>
+                  <div className="cand-sdp-action-row">
+                    <button className="cand-btn-primary cand-btn-sm" type="button" onClick={onOpenUpskilling}>
+                      <UIIcon name="graduation" className="cand-btn-icon" />Open Upskilling Path
+                    </button>
+                    <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenResume}>
+                      <UIIcon name="upload" className="cand-btn-icon" />Update Resume
                     </button>
                   </div>
-                );
-              }) : <div className="cand-gap-empty">No items in this column.</div>}
+                </>
+              ) : (
+                <div className="cand-gap-empty-state">{emptyProgressText}</div>
+              )}
             </div>
           </div>
-        ))}
-      </div>
-
-      <h2 className="cand-card-title mb-2"><UIIcon name="chart" className="cand-title-icon" />Skill Development Progress by Category</h2>
-      <p className="mb-3 text-xs text-soft">
-        Progress is a career-guidance indicator only, not formal skill verification, credential authentication, or employment guarantee.
-      </p>
-
-      <div className="cand-sdp-dual">
-        <div className="cand-sdp-list">
-          <div className="cand-sdp-list-head">Categories & Progress</div>
-          {sortedCategories.length > 0 ? sortedCategories.map((row) => {
-            const rowStatus = categoryStatus(row.percent);
-            return (
-              <button key={`sdp-row-${row.category}`} type="button" className={`cand-sdp-row-item ${selectedCategory === row.category ? 'active' : ''}`} onClick={() => setSelectedCategory(row.category)}>
-                  <div className="cand-sdp-row-left">
-                    <div className="cand-sdp-row-name">{row.category}</div>
-                    <div className={rowStatus.className}>{rowStatus.label}</div>
-                    <div className="mt-1 text-[11px] text-soft">{rowStatus.interpretation}</div>
-                    <div className="cand-sdp-mini-bar">
-                      <div className="cand-sdp-mini-fill" style={{ width: `${row.percent}%`, background: categoryBarColor(row.category) }} />
-                    </div>
-                  </div>
-                <div className="cand-sdp-row-right">
-                  <div className="cand-sdp-row-pct">{row.percent}%</div>
-                  <div className="cand-sdp-row-counts">{row.missing} missing · {row.matched} covered</div>
-                </div>
-              </button>
-            );
-          }) : <div className="cand-gap-empty">No category progress available.</div>}
-        </div>
-
-        <div className="cand-sdp-detail">
-          {selectedCategoryRow ? (
-            <>
-              <div className="cand-sdp-detail-head">
-                <h3 className="cand-sdp-detail-title">{selectedCategory}</h3>
-                <span className={selectedStatus?.className || ''}>{selectedStatus?.label}</span>
-              </div>
-              <div className="mb-2 text-xs text-soft">{selectedStatus?.interpretation}</div>
-              <div className="cand-sdp-detail-bar-row">
-                <div className="cand-sdp-detail-bar">
-                  <div className="cand-sdp-detail-fill" style={{ width: `${selectedCategoryRow.percent}%`, background: categoryBarColor(selectedCategory) }} />
-                </div>
-                <span className="cand-sdp-detail-pct">{selectedCategoryRow.percent}%</span>
-              </div>
-
-              <div className="cand-sdp-detail-section">Missing Skills</div>
-              <div className="cand-skill-row">
-                {selectedMissing.length > 0 ? selectedMissing.map((skill) => <span key={`missing-${selectedCategory}-${skill}`} className="cand-skill-miss">{skill}</span>) : <span className="cand-covered-empty">No missing skills in this category.</span>}
-              </div>
-
-              <div className="cand-sdp-detail-section">Covered Skills</div>
-              <div className="cand-skill-row">
-                {selectedCovered.length > 0 ? selectedCovered.map((skill) => <span key={`covered-${selectedCategory}-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>) : <span className="cand-covered-empty">No covered skills yet.</span>}
-              </div>
-
-              <div className="cand-sdp-detail-section">Recommended Next Action</div>
-              <div className="cand-sdp-next-action">
-                {selectedMissing.length > 0 ? `Focus on ${selectedMissing[0]} to improve category alignment.` : 'Maintain momentum by continuing related upskilling content.'}
-              </div>
-              <div className="cand-sdp-action-row">
-                <button className="cand-btn-primary cand-btn-sm" type="button" onClick={onOpenUpskilling}>
-                  <UIIcon name="graduation" className="cand-btn-icon" />Open Upskilling Path
-                </button>
-                <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenResume}>
-                  <UIIcon name="upload" className="cand-btn-icon" />Update Resume
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="cand-empty">Select a category from the left panel to view details.</div>
           )}
-        </div>
-      </div>
 
-      <div className="cand-sdp-disclaimer">
-        Skill Development Progress remains a career-guidance indicator and does not certify verified competency or guarantee employment.
-      </div>
-    </div>
-  );
-}
-
-function SummaryCounter({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="cand-gap-summary-card">
-      <div className="cand-gap-summary-num" style={{ color }}>
-        {value}
-      </div>
-      <div className="cand-gap-summary-label">{label}</div>
+          <div className="cand-sdp-disclaimer">
+            Skill Development Progress remains an explainable indicator for guidance and does not certify verified competency or guarantee employment.
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2846,10 +3948,10 @@ function PreferencesPage({
 
       <div className="cand-card">
         <div className="cand-form-grid">
-          <FormField label="Preferred Industry">
+          <FormField label="Career Area of Interest">
             <select className="cand-form-select" value={draft.industry} onChange={(event) => setDraft((current) => ({ ...current, industry: event.target.value }))}>
-              {Object.entries(industryLabels).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {careerAreaOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </FormField>
@@ -2957,26 +4059,71 @@ function AccountSettingsPage({
   user,
   uiLanguage,
   evidenceRecords,
+  profile,
+  savedResumeFileName,
+  isSavingProfile,
+  profileSaveNotice,
   onLanguage,
   onOpenDelete,
   onOpenResume,
-  onUploadEvidence,
+  onOpenEvidenceUpload,
+  onViewEvidence,
+  onReplaceEvidence,
+  onDeleteEvidence,
+  onProfileChange,
   onSave,
 }: {
   user: { name: string; email: string };
   uiLanguage: 'en' | 'fil';
   evidenceRecords: EvidenceUploadRecord[];
+  savedResumeFileName: string;
+  profile: {
+    contactNumber: string;
+    birthday: string;
+    address: string;
+    location: string;
+    highestEducationalAttainment: string;
+    degreeProgram: string;
+    schoolUniversity: string;
+    yearGraduated: string;
+  };
+  isSavingProfile: boolean;
+  profileSaveNotice: string | null;
   onLanguage: (lang: 'en' | 'fil') => void;
   onOpenDelete: () => void;
   onOpenResume: () => void;
-  onUploadEvidence: (file: File | null) => void;
+  onOpenEvidenceUpload: () => void;
+  onViewEvidence: (record: EvidenceUploadRecord) => void;
+  onReplaceEvidence: (record: EvidenceUploadRecord) => void;
+  onDeleteEvidence: (record: EvidenceUploadRecord) => void;
+  onProfileChange: (profile: {
+    contactNumber: string;
+    birthday: string;
+    address: string;
+    location: string;
+    highestEducationalAttainment: string;
+    degreeProgram: string;
+    schoolUniversity: string;
+    yearGraduated: string;
+  }) => void;
   onSave: () => void;
 }) {
+  const groupedEvidence = useMemo(() => {
+    const groups = new Map<string, EvidenceUploadRecord[]>();
+    evidenceRecords.forEach((record) => {
+      const key = record.category?.trim() || 'Other';
+      const current = groups.get(key) || [];
+      current.push(record);
+      groups.set(key, current);
+    });
+    return Array.from(groups.entries()).sort(([left], [right]) => left.localeCompare(right));
+  }, [evidenceRecords]);
+
   return (
     <div>
       <div className="cand-page-header">
         <h1 className="cand-page-title">Account Settings</h1>
-        <p className="cand-page-subtitle">Manage personal details, resume, education, certifications, and account controls</p>
+        <p className="cand-page-subtitle">Manage personal details, resume, education, and account controls</p>
       </div>
 
       <div className="cand-acct-section">
@@ -2997,16 +4144,21 @@ function AccountSettingsPage({
       <div className="cand-acct-grid">
         <div className="cand-acct-section">
           <div className="cand-acct-title">Personal Details</div>
+          {profileSaveNotice && (
+            <div className="cand-notice info mb-3">
+              <span>{profileSaveNotice}</span>
+            </div>
+          )}
           <div className="space-y-3">
             <FormField label="Full Name"><input className="cand-form-input" defaultValue={user.name} /></FormField>
             <FormField label="Email Address"><input className="cand-form-input" defaultValue={user.email} /></FormField>
-            <FormField label="Contact Number"><input className="cand-form-input" placeholder="+63 ..." /></FormField>
-            <FormField label="Birthday"><input className="cand-form-input" type="date" /></FormField>
-            <FormField label="Address"><input className="cand-form-input" placeholder="City, Province, Philippines" /></FormField>
-            <FormField label="Location / Region"><input className="cand-form-input" placeholder="Region" /></FormField>
+            <FormField label="Contact Number"><input className="cand-form-input" value={profile.contactNumber} onChange={(event) => onProfileChange({ ...profile, contactNumber: event.target.value })} placeholder="Enter contact number" /></FormField>
+            <FormField label="Birthday"><input className="cand-form-input" value={profile.birthday} onChange={(event) => onProfileChange({ ...profile, birthday: event.target.value })} type="date" /></FormField>
+            <FormField label="Address"><input className="cand-form-input" value={profile.address} onChange={(event) => onProfileChange({ ...profile, address: event.target.value })} placeholder="Enter your address" /></FormField>
+            <FormField label="Location / Region"><input className="cand-form-input" value={profile.location} onChange={(event) => onProfileChange({ ...profile, location: event.target.value })} placeholder="Enter your region" /></FormField>
           </div>
-          <button className="cand-btn-primary mt-4" type="button" onClick={onSave}>
-            Save Details
+          <button className="cand-btn-primary mt-4" type="button" onClick={onSave} disabled={isSavingProfile}>
+            {isSavingProfile ? 'Saving...' : 'Save Details'}
           </button>
         </div>
 
@@ -3018,8 +4170,8 @@ function AccountSettingsPage({
               <FormField label="New Password"><input className="cand-form-input" type="password" /></FormField>
               <FormField label="Confirm New Password"><input className="cand-form-input" type="password" /></FormField>
             </div>
-            <button className="cand-btn-primary mt-4" type="button" onClick={onSave}>
-              Update Password
+            <button className="cand-btn-primary mt-4" type="button" onClick={onSave} disabled={isSavingProfile}>
+              {isSavingProfile ? 'Saving...' : 'Update Password'}
             </button>
           </div>
 
@@ -3027,6 +4179,9 @@ function AccountSettingsPage({
             <div className="cand-acct-title">Resume</div>
             <div className="cand-notice info mb-3">
               <span>View or upload your latest resume. Updating resume refreshes matches, gaps, and recommendations.</span>
+            </div>
+            <div className="mb-3 text-sm text-mid">
+              Saved resume: <strong>{savedResumeFileName || 'No resume saved yet'}</strong>
             </div>
             <button className="cand-btn-secondary w-full justify-center" type="button" onClick={onOpenResume}>
               Update Resume
@@ -3036,15 +4191,15 @@ function AccountSettingsPage({
       </div>
 
       <div className="cand-acct-section">
-        <div className="cand-acct-title">Education</div>
-        <div className="cand-form-grid">
-          <FormField label="Highest Educational Attainment"><input className="cand-form-input" placeholder="Bachelor's Degree" /></FormField>
-          <FormField label="Degree / Program"><input className="cand-form-input" placeholder="BS Information Technology" /></FormField>
-          <FormField label="School / University"><input className="cand-form-input" placeholder="University Name" /></FormField>
-          <FormField label="Year Graduated"><input className="cand-form-input" placeholder="2023" /></FormField>
-        </div>
-        <button className="cand-btn-primary mt-3" type="button" onClick={onSave}>
-          Save Education
+          <div className="cand-acct-title">Education</div>
+          <div className="cand-form-grid">
+          <FormField label="Highest Educational Attainment"><input className="cand-form-input" value={profile.highestEducationalAttainment} onChange={(event) => onProfileChange({ ...profile, highestEducationalAttainment: event.target.value })} placeholder="Enter highest educational attainment" /></FormField>
+          <FormField label="Degree / Program"><input className="cand-form-input" value={profile.degreeProgram} onChange={(event) => onProfileChange({ ...profile, degreeProgram: event.target.value })} placeholder="Enter degree or program" /></FormField>
+          <FormField label="School / University"><input className="cand-form-input" value={profile.schoolUniversity} onChange={(event) => onProfileChange({ ...profile, schoolUniversity: event.target.value })} placeholder="Enter school or university" /></FormField>
+          <FormField label="Year Graduated"><input className="cand-form-input" value={profile.yearGraduated} onChange={(event) => onProfileChange({ ...profile, yearGraduated: event.target.value })} placeholder="Enter graduation year" /></FormField>
+          </div>
+        <button className="cand-btn-primary mt-3" type="button" onClick={onSave} disabled={isSavingProfile}>
+          {isSavingProfile ? 'Saving...' : 'Save Education'}
         </button>
       </div>
 
@@ -3053,30 +4208,53 @@ function AccountSettingsPage({
         <p className="mb-3 text-xs text-soft">
           Safeguards enabled: PDF-only uploads, PDF signature and page-structure checks, certificate keyword checks, photo-like filename blocking, and pending-verification status.
         </p>
-        <div className="space-y-3">
-          {evidenceRecords.length > 0 ? (
-            evidenceRecords.map((record) => (
-              <div key={record.id} className="flex items-center justify-between border-b border-bdr pb-3">
-                <div>
-                  <div className="text-sm font-bold text-dark">{record.title}</div>
-                  <div className="text-xs text-soft">Uploaded {formatDateLabel(record.uploadedAt)}</div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-soft">Upload certificates, course completion files, portfolio outputs, or project samples to support your Skill Development Progress.</div>
+          <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenEvidenceUpload}>
+            <UIIcon name="upload" className="cand-btn-icon" />Upload Evidence
+          </button>
+        </div>
+        <div className="mt-4 space-y-4">
+          {groupedEvidence.length > 0 ? (
+            groupedEvidence.map(([category, records]) => (
+              <div key={category} className="cand-evidence-group">
+                <div className="cand-evidence-group-title">{category}</div>
+                <div className="space-y-3">
+                  {records.map((record) => (
+                    <div key={record.id} className="cand-evidence-card">
+                      <div className="cand-evidence-card-main">
+                        <div className="cand-evidence-card-title-row">
+                          <div className="cand-evidence-card-title">{record.title}</div>
+                          <span className={`cand-msg-badge ${record.status === 'Verified' ? 'accepted' : 'pending'}`}>{record.status}</span>
+                        </div>
+                        <div className="cand-evidence-card-meta">
+                          <span>{cleanSkillDisplayName(record.relatedSkill || '') || 'Related skill not set'}</span>
+                          <span>{record.evidenceType}</span>
+                          <span>Uploaded {formatDateLabel(record.uploadedAt)}</span>
+                        </div>
+                        {record.notes ? <div className="cand-evidence-card-note">{record.notes}</div> : null}
+                      </div>
+                      <div className="cand-evidence-card-actions">
+                        <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onViewEvidence(record)}>
+                          <UIIcon name="eye" className="cand-btn-icon" />View
+                        </button>
+                        <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onReplaceEvidence(record)}>
+                          <UIIcon name="upload" className="cand-btn-icon" />Replace
+                        </button>
+                        <button className="cand-btn-danger cand-btn-sm" type="button" onClick={() => onDeleteEvidence(record)}>
+                          <UIIcon name="trash" className="cand-btn-icon" />Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <span className={`cand-msg-badge ${record.status === 'Verified' ? 'accepted' : 'pending'}`}>{record.status}</span>
               </div>
             ))
           ) : (
-            <div className="text-xs text-soft">No certificate evidence uploaded yet.</div>
+            <div className="cand-gap-empty-state">
+              No evidence uploaded yet. Upload certificates, course completion files, portfolio outputs, or project samples to support your Skill Development Progress.
+            </div>
           )}
-          <label className="cand-evidence-upload">
-            <UIIcon name="upload" className="cand-upload-inline-icon" />
-            <span>Upload Certificate PDF</span>
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              className="hidden"
-              onChange={(event) => onUploadEvidence(event.target.files?.[0] || null)}
-            />
-          </label>
         </div>
       </div>
 
@@ -3098,16 +4276,28 @@ function KareersPage({
   selectedId,
   selected,
   savedJobs,
+  applications,
   onSelect,
+  onApply,
+  onWithdraw,
+  onGetApplicationStatus,
+  onSave,
   onOpenMatches,
+  onOpenApplications,
   onOpenUpskilling,
 }: {
   kareers: DashboardJob[];
   selectedId: string;
   selected: DashboardJob | null;
   savedJobs: Set<string>;
+  applications: DashboardApplication[];
   onSelect: (id: string) => void;
+  onApply: (jobId: string) => Promise<boolean>;
+  onWithdraw: (application: DashboardApplication) => void;
+  onGetApplicationStatus: (jobId: string, jobSource: 'internal' | 'employer') => ApplicationStatus | null;
+  onSave: (jobId: string) => void;
   onOpenMatches: () => void;
+  onOpenApplications: () => void;
   onOpenUpskilling: () => void;
 }) {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'internal' | 'external' | 'saved'>('all');
@@ -3116,6 +4306,8 @@ function KareersPage({
   const [levelFilter, setLevelFilter] = useState('');
   const [setupFilter, setSetupFilter] = useState('');
   const [alignFilter, setAlignFilter] = useState('');
+  const [pendingApplyJob, setPendingApplyJob] = useState<DashboardJob | null>(null);
+  const [submittedApplyJob, setSubmittedApplyJob] = useState<DashboardJob | null>(null);
 
   const filteredKareers = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
@@ -3142,6 +4334,9 @@ function KareersPage({
   }, [filteredKareers, onSelect, selectedId]);
 
   const activeSelected = filteredKareers.find((job) => job.id === selectedId) || selected || filteredKareers[0] || null;
+  const activeApplication = activeSelected ? applications.find((app) => app.jobId === activeSelected.id && app.jobSource === activeSelected.jobSource && app.status !== 'Withdrawn') || null : null;
+  const activeApplicationStatus = activeSelected ? onGetApplicationStatus(activeSelected.id, activeSelected.jobSource) : null;
+  const isApplied = Boolean(activeApplicationStatus);
 
   return (
     <div>
@@ -3196,23 +4391,45 @@ function KareersPage({
           <div className="cand-kareer-list-scroll">
             {filteredKareers.length > 0 ? (
               filteredKareers.map((job) => (
-                <button key={job.id} className={`cand-kareer-item ${selectedId === job.id ? 'active' : ''}`} type="button" onClick={() => onSelect(job.id)}>
-                  <div className="text-sm font-bold text-dark"><UIIcon name="briefcase" className="cand-chip-icon" />{job.title}</div>
-                  <div className="text-xs text-soft">{job.company} · {job.category || 'Career Path'}</div>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {job.matchedSkills.slice(0, 3).map((skill) => (
-                      <span key={`${job.id}-${skill}`} className="rounded-full bg-cream-d px-2 py-0.5 text-[10px] font-semibold text-mid">
-                        {skill}
-                      </span>
-                    ))}
+                <div key={job.id} className={`cand-kareer-item ${selectedId === job.id ? 'active' : ''}`}>
+                  <button className="cand-kareer-select" type="button" onClick={() => onSelect(job.id)}>
+                    <div className="text-sm font-bold text-dark"><UIIcon name="briefcase" className="cand-chip-icon" />{job.title}</div>
+                    <div className="text-xs text-soft">{job.company} · {job.category || 'Career Path'}</div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {job.matchedSkills.slice(0, 3).map((skill) => (
+                        <span key={`${job.id}-${skill}`} className="rounded-full bg-cream-d px-2 py-0.5 text-[10px] font-semibold text-mid">
+                          {cleanSkillDisplayName(skill)}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="cand-kareer-item-badges">
+                      <span className="cand-kareer-mini-badge">{job.setup}</span>
+                      <span className="cand-kareer-mini-badge">{job.jobLevel || 'Entry Level'}</span>
+                      <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration'}</span>
+                      <span className={`cand-kareer-mini-badge ${job.sourceType === 'internal' ? 'fit' : 'asp'}`}>{job.sourceType === 'internal' ? 'Internal' : 'External'}</span>
+                    </div>
+                    <div className="cand-kareer-view-link">View Details</div>
+                  </button>
+                  <div className="cand-kareer-card-actions">
+                    {job.sourceType === 'internal' ? (
+                      <button
+                        className={`cand-btn-secondary cand-btn-sm ${onGetApplicationStatus(job.id, job.jobSource) ? 'opacity-70' : ''}`}
+                        type="button"
+                        disabled={Boolean(onGetApplicationStatus(job.id, job.jobSource))}
+                        onClick={() => {
+                          onSelect(job.id);
+                          if (!onGetApplicationStatus(job.id, job.jobSource)) setPendingApplyJob(job);
+                        }}
+                      >
+                        {onGetApplicationStatus(job.id, job.jobSource) ? 'Applied ✓' : 'Apply'}
+                      </button>
+                    ) : (
+                      <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onSelect(job.id)}>
+                        View External Job
+                      </button>
+                    )}
                   </div>
-                  <div className="cand-kareer-item-badges">
-                    <span className="cand-kareer-mini-badge">{job.setup}</span>
-                    <span className="cand-kareer-mini-badge">{job.jobLevel || 'Entry Level'}</span>
-                    <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration'}</span>
-                    <span className={`cand-kareer-mini-badge ${job.sourceType === 'internal' ? 'fit' : 'asp'}`}>{job.sourceType === 'internal' ? 'Internal' : 'External'}</span>
-                  </div>
-                </button>
+                </div>
               ))
             ) : (
               <div className="p-4 text-sm text-soft">No careers match the current filters.</div>
@@ -3226,9 +4443,59 @@ function KareersPage({
               <div className="mb-2 text-xs text-soft">
                 {activeSelected.company} · {activeSelected.location} · {activeSelected.setup}
               </div>
-              <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${activeSelected.matchCategory === 'fit-now' ? 'bg-green-l text-forest' : 'bg-mauve-l text-mauve'}`}>
-                {activeSelected.matchCategory === 'fit-now' ? 'Your profile aligns well with this role.' : 'This is an aspiration path with skill gaps to close.'}
+              <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${activeSelected.hasMatchScore && activeSelected.matchScore >= 60 ? 'bg-green-l text-forest' : 'bg-rust-l text-mid'}`}>
+                {activeSelected.hasMatchScore ? getMatchBadgeLabel(activeSelected) : 'Explorable opportunity'}
               </div>
+              <div className="mb-4 text-sm text-mid">{buildKareerScoreSupport(activeSelected)}</div>
+
+              {activeSelected.sourceType === 'internal' && (
+                <>
+                  <div className="cand-kareer-apply-guidance">
+                    <div className="cand-kareer-apply-title">Before You Apply</div>
+                    {activeSelected.hasMatchScore ? (
+                      <>
+                        <div className="cand-kareer-apply-line">Matched Skills: {activeSelected.matchedSkills.length > 0 ? activeSelected.matchedSkills.slice(0, 3).map(cleanSkillDisplayName).join(', ') : 'Matched skills not detected yet.'}</div>
+                        <div className="cand-kareer-apply-line">Missing Skills: {activeSelected.missingSkills.length > 0 ? activeSelected.missingSkills.slice(0, 3).map(cleanSkillDisplayName).join(', ') : 'No major missing skills identified yet.'}</div>
+                        <div className="cand-kareer-apply-line">Recommended Learning Resources: {activeSelected.missingSkills.length > 0 ? `Start with ${cleanSkillDisplayName(activeSelected.missingSkills[0])} and related Kareerly learning pathways.` : 'Continue strengthening your profile through Kareerly learning pathways.'}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="cand-kareer-apply-line">Required Skills: {activeSelected.requiredSkills.length > 0 ? activeSelected.requiredSkills.slice(0, 5).map(cleanSkillDisplayName).join(', ') : 'Required skills are not listed yet.'}</div>
+                        <div className="cand-kareer-apply-line">Resume Match: Not calculated yet for this listing.</div>
+                        <div className="cand-kareer-apply-line">You can still apply. The employer will review your application details.</div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="cand-kareer-primary-actions">
+                    {isApplied ? (
+                      <>
+                        <button className="cand-btn-primary" type="button" disabled>
+                          Applied ✓
+                        </button>
+                        {activeApplication && ['Pending', 'Shortlisted', 'Interviewing'].includes(activeApplication.status) && (
+                          <button className="cand-btn-secondary" type="button" onClick={() => onWithdraw(activeApplication)}>
+                            Withdraw Application
+                          </button>
+                        )}
+                        <button className="cand-btn-secondary" type="button" onClick={onOpenApplications}>
+                          View Application
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="cand-btn-primary" type="button" onClick={() => setPendingApplyJob(activeSelected)}>
+                          Apply Now
+                        </button>
+                        <button className="cand-btn-secondary" type="button" onClick={() => onSave(activeSelected.id)}>
+                          <UIIcon name="bookmark" className="cand-btn-icon" />Save Job
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+
               <div className="cand-kareer-info-grid">
                 <div><span className="cand-kareer-info-label">Category</span><span className="cand-kareer-info-value">{activeSelected.category || 'General Opportunities'}</span></div>
                 <div><span className="cand-kareer-info-label">Sub-category</span><span className="cand-kareer-info-value">{activeSelected.subCategory || 'Career Path'}</span></div>
@@ -3236,35 +4503,105 @@ function KareersPage({
                 <div><span className="cand-kareer-info-label">Source</span><span className="cand-kareer-info-value">{activeSelected.sourceType === 'internal' ? 'Internal Kareerly' : 'External Opportunity'}</span></div>
                 <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{activeSelected.location}</span></div>
                 <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{activeSelected.setup}</span></div>
+                <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{activeSelected.employmentType || 'Not specified'}</span></div>
+                <div><span className="cand-kareer-info-label">Salary</span><span className="cand-kareer-info-value">{activeSelected.salary || 'Salary not specified'}</span></div>
+                <div><span className="cand-kareer-info-label">Match Category</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? (activeSelected.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Not currently recommended'}</span></div>
+                <div><span className="cand-kareer-info-label">Match Percentage</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? `${Math.round(activeSelected.matchScore)}%` : 'Not available'}</span></div>
               </div>
-              <div className="mb-2 text-xs font-bold uppercase tracking-[0.5px] text-soft">Required Skills</div>
+
+              <div className="mb-2 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>
+              <div className="cand-kareer-detail-box">
+                {activeSelected.description || 'Full job description is not available yet for this listing, but you can still explore the role details and guidance below.'}
+              </div>
+
+              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Responsibilities</div>
+              <div className="cand-kareer-detail-box">
+                {activeSelected.responsibilities.length > 0 ? (
+                  <ul className="cand-kareer-detail-list">
+                    {activeSelected.responsibilities.map((item) => (
+                      <li key={`${activeSelected.id}-resp-${item}`}>{item}</li>
+                    ))}
+                  </ul>
+                ) : 'Responsibilities are not available yet for this listing.'}
+              </div>
+
+              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">{buildKareerGuidanceHeading(activeSelected)}</div>
+              <div className="cand-kareer-detail-box">
+                {buildKareerGuidanceText(activeSelected)}
+              </div>
+
+              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Your Matching Skills</div>
               <div className="cand-skill-row">
-                {activeSelected.matchedSkills.map((skill) => (
-                  <span key={`${activeSelected.id}-m-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>
-                ))}
-                {activeSelected.missingSkills.map((skill) => (
-                  <span key={`${activeSelected.id}-g-${skill}`} className="cand-skill-miss">{skill}</span>
-                ))}
+                {activeSelected.matchedSkills.length > 0 ? activeSelected.matchedSkills.map((skill) => (
+                  <span key={`${activeSelected.id}-m-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{cleanSkillDisplayName(skill)}</span>
+                )) : <span className="cand-covered-empty">Matched skills not detected yet.</span>}
               </div>
+
+              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Skills to Improve</div>
+              <div className="cand-skill-row">
+                {activeSelected.missingSkills.length > 0 ? activeSelected.missingSkills.map((skill) => (
+                  <span key={`${activeSelected.id}-g-${skill}`} className="cand-skill-miss">{cleanSkillDisplayName(skill)}</span>
+                )) : <span className="cand-covered-empty">No specific improvement skills identified yet.</span>}
+              </div>
+
+              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Required Skills</div>
+              <div className="cand-skill-row">
+                {activeSelected.requiredSkills.length > 0 ? activeSelected.requiredSkills.map((skill) => (
+                  <span key={`${activeSelected.id}-req-${skill}`} className="cand-skill-match">{cleanSkillDisplayName(skill)}</span>
+                )) : <span className="cand-covered-empty">Required skills are not listed for this role.</span>}
+              </div>
+
+              {activeSelected.preferredSkills.length > 0 && (
+                <>
+                  <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Preferred Skills</div>
+                  <div className="cand-skill-row">
+                    {activeSelected.preferredSkills.map((skill) => (
+                      <span key={`${activeSelected.id}-pref-${skill}`} className="cand-skill-nice">{cleanSkillDisplayName(skill)}</span>
+                    ))}
+                  </div>
+                </>
+              )}
+
               {activeSelected.niceToHaveSkills && activeSelected.niceToHaveSkills.length > 0 && (
                 <>
                   <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Nice-to-Have Skills</div>
                   <div className="cand-skill-row">
                     {activeSelected.niceToHaveSkills.map((skill) => (
-                      <span key={`${activeSelected.id}-nice-${skill}`} className="cand-skill-nice">{skill}</span>
+                      <span key={`${activeSelected.id}-nice-${skill}`} className="cand-skill-nice">{cleanSkillDisplayName(skill)}</span>
                     ))}
                   </div>
                 </>
               )}
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Career Guidance</div>
-              <p className="text-sm text-mid">{activeSelected.explanation}</p>
+
+              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Recommended Next Step</div>
+              <div className="cand-kareer-detail-box">
+                {getRecommendedNextStep(activeSelected)}
+              </div>
+
+              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Recommended Learning Pathway</div>
+              <div className="cand-kareer-detail-box">
+                {activeSelected.missingSkills.length > 0
+                  ? `Focus on ${cleanSkillDisplayName(activeSelected.missingSkills[0])} first, then continue with related learning pathways in Kareerly.`
+                  : 'Use the recommended learning pathway to strengthen your readiness for similar roles over time.'}
+              </div>
+
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="cand-btn-primary" type="button" onClick={onOpenMatches}>
-                  <UIIcon name="briefcase" className="cand-btn-icon" />View Job Matches
-                </button>
                 <button className="cand-btn-secondary" type="button" onClick={onOpenUpskilling}>
                   <UIIcon name="graduation" className="cand-btn-icon" />Start Learning Path
                 </button>
+                {activeSelected.sourceType === 'internal' && activeApplication ? (
+                  <button className="cand-btn-secondary" type="button" onClick={onOpenApplications}>
+                    <UIIcon name="clipboard" className="cand-btn-icon" />View Application
+                  </button>
+                ) : (
+                  <button className="cand-btn-secondary" type="button" onClick={onOpenMatches}>
+                    <UIIcon name="briefcase" className="cand-btn-icon" />View Job Matches
+                  </button>
+                )}
+              </div>
+
+              <div className="cand-kareer-footer-note">
+                Kareerly provides explainable career guidance. Match scores are advisory and do not prevent candidates from applying. Final hiring decisions remain with the employer.
               </div>
             </>
           ) : (
@@ -3272,6 +4609,31 @@ function KareersPage({
           )}
         </div>
       </div>
+
+      {pendingApplyJob && (
+        <ConfirmModal
+          title="Apply for this position?"
+          description="You are about to apply for this Internal Kareerly job. Your current fit analysis will NOT affect your ability to submit this application. The employer will make the final hiring decision."
+          onCancel={() => setPendingApplyJob(null)}
+          onConfirm={async () => {
+            const applied = await onApply(pendingApplyJob.id);
+            if (applied) setSubmittedApplyJob(pendingApplyJob);
+            setPendingApplyJob(null);
+          }}
+          confirmLabel="Submit Application"
+        />
+      )}
+
+      {submittedApplyJob && (
+        <ApplicationSubmittedModal
+          onClose={() => setSubmittedApplyJob(null)}
+          onOpenApplications={() => {
+            setSubmittedApplyJob(null);
+            onOpenApplications();
+          }}
+          onContinue={() => setSubmittedApplyJob(null)}
+        />
+      )}
     </div>
   );
 }
@@ -3305,7 +4667,7 @@ function UpskillingPage({
     <div>
       <div className="cand-page-header">
         <h1 className="cand-page-title">Upskilling Path</h1>
-        <p className="cand-page-subtitle">Recommended courses and certifications based on your identified skill gaps with progress tracking</p>
+        <p className="cand-page-subtitle">Recommended learning pathways based on your identified skill gaps with progress tracking</p>
       </div>
 
       <div className="cand-card mb-6">
@@ -3329,7 +4691,7 @@ function UpskillingPage({
       </div>
 
       <div className="cand-upskill-tabs">
-        <button className={`cand-upskill-tab ${tab === 'recommended' ? 'active' : ''}`} type="button" onClick={() => onTab('recommended')}>Recommended</button>
+        <button className={`cand-upskill-tab ${tab === 'recommended' ? 'active' : ''}`} type="button" onClick={() => onTab('recommended')}>Recommended Learning Pathways</button>
         <button className={`cand-upskill-tab ${tab === 'inprogress' ? 'active' : ''}`} type="button" onClick={() => onTab('inprogress')}>In Progress</button>
         <button className={`cand-upskill-tab ${tab === 'completed' ? 'active' : ''}`} type="button" onClick={() => onTab('completed')}>Completed</button>
         <button className={`cand-upskill-tab ${tab === 'by-gap' ? 'active' : ''}`} type="button" onClick={() => onTab('by-gap')}>By Skill Gap</button>
@@ -3372,7 +4734,7 @@ function UpskillingPage({
               {groupedCoursesByGap.length > 0 ? (
                 groupedCoursesByGap.map((group) => (
                   <div key={group.gapTag} className="cand-card">
-                    <div className="text-sm font-bold text-dark">{group.gapTag}</div>
+                    <div className="text-sm font-bold text-dark">{cleanSkillDisplayName(group.gapTag)}</div>
                     <div className="mt-1 text-xs text-soft">{group.courses.length} course recommendation(s)</div>
                     <button className="cand-btn-secondary mt-3" type="button" onClick={() => onTab('recommended')}>
                       View Courses
@@ -3419,7 +4781,15 @@ function CourseCard({
         <span>{course.duration}</span>
         <span>{course.level}</span>
         <span>{course.certificateAvailable ? 'Certificate available' : 'No certificate'}</span>
-        <span className="cand-course-gap-tag">{course.gapTag}</span>
+        <span className="cand-course-gap-tag">{cleanSkillDisplayName(course.gapTag)}</span>
+      </div>
+      <div className="cand-job-section">
+        <div className="cand-job-section-label">Related Skill Gap</div>
+        <div className="text-xs text-mid">{cleanSkillDisplayName(course.gapTag) || 'General career development'}</div>
+      </div>
+      <div className="cand-job-section">
+        <div className="cand-job-section-label">Why Recommended</div>
+        <div className="text-xs text-mid">Helps address a repeated skill gap found in your matched roles.</div>
       </div>
       {inProgress && (
         <div>
@@ -3433,7 +4803,7 @@ function CourseCard({
         </div>
       )}
       <div className="cand-course-actions">
-        <span className="text-xs text-soft">{completed ? 'Completed' : inProgress ? 'In progress' : 'Recommended learning'}</span>
+        <span className="text-xs text-soft">{completed ? 'Completed learning' : inProgress ? 'Learning in progress' : 'Recommended learning pathway'}</span>
         <div className="flex gap-2">
           <button className="cand-btn-primary cand-btn-sm" type="button" onClick={() => onView(course)}>
             View Course
@@ -3596,17 +4966,29 @@ function stateToClass(state: MessageRequestState): string {
 
 function JobDetailModal({
   job,
+  application,
+  courses,
   isSaved,
   onClose,
   onApply,
+  onWithdraw,
   onSave,
 }: {
   job: DashboardJob;
+  application: DashboardApplication | null;
+  courses: DashboardCourse[];
   isSaved: boolean;
   onClose: () => void;
-  onApply: () => void;
+  onApply: () => void | Promise<void>;
+  onWithdraw: (application: DashboardApplication) => void;
   onSave: () => void;
 }) {
+  const canWithdraw = application && ['Pending', 'Shortlisted', 'Interviewing'].includes(application.status);
+  const learningResources = getLearningForJob(job, courses);
+  const confidence = getConfidenceLabel(job);
+  const requiredSkills = job.requiredSkills.length > 0 ? job.requiredSkills : [...job.matchedSkills, ...job.missingSkills];
+  const preferredSkills = job.preferredSkills.length > 0 ? job.preferredSkills : job.niceToHaveSkills || [];
+
   return (
     <div className="cand-modal-overlay" onClick={onClose}>
       <div className="cand-modal-box lg" onClick={(event) => event.stopPropagation()}>
@@ -3623,71 +5005,138 @@ function JobDetailModal({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-              {job.matchCategory === 'fit-now' ? 'Fit Now Match' : 'Aspiration Match'}
+              {job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration'}
             </span>
             <span className={`cand-type-tag ${job.sourceType === 'internal' ? 'cand-type-internal' : 'cand-type-external'}`}>
               {job.sourceType === 'internal' ? 'Internal' : 'External'}
             </span>
             {job.category && <span className="cand-job-badge">{job.category}</span>}
             {job.subCategory && <span className="cand-job-badge tan">{job.subCategory}</span>}
+            {job.jobLevel && <span className="cand-job-badge amber">{job.jobLevel}</span>}
           </div>
-          <div className={`font-display text-3xl font-extrabold ${job.hasMatchScore ? 'text-rust' : 'text-soft'}`}>{getMatchScoreBadge(job)}</div>
+          <div className="text-right">
+            <div className={`cand-match-badge friendly ${getMatchReadinessClass(job.matchScore)}`}>{getMatchBadgeLabel(job)}</div>
+            <div className="mt-1 text-xs text-soft">Confidence: {confidence}</div>
+          </div>
         </div>
 
         <div className="cand-modal-meta-grid">
+          <div><span className="cand-kareer-info-label">Job Category</span><span className="cand-kareer-info-value">{job.category || 'General Opportunities'}</span></div>
+          <div><span className="cand-kareer-info-label">Job Level</span><span className="cand-kareer-info-value">{job.jobLevel || 'Not specified'}</span></div>
+          <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{job.employmentType || 'Not specified'}</span></div>
           <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{job.location || '—'}</span></div>
           <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{job.setup || '—'}</span></div>
-          <div><span className="cand-kareer-info-label">Experience Level</span><span className="cand-kareer-info-value">{job.jobLevel || 'Entry Level'}</span></div>
           <div><span className="cand-kareer-info-label">Salary Range</span><span className="cand-kareer-info-value">{job.salary || 'Salary varies by employer'}</span></div>
         </div>
 
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>
+        <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>
         <div className="cand-job-description-box">
-          {job.explanation || 'Detailed role description is not available yet.'}
+          {job.description?.trim() || 'Full job description is not available yet for this listing, but you can still explore the role details and personalized guidance below.'}
         </div>
 
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Matched Skills</div>
+        <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Responsibilities</div>
+        <div className="cand-job-description-box">
+          {job.responsibilities.length > 0 ? (
+            <ul className="cand-bullet-list">
+              {job.responsibilities.map((item) => (
+                <li key={`${job.id}-resp-${item}`}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            'Responsibilities have not yet been provided by the employer.'
+          )}
+        </div>
+
+        <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Required Skills</div>
         <div className="cand-skill-row mb-4">
-          {(job.matchedSkills.length > 0 ? job.matchedSkills : ['No matched skills provided']).map((skill) => (
+          {requiredSkills.length > 0 ? requiredSkills.map((skill) => (
+            <span key={`${job.id}-req-${skill}`} className="cand-skill-match">{cleanSkillDisplayName(skill)}</span>
+          )) : <span className="cand-covered-empty">Required skills have not yet been provided by the employer.</span>}
+        </div>
+
+        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Preferred Skills</div>
+        <div className="cand-skill-row mb-4">
+          {preferredSkills.length > 0 ? preferredSkills.map((skill) => (
+            <span key={`${job.id}-pref-${skill}`} className="cand-skill-nice">{cleanSkillDisplayName(skill)}</span>
+          )) : <span className="cand-covered-empty">Preferred skills have not yet been provided by the employer.</span>}
+        </div>
+
+        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Why This Job Matches You</div>
+        <div className="cand-job-description-box">
+          {job.explanation?.trim() || buildJobExplanation(job)}
+        </div>
+
+        <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Your Matching Strengths</div>
+        <div className="cand-skill-row mb-4">
+          {(job.matchedSkills.length > 0 ? job.matchedSkills : []).map((skill) => (
             <span key={`${job.id}-jd-m-${skill}`} className="cand-skill-match">
               <UIIcon name="check-circle" className="cand-chip-icon" />
-              {skill}
+              {cleanSkillDisplayName(skill)}
             </span>
           ))}
+          {job.matchedSkills.length === 0 && <span className="cand-covered-empty">Matched skills not detected yet.</span>}
         </div>
 
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Missing Skills</div>
+        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Skills to Improve</div>
         <div className="cand-skill-row mb-4">
-          {(job.missingSkills.length > 0 ? job.missingSkills : ['No missing skills listed']).map((skill) => (
+          {(job.missingSkills.length > 0 ? job.missingSkills.slice(0, 8) : []).map((skill, index) => (
             <span key={`${job.id}-jd-g-${skill}`} className="cand-skill-miss">
-              {skill}
+              {index === 0 ? 'Critical: ' : index <= 2 ? 'High: ' : 'Medium: '}
+              {cleanSkillDisplayName(skill)}
             </span>
           ))}
+          {job.missingSkills.length === 0 && <span className="cand-covered-empty">No major missing skills detected for this role.</span>}
         </div>
 
-        {job.niceToHaveSkills && job.niceToHaveSkills.length > 0 && (
-          <>
-            <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Nice-to-Have Skills</div>
-            <div className="cand-skill-row mb-4">
-              {job.niceToHaveSkills.map((skill) => (
-                <span key={`${job.id}-jd-n-${skill}`} className="cand-skill-nice">
-                  {skill}
-                </span>
-              ))}
-            </div>
-          </>
-        )}
+        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Recommended Learning</div>
+        <div className="cand-job-section mb-4">
+          {learningResources.length > 0 ? (
+            learningResources.map((course) => (
+              <div key={`${job.id}-learn-${course.id}`} className="cand-explain mb-2">
+                <UIIcon name="graduation" className="cand-inline-info-icon" />
+                <div>
+                  <strong>{course.title}</strong>
+                  <div className="text-xs text-mid">{course.provider} · {course.level} · {course.duration} · {course.isFree ? 'Free' : 'Paid or varies'}</div>
+                  <div className="text-xs text-mid">This learning resource supports {cleanSkillDisplayName(course.gapTag)}, one of the skills connected to this role.</div>
+                  {course.url && (
+                    <button className="cand-btn-secondary cand-btn-sm mt-2" type="button" onClick={() => window.open(course.url, '_blank', 'noopener,noreferrer')}>
+                      Open Resource
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="cand-covered-empty">No learning resources are available yet for this role's current skill gaps.</div>
+          )}
+        </div>
 
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Match Explanation</div>
-        <div className="cand-explain"><UIIcon name="lightbulb" className="cand-inline-info-icon" />{job.explanation}</div>
+        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Career Guidance</div>
+        <div className="cand-explain"><UIIcon name="lightbulb" className="cand-inline-info-icon" />{getCareerGuidance(job)}</div>
 
         {job.sourceType === 'internal' ? (
           <div className="cand-modal-actions">
-            <button className="cand-btn-primary" type="button" onClick={onApply}>
-              <UIIcon name="paper-plane" className="cand-btn-icon" />Apply Now
-            </button>
+            {application ? (
+              <>
+                <button className="cand-btn-primary" type="button" disabled>
+                  Applied ✓
+                </button>
+                {canWithdraw && (
+                  <button className="cand-btn-secondary" type="button" onClick={() => onWithdraw(application)}>
+                    Withdraw Application
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="cand-btn-primary" type="button" onClick={onApply}>
+                <UIIcon name="paper-plane" className="cand-btn-icon" />Apply Now
+              </button>
+            )}
             <button className="cand-btn-secondary" type="button" onClick={onSave}>
               <UIIcon name="bookmark" className="cand-btn-icon" />{isSaved ? 'Saved' : 'Save Job'}
+            </button>
+            <button className="cand-btn-secondary" type="button" onClick={onClose}>
+              Back to Matches
             </button>
           </div>
         ) : (
@@ -3709,6 +5158,9 @@ function JobDetailModal({
               </button>
               <button className="cand-btn-secondary" type="button" onClick={onSave}>
                 <UIIcon name="bookmark" className="cand-btn-icon" />{isSaved ? 'Saved' : 'Save Job'}
+              </button>
+              <button className="cand-btn-secondary" type="button" onClick={onClose}>
+                Back to Matches
               </button>
             </div>
           </>
@@ -3752,7 +5204,7 @@ function ResumeUpdateModal({
   onBack: () => void;
   onReviewPreferencesPath: () => void;
   onSkip: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onSkillInput: (value: string) => void;
   onAddSkill: () => void;
   onRemoveSkill: (skill: string) => void;
@@ -3890,6 +5342,148 @@ function ResumeUpdateModal({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function EvidenceFormModal({
+  loading,
+  record,
+  onClose,
+  onSave,
+}: {
+  loading: boolean;
+  record: EvidenceUploadRecord | null;
+  onClose: () => void;
+  onSave: (draft: {
+    id?: string;
+    title: string;
+    evidenceType: EvidenceType;
+    relatedSkill: string;
+    category: string;
+    notes?: string;
+    file: File | null;
+  }) => void;
+}) {
+  const [title, setTitle] = useState(record?.title || '');
+  const [evidenceType, setEvidenceType] = useState<EvidenceType>(record?.evidenceType || 'Certificate');
+  const [relatedSkill, setRelatedSkill] = useState(record?.relatedSkill || '');
+  const [category, setCategory] = useState(record?.category || '');
+  const [notes, setNotes] = useState(record?.notes || '');
+  const [file, setFile] = useState<File | null>(null);
+
+  return (
+    <div className="cand-modal-overlay" onClick={onClose}>
+      <div className="cand-modal-box lg" onClick={(event) => event.stopPropagation()}>
+        <div className="cand-modal-header">
+          <div>
+            <div className="cand-modal-title">{record ? 'Replace Evidence' : 'Upload Evidence'}</div>
+            <div className="cand-modal-subtitle">Pending verification is retained for new or replaced uploads.</div>
+          </div>
+          <button className="cand-modal-close" type="button" onClick={onClose}>
+            x
+          </button>
+        </div>
+
+        <div className="cand-form-grid">
+          <FormField label="Evidence Title">
+            <input className="cand-form-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Enter evidence title" />
+          </FormField>
+          <FormField label="Evidence Type">
+            <select className="cand-form-select" value={evidenceType} onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}>
+              {['Certificate', 'Course Completion', 'Portfolio', 'Project', 'Training', 'Other'].map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Related Skill">
+            <input className="cand-form-input" value={relatedSkill} onChange={(event) => setRelatedSkill(event.target.value)} placeholder="Enter related skill" />
+          </FormField>
+          <FormField label="Skill Category">
+            <input className="cand-form-input" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Enter skill category" />
+          </FormField>
+        </div>
+
+        <FormField label="PDF Upload">
+          <label className="cand-evidence-upload">
+            <UIIcon name="upload" className="cand-upload-inline-icon" />
+            <span>{file?.name || record?.fileName || 'Choose PDF evidence file'}</span>
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(event) => setFile(event.target.files?.[0] || null)}
+            />
+          </label>
+        </FormField>
+
+        <FormField label="Optional Notes">
+          <textarea className="cand-form-textarea" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add context for verification or skill relevance" />
+        </FormField>
+
+        <div className="cand-notice info">
+          <span>PDF only. Uploaded evidence remains pending verification until reviewed by the existing workflow.</span>
+        </div>
+
+        <div className="cand-modal-actions">
+          <button
+            className="cand-btn-primary"
+            type="button"
+            disabled={loading || !title.trim() || !relatedSkill.trim() || !category.trim()}
+            onClick={() => onSave({
+              id: record?.id,
+              title,
+              evidenceType,
+              relatedSkill,
+              category,
+              notes,
+              file,
+            })}
+          >
+            {loading ? 'Saving...' : record ? 'Replace Evidence' : 'Upload Evidence'}
+          </button>
+          <button className="cand-btn-secondary" type="button" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApplicationSubmittedModal({
+  onClose,
+  onOpenApplications,
+  onContinue,
+}: {
+  onClose: () => void;
+  onOpenApplications: () => void;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="cand-modal-overlay" onClick={onClose}>
+      <div className="cand-modal-box" onClick={(event) => event.stopPropagation()}>
+        <div className="cand-modal-header">
+          <div>
+            <div className="cand-modal-title">Application Submitted</div>
+            <div className="cand-modal-subtitle">Your application has been sent successfully.</div>
+          </div>
+          <button className="cand-modal-close" type="button" onClick={onClose}>
+            x
+          </button>
+        </div>
+        <div className="cand-notice info">
+          <span>You can track its progress from the Applications page.</span>
+        </div>
+        <div className="cand-modal-actions">
+          <button className="cand-btn-primary" type="button" onClick={onOpenApplications}>
+            Go to Applications
+          </button>
+          <button className="cand-btn-secondary" type="button" onClick={onContinue}>
+            Continue Browsing Jobs
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1549,6 +1549,48 @@
   color: var(--soft);
 }
 
+.emp-money-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.emp-money-input {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  border: 1.5px solid var(--bdr);
+  border-radius: 8px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.emp-money-input:focus-within {
+  border-color: var(--rust);
+}
+
+.emp-money-prefix {
+  padding: 0 0 0 12px;
+  color: var(--dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.emp-money-separator {
+  color: var(--mid);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.emp-money-input .emp-input {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  padding-left: 8px;
+}
+
 .emp-skill-input-row {
   display: flex;
   gap: 8px;
