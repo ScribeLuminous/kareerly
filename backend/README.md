@@ -77,7 +77,7 @@ export GOOGLE_CSE_ID="your_search_engine_id"
 The legacy raw source dataset is retained locally at:
 
 ```text
-backend/evaluation/legacy/source_data/jobs_record_source.csv
+backend/evaluation/source_data/jobs_record_source.csv
 ```
 
 Active matching uses Supabase when configured and `backend/data/reference_jobs.csv` as its curated fallback.

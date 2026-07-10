@@ -1,5 +1,6 @@
 # Operating-system and editor files
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
@@ -19,21 +20,26 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.egg-info/
 .coverage
 htmlcov/
 
 # Runtime files and private uploads
-uploads/*
-backend/uploads/*
-!uploads/.gitkeep
-!backend/uploads/.gitkeep
+uploads/
+backend/uploads/
+tmp/
+temp/
 *.log
 *.pid
+.uvicorn*
+backend/.uvicorn*
 
 # Frontend dependencies and builds
 node_modules/
 dist/
 dist-ssr/
+.vite/
+frontend/.vite/
 *.local
 npm-debug.log*
 yarn-debug.log*
@@ -46,7 +52,4 @@ huggingface/
 transformers_cache/
 
 # Large legacy source data retained locally for evaluation
-backend/evaluation/legacy/source_data/jobs_record_source.csv
-
-# Private resume review material
-backend/evaluation/private_resume_review/
+backend/evaluation/source_data/jobs_record_source.csv
