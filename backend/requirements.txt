@@ -3,6 +3,13 @@ uvicorn
 python-multipart
 pandas
 numpy
+scikit-learn
+sentence-transformers
 pypdf
 python-docx
-pydantic
+torch
+joblib
+scipy
+requests
+python-dotenv
+cryptography

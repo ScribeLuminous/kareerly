@@ -1,70 +1,98 @@
 import AuthShell from '../components/AuthShell';
 import { useState } from 'react';
+import { getFriendlyAuthErrorMessage, RoleMismatchError, signInWithEmail } from '../lib/auth';
+import type { KareerlyUser } from '../lib/auth';
 
 type SignInProps = {
-  onAuthenticated: (user: { name: string; email: string }) => void;
+  expectedRole?: 'candidate' | 'employer' | 'admin';
+  onAuthenticated: (user: KareerlyUser) => void;
   onCreateAccount: () => void;
+  onSwitchRole?: () => void;
   onResetPassword: () => void;
   onHome: () => void;
 };
 
-export default function SignIn({ onAuthenticated, onCreateAccount, onResetPassword, onHome }: SignInProps) {
+export default function SignIn({ expectedRole = 'candidate', onAuthenticated, onCreateAccount, onSwitchRole, onResetPassword, onHome }: SignInProps) {
   const [error, setError] = useState<string | null>(null);
-  const sampleAccounts = {
-    candidate: { email: 'candidate@test.com', password: 'Password123' },
-    employer: { email: 'employer@test.com', password: 'Password123' },
-  } as const;
+  const [mismatchedRole, setMismatchedRole] = useState<'candidate' | 'employer' | 'admin' | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEmployerLogin = expectedRole === 'employer';
+  const isAdminLogin = expectedRole === 'admin';
+  const emailInputId = isAdminLogin ? 'admin-login-email' : isEmployerLogin ? 'employer-login-email' : 'candidate-login-email';
+  const passwordInputId = isAdminLogin ? 'admin-login-password' : isEmployerLogin ? 'employer-login-password' : 'candidate-login-password';
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const email = String(form.get('email') || '').trim().toLowerCase();
     const password = String(form.get('password') || '');
-    const sampleEmail = Object.values(sampleAccounts).find((account) => account.email === email);
-
-    // Frontend-only sample account validation for prototype testing.
-    if (sampleEmail && password !== sampleEmail.password) {
-      setError('Incorrect password for the sample account. Use Password123.');
-      return;
-    }
 
     setError(null);
-    onAuthenticated({ name: email.split('@')[0] || 'Candidate', email });
+    setMismatchedRole(null);
+    setIsSubmitting(true);
+
+    try {
+      const user = await signInWithEmail(email, password, expectedRole);
+      onAuthenticated(user);
+    } catch (error) {
+      console.warn('Sign-in failed:', error);
+      if (error instanceof RoleMismatchError) setMismatchedRole(error.actualRole);
+      const message = getFriendlyAuthErrorMessage(error);
+      setError(message.startsWith('Invalid email or password') ? `Invalid email or password for this ${isAdminLogin ? 'admin' : isEmployerLogin ? 'employer' : 'candidate'} account. Please check your details or reset your password.` : message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <AuthShell
-      title="Welcome back"
-      subtitle="Log in to your account to continue"
+      title={isAdminLogin ? 'Admin login' : isEmployerLogin ? 'Employer login' : 'Candidate login'}
+      subtitle={isAdminLogin ? 'Log in to monitor Kareerly operations' : isEmployerLogin ? 'Log in to manage jobs and applicants' : 'Log in to your account to continue'}
       panelTitle=" "
       panelSubtitle="Join thousands of Filipino job seekers and employers"
       panelItems={['AI-powered job matching', 'Identify skill gaps & learning paths', 'Upskilling recommendations that fits you', 'Fair hiring with skills-first focus']}
       onHome={onHome}
     >
       <form onSubmit={handleSubmit}>
-        <label className="form-label" htmlFor="signin-email">Email address</label>
-        <input id="signin-email" name="email" className="input-base mb-3 border-2 bg-bg py-2.5 text-base outline-none focus:border-rust focus:bg-card" placeholder="you@example.com" required type="email" />
+        <label className="form-label" htmlFor={emailInputId}>Email address</label>
+        <input
+          id={emailInputId}
+          name="email"
+          className="input-base mb-3 border-2 bg-bg py-2.5 text-base outline-none focus:border-rust focus:bg-card"
+          placeholder="email@email.com"
+          required
+          type="email"
+          autoComplete="username"
+        />
 
-        <label className="form-label" htmlFor="signin-password">Password</label>
-        <input id="signin-password" name="password" className="input-base mb-3 border-2 bg-bg py-2.5 text-base outline-none focus:border-rust focus:bg-card" placeholder="••••••••" required type="password" />
-        <div className="mb-3 space-y-1 rounded-lg bg-bg px-3 py-2 text-xs text-soft">
-          <div>
-            Candidate sample: <span className="font-bold text-mid">{sampleAccounts.candidate.email}</span> / <span className="font-bold text-mid">{sampleAccounts.candidate.password}</span>
+        <label className="form-label" htmlFor={passwordInputId}>Password</label>
+        <input
+          id={passwordInputId}
+          name="password"
+          className="input-base mb-3 border-2 bg-bg py-2.5 text-base outline-none focus:border-rust focus:bg-card"
+          placeholder="••••••••"
+          required
+          type="password"
+          autoComplete="current-password"
+        />
+        {error && (
+          <div className="mb-3 rounded-lg border border-red bg-red-l px-3 py-2 text-sm font-semibold text-red" role="alert" aria-live="polite">
+            <div>{error}</div>
+            {mismatchedRole && onSwitchRole && mismatchedRole !== 'admin' && (
+              <button className="mt-2 font-bold underline" type="button" onClick={onSwitchRole}>
+                Go to {mismatchedRole === 'candidate' ? 'Candidate' : 'Employer'} Login
+              </button>
+            )}
           </div>
-          <div>
-            Employer sample: <span className="font-bold text-mid">{sampleAccounts.employer.email}</span> / <span className="font-bold text-mid">{sampleAccounts.employer.password}</span>
-          </div>
-        </div>
-
-        {error && <div className="mb-3 rounded-lg border border-red bg-red-l px-3 py-2 text-sm font-semibold text-red">{error}</div>}
+        )}
 
         <div className="mb-4 flex items-center gap-3 text-sm text-mid">
           <input id="remember-me" className="h-5 w-5 cursor-pointer rounded accent-rust" type="checkbox" />
           <label className="cursor-pointer" htmlFor="remember-me">Remember me</label>
         </div>
 
-        <button className="mb-4 w-full rounded-xl bg-rust px-5 py-3 text-base font-bold text-white transition-opacity hover:opacity-90" type="submit">
-          Log in
+        <button className="mb-4 w-full rounded-xl bg-rust px-5 py-3 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Logging in...' : 'Log in'}
         </button>
       </form>
 
@@ -72,10 +100,18 @@ export default function SignIn({ onAuthenticated, onCreateAccount, onResetPasswo
         <button className="text-sm text-soft hover:text-rust" type="button" onClick={onResetPassword}>Forgot your password?</button>
       </div>
 
+      {onSwitchRole && (
+        <div className="mt-3 text-center">
+          <button className="text-sm font-semibold text-rust hover:underline" type="button" onClick={onSwitchRole}>
+            {isEmployerLogin ? 'Log in as job seeker instead' : 'Log in as employer instead'}
+          </button>
+        </div>
+      )}
+
       <div className="mt-4 border-t border-bdr pt-4 text-center text-sm text-mid">
         Don&apos;t have an account?{' '}
         <button className="font-bold text-rust hover:underline" type="button" onClick={onCreateAccount}>
-          Sign up free
+          {isAdminLogin ? 'Go to sign up' : isEmployerLogin ? 'Create employer account' : 'Sign up free'}
         </button>
       </div>
     </AuthShell>

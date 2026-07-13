@@ -12,7 +12,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { validateResumeFile, formatFileSize } from '../lib/fileUtils';
 import { analyzeResume } from '../lib/api';
+import { getCurrentKareerlyUser } from '../lib/auth';
+import { saveResumeAnalysis } from '../lib/userData';
 import type { ResumeAnalysisResult, SelectedSkill } from '../types';
+
+const CONFIRMED_SKILL_LIMIT = 20;
 
 function dedupeSkills(skills: SelectedSkill[]): SelectedSkill[] {
   const seen = new Set<string>();
@@ -30,7 +34,9 @@ function dedupeSkills(skills: SelectedSkill[]): SelectedSkill[] {
     });
   }
 
-  return cleaned;
+  return cleaned
+    .sort((a, b) => (Number(b.skill_priority_score || 0) - Number(a.skill_priority_score || 0)))
+    .slice(0, CONFIRMED_SKILL_LIMIT);
 }
 
 function getExtractedSkillsFromAnalysis(analysis: ResumeAnalysisResult): SelectedSkill[] {
@@ -39,20 +45,22 @@ function getExtractedSkillsFromAnalysis(analysis: ResumeAnalysisResult): Selecte
     skill_name: skill.skill_name,
     skill_category: skill.skill_category,
     skill_subcategory: skill.skill_subcategory,
+    source: skill.source || 'resume_extracted',
+    source_metadata: skill.source_metadata,
+    skill_priority_score: skill.skill_priority_score,
   }));
 
   const fromNormalized = (analysis.normalized_for_matching?.skill_ids || []).map((skillId, index) => ({
     skill_id: skillId,
     skill_name: analysis.normalized_for_matching?.skill_names?.[index] || skillId,
+    source: 'resume_extracted',
   }));
 
   return dedupeSkills([...fromCandidate, ...fromNormalized]);
 }
 
-const ONBOARDING_SKILL_LIMIT = 10;
-
 export default function UploadZone() {
-  const { state, setResumeFile, setResumeAnalysis, setSelectedSkills, setLoading, goToStep, setError } = useOnboarding();
+  const { state, setResumeFile, setResumeAnalysis, setSelectedSkills, setSavedResumeId, setLoading, goToStep, setError } = useOnboarding();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +120,17 @@ export default function UploadZone() {
       }
 
       setResumeAnalysis(analysis);
-      setSelectedSkills(extractedSkills.slice(0, ONBOARDING_SKILL_LIMIT));
+      const user = await getCurrentKareerlyUser().catch(() => null);
+      if (user?.role === 'candidate') {
+        const resumeId = await saveResumeAnalysis({
+          userId: user.id,
+          fileName: state.resumeFile.name,
+          file: state.resumeFile,
+          analysis,
+        });
+        setSavedResumeId(resumeId);
+      }
+      setSelectedSkills(extractedSkills.slice(0, CONFIRMED_SKILL_LIMIT));
       goToStep(2);
     } catch (error) {
       setError(error instanceof Error ? `Resume analysis failed: ${error.message}` : 'Resume analysis failed.');
@@ -212,9 +230,9 @@ export default function UploadZone() {
                 <FontAwesomeIcon icon={faGraduationCap} aria-hidden="true" />
               </div>
               <div>
-                <div className="font-bold text-sm text-dark">Free courses to close the gap</div>
+                <div className="font-bold text-sm text-dark">Learning resources to close the gap</div>
                 <div className="text-xs text-soft leading-relaxed mt-0.5">
-                  TESDA, Coursera, UPOU — we point you to free programs
+                  We point you to relevant learning options based on your skill gaps
                 </div>
               </div>
             </div>
