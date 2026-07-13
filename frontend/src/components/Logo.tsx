@@ -1,5 +1,5 @@
-import puzzleLogo from '../../assets/kareerlylogo_puzzle.png';
-import wordmarkLogo from '../../assets/kareerlylogo_name.png';
+import puzzleLogo from '../assets/kareerlylogo_puzzle.png';
+import wordmarkLogo from '../assets/kareerlylogo_name.png';
 
 type LogoProps = {
   className?: string;

@@ -34,6 +34,7 @@ class AnalyzeResponse(BaseModel):
 class MatchPreferences(BaseModel):
     industry: str = ""
     target_role: str = ""
+    role_level: str = ""
     role: str = ""
     work_setup: str = ""
     salary: str = ""

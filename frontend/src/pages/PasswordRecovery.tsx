@@ -1,5 +1,6 @@
 import AuthShell from '../components/AuthShell';
 import { useState } from 'react';
+import { requestPasswordReset } from '../lib/auth';
 
 type PasswordRecoveryProps = {
   onBackToLogin: () => void;
@@ -29,10 +30,14 @@ export default function PasswordRecovery({ onBackToLogin, onHome }: PasswordReco
     setError(null);
     setIsSubmitting(true);
 
-    await new Promise((resolve) => window.setTimeout(resolve, 900));
-
-    setIsSubmitting(false);
-    setIsSent(true);
+    try {
+      await requestPasswordReset(normalizedEmail);
+      setIsSent(true);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unable to send reset link.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -54,7 +59,7 @@ export default function PasswordRecovery({ onBackToLogin, onHome }: PasswordReco
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="input-base mb-3 border-2 bg-bg py-4 text-base outline-none focus:border-rust focus:bg-card"
-              placeholder="you@example.com"
+              placeholder="email@email.com"
               required
               type="email"
             />

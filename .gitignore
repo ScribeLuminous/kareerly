@@ -1,4 +1,107 @@
-cat >> .gitignore <<'EOF'
-backend/jobs_record.csv
-backend/.venv/
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.sw?
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
 .venv/
+venv/
+backend/.venv/
+frontend/.env
+frontend/.env.*
+backend/.env
+backend/.env.*
+
+# Python caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Runtime files and private uploads
+uploads/
+backend/uploads/
+frontend/uploads/
+tmp/
+temp/
+backend/tmp/
+frontend/tmp/
+*.log
+*.pid
+.uvicorn*
+backend/.uvicorn*
+
+# Frontend dependencies and builds
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+dist-ssr/
+.vite/
+frontend/.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vercel local project metadata
+.vercel/
+frontend/.vercel/
+
+# Supabase local development files
+.supabase/
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+supabase/.env.*
+
+# Downloaded model caches
+.cache/
+huggingface/
+transformers_cache/
+backend/.cache/
+backend/huggingface/
+backend/transformers_cache/
+
+# Large model and machine-learning artifacts
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.onnx
+
+# Optional generated ML artifacts
+backend/models/*.joblib
+backend/models/*.pkl
+backend/models/*.npz
+
+# Keep explicitly required lightweight metadata
+!backend/models/model_metadata.json
+!backend/models/job_index.csv
+
+# Large legacy source data retained locally for evaluation
+backend/evaluation/source_data/jobs_record_source.csv
+
+# Local database exports and backups
+*.dump
+*.sql.gz
+*.backup
+database-backups/
+backups/
+
+# Private user documents
+*.pem
+*.key
+*.p12
+*.pfx

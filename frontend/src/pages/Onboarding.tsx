@@ -33,10 +33,9 @@ export default function Onboarding({ isLoggedIn, onHome, onLogin, onSignUp, onVi
       <StepProgress currentStep={state.step} />
       <main>
         {state.step === 1 && <Hero />}
-
         {state.step === 1 && <UploadZone />}
         {(state.step === 2 || state.step === 3) && <SurveyStep isLoggedIn={isLoggedIn} />}
-        {state.step === 4 && <SnapshotStep isLoggedIn={isLoggedIn} onViewDashboard={onViewDashboard} />}
+        {state.step === 4 && <SnapshotStep isLoggedIn={isLoggedIn} onSignUp={onSignUp} onViewDashboard={onViewDashboard} />}
       </main>
 
       <LoadingOverlay />

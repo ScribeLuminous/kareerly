@@ -1410,7 +1410,7 @@
   border-radius: 14px 0 14px 14px;
   padding: 12px 16px;
   max-width: 80%;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--dark);
   line-height: 1.5;
   align-self: flex-end;
@@ -1422,7 +1422,7 @@
   border-radius: 0 14px 14px 14px;
   padding: 12px 16px;
   max-width: 80%;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--dark);
   line-height: 1.5;
   border: 1px solid var(--bdr);
@@ -1454,7 +1454,8 @@
   padding: 10px 14px;
   border: 1.5px solid var(--bdr);
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.5;
   font-family: inherit;
   resize: none;
   min-height: 42px;
@@ -1547,6 +1548,48 @@
 .emp-form-hint {
   font-size: 11px;
   color: var(--soft);
+}
+
+.emp-money-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.emp-money-input {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  border: 1.5px solid var(--bdr);
+  border-radius: 8px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.emp-money-input:focus-within {
+  border-color: var(--rust);
+}
+
+.emp-money-prefix {
+  padding: 0 0 0 12px;
+  color: var(--dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.emp-money-separator {
+  color: var(--mid);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.emp-money-input .emp-input {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  padding-left: 8px;
 }
 
 .emp-skill-input-row {

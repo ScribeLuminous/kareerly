@@ -12,6 +12,7 @@ export interface OnboardingContextType {
   setResumeAnalysis: (analysis: ResumeAnalysisResult | undefined) => void;
   setResults: (results: AnalysisResults) => void;
   setMatchResults: (results: JobMatchRunResults | undefined) => void;
+  setSavedResumeId: (resumeId: string | null) => void;
   setLimitedReport: (report: LimitedReport | undefined) => void;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
   setLoading: (loading: boolean) => void;

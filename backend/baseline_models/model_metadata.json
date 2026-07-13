@@ -1,0 +1,16 @@
+{
+  "model_type": "TF-IDF + Cosine Similarity + Skill Coverage",
+  "num_reference_jobs": 4147,
+  "num_tfidf_features": 50000,
+  "tfidf_max_features": 50000,
+  "tfidf_ngram_range": [
+    1,
+    2
+  ],
+  "uses_skill_coverage": true,
+  "uses_preference_reranking": true,
+  "fit_now_formula": "0.60 * text_similarity + 0.40 * skill_coverage",
+  "aspiration_formula": "0.60 * career_preference_alignment + 0.25 * text_similarity + 0.15 * skill_coverage",
+  "strict_cross_encoder_fit_now_formula": "0.55 * cross_encoder_semantic_score + 0.25 * skill_coverage + 0.15 * resume_evidence_strength + 0.05 * preference_alignment",
+  "strict_cross_encoder_aspiration_formula": "0.60 * career_preference_alignment + 0.20 * cross_encoder_semantic_score + 0.10 * skill_coverage + 0.10 * learning_readiness"
+}

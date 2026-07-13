@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_PYTHON="$ROOT_DIR/backend/.venv/bin/python"
 PID_FILE="$ROOT_DIR/backend/.uvicorn.pid"
 LOG_FILE="$ROOT_DIR/backend/.uvicorn.log"
+BACKEND_PORT="8000"
 
 command_name="${1:-start}"
 
@@ -16,6 +17,17 @@ is_running() {
   [[ -n "${pid:-}" ]] && kill -0 "$pid" 2>/dev/null
 }
 
+find_listener_pid() {
+  if ! command -v lsof >/dev/null 2>&1; then
+    return 1
+  fi
+
+  listener_pid="$(lsof -tiTCP:${BACKEND_PORT} -sTCP:LISTEN -nP 2>/dev/null | head -n 1 || true)"
+  [[ -n "${listener_pid:-}" ]] || return 1
+
+  echo "$listener_pid"
+}
+
 start_server() {
   if [[ ! -x "$VENV_PYTHON" ]]; then
     echo "Missing venv python at $VENV_PYTHON"
@@ -25,12 +37,19 @@ start_server() {
 
   if is_running; then
     echo "Backend already running (PID $(cat "$PID_FILE"))."
-    echo "Health: http://127.0.0.1:8000/api/health"
+    echo "Health: http://127.0.0.1:${BACKEND_PORT}/api/health"
     exit 0
   fi
 
+  if listener_pid="$(find_listener_pid)"; then
+    echo "Port ${BACKEND_PORT} is already in use by PID ${listener_pid}."
+      echo "Backend may already be running outside dev_server.sh."
+      echo "Health: http://127.0.0.1:${BACKEND_PORT}/api/health"
+      return 0
+  fi
+
   cd "$ROOT_DIR"
-  nohup "$VENV_PYTHON" -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000 >"$LOG_FILE" 2>&1 &
+  nohup "$VENV_PYTHON" -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port "${BACKEND_PORT}" >"$LOG_FILE" 2>&1 &
   pid=$!
   echo "$pid" >"$PID_FILE"
   sleep 1
@@ -38,7 +57,7 @@ start_server() {
   if kill -0 "$pid" 2>/dev/null; then
     echo "Backend started in background (PID $pid)."
     echo "Log: $LOG_FILE"
-    echo "Health: http://127.0.0.1:8000/api/health"
+    echo "Health: http://127.0.0.1:${BACKEND_PORT}/api/health"
   else
     echo "Backend failed to start. See logs:"
     tail -n 40 "$LOG_FILE" || true
@@ -50,8 +69,14 @@ start_server() {
 stop_server() {
   if ! is_running; then
     rm -f "$PID_FILE"
+    if listener_pid="$(find_listener_pid)"; then
+      echo "Backend is listening on port ${BACKEND_PORT} (PID ${listener_pid}),"
+      echo "but it is not managed by dev_server.sh."
+      echo "Stop it manually with: kill ${listener_pid}"
+      exit 0
+    fi
     echo "Backend is not running."
-    exit 0
+    return 0
   fi
 
   pid="$(cat "$PID_FILE")"
@@ -74,6 +99,13 @@ stop_server() {
 status_server() {
   if is_running; then
     echo "Backend is running (PID $(cat "$PID_FILE"))."
+    return 0
+  fi
+
+  if listener_pid="$(find_listener_pid)"; then
+    echo "Backend appears to be running on port ${BACKEND_PORT} (PID ${listener_pid}),"
+    echo "but it is not managed by dev_server.sh (missing or stale PID file)."
+    return 0
   else
     echo "Backend is not running."
   fi
@@ -109,4 +141,3 @@ case "$command_name" in
     exit 1
     ;;
 esac
-
