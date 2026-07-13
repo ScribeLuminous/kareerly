@@ -34,9 +34,20 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Kareerly ML Backend")
 
+frontend_urls = os.getenv(
+    "FRONTEND_URLS",
+    "http://localhost:5173,http://127.0.0.1:5173",
+)
+
+allowed_origins = [
+    origin.strip().rstrip("/")
+    for origin in frontend_urls.split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,12 +55,21 @@ app.add_middleware(
 
 skill_extractor = SkillExtractor()
 MAX_CONFIRMED_SKILLS = 20
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://dgnxigotdpqiwohocloi.supabase.co").rstrip("/")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.getenv(
     "SUPABASE_ANON_KEY",
-    os.getenv("VITE_SUPABASE_ANON_KEY", "sb_publishable_Z77o41ry4seJ7opnojlbaA_aiNUFo6B"),
+    os.getenv("VITE_SUPABASE_ANON_KEY", ""),
 )
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+
+if not SUPABASE_URL:
+    raise RuntimeError("SUPABASE_URL is not configured.")
+
+if not SUPABASE_ANON_KEY:
+    raise RuntimeError("SUPABASE_ANON_KEY is not configured.")
+
+if not SUPABASE_SERVICE_ROLE_KEY:
+    raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is not configured.")
 
 
 class MessageCreateRequest(BaseModel):
