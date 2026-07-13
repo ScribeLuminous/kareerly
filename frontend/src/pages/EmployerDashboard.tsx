@@ -43,6 +43,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Logo from '../components/Logo';
+import { loadApplicationMessages, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import './employer-dashboard-v5.css';
 
@@ -141,6 +142,7 @@ type EmployerJobPostRow = {
   required_skills: string | null;
   preferred_skills: string | null;
   posting_status: string | null;
+  application_deadline?: string | null;
   created_at: string | null;
 };
 
@@ -152,6 +154,7 @@ type MessageEntry = {
 
 type CandidateApplication = {
   id: string;
+  publicId: string;
   fullName: string;
   role: string;
   jobId: string;
@@ -408,8 +411,8 @@ const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
   city: (row.location || '').split(',')[0]?.trim() || '',
   province: (row.location || '').split(',').slice(1).join(',').trim(),
   salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
-  deadline: '',
-  status: mapPostingStatusToJobStatus(row.posting_status),
+  deadline: row.application_deadline || '',
+  status: row.application_deadline && row.application_deadline < todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
   postedDate: row.created_at ? row.created_at.slice(0, 10) : todayIso(),
 });
 
@@ -424,7 +427,7 @@ const toMessageEntry = (row: ApplicationMessageRow): MessageEntry => ({
   time: row.created_at ? formatDateLabel(row.created_at.slice(0, 10)) : 'Just now',
 });
 
-const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], messages: ApplicationMessageRow[] = []): CandidateApplication => {
+const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], messages: ApplicationMessageRow[] = [], publicId = ''): CandidateApplication => {
   const relatedJob = jobs.find((job) => job.id === row.job_id);
   const status = mapApplicationStatus(row.status);
   const matchedSkills = Array.isArray(row.matched_skills) ? row.matched_skills.filter(Boolean) : [];
@@ -433,6 +436,7 @@ const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], mes
 
   return {
     id: row.id,
+    publicId,
     fullName: row.candidate_name || row.candidate_email || `Candidate ${String(row.user_id || row.id).slice(0, 8)}`,
     role: row.job_title || relatedJob?.title || 'Untitled role',
     jobId: row.job_id,
@@ -651,6 +655,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     action: null,
     candidateId: null,
   });
+  const [rejectionReason, setRejectionReason] = useState('');
   const [deleteProfileModalOpen, setDeleteProfileModalOpen] = useState(false);
   const [accountProfile, setAccountProfile] = useState({
     company: companyName,
@@ -683,7 +688,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     const rows: Array<{ id: string; type: 'match' | 'warn'; title: string; desc: string; meta: string }> = strong.map((candidate) => ({
       id: `${candidate.id}-alert`,
       type: 'match',
-      title: `${candidate.id} - ${candidate.matchPercent}% match for ${candidate.role}`,
+      title: `${candidate.publicId || 'Candidate'} - ${candidate.matchPercent}% match for ${candidate.role}`,
       desc: candidate.matchSummary,
       meta: `Applied ${formatDateLabel(candidate.appliedDate)} · Top Match category`,
     }));
@@ -691,7 +696,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       rows.push({
         id: `${withdrawn.id}-withdrawn`,
         type: 'warn',
-        title: `${withdrawn.id} withdrew their application`,
+        title: `${withdrawn.publicId || 'Candidate'} withdrew their application`,
         desc: `The candidate withdrew from ${withdrawn.role}. This record is now closed and read-only.`,
         meta: `Withdrawn ${formatDateLabel(withdrawn.appliedDate)}`,
       });
@@ -896,6 +901,16 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   }, [employer.id]);
 
   useEffect(() => {
+    const expiredOpenJobs = jobs.filter((job) => job.status === 'open' && job.deadline && job.deadline < todayIso());
+    if (expiredOpenJobs.length === 0) return;
+    setJobs((current) => current.map((job) => expiredOpenJobs.some((expired) => expired.id === job.id) ? { ...job, status: 'closed' } : job));
+    void Promise.all(expiredOpenJobs.map((job) => supabase
+      .from('employer_job_posts')
+      .update({ posting_status: 'closed', updated_at: new Date().toISOString() })
+      .eq('job_id', job.id)));
+  }, [jobs]);
+
+  useEffect(() => {
     let isMounted = true;
 
     const loadJobApplications = async () => {
@@ -920,34 +935,37 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       if (!isMounted) return;
       const rows = Array.isArray(data) ? (data as JobApplicationRow[]) : [];
       const applicationIds = rows.map((row) => row.id).filter(Boolean);
-      let messagesByApplication = new Map<string, ApplicationMessageRow[]>();
+      const { data: publicIdData, error: publicIdError } = await supabase.rpc('get_employer_applicant_public_ids');
+      if (publicIdError) console.warn('Unable to load candidate public IDs:', publicIdError);
+      const publicIdsByApplication = new Map<string, string>(
+        (Array.isArray(publicIdData) ? publicIdData : []).map((row) => [String(row.application_id), String(row.public_id || '')]),
+      );
+      const messageResults = await Promise.all(applicationIds.map(async (applicationId) => ({
+        applicationId,
+        messages: await loadApplicationMessages(applicationId).catch(() => []),
+      })));
+      const messagesByApplication = new Map<string, ApplicationMessageRow[]>(messageResults.map(({ applicationId, messages }) => [
+        applicationId,
+        messages.map((message) => ({
+          id: message.id || `${applicationId}-${message.created_at || ''}`,
+          application_id: applicationId,
+          sender_user_id: '',
+          sender_role: message.sender_role,
+          message_kind: message.message_kind,
+          message_text: message.message_text,
+          created_at: message.created_at || null,
+        })),
+      ]));
 
-      if (applicationIds.length > 0) {
-        const { data: messageData, error: messageError } = await supabase
-          .from('application_messages')
-          .select('*')
-          .in('application_id', applicationIds)
-          .order('created_at', { ascending: true });
-
-        if (messageError) {
-          console.warn('Unable to load application messages:', messageError);
-        } else {
-          messagesByApplication = (Array.isArray(messageData) ? (messageData as ApplicationMessageRow[]) : []).reduce((map, message) => {
-            const current = map.get(message.application_id) || [];
-            current.push(message);
-            map.set(message.application_id, current);
-            return map;
-          }, new Map<string, ApplicationMessageRow[]>());
-        }
-      }
-
-      setApplications(rows.map((row) => toCandidateApplication(row, jobs, messagesByApplication.get(row.id) || [])));
+      setApplications(rows.map((row) => toCandidateApplication(row, jobs, messagesByApplication.get(row.id) || [], publicIdsByApplication.get(row.id) || '')));
     };
 
     void loadJobApplications();
+    const refreshTimer = window.setInterval(() => void loadJobApplications(), 5000);
 
     return () => {
       isMounted = false;
+      window.clearInterval(refreshTimer);
     };
   }, [jobs]);
 
@@ -1117,6 +1135,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       required_skills: requiredSkillsDraft.join(', '),
       preferred_skills: niceSkillsDraft.join(', '),
       must_have_skill_ids: '',
+      application_deadline: jobForm.deadline,
       posting_status: postingStatus,
       updated_at: new Date().toISOString(),
     };
@@ -1169,7 +1188,14 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     setJobsPanelMode('detail');
   };
 
-  const closeJobPosting = (jobId: string) => {
+  const closeJobPosting = async (jobId: string) => {
+    const job = jobs.find((item) => item.id === jobId);
+    if (!job) return;
+    const { error } = await supabase.from('employer_job_posts').update({ posting_status: 'closed', updated_at: new Date().toISOString() }).eq('job_id', jobId);
+    if (error) {
+      showToast('Unable to close this job. Please try again.', 'danger');
+      return;
+    }
     setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, status: 'closed' } : job)));
     showToast('Job closed.', 'warn');
   };
@@ -1183,10 +1209,12 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   };
 
   const openConfirmStatus = (action: ReviewAction, candidateId: string) => {
+    setRejectionReason('');
     setConfirmModal({ open: true, action, candidateId });
   };
 
   const closeConfirm = () => {
+    setRejectionReason('');
     setConfirmModal({ open: false, action: null, candidateId: null });
   };
 
@@ -1201,17 +1229,15 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
             ? 'Hired'
             : 'Rejected';
     const dbStatus = nextStatus.toLowerCase();
-    const { error } = await supabase
-      .from('job_applications')
-      .update({
-        status: dbStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', confirmModal.candidateId);
-
-    if (error) {
+    if (nextStatus === 'Rejected' && !rejectionReason) {
+      showToast('Please select a short rejection reason.', 'warn');
+      return;
+    }
+    try {
+      await updateEmployerApplicationStatus({ applicationId: confirmModal.candidateId, status: dbStatus, rejectionReason });
+    } catch (error) {
       console.warn('Unable to update application status:', error);
-      showToast('Unable to update applicant status in Supabase.', 'danger');
+      showToast(error instanceof Error ? error.message : 'Unable to update applicant status.', 'danger');
       return;
     }
 
@@ -1263,21 +1289,12 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     const text = messageDraft.trim();
     if (!text) return;
     const isRequest = selectedThreadCandidate.id === draftRequestCandidateId && selectedThreadCandidate.messageRequestState === 'none';
-    const { data: savedMessage, error: messageError } = await supabase
-      .from('application_messages')
-      .insert({
-        application_id: selectedThreadCandidate.id,
-        sender_user_id: employer.id,
-        sender_role: 'employer',
-        message_kind: isRequest ? 'request' : 'message',
-        message_text: text,
-      })
-      .select('*')
-      .single();
-
-    if (messageError) {
+    let savedMessage;
+    try {
+      savedMessage = await sendApplicationMessage({ applicationId: selectedThreadCandidate.id, text, kind: isRequest ? 'request' : 'message' });
+    } catch (messageError) {
       console.warn('Unable to save message:', messageError);
-      showToast('Unable to save message request. Please try again.', 'danger');
+      showToast(messageError instanceof Error ? messageError.message : 'Unable to save message request. Please try again.', 'danger');
       return;
     }
 
@@ -1315,7 +1332,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
           id: `notif-${Date.now()}`,
           type: 'msg',
           title: 'Message request sent',
-          message: `${selectedThreadCandidate.id} message request is now pending candidate acceptance.`,
+          message: `${selectedThreadCandidate.publicId || 'Candidate'} message request is now pending candidate acceptance.`,
           time: 'Just now',
           unread: true,
         },
@@ -1930,7 +1947,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                           return (
                             <tr key={candidate.id} className={candidate.status === 'Withdrawn' ? 'withdrawn-row' : ''}>
                               <td>
-                                <span className={`font-bold ${candidate.status === 'Withdrawn' ? 'text-soft' : 'text-dark'}`}>{candidate.id}</span>
+                                <span className={`font-bold ${candidate.status === 'Withdrawn' ? 'text-soft' : 'text-dark'}`}>{candidate.publicId || 'Not available'}</span>
                                 <div className="text-[11px] text-soft">
                                   {shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}
                                 </div>
@@ -2009,7 +2026,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                           onClick={() => setSelectedThreadId(candidate.id)}
                         >
                           <div className="emp-msg-thread-co">
-                            {candidate.id} · {shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}
+                            {candidate.publicId || 'Not available'} · {shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}
                           </div>
                           <div className="emp-msg-thread-job">
                             {candidate.role} · <span className={getStatusBadgeClass(candidate.status)}>{candidate.status}</span>
@@ -2036,7 +2053,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                       <div className="emp-msg-panel-hd">
                         <div>
                           <h4 className="text-sm font-bold text-dark">
-                            {selectedThreadCandidate.id} — {selectedThreadCandidate.role}
+                            {selectedThreadCandidate.publicId || 'Not available'} — {selectedThreadCandidate.role}
                           </h4>
                           <p className="text-xs text-soft">
                             {selectedThreadCandidate.status} · {selectedThreadCandidate.matchPercent}% match · Message request{' '}
@@ -2080,7 +2097,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                         {selectedThreadCandidate.messageRequestState !== 'accepted' && selectedThreadCandidate.messages.map((entry, index) => (
                           <div key={`${selectedThreadCandidate.id}-${index}`} className="flex flex-col">
                             <div className={`emp-msg-bubble-sender ${entry.from === 'employer' ? 'text-right' : ''}`}>
-                              {entry.from === 'employer' ? `${companyName} HR (You)` : selectedThreadCandidate.id}
+                              {entry.from === 'employer' ? `${companyName} HR (You)` : selectedThreadCandidate.publicId || 'Candidate'}
                             </div>
                             <div className={entry.from === 'employer' ? 'emp-msg-bubble-employer' : 'emp-msg-bubble-candidate'}>
                               {entry.text}
@@ -2100,7 +2117,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                             {selectedThreadCandidate.messages.map((entry, index) => (
                               <div key={`${selectedThreadCandidate.id}-${index}`} className="flex flex-col">
                                 <div className={`emp-msg-bubble-sender ${entry.from === 'employer' ? 'text-right' : ''}`}>
-                                  {entry.from === 'employer' ? `${companyName} HR (You)` : selectedThreadCandidate.id}
+                                  {entry.from === 'employer' ? `${companyName} HR (You)` : selectedThreadCandidate.publicId || 'Candidate'}
                                 </div>
                                 <div className={entry.from === 'employer' ? 'emp-msg-bubble-employer' : 'emp-msg-bubble-candidate'}>
                                   {entry.text}
@@ -2354,7 +2371,9 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       {confirmModal.open && confirmModal.action && confirmModal.candidateId && (
         <ConfirmActionModal
           title={`${statusActionLabel(confirmModal.action)}?`}
-          description={statusActionMessage(confirmModal.action, confirmModal.candidateId)}
+          description={statusActionMessage(confirmModal.action, applications.find((candidate) => candidate.id === confirmModal.candidateId)?.publicId || 'this candidate')}
+          rejectionReason={confirmModal.action === 'rejected' ? rejectionReason : undefined}
+          onRejectionReason={confirmModal.action === 'rejected' ? setRejectionReason : undefined}
           onCancel={closeConfirm}
           onConfirm={applyStatusChange}
         />
@@ -2452,7 +2471,7 @@ function CandidateGroup({
                     <div className="emp-app-name">
                       {shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}
                     </div>
-                    <div className="emp-app-id">{candidate.id}</div>
+                    <div className="emp-app-id">{candidate.publicId || 'Not available'}</div>
                   </div>
                 </div>
                 <div className="emp-app-match-row">
@@ -2512,7 +2531,7 @@ function FinalCandidateCard({
         <div>
           <div className="emp-final-name">{shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}</div>
           <div className="emp-final-role">
-            {candidate.id} · {candidate.role}
+            {candidate.publicId || 'Not available'} · {candidate.role}
           </div>
         </div>
       </div>
@@ -2560,9 +2579,9 @@ function ApplicantReviewModal({
       <div className="emp-modal lg" onClick={(event) => event.stopPropagation()}>
         <div className="emp-modal-header">
           <div>
-            <div className="emp-modal-title">Applicant Review — {candidate.id}</div>
+            <div className="emp-modal-title">Applicant Review — {candidate.publicId || 'Not available'}</div>
             <div className="emp-modal-subtitle">
-              {candidate.id} · {candidate.role}
+              {candidate.publicId || 'Not available'} · {candidate.role}
             </div>
           </div>
           <button className="emp-modal-close" type="button" onClick={onClose}>
@@ -2618,7 +2637,7 @@ function ApplicantReviewModal({
           <div className="emp-detail-grid">
             <div>
               <div className="emp-detail-label">Candidate ID</div>
-              <div className="emp-detail-value">{candidate.id}</div>
+              <div className="emp-detail-value">{candidate.publicId || 'Not available'}</div>
             </div>
             <div>
               <div className="emp-detail-label">Applied Role</div>
@@ -2709,9 +2728,16 @@ function ApplicantReviewModal({
           </div>
 
           {isFinal ? (
-            <div className="rounded-lg bg-bg p-4 text-center text-sm text-soft">
-              <UIIcon name="lock" className="mr-1" />
-              This application is in a final state. No further status changes are allowed.
+            <div className="space-y-3">
+              <div className="rounded-lg bg-bg p-4 text-center text-sm text-soft">
+                <UIIcon name="lock" className="mr-1" />
+                This application is in a final state. No further status changes are allowed.
+              </div>
+              {(candidate.status === 'Rejected' || candidate.status === 'Withdrawn') && (
+                <button className="emp-status-btn" style={{ width: '100%' }} type="button" disabled title={`Messaging is unavailable for ${candidate.status.toLowerCase()} applications.`}>
+                  <UIIcon name="messages" /> Send Message Request
+                </button>
+              )}
             </div>
           ) : candidate.status === 'Pending' ? (
             <div className="emp-status-actions">
@@ -2786,11 +2812,15 @@ function ApplicantReviewModal({
 function ConfirmActionModal({
   title,
   description,
+  rejectionReason,
+  onRejectionReason,
   onCancel,
   onConfirm,
 }: {
   title: string;
   description: string;
+  rejectionReason?: string;
+  onRejectionReason?: (reason: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -2804,11 +2834,27 @@ function ConfirmActionModal({
           </button>
         </div>
         <div className="text-sm text-mid">{description}</div>
+        {onRejectionReason && (
+          <div className="emp-form-group mt-4">
+            <label className="emp-form-label required">Reason for rejection</label>
+            <select className="emp-select" value={rejectionReason || ''} onChange={(event) => onRejectionReason(event.target.value)}>
+              <option value="">Select a concise, job-related reason...</option>
+              <option value="Another candidate more closely matched the role requirements.">Another candidate more closely matched the role requirements</option>
+              <option value="The application did not demonstrate the required level of relevant experience.">Required relevant experience was not sufficiently demonstrated</option>
+              <option value="The application did not demonstrate one or more essential technical skills.">Essential technical skills were not sufficiently demonstrated</option>
+              <option value="The candidate's availability did not align with the role's current requirements.">Availability did not align with the role requirements</option>
+              <option value="The candidate's location or work-setup preference did not align with this position.">Location or work-setup preference did not align</option>
+              <option value="The position has been placed on hold or is no longer being filled.">Position placed on hold or no longer being filled</option>
+              <option value="The compensation expectations could not be aligned with the approved range.">Compensation expectations did not align with the approved range</option>
+            </select>
+            <p className="mt-2 text-xs text-soft">Use only objective, job-related reasons. Do not include sensitive or discriminatory information.</p>
+          </div>
+        )}
         <div className="emp-modal-footer">
           <button className="emp-btn-secondary" type="button" onClick={onCancel}>
             Cancel
           </button>
-          <button className="emp-btn-primary" type="button" onClick={onConfirm}>
+          <button className="emp-btn-primary" type="button" onClick={onConfirm} disabled={Boolean(onRejectionReason && !rejectionReason)}>
             <UIIcon name="check" />
             Confirm
           </button>

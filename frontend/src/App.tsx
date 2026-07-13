@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { OnboardingProvider } from './context/OnboardingContext';
 import { useOnboarding } from './hooks/useOnboarding';
 import AdminDashboard from './pages/AdminDashboard';
@@ -13,7 +14,7 @@ import PasswordRecovery from './pages/PasswordRecovery';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import SignUpDefault from './pages/SignUpDefault';
-import { getCurrentKareerlyUser, signOutCurrentUser } from './lib/auth';
+import { getAuthStatus, getCurrentKareerlyUser, signOutCurrentUser } from './lib/auth';
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 import './index.css';
@@ -36,6 +37,8 @@ type AuthUser = KareerlyUser;
 type EmployerUser = KareerlyUser & { company: string };
 
 function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { state, reset, goToStep } = useOnboarding();
   const [view, setView] = useState<AppView>('landing');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -51,7 +54,10 @@ function AppContent() {
       setCurrentUser(null);
       setCurrentEmployer(null);
       setCurrentAdmin(user);
-      if (!options?.preserveView) setView('admin-dashboard');
+      if (!options?.preserveView) {
+        setView('admin-dashboard');
+        navigate('/admin/dashboard', { replace: true });
+      }
       return;
     }
 
@@ -60,7 +66,10 @@ function AppContent() {
       setCurrentUser(null);
       setCurrentAdmin(null);
       setCurrentEmployer({ ...user, company: user.company || 'Employer Workspace' });
-      if (!options?.preserveView) setView('employer-dashboard');
+      if (!options?.preserveView) {
+        setView('employer-dashboard');
+        navigate('/employer/dashboard', { replace: true });
+      }
       return;
     }
 
@@ -70,6 +79,7 @@ function AppContent() {
     setCurrentUser(user);
     if (!options?.preserveView) {
       setView(hasOnboardingSessionData ? 'onboarding' : 'dashboard');
+      navigate(hasOnboardingSessionData ? '/candidate/onboarding' : '/candidate/dashboard', { replace: true });
     }
   };
 
@@ -78,8 +88,19 @@ function AppContent() {
 
     getCurrentKareerlyUser()
       .then((user) => {
-        if (!isMounted || !user) return;
-        applyAuthenticatedUser(user);
+        if (!isMounted) return;
+        if (user) {
+          applyAuthenticatedUser(user);
+        } else if (location.pathname === '/candidate/login') {
+          setAuthRole('candidate');
+          setView('candidate-login');
+        } else if (location.pathname === '/employer/login') {
+          setAuthRole('employer');
+          setView('employer-login');
+        } else if (location.pathname !== '/') {
+          setView('landing');
+          navigate('/', { replace: true });
+        }
       })
       .catch((error) => {
         console.warn('Unable to restore Supabase session:', error);
@@ -90,12 +111,16 @@ function AppContent() {
 
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        const status = getAuthStatus();
+        if (status === 'verifying_role' || status === 'role_mismatch') return;
         setCurrentUser(null);
         setCurrentEmployer(null);
         setCurrentAdmin(null);
         setAuthRole('candidate');
         reset();
+        if (window.location.pathname.endsWith('/login')) return;
         setView('landing');
+        navigate('/', { replace: true });
       }
     });
 
@@ -133,6 +158,20 @@ function AppContent() {
   const showHome = () => {
     reset();
     setView('landing');
+    navigate('/');
+  };
+  const showAuthenticatedHome = () => {
+    if (currentEmployer) {
+      setView('employer-dashboard');
+      navigate('/employer/dashboard');
+      return;
+    }
+    if (currentUser) {
+      setView('dashboard');
+      navigate('/candidate/dashboard');
+      return;
+    }
+    showHome();
   };
   const startOnboarding = (options?: { preserveState?: boolean; step?: 1 | 2 | 3 | 4 }) => {
     if (!options?.preserveState) {
@@ -145,10 +184,12 @@ function AppContent() {
   const showCandidateSignIn = () => {
     setAuthRole('candidate');
     setView('candidate-login');
+    navigate('/candidate/login');
   };
   const showEmployerSignIn = () => {
     setAuthRole('employer');
     setView('employer-login');
+    navigate('/employer/login');
   };
   const showAdminSignIn = () => {
     setAuthRole('admin');
@@ -191,6 +232,7 @@ function AppContent() {
   const handleEmployerAuthenticated = (employer: EmployerUser) => {
     setCurrentEmployer(employer);
     setView('employer-dashboard');
+    navigate('/employer/dashboard', { replace: true });
   };
   const handleCandidateLogout = async () => {
     await signOutCurrentUser().catch((error) => console.warn('Unable to sign out:', error));
@@ -224,7 +266,8 @@ function AppContent() {
       setCurrentEmployer(null);
       setCurrentUser(null);
       setAuthRole('admin');
-      setView('admin-dashboard');
+    setView('admin-dashboard');
+      navigate('/admin/dashboard', { replace: true });
       return;
     }
     if (user.role === 'employer') {
@@ -304,7 +347,7 @@ function AppContent() {
       {view === 'dashboard' && (
         <Dashboard
           currentUser={currentUser}
-          onHome={showHome}
+          onHome={showAuthenticatedHome}
           onLogin={showCandidateSignIn}
           onSignUp={showSignUpDefault}
           onUpdateResume={startOnboardingResumeUpdate}
@@ -314,7 +357,7 @@ function AppContent() {
       {view === 'employer-dashboard' && (
         <EmployerDashboard
           employer={currentEmployer}
-          onHome={showHome}
+          onHome={showAuthenticatedHome}
           onLogin={showEmployerSignIn}
           onSignUp={showEmployerSignUp}
           onLogout={handleEmployerLogout}

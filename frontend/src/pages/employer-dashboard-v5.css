@@ -1410,7 +1410,7 @@
   border-radius: 14px 0 14px 14px;
   padding: 12px 16px;
   max-width: 80%;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--dark);
   line-height: 1.5;
   align-self: flex-end;
@@ -1422,7 +1422,7 @@
   border-radius: 0 14px 14px 14px;
   padding: 12px 16px;
   max-width: 80%;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--dark);
   line-height: 1.5;
   border: 1px solid var(--bdr);
@@ -1454,7 +1454,8 @@
   padding: 10px 14px;
   border: 1.5px solid var(--bdr);
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.5;
   font-family: inherit;
   resize: none;
   min-height: 42px;

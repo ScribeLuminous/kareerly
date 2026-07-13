@@ -39,8 +39,7 @@ export async function saveResumeAnalysis(input: {
 
     if (uploadError) {
       console.warn('Unable to upload resume file:', uploadError.message);
-      storagePath = '';
-      storageBucket = '';
+      throw new Error(`Unable to store the resume file: ${uploadError.message}`);
     }
   }
 

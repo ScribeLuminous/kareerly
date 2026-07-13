@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
@@ -37,11 +37,12 @@ import {
   faTrash,
   faUpload,
   faUser,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, runJobMatches, runMatchesFromResume, validateCertificateFile } from '../lib/api';
+import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, runJobMatches, runMatchesFromResume, sendApplicationMessage, validateCertificateFile } from '../lib/api';
 import type { AvailableJobItem } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
@@ -77,6 +78,40 @@ type ToastType = '' | 'success' | 'warn' | 'danger';
 type ApplicationStatus = 'Pending' | 'Shortlisted' | 'Interviewing' | 'Hired' | 'Rejected' | 'Withdrawn';
 type MessageRequestState = 'Pending' | 'Accepted' | 'Declined' | 'Ignored';
 type SeverityLevel = 'Critical' | 'High' | 'Moderate';
+type UiLanguage = 'en' | 'fil';
+
+const FILIPINO_UI: Record<string, string> = {
+  'My Career': 'Aking Karera', Dashboard: 'Dashboard', 'Job Matches': 'Mga Tugmang Trabaho',
+  'Skill Gaps': 'Mga Kasanayang Kailangang Linangin', Applications: 'Mga Aplikasyon',
+  Preferences: 'Mga Kagustuhan', 'Account Settings': 'Mga Setting ng Account', Explore: 'Tuklasin',
+  Kareers: 'Mga Karera', 'Upskilling Path': 'Landas sa Paglinang ng Kasanayan', Messages: 'Mga Mensahe',
+  Language: 'Wika', English: 'Ingles', Filipino: 'Filipino', Logout: 'Mag-logout',
+  'Location not set': 'Hindi pa nakatakda ang lokasyon', 'No notifications yet.': 'Wala pang abiso.',
+  'Language Preference': 'Piniling Wika',
+  'Manage personal details, resume, education, and account controls': 'Pamahalaan ang personal na detalye, resume, edukasyon, at mga kontrol ng account',
+  'Personal Details': 'Personal na Detalye', 'Full Name': 'Buong Pangalan', 'Email Address': 'Email Address',
+  'Candidate ID': 'ID ng Kandidato', 'Not available': 'Hindi available', 'Contact Number': 'Numero ng Telepono',
+  Birthday: 'Kaarawan', Address: 'Address', 'Location / Region': 'Lokasyon / Rehiyon',
+  'Enter contact number': 'Ilagay ang numero ng telepono', 'Enter your address': 'Ilagay ang iyong address',
+  'Enter your region': 'Ilagay ang iyong rehiyon', 'Save Details': 'I-save ang mga Detalye', Saving: 'Sine-save',
+  'Password & Security': 'Password at Seguridad', 'Current Password': 'Kasalukuyang Password',
+  'New Password': 'Bagong Password', 'Confirm New Password': 'Kumpirmahin ang Bagong Password',
+  'Update Password': 'I-update ang Password', Resume: 'Resume', 'Saved resume:': 'Naka-save na resume:',
+  'No resume saved yet': 'Wala pang naka-save na resume', 'View Resume': 'Tingnan ang Resume',
+  'Update Resume': 'I-update ang Resume', Education: 'Edukasyon',
+  'Highest Educational Attainment': 'Pinakamataas na Natapos na Edukasyon', 'Degree / Program': 'Degree / Programa',
+  'School / University': 'Paaralan / Unibersidad', 'Year Graduated': 'Taon ng Pagtatapos',
+  'Enter highest educational attainment': 'Ilagay ang pinakamataas na natapos na edukasyon',
+  'Enter degree or program': 'Ilagay ang degree o programa', 'Enter school or university': 'Ilagay ang paaralan o unibersidad',
+  'Enter graduation year': 'Ilagay ang taon ng pagtatapos', 'Save Education': 'I-save ang Edukasyon',
+  'Certifications & Uploaded Evidence': 'Mga Sertipikasyon at Na-upload na Katibayan',
+  'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Delete: 'Tanggalin',
+  'Delete Profile': 'Tanggalin ang Profile', 'Request Profile Deletion': 'Humiling na Tanggalin ang Profile',
+};
+
+function tr(language: UiLanguage, english: string): string {
+  return language === 'fil' ? FILIPINO_UI[english] || english : english;
+}
 type SkillCategory = 'Core Office Tools' | 'Programming & Scripting' | 'Statistical Analysis' | 'Data Visualization' | 'Data Engineering' | 'Other';
 type ProgressStatus = {
   label: string;
@@ -118,7 +153,8 @@ type IconName =
   | 'columns'
   | 'filter'
   | 'check-circle'
-  | 'rocket';
+  | 'rocket'
+  | 'close';
 
 type DashboardJob = {
   id: string;
@@ -145,6 +181,10 @@ type DashboardJob = {
   jobLevel?: string;
   niceToHaveSkills?: string[];
   externalUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  salaryMin?: number;
+  salaryMax?: number;
 };
 
 const TOP_MATCHES_PER_CATEGORY = 10;
@@ -216,6 +256,7 @@ type DashboardApplication = {
   status: ApplicationStatus;
   dateApplied: string;
   sourceType: 'internal' | 'external';
+  messageRequestState?: 'none' | 'pending' | 'accepted' | 'declined' | 'ignored';
 };
 
 type JobApplicationRow = {
@@ -231,6 +272,7 @@ type JobApplicationRow = {
   match_score?: number | null;
   matched_skills?: string[] | null;
   missing_skills?: string[] | null;
+  message_request_state?: 'none' | 'pending' | 'accepted' | 'declined' | 'ignored' | null;
   status?: string | null;
   created_at?: string | null;
   applied_at?: string | null;
@@ -345,6 +387,7 @@ const iconMap: Record<IconName, IconDefinition> = {
   filter: faFilter,
   'check-circle': faCircleCheck,
   rocket: faRocket,
+  close: faXmark,
 };
 
 function UIIcon({ name, className = '' }: { name: IconName; className?: string }) {
@@ -759,7 +802,7 @@ function mapAvailableJob(job: AvailableJobItem): DashboardJob {
   const location = job.location || 'Philippines';
   const workType = (job.work_type || '').toLowerCase();
   const setup = workType.includes('remote') ? 'Remote' : workType.includes('hybrid') ? 'Hybrid' : workType.includes('onsite') || workType.includes('on-site') ? 'Onsite' : 'Flexible';
-  const sourceType: 'internal' | 'external' = job.external_job_link_optional ? 'external' : 'internal';
+  const sourceType: 'internal' | 'external' = 'internal';
   const jobSource: 'internal' | 'employer' = job.job_source === 'employer' ? 'employer' : 'internal';
   const requiredSkills = Array.isArray(job.required_skills) ? cleanSkillList(job.required_skills).slice(0, 12) : [];
   const preferredSkills = cleanSkillList(extractStringList(job.preferred_skills));
@@ -790,6 +833,10 @@ function mapAvailableJob(job: AvailableJobItem): DashboardJob {
     jobLevel: titleCase(job.experience_level_required || 'Entry Level'),
     niceToHaveSkills: [],
     externalUrl: job.external_job_link_optional || undefined,
+    createdAt: job.created_at,
+    updatedAt: job.updated_at,
+    salaryMin: Number(job.salary_min_php || 0) || undefined,
+    salaryMax: Number(job.salary_max_php || 0) || undefined,
   };
 }
 
@@ -842,6 +889,7 @@ function mapApplicationRow(row: JobApplicationRow, jobs: DashboardJob[]): Dashbo
     status: mapApplicationStatus(row.status),
     dateApplied: (row.applied_at || row.created_at || dateTodayIso()).slice(0, 10),
     sourceType: 'internal',
+    messageRequestState: row.message_request_state || 'none',
   };
 }
 
@@ -1034,7 +1082,19 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [readNotifications, setReadNotifications] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const [inlineNotice, setInlineNotice] = useState<{ message: string; type: ToastType } | null>(null);
-  const [uiLanguage, setUiLanguage] = useState<'en' | 'fil'>('en');
+  const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(() => {
+    const saved = window.localStorage.getItem('kareerly.uiLanguage');
+    return saved === 'fil' ? 'fil' : 'en';
+  });
+  const setUiLanguage = useCallback((language: UiLanguage) => {
+    setUiLanguageState(language);
+    window.localStorage.setItem('kareerly.uiLanguage', language);
+    document.documentElement.lang = language === 'fil' ? 'fil' : 'en';
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = uiLanguage === 'fil' ? 'fil' : 'en';
+  }, [uiLanguage]);
   const [jobDetailOpen, setJobDetailOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<DashboardJob | null>(null);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
@@ -1052,9 +1112,10 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [newSkillInput, setNewSkillInput] = useState('');
   const [resumePostRefreshTarget, setResumePostRefreshTarget] = useState<'dashboard' | 'preferences'>('dashboard');
   const [savedResumeFileName, setSavedResumeFileName] = useState('');
+  const [resumePreview, setResumePreview] = useState<{ url: string; name: string; mimeType: string; local: boolean } | null>(null);
+  const [candidatePublicId, setCandidatePublicId] = useState('');
   const [skillNames, setSkillNames] = useState<string[]>(() => extractSkillsFromResume(state.resume));
   const [selectedThreadJobId, setSelectedThreadJobId] = useState<string>('');
-  const [messageStates, setMessageStates] = useState<Record<string, MessageRequestState>>({});
   const [messageRequests, setMessageRequests] = useState<Record<string, string>>({});
   const [messageDraft, setMessageDraft] = useState('');
   const [messageReplies, setMessageReplies] = useState<Record<string, Array<{ from: 'employer' | 'candidate'; text: string; time: string }>>>({});
@@ -1062,6 +1123,8 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(() => new Set());
   const [extraPreferences, setExtraPreferences] = useState({ jobLevel: '', preferredLocation: '' });
   const [availableJobs, setAvailableJobs] = useState<AvailableJobItem[]>([]);
+  const [isLoadingKareers, setIsLoadingKareers] = useState(true);
+  const [kareersError, setKareersError] = useState<string | null>(null);
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceUploadRecord[]>([]);
   const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>({});
   const [profileForm, setProfileForm] = useState({
@@ -1173,10 +1236,11 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     void (async () => {
       const { data } = await supabase
         .from('candidate_profiles')
-        .select('birthday, location, education_json')
+        .select('public_id, birthday, location, education_json')
         .eq('user_id', currentUser.id)
         .maybeSingle();
       if (!isMounted || !data) return;
+      setCandidatePublicId(String(data.public_id || ''));
       const education = (data.education_json as Record<string, string> | null) || {};
       setProfileForm((current) => ({
         ...current,
@@ -1275,24 +1339,21 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
-    void (async () => {
-      try {
-        const response = await fetchAvailableJobs(300);
-        if (isMounted) {
-          setAvailableJobs(response.results || []);
-        }
-      } catch {
-        if (isMounted) {
-          setAvailableJobs([]);
-        }
-      }
-    })();
-    return () => {
-      isMounted = false;
-    };
+  const loadKareers = useCallback(async () => {
+    setIsLoadingKareers(true);
+    setKareersError(null);
+    try {
+      const response = await fetchAvailableJobs(500);
+      setAvailableJobs(response.results || []);
+    } catch (error) {
+      setAvailableJobs([]);
+      setKareersError(error instanceof Error ? error.message : 'Unable to load jobs.');
+    } finally {
+      setIsLoadingKareers(false);
+    }
   }, []);
+
+  useEffect(() => { void loadKareers(); }, [loadKareers]);
 
   const jobs = useMemo<DashboardJob[]>(() => {
     if (state.matchResults) {
@@ -1711,7 +1772,14 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     return Array.from(groups.entries()).map(([gapTag, grouped]) => ({ gapTag, courses: grouped }));
   }, [courses]);
 
-  const eligibleMessageApps = useMemo(() => applications.filter((app) => app.status === 'Interviewing' || app.status === 'Hired'), [applications]);
+  const eligibleMessageApps = useMemo(
+    () => applications.filter((app) =>
+      (app.status === 'Interviewing' || app.status === 'Hired')
+      && app.messageRequestState !== 'none'
+      && Boolean(app.messageRequestState),
+    ),
+    [applications],
+  );
 
   useEffect(() => {
     if (eligibleMessageApps.length === 0) {
@@ -1723,37 +1791,50 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     }
   }, [eligibleMessageApps, selectedThreadJobId]);
 
+  const persistedMessageStates = useMemo<Record<string, MessageRequestState>>(() => {
+    const states: Record<string, MessageRequestState> = {};
+    eligibleMessageApps.forEach((app) => {
+      states[app.jobId] = app.messageRequestState === 'accepted' ? 'Accepted'
+        : app.messageRequestState === 'declined' ? 'Declined'
+          : app.messageRequestState === 'ignored' ? 'Ignored' : 'Pending';
+    });
+    return states;
+  }, [eligibleMessageApps]);
+
   useEffect(() => {
-    if (eligibleMessageApps.length === 0) return;
-    setMessageStates((current) => {
-      const next = { ...current };
-      eligibleMessageApps.forEach((app) => {
-        if (!next[app.jobId]) next[app.jobId] = 'Pending';
-      });
-      return next;
-    });
-    setMessageRequests((current) => {
-      const next = { ...current };
-      eligibleMessageApps.forEach((app) => {
-        if (!next[app.jobId]) {
-          next[app.jobId] = `Hello ${displayName}, we would like to coordinate interview details for your ${app.jobTitle} application.`;
+    let isMounted = true;
+    const loadCandidateMessages = async () => {
+      const applicationIds = eligibleMessageApps.map((app) => app.id).filter(Boolean);
+      if (applicationIds.length === 0) return;
+      const results = await Promise.all(eligibleMessageApps.map(async (app) => ({ app, rows: await loadApplicationMessages(app.id).catch(() => []) })));
+      if (!isMounted) return;
+      const requestUpdates: Record<string, string> = {};
+      const replyUpdates: Record<string, Array<{ from: 'employer' | 'candidate'; text: string; time: string }>> = {};
+      results.forEach(({ app, rows }) => rows.forEach((row) => {
+        if (row.message_kind === 'request') requestUpdates[app.jobId] = String(row.message_text || '');
+        else {
+          const entries = replyUpdates[app.jobId] || [];
+          entries.push({
+            from: row.sender_role === 'candidate' ? 'candidate' : 'employer',
+            text: String(row.message_text || ''),
+            time: row.created_at ? new Date(row.created_at).toLocaleString() : 'Just now',
+          });
+          replyUpdates[app.jobId] = entries;
         }
-      });
-      return next;
-    });
-    setMessageReplies((current) => {
-      const next = { ...current };
-      eligibleMessageApps.forEach((app) => {
-        if (!next[app.jobId]) {
-          next[app.jobId] = [];
-        }
-      });
-      return next;
-    });
-  }, [displayName, eligibleMessageApps]);
+      }));
+      setMessageRequests(requestUpdates);
+      setMessageReplies(replyUpdates);
+    };
+    void loadCandidateMessages();
+    const refreshTimer = window.setInterval(() => void loadCandidateMessages(), 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(refreshTimer);
+    };
+  }, [eligibleMessageApps]);
 
   const selectedMessageApp = eligibleMessageApps.find((app) => app.jobId === selectedThreadJobId) || null;
-  const selectedMessageState = selectedMessageApp ? messageStates[selectedMessageApp.jobId] || 'Pending' : 'Pending';
+  const selectedMessageState = selectedMessageApp ? persistedMessageStates[selectedMessageApp.jobId] || 'Pending' : 'Pending';
 
   useEffect(() => {
     return () => {
@@ -2084,28 +2165,39 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
   const acceptedMessageReplyEnabled = selectedMessageState === 'Accepted';
 
-  const acceptMessageRequest = () => {
+  const updateMessageRequestState = async (nextState: 'accepted' | 'declined' | 'ignored') => {
     if (!selectedMessageApp) return;
-    setMessageStates((current) => ({ ...current, [selectedMessageApp.jobId]: 'Accepted' }));
-    showToast('Message request accepted. You can now reply.', 'success');
+    const { error } = await supabase
+      .from('job_applications')
+      .update({ message_request_state: nextState, updated_at: new Date().toISOString() })
+      .eq('id', selectedMessageApp.id)
+      .eq('user_id', currentUser.id);
+    if (error) {
+      console.warn('Unable to update message request:', error);
+      showToast('Unable to update the message request. Please try again.', 'danger');
+      return;
+    }
+    setApplications((current) => current.map((app) => app.id === selectedMessageApp.id ? { ...app, messageRequestState: nextState } : app));
+    showToast(nextState === 'accepted' ? 'Message request accepted. You can now reply.' : `Message request ${nextState}.`, nextState === 'accepted' ? 'success' : 'warn');
   };
 
-  const declineMessageRequest = () => {
-    if (!selectedMessageApp) return;
-    setMessageStates((current) => ({ ...current, [selectedMessageApp.jobId]: 'Declined' }));
-    showToast('Message request declined.', 'warn');
-  };
+  const acceptMessageRequest = () => void updateMessageRequestState('accepted');
 
-  const ignoreMessageRequest = () => {
-    if (!selectedMessageApp) return;
-    setMessageStates((current) => ({ ...current, [selectedMessageApp.jobId]: 'Ignored' }));
-    showToast('Message request ignored.', 'warn');
-  };
+  const declineMessageRequest = () => void updateMessageRequestState('declined');
 
-  const sendMessageReply = () => {
+  const ignoreMessageRequest = () => void updateMessageRequestState('ignored');
+
+  const sendMessageReply = async () => {
     if (!selectedMessageApp || selectedMessageState !== 'Accepted') return;
     const text = messageDraft.trim();
     if (!text) return;
+    try {
+      await sendApplicationMessage({ applicationId: selectedMessageApp.id, text });
+    } catch (error) {
+      console.warn('Unable to send candidate reply:', error);
+      showToast(error instanceof Error ? error.message : 'Unable to send your message. Please try again.', 'danger');
+      return;
+    }
     const reply = { from: 'candidate' as const, text, time: 'Just now' };
     setMessageReplies((current) => ({ ...current, [selectedMessageApp.jobId]: [...(current[selectedMessageApp.jobId] || []), reply] }));
     setMessageDraft('');
@@ -2122,6 +2214,50 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     setReviewSkills([]);
     setNewSkillInput('');
     setResumePostRefreshTarget('dashboard');
+  };
+
+  const viewSavedResume = async () => {
+    if (!currentUser.id) return;
+    if (state.resumeFile) {
+      const localUrl = URL.createObjectURL(state.resumeFile);
+      setResumePreview({ url: localUrl, name: state.resumeFile.name, mimeType: state.resumeFile.type, local: true });
+      return;
+    }
+    const latestResume = await loadLatestResume({ userId: currentUser.id });
+    let storageBucket = latestResume?.storage_bucket || 'resumes';
+    let storagePath = latestResume?.storage_path || '';
+
+    // Older resume rows may not contain storage metadata even though the file was
+    // successfully uploaded. Recover the newest file from this user's private folder.
+    if (!storagePath) {
+      const { data: storedFiles, error: listError } = await supabase.storage
+        .from(storageBucket)
+        .list(currentUser.id, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+      const newestFile = storedFiles?.find((file) => file.name && file.name !== '.emptyFolderPlaceholder');
+      if (listError || !newestFile) {
+        console.warn('Unable to locate saved resume file:', listError);
+        showToast('The saved resume file could not be found. Please upload the resume again.', 'warn');
+        return;
+      }
+      storageBucket = 'resumes';
+      storagePath = `${currentUser.id}/${newestFile.name}`;
+    }
+    const { data, error } = await supabase.storage
+      .from(storageBucket)
+      .createSignedUrl(storagePath, 300);
+    if (error || !data?.signedUrl) {
+      console.warn('Unable to create resume preview link:', error);
+      showToast('Unable to open the saved resume. Please try again.', 'danger');
+      return;
+    }
+    const previewName = latestResume?.original_filename || savedResumeFileName || storagePath.split('/').pop() || 'Saved resume';
+    const previewMimeType = latestResume?.file_mime_type || (previewName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : '');
+    setResumePreview({ url: data.signedUrl, name: previewName, mimeType: previewMimeType, local: false });
+  };
+
+  const closeResumePreview = () => {
+    if (resumePreview?.local) URL.revokeObjectURL(resumePreview.url);
+    setResumePreview(null);
   };
 
   const handleResumeFilePick = (file: File | null) => {
@@ -2402,6 +2538,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     setEvidenceModalOpen(false);
     setEditingEvidence(null);
     setDeleteEvidenceTarget(null);
+    closeResumePreview();
   };
 
   const hasData = jobs.length > 0 || gaps.length > 0 || courses.length > 0;
@@ -2503,7 +2640,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                   }}
                 >
                   <UIIcon name="user" className="cand-dd-icon" />
-                  Account Settings
+                    {tr(uiLanguage, 'Account Settings')}
                 </button>
                 <button
                   className="cand-profile-dd-item"
@@ -2514,15 +2651,15 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                   }}
                 >
                   <UIIcon name="sliders" className="cand-dd-icon" />
-                  Preferences
+                  {tr(uiLanguage, 'Preferences')}
                 </button>
-                <div className="border-t border-bdr px-4 py-2 text-[10px] font-bold uppercase tracking-[0.5px] text-soft">Language</div>
+                <div className="border-t border-bdr px-4 py-2 text-[10px] font-bold uppercase tracking-[0.5px] text-soft">{tr(uiLanguage, 'Language')}</div>
                 <div className="cand-lang-row">
                   <button className={`cand-lang-pill ${uiLanguage === 'en' ? 'active' : ''}`} type="button" onClick={() => setUiLanguage('en')}>
-                    English
+                    {tr(uiLanguage, 'English')}
                   </button>
                   <button className={`cand-lang-pill ${uiLanguage === 'fil' ? 'active' : ''}`} type="button" onClick={() => setUiLanguage('fil')}>
-                    Filipino
+                    {tr(uiLanguage, 'Filipino')}
                   </button>
                 </div>
                 <div className="border-t border-bdr">
@@ -2535,7 +2672,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                     }}
                   >
                     <UIIcon name="logout" className="cand-dd-icon" />
-                    Logout
+                    {tr(uiLanguage, 'Logout')}
                   </button>
                 </div>
               </div>
@@ -2548,21 +2685,21 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         <aside className={`cand-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} onClick={(event) => event.stopPropagation()}>
             <div className="cand-sidebar-inner">
               <div className="cand-sidebar-section">
-                <div className="cand-sidebar-title">My Career</div>
-                <NavItem icon="dashboard" active={activePage === 'dashboard'} onClick={() => setActivePage('dashboard')}>Dashboard</NavItem>
-                <NavItem icon="briefcase" active={activePage === 'jobmatches'} onClick={() => setActivePage('jobmatches')}>Job Matches</NavItem>
-                <NavItem icon="puzzle" active={activePage === 'skillgaps'} onClick={() => setActivePage('skillgaps')}>Skill Gaps</NavItem>
-                <NavItem icon="layers" active={activePage === 'applications'} onClick={() => setActivePage('applications')}>Applications</NavItem>
-                <NavItem icon="sliders" active={activePage === 'preferences'} onClick={() => setActivePage('preferences')}>Preferences</NavItem>
-                <NavItem icon="user" active={activePage === 'account'} onClick={() => setActivePage('account')}>Account Settings</NavItem>
+                <div className="cand-sidebar-title">{tr(uiLanguage, 'My Career')}</div>
+                <NavItem icon="dashboard" active={activePage === 'dashboard'} onClick={() => setActivePage('dashboard')}>{tr(uiLanguage, 'Dashboard')}</NavItem>
+                <NavItem icon="briefcase" active={activePage === 'jobmatches'} onClick={() => setActivePage('jobmatches')}>{tr(uiLanguage, 'Job Matches')}</NavItem>
+                <NavItem icon="puzzle" active={activePage === 'skillgaps'} onClick={() => setActivePage('skillgaps')}>{tr(uiLanguage, 'Skill Gaps')}</NavItem>
+                <NavItem icon="layers" active={activePage === 'applications'} onClick={() => setActivePage('applications')}>{tr(uiLanguage, 'Applications')}</NavItem>
+                <NavItem icon="sliders" active={activePage === 'preferences'} onClick={() => setActivePage('preferences')}>{tr(uiLanguage, 'Preferences')}</NavItem>
+                <NavItem icon="user" active={activePage === 'account'} onClick={() => setActivePage('account')}>{tr(uiLanguage, 'Account Settings')}</NavItem>
               </div>
               <div className="cand-sidebar-section border-t border-bdr pt-5">
-                <div className="cand-sidebar-title">Explore</div>
-                <NavItem icon="compass" active={activePage === 'kareers'} onClick={() => setActivePage('kareers')}>Kareers</NavItem>
-                <NavItem icon="graduation" active={activePage === 'upskilling'} onClick={() => setActivePage('upskilling')}>Upskilling Path</NavItem>
+                <div className="cand-sidebar-title">{tr(uiLanguage, 'Explore')}</div>
+                <NavItem icon="compass" active={activePage === 'kareers'} onClick={() => setActivePage('kareers')}>{tr(uiLanguage, 'Kareers')}</NavItem>
+                <NavItem icon="graduation" active={activePage === 'upskilling'} onClick={() => setActivePage('upskilling')}>{tr(uiLanguage, 'Upskilling Path')}</NavItem>
                 <button className={`cand-nav-item ${activePage === 'messages' ? 'active' : ''}`} type="button" onClick={() => setActivePage('messages')}>
                   <UIIcon name="message" className="cand-nav-icon" />
-                  Messages
+                  {tr(uiLanguage, 'Messages')}
                   {eligibleMessageApps.length > 0 && <span className="cand-nav-badge">{eligibleMessageApps.length}</span>}
                 </button>
               </div>
@@ -2574,7 +2711,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                   <div className="text-[13px] font-bold text-dark">{displayName}</div>
                   <div className="cand-profile-location">
                     <UIIcon name="location" className="cand-profile-location-icon" />
-                    {matchedLocation || 'Location not set'}
+                    {matchedLocation || tr(uiLanguage, 'Location not set')}
                   </div>
                 </div>
                 <UIIcon name="sliders" className="cand-profile-setting-icon" />
@@ -2586,11 +2723,17 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
           {inlineNotice && (
             <div className={`cand-notice ${inlineNotice.type === 'danger' ? 'error' : inlineNotice.type === 'warn' ? 'warn' : 'info'}`}>
               <span>{inlineNotice.message}</span>
+              <button className="cand-notice-close" type="button" onClick={() => setInlineNotice(null)} aria-label="Dismiss notification">
+                <UIIcon name="close" />
+              </button>
             </div>
           )}
           {state.error && (
             <div className="cand-notice error">
               <span>{state.error}</span>
+              <button className="cand-notice-close" type="button" onClick={() => setError(null)} aria-label="Dismiss error">
+                <UIIcon name="close" />
+              </button>
             </div>
           )}
 
@@ -2620,8 +2763,8 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               allMatchesCount={totalQualifyingMatchesCount}
               jobSearch={jobSearch}
               jobFilter={jobFilter}
-              savedJobs={savedJobs}
               applications={applications}
+              savedJobs={savedJobs}
               fitNowCount={topFitNowMatchesCount}
               aspirationCount={topAspirationMatchesCount}
               onSearch={setJobSearch}
@@ -2656,10 +2799,29 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
           {activePage === 'applications' && (
             <ApplicationsPage
               applications={applications}
-              jobs={jobs}
               onViewJob={(application) => {
-                const job = jobs.find((item) => item.id === application.jobId);
-                if (job) openJobDetails(job);
+                const knownJob = jobs.find((item) => item.id === application.jobId && item.jobSource === application.jobSource);
+                const applicationJob: DashboardJob = knownJob || {
+                  id: application.jobId,
+                  jobSource: application.jobSource,
+                  title: application.jobTitle,
+                  company: application.company,
+                  location: 'Location not specified',
+                  setup: 'Work setup not specified',
+                  employmentType: 'Not specified',
+                  salary: 'Salary not specified',
+                  matchScore: application.matchScore,
+                  hasMatchScore: application.matchScore > 0,
+                  matchCategory: application.matchScore >= 60 ? 'fit-now' : 'aspiration',
+                  sourceType: 'internal',
+                  requiredSkills: [],
+                  preferredSkills: [],
+                  responsibilities: [],
+                  matchedSkills: [],
+                  missingSkills: [],
+                  explanation: '',
+                };
+                void openJobDetails(applicationJob);
               }}
               onWithdraw={openWithdraw}
               onOpenMessages={() => setActivePage('messages')}
@@ -2686,7 +2848,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
           {activePage === 'account' && (
             <AccountSettingsPage
-              user={{ name: displayName, email: displayEmail }}
+              user={{ name: displayName, email: displayEmail, publicId: candidatePublicId }}
               uiLanguage={uiLanguage}
               evidenceRecords={evidenceRecords}
               profile={profileForm}
@@ -2696,6 +2858,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               onLanguage={setUiLanguage}
               onOpenDelete={() => setDeleteModalOpen(true)}
               onOpenResume={openResumeModal}
+              onViewResume={() => void viewSavedResume()}
               onOpenEvidenceUpload={openEvidenceUploadModal}
               onViewEvidence={handleViewEvidence}
               onReplaceEvidence={handleReplaceEvidence}
@@ -2710,7 +2873,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               kareers={kareersList}
               selectedId={selectedKareerId}
               selected={selectedKareer}
-              savedJobs={savedJobs}
               applications={applications}
               onSelect={setSelectedKareerId}
               onApply={applyToJob}
@@ -2720,6 +2882,9 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               onOpenMatches={() => setActivePage('jobmatches')}
               onOpenApplications={() => setActivePage('applications')}
               onOpenUpskilling={() => setActivePage('upskilling')}
+              isLoading={isLoadingKareers}
+              error={kareersError}
+              onRetry={() => void loadKareers()}
             />
           )}
 
@@ -2752,7 +2917,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
             <MessagesPage
               applications={eligibleMessageApps}
               selectedJobId={selectedThreadJobId}
-              requestStates={messageStates}
+              requestStates={persistedMessageStates}
               requestTexts={messageRequests}
               replies={messageReplies}
               draft={messageDraft}
@@ -2859,9 +3024,28 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         />
       )}
 
+      {resumePreview && (
+        <div className="cand-modal-overlay" onClick={closeResumePreview}>
+          <div className="cand-modal-box lg cand-resume-preview-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="cand-modal-header">
+              <div>
+                <div className="cand-modal-title">Resume Preview</div>
+                <div className="cand-modal-subtitle">{resumePreview.name}</div>
+              </div>
+              <button className="cand-modal-close" type="button" onClick={closeResumePreview} aria-label="Close resume preview">×</button>
+            </div>
+            {resumePreview.mimeType.includes('pdf') || resumePreview.name.toLowerCase().endsWith('.pdf') ? (
+              <iframe className="cand-resume-preview-frame" src={resumePreview.url} title={`Preview of ${resumePreview.name}`} />
+            ) : (
+              <div className="cand-notice info m-4"><span>Inline preview is available for PDF files. DOCX resumes cannot be rendered directly by this browser.</span></div>
+            )}
+          </div>
+        </div>
+      )}
+
       {toast && <div className={`cand-toast ${toast.type}`}>{toast.message}</div>}
 
-      {(jobDetailOpen || resumeModalOpen || withdrawModalOpen || deleteModalOpen || evidenceModalOpen || Boolean(deleteEvidenceTarget)) && (
+      {(jobDetailOpen || resumeModalOpen || withdrawModalOpen || deleteModalOpen || evidenceModalOpen || Boolean(deleteEvidenceTarget) || Boolean(resumePreview)) && (
         <button type="button" className="fixed inset-0 z-[450] h-0 w-0 opacity-0" aria-label="close modal by background" onClick={closeModal} />
       )}
     </div>
@@ -3208,8 +3392,8 @@ function JobMatchesPage({
   allMatchesCount,
   jobSearch,
   jobFilter,
-  savedJobs,
   applications,
+  savedJobs,
   fitNowCount,
   aspirationCount,
   onSearch,
@@ -3224,8 +3408,8 @@ function JobMatchesPage({
   allMatchesCount: number;
   jobSearch: string;
   jobFilter: JobFilter;
-  savedJobs: Set<string>;
   applications: DashboardApplication[];
+  savedJobs: Set<string>;
   fitNowCount: number;
   aspirationCount: number;
   onSearch: (value: string) => void;
@@ -3759,13 +3943,11 @@ function StatusBadge({ status }: { status: ApplicationStatus }) {
 
 function ApplicationsPage({
   applications,
-  jobs,
   onViewJob,
   onWithdraw,
   onOpenMessages,
 }: {
   applications: DashboardApplication[];
-  jobs: DashboardJob[];
   onViewJob: (application: DashboardApplication) => void;
   onWithdraw: (application: DashboardApplication) => void;
   onOpenMessages: () => void;
@@ -3892,8 +4074,6 @@ function ApplicationsPage({
           </button>
         )}
       </div>
-
-      {jobs.length === 0 && <div className="mt-4 text-sm text-soft">No job data loaded yet.</div>}
     </div>
   );
 }
@@ -4066,6 +4246,7 @@ function AccountSettingsPage({
   onLanguage,
   onOpenDelete,
   onOpenResume,
+  onViewResume,
   onOpenEvidenceUpload,
   onViewEvidence,
   onReplaceEvidence,
@@ -4073,7 +4254,7 @@ function AccountSettingsPage({
   onProfileChange,
   onSave,
 }: {
-  user: { name: string; email: string };
+  user: { name: string; email: string; publicId: string };
   uiLanguage: 'en' | 'fil';
   evidenceRecords: EvidenceUploadRecord[];
   savedResumeFileName: string;
@@ -4092,6 +4273,7 @@ function AccountSettingsPage({
   onLanguage: (lang: 'en' | 'fil') => void;
   onOpenDelete: () => void;
   onOpenResume: () => void;
+  onViewResume: () => void;
   onOpenEvidenceUpload: () => void;
   onViewEvidence: (record: EvidenceUploadRecord) => void;
   onReplaceEvidence: (record: EvidenceUploadRecord) => void;
@@ -4108,6 +4290,7 @@ function AccountSettingsPage({
   }) => void;
   onSave: () => void;
 }) {
+  const t = (text: string) => tr(uiLanguage, text);
   const groupedEvidence = useMemo(() => {
     const groups = new Map<string, EvidenceUploadRecord[]>();
     evidenceRecords.forEach((record) => {
@@ -4122,70 +4305,78 @@ function AccountSettingsPage({
   return (
     <div>
       <div className="cand-page-header">
-        <h1 className="cand-page-title">Account Settings</h1>
-        <p className="cand-page-subtitle">Manage personal details, resume, education, and account controls</p>
+        <h1 className="cand-page-title">{t('Account Settings')}</h1>
+        <p className="cand-page-subtitle">{t('Manage personal details, resume, education, and account controls')}</p>
       </div>
 
       <div className="cand-acct-section">
-        <div className="cand-acct-title">Language Preference</div>
+        <div className="cand-acct-title">{t('Language Preference')}</div>
         <p className="mb-3 text-xs text-soft">
-          This toggle updates selected UI labels and basic instructions only. It does not imply full Filipino resume parsing or multilingual NLP support.
+          {uiLanguage === 'fil'
+            ? 'Gagamitin ang Filipino sa mga label at tagubilin ng Kareerly. Mananatili sa orihinal na wika ang nilalaman ng resume at mga trabahong ipinaskil ng employer.'
+            : 'Choose the language used for Kareerly labels and instructions. Resume content and employer-provided job posts remain in their original language.'}
         </p>
         <div className="flex gap-2">
           <button className={`cand-tab-btn ${uiLanguage === 'en' ? 'active' : ''}`} type="button" onClick={() => onLanguage('en')}>
-            English
+            {t('English')}
           </button>
           <button className={`cand-tab-btn ${uiLanguage === 'fil' ? 'active' : ''}`} type="button" onClick={() => onLanguage('fil')}>
-            Filipino
+            {t('Filipino')}
           </button>
         </div>
       </div>
 
       <div className="cand-acct-grid">
         <div className="cand-acct-section">
-          <div className="cand-acct-title">Personal Details</div>
+          <div className="cand-acct-title">{t('Personal Details')}</div>
           {profileSaveNotice && (
             <div className="cand-notice info mb-3">
               <span>{profileSaveNotice}</span>
             </div>
           )}
           <div className="space-y-3">
-            <FormField label="Full Name"><input className="cand-form-input" defaultValue={user.name} /></FormField>
-            <FormField label="Email Address"><input className="cand-form-input" defaultValue={user.email} /></FormField>
-            <FormField label="Contact Number"><input className="cand-form-input" value={profile.contactNumber} onChange={(event) => onProfileChange({ ...profile, contactNumber: event.target.value })} placeholder="Enter contact number" /></FormField>
-            <FormField label="Birthday"><input className="cand-form-input" value={profile.birthday} onChange={(event) => onProfileChange({ ...profile, birthday: event.target.value })} type="date" /></FormField>
-            <FormField label="Address"><input className="cand-form-input" value={profile.address} onChange={(event) => onProfileChange({ ...profile, address: event.target.value })} placeholder="Enter your address" /></FormField>
-            <FormField label="Location / Region"><input className="cand-form-input" value={profile.location} onChange={(event) => onProfileChange({ ...profile, location: event.target.value })} placeholder="Enter your region" /></FormField>
+            <FormField label={t('Full Name')}><input className="cand-form-input" defaultValue={user.name} /></FormField>
+            <FormField label={t('Email Address')}><input className="cand-form-input" defaultValue={user.email} /></FormField>
+            <FormField label={t('Candidate ID')}><input className="cand-form-input" value={user.publicId || t('Not available')} readOnly /></FormField>
+            <FormField label={t('Contact Number')}><input className="cand-form-input" value={profile.contactNumber} onChange={(event) => onProfileChange({ ...profile, contactNumber: event.target.value })} placeholder={t('Enter contact number')} /></FormField>
+            <FormField label={t('Birthday')}><input className="cand-form-input" value={profile.birthday} onChange={(event) => onProfileChange({ ...profile, birthday: event.target.value })} type="date" /></FormField>
+            <FormField label={t('Address')}><input className="cand-form-input" value={profile.address} onChange={(event) => onProfileChange({ ...profile, address: event.target.value })} placeholder={t('Enter your address')} /></FormField>
+            <FormField label={t('Location / Region')}><input className="cand-form-input" value={profile.location} onChange={(event) => onProfileChange({ ...profile, location: event.target.value })} placeholder={t('Enter your region')} /></FormField>
           </div>
           <button className="cand-btn-primary mt-4" type="button" onClick={onSave} disabled={isSavingProfile}>
-            {isSavingProfile ? 'Saving...' : 'Save Details'}
+            {isSavingProfile ? `${t('Saving')}...` : t('Save Details')}
           </button>
         </div>
 
         <div>
           <div className="cand-acct-section">
-            <div className="cand-acct-title">Password & Security</div>
+            <div className="cand-acct-title">{t('Password & Security')}</div>
             <div className="space-y-3">
-              <FormField label="Current Password"><input className="cand-form-input" type="password" /></FormField>
-              <FormField label="New Password"><input className="cand-form-input" type="password" /></FormField>
-              <FormField label="Confirm New Password"><input className="cand-form-input" type="password" /></FormField>
+              <FormField label={t('Current Password')}><input className="cand-form-input" type="password" /></FormField>
+              <FormField label={t('New Password')}><input className="cand-form-input" type="password" /></FormField>
+              <FormField label={t('Confirm New Password')}><input className="cand-form-input" type="password" /></FormField>
             </div>
             <button className="cand-btn-primary mt-4" type="button" onClick={onSave} disabled={isSavingProfile}>
-              {isSavingProfile ? 'Saving...' : 'Update Password'}
+              {isSavingProfile ? `${t('Saving')}...` : t('Update Password')}
             </button>
           </div>
 
           <div className="cand-acct-section">
-            <div className="cand-acct-title">Resume</div>
+            <div className="cand-acct-title">{t('Resume')}</div>
             <div className="cand-notice info mb-3">
-              <span>View or upload your latest resume. Updating resume refreshes matches, gaps, and recommendations.</span>
+              <span>{uiLanguage === 'fil' ? 'Tingnan o i-upload ang pinakabagong resume. Ang pag-update nito ay magre-refresh ng mga tugmang trabaho, kakulangan sa kasanayan, at rekomendasyon.' : 'View or upload your latest resume. Updating resume refreshes matches, gaps, and recommendations.'}</span>
             </div>
             <div className="mb-3 text-sm text-mid">
-              Saved resume: <strong>{savedResumeFileName || 'No resume saved yet'}</strong>
+              {t('Saved resume:')} <strong>{savedResumeFileName || t('No resume saved yet')}</strong>
             </div>
-            <button className="cand-btn-secondary w-full justify-center" type="button" onClick={onOpenResume}>
-              Update Resume
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button className="cand-btn-secondary flex-1 justify-center" type="button" onClick={onViewResume} disabled={!savedResumeFileName}>
+                <UIIcon name="eye" className="cand-btn-icon" />{t('View Resume')}
+              </button>
+              <button className="cand-btn-secondary flex-1 justify-center" type="button" onClick={onOpenResume}>
+                <UIIcon name="upload" className="cand-btn-icon" />{t('Update Resume')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -4275,7 +4466,6 @@ function KareersPage({
   kareers,
   selectedId,
   selected,
-  savedJobs,
   applications,
   onSelect,
   onApply,
@@ -4285,11 +4475,13 @@ function KareersPage({
   onOpenMatches,
   onOpenApplications,
   onOpenUpskilling,
+  isLoading,
+  error,
+  onRetry,
 }: {
   kareers: DashboardJob[];
   selectedId: string;
   selected: DashboardJob | null;
-  savedJobs: Set<string>;
   applications: DashboardApplication[];
   onSelect: (id: string) => void;
   onApply: (jobId: string) => Promise<boolean>;
@@ -4299,32 +4491,51 @@ function KareersPage({
   onOpenMatches: () => void;
   onOpenApplications: () => void;
   onOpenUpskilling: () => void;
+  isLoading: boolean;
+  error: string | null;
+  onRetry: () => void;
 }) {
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'internal' | 'external' | 'saved'>('all');
   const [searchValue, setSearchValue] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
   const [setupFilter, setSetupFilter] = useState('');
+  const [employmentFilter, setEmploymentFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'salary-high' | 'salary-low' | 'az' | 'za'>('newest');
   const [alignFilter, setAlignFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [pendingApplyJob, setPendingApplyJob] = useState<DashboardJob | null>(null);
   const [submittedApplyJob, setSubmittedApplyJob] = useState<DashboardJob | null>(null);
 
   const filteredKareers = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
-    return kareers.filter((job) => {
-      if (sourceFilter === 'internal' && job.sourceType !== 'internal') return false;
-      if (sourceFilter === 'external' && job.sourceType !== 'external') return false;
-      if (sourceFilter === 'saved' && !savedJobs.has(job.id)) return false;
+    const filtered = kareers.filter((job) => {
       if (categoryFilter && !(job.category || '').toLowerCase().includes(categoryFilter.toLowerCase())) return false;
       if (levelFilter && !(job.jobLevel || '').toLowerCase().includes(levelFilter.toLowerCase())) return false;
       if (setupFilter && !(job.setup || '').toLowerCase().includes(setupFilter.toLowerCase())) return false;
+      if (employmentFilter && !(job.employmentType || '').toLowerCase().includes(employmentFilter.toLowerCase())) return false;
+      if (locationFilter && !(job.location || '').toLowerCase().includes(locationFilter.toLowerCase())) return false;
       if (alignFilter && job.matchCategory !== alignFilter) return false;
       if (!query) return true;
-      return `${job.title} ${job.company} ${job.category || ''} ${job.subCategory || ''} ${job.location} ${job.setup} ${job.matchedSkills.join(' ')} ${job.missingSkills.join(' ')}`
+      return `${job.title} ${job.company} ${job.category || ''} ${job.subCategory || ''} ${job.location} ${job.setup} ${job.description || ''} ${job.requiredSkills.join(' ')} ${job.preferredSkills.join(' ')}`
         .toLowerCase()
         .includes(query);
     });
-  }, [alignFilter, categoryFilter, kareers, levelFilter, savedJobs, searchValue, setupFilter, sourceFilter]);
+    return filtered.sort((left, right) => {
+      if (sortOrder === 'az' || sortOrder === 'za') return (sortOrder === 'az' ? 1 : -1) * left.title.localeCompare(right.title);
+      if (sortOrder === 'salary-high' || sortOrder === 'salary-low') return (sortOrder === 'salary-high' ? -1 : 1) * ((left.salaryMax || left.salaryMin || 0) - (right.salaryMax || right.salaryMin || 0));
+      const leftDate = new Date(left.createdAt || 0).getTime();
+      const rightDate = new Date(right.createdAt || 0).getTime();
+      return sortOrder === 'oldest' ? leftDate - rightDate : rightDate - leftDate;
+    });
+  }, [alignFilter, categoryFilter, employmentFilter, kareers, levelFilter, locationFilter, searchValue, setupFilter, sortOrder]);
+
+  const categories = useMemo(() => Array.from(new Set(kareers.map((job) => job.category).filter(Boolean) as string[])).sort(), [kareers]);
+  const locations = useMemo(() => Array.from(new Set(kareers.map((job) => job.location).filter(Boolean))).sort(), [kareers]);
+  const pageCount = Math.max(1, Math.ceil(filteredKareers.length / 20));
+  const pagedKareers = filteredKareers.slice((page - 1) * 20, page * 20);
+
+  useEffect(() => { setPage(1); }, [alignFilter, categoryFilter, employmentFilter, levelFilter, locationFilter, searchValue, setupFilter, sortOrder]);
 
   useEffect(() => {
     if (filteredKareers.length === 0) return;
@@ -4345,12 +4556,6 @@ function KareersPage({
           <h1 className="cand-page-title">Kareers</h1>
           <p className="cand-page-subtitle">Explore career paths and job opportunities by source, category, and alignment</p>
         </div>
-        <div className="cand-kareers-source-row">
-          <button className={`cand-source-chip ${sourceFilter === 'all' ? 'active' : ''}`} type="button" onClick={() => setSourceFilter('all')}><UIIcon name="compass" className="cand-chip-icon" />All</button>
-          <button className={`cand-source-chip ${sourceFilter === 'internal' ? 'active' : ''}`} type="button" onClick={() => setSourceFilter('internal')}><UIIcon name="building" className="cand-chip-icon" />Internal Kareerly</button>
-          <button className={`cand-source-chip ${sourceFilter === 'external' ? 'active' : ''}`} type="button" onClick={() => setSourceFilter('external')}><UIIcon name="external" className="cand-chip-icon" />External Opportunities</button>
-          <button className={`cand-source-chip ${sourceFilter === 'saved' ? 'active' : ''}`} type="button" onClick={() => setSourceFilter('saved')}><UIIcon name="bookmark" className="cand-chip-icon" />Saved</button>
-        </div>
       </div>
 
       <div className="cand-kareers-search-row">
@@ -4360,9 +4565,18 @@ function KareersPage({
         </div>
         <select className="cand-form-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
           <option value="">All Categories</option>
-          <option value="Data & Analytics">Data & Analytics</option>
-          <option value="Engineering">Engineering</option>
-          <option value="Operations">Operations & Support</option>
+          {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+        </select>
+        <select className="cand-form-select" value={employmentFilter} onChange={(event) => setEmploymentFilter(event.target.value)}>
+          <option value="">All Employment Types</option>
+          {['Full Time', 'Part Time', 'Contract', 'Internship', 'Freelance'].map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>
+        <select className="cand-form-select" value={locationFilter} onChange={(event) => setLocationFilter(event.target.value)}>
+          <option value="">All Locations</option>
+          {locations.map((location) => <option key={location} value={location}>{location}</option>)}
+        </select>
+        <select className="cand-form-select" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}>
+          <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="salary-high">Salary High–Low</option><option value="salary-low">Salary Low–High</option><option value="az">A–Z</option><option value="za">Z–A</option>
         </select>
         <select className="cand-form-select" value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
           <option value="">All Levels</option>
@@ -4389,8 +4603,12 @@ function KareersPage({
         <div className="cand-two-panel-left">
           <div className="cand-two-panel-left-hd">Career Paths and Roles</div>
           <div className="cand-kareer-list-scroll">
-            {filteredKareers.length > 0 ? (
-              filteredKareers.map((job) => (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, index) => <div key={index} className="m-3 h-28 animate-pulse rounded-xl bg-bg" />)
+            ) : error ? (
+              <div className="p-4 text-sm text-red">Unable to load jobs.<button className="ml-2 font-bold underline" type="button" onClick={onRetry}>Retry</button></div>
+            ) : pagedKareers.length > 0 ? (
+              pagedKareers.map((job) => (
                 <div key={job.id} className={`cand-kareer-item ${selectedId === job.id ? 'active' : ''}`}>
                   <button className="cand-kareer-select" type="button" onClick={() => onSelect(job.id)}>
                     <div className="text-sm font-bold text-dark"><UIIcon name="briefcase" className="cand-chip-icon" />{job.title}</div>
@@ -4406,7 +4624,6 @@ function KareersPage({
                       <span className="cand-kareer-mini-badge">{job.setup}</span>
                       <span className="cand-kareer-mini-badge">{job.jobLevel || 'Entry Level'}</span>
                       <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration'}</span>
-                      <span className={`cand-kareer-mini-badge ${job.sourceType === 'internal' ? 'fit' : 'asp'}`}>{job.sourceType === 'internal' ? 'Internal' : 'External'}</span>
                     </div>
                     <div className="cand-kareer-view-link">View Details</div>
                   </button>
@@ -4432,9 +4649,10 @@ function KareersPage({
                 </div>
               ))
             ) : (
-              <div className="p-4 text-sm text-soft">No careers match the current filters.</div>
+              <div className="p-4 text-sm text-soft">{kareers.length === 0 ? 'No jobs are available right now.' : 'No jobs matched your current filters.'}</div>
             )}
           </div>
+          {!isLoading && !error && pageCount > 1 && <div className="flex items-center justify-center gap-3 border-t border-bdr p-3 text-sm"><button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {pageCount}</span><button type="button" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button></div>}
         </div>
         <div className="cand-two-panel-right">
           {activeSelected ? (
@@ -4500,7 +4718,7 @@ function KareersPage({
                 <div><span className="cand-kareer-info-label">Category</span><span className="cand-kareer-info-value">{activeSelected.category || 'General Opportunities'}</span></div>
                 <div><span className="cand-kareer-info-label">Sub-category</span><span className="cand-kareer-info-value">{activeSelected.subCategory || 'Career Path'}</span></div>
                 <div><span className="cand-kareer-info-label">Experience Level</span><span className="cand-kareer-info-value">{activeSelected.jobLevel || 'Entry Level'}</span></div>
-                <div><span className="cand-kareer-info-label">Source</span><span className="cand-kareer-info-value">{activeSelected.sourceType === 'internal' ? 'Internal Kareerly' : 'External Opportunity'}</span></div>
+                <div><span className="cand-kareer-info-label">Posted</span><span className="cand-kareer-info-value">{activeSelected.createdAt ? formatDateLabel(activeSelected.createdAt) : 'Date not available'}</span></div>
                 <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{activeSelected.location}</span></div>
                 <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{activeSelected.setup}</span></div>
                 <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{activeSelected.employmentType || 'Not specified'}</span></div>
@@ -4522,7 +4740,7 @@ function KareersPage({
                       <li key={`${activeSelected.id}-resp-${item}`}>{item}</li>
                     ))}
                   </ul>
-                ) : 'Responsibilities are not available yet for this listing.'}
+                ) : 'Responsibilities were not separately provided by the employer.'}
               </div>
 
               <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">{buildKareerGuidanceHeading(activeSelected)}</div>
@@ -4943,8 +5161,8 @@ function MessagesPage({
                   disabled={!canReply}
                   onChange={(event) => onDraftChange(event.target.value)}
                 />
-                <button className="cand-msg-send" type="button" disabled={!canReply} onClick={onSend}>
-                  Send
+                <button className="cand-msg-send" type="button" disabled={!canReply} onClick={onSend} aria-label="Send message" title="Send message">
+                  <UIIcon name="paper-plane" />
                 </button>
               </div>
             </>

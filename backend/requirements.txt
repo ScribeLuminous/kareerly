@@ -12,3 +12,4 @@ joblib
 scipy
 requests
 python-dotenv
+cryptography

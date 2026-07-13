@@ -2,6 +2,14 @@ import { supabase } from './supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export type AuthRole = 'candidate' | 'employer' | 'admin';
+export type AuthStatus = 'loading' | 'signed_out' | 'verifying_role' | 'authenticated' | 'role_mismatch';
+
+let authStatus: AuthStatus = 'loading';
+let authOperationVersion = 0;
+
+export function getAuthStatus(): AuthStatus {
+  return authStatus;
+}
 
 export type KareerlyUser = {
   id: string;
@@ -14,6 +22,17 @@ export type KareerlyUser = {
   educationJson?: unknown;
   certificationsJson?: unknown;
 };
+
+export class RoleMismatchError extends Error {
+  actualRole: AuthRole;
+
+  constructor(actualRole: AuthRole) {
+    const roleLabel = actualRole === 'candidate' ? 'Candidate' : actualRole === 'employer' ? 'Employer' : 'Admin';
+    super(`This account is registered as a ${roleLabel}. Please use the ${roleLabel} Login page.`);
+    this.name = 'RoleMismatchError';
+    this.actualRole = actualRole;
+  }
+}
 
 type ProfileRow = {
   id: string;
@@ -84,39 +103,92 @@ async function getProfileForUserId(userId: string): Promise<KareerlyUser | null>
   return data ? mapProfile(data as ProfileRow) : null;
 }
 
+async function getRoleVerifiedProfileForUserId(userId: string): Promise<KareerlyUser | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, role, first_name, last_name, email')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? mapProfile(data as ProfileRow) : null;
+}
+
 export async function getCurrentKareerlyUser(): Promise<KareerlyUser | null> {
+  const operationVersion = authOperationVersion;
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
 
+  if (operationVersion !== authOperationVersion || authStatus === 'verifying_role' || authStatus === 'role_mismatch') {
+    return null;
+  }
+
   const authUser = sessionData.session?.user;
   const userId = authUser?.id;
-  if (!userId) return null;
+  if (!userId) {
+    authStatus = 'signed_out';
+    return null;
+  }
 
-  return getProfileForUserId(userId).catch((error) => {
+  return getProfileForUserId(userId).then((user) => {
+    if (operationVersion !== authOperationVersion || authStatus === 'verifying_role' || authStatus === 'role_mismatch') {
+      return null;
+    }
+    authStatus = user ? 'authenticated' : 'signed_out';
+    return user;
+  }).catch((error) => {
     console.warn('Unable to load Kareerly profile, using auth user metadata:', error);
+    if (operationVersion !== authOperationVersion || authStatus === 'verifying_role' || authStatus === 'role_mismatch') {
+      return null;
+    }
+    authStatus = 'authenticated';
     return authUser ? mapAuthUser(authUser) : null;
   });
 }
 
 export async function signInWithEmail(email: string, password: string, expectedRole?: AuthRole): Promise<KareerlyUser> {
+  authOperationVersion += 1;
+  authStatus = 'verifying_role';
+  const verificationErrorMessage = expectedRole === 'candidate'
+    ? 'We could not verify your account. Please try logging in as an employer instead.'
+    : expectedRole === 'employer'
+      ? 'We could not verify your account. Please try logging in as a candidate instead.'
+      : 'We could not verify your account. Please try again.';
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
+  if (error) {
+    authStatus = 'signed_out';
+    throw error;
+  }
 
   const userId = data.user?.id || data.session?.user.id;
-  const authUser = data.user || data.session?.user;
-  const user = userId
-    ? await getProfileForUserId(userId).catch((profileError) => {
-        console.warn('Unable to load Kareerly profile after login, using auth user metadata:', profileError);
-        return authUser ? mapAuthUser(authUser) : null;
-      })
-    : await getCurrentKareerlyUser();
-  if (!user) throw new Error('Login succeeded, but no Kareerly profile was found.');
+  let user: KareerlyUser | null;
+  try {
+    user = userId ? await getRoleVerifiedProfileForUserId(userId) : null;
+  } catch (profileError) {
+    await supabase.auth.signOut().catch(() => undefined);
+    authStatus = 'signed_out';
+    throw new Error(verificationErrorMessage, { cause: profileError });
+  }
+  if (!user) {
+    await supabase.auth.signOut().catch(() => undefined);
+    authStatus = 'signed_out';
+    throw new Error(verificationErrorMessage);
+  }
   if (expectedRole && user.role !== expectedRole) {
     await supabase.auth.signOut().catch((signOutError) => {
       console.warn('Unable to sign out after role mismatch:', signOutError);
     });
-    throw new Error(`This email is registered as a ${user.role} account. Please use the ${user.role} login instead.`);
+    authStatus = 'role_mismatch';
+    throw new RoleMismatchError(user.role);
   }
+  if (userId) {
+    const detailedUser = await getProfileForUserId(userId).catch((profileDetailsError) => {
+      console.warn('Unable to load optional profile details after role verification:', profileDetailsError);
+      return null;
+    });
+    if (detailedUser) user = detailedUser;
+  }
+  authStatus = 'authenticated';
   return user;
 }
 
@@ -275,6 +347,8 @@ export async function updateCandidateProfile(input: {
 }
 
 export async function signOutCurrentUser() {
+  authOperationVersion += 1;
+  authStatus = 'signed_out';
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }

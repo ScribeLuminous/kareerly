@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import base64
+import hashlib
 import os
 import re
+from datetime import datetime, timezone
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -12,6 +15,9 @@ from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from dotenv import load_dotenv
+from pydantic import BaseModel
 
 from .models.schemas import RunMatchesRequest
 from .services.job_matcher import list_available_jobs, match_jobs
@@ -21,6 +27,7 @@ from .services.skill_extractor import SkillExtractor
 
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BACKEND_DIR / ".env")
 UPLOADS_DIR = BACKEND_DIR / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -43,6 +50,229 @@ SUPABASE_ANON_KEY = os.getenv(
     os.getenv("VITE_SUPABASE_ANON_KEY", "sb_publishable_Z77o41ry4seJ7opnojlbaA_aiNUFo6B"),
 )
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+
+
+class MessageCreateRequest(BaseModel):
+    application_id: str
+    message_text: str
+    message_kind: str = "message"
+
+
+class EmployerApplicationStatusRequest(BaseModel):
+    application_id: str
+    status: str
+    rejection_reason: Optional[str] = None
+
+
+class AdminResetApplicationRequest(BaseModel):
+    application_id: str
+
+
+class AdminUserUpdateRequest(BaseModel):
+    user_id: str
+    email: Optional[str] = None
+    password: Optional[str] = None
+
+
+class AdminJobUpdateRequest(BaseModel):
+    job_id: str
+    job_title: Optional[str] = None
+    company_name: Optional[str] = None
+    posting_status: Optional[str] = None
+
+
+class AdminApplicationUpdateRequest(BaseModel):
+    application_id: str
+    status: str
+
+
+def _message_cipher() -> AESGCM:
+    secret = os.getenv("MESSAGE_ENCRYPTION_KEY") or SUPABASE_SERVICE_ROLE_KEY
+    if not secret:
+        raise HTTPException(status_code=503, detail="Message encryption is not configured.")
+    return AESGCM(hashlib.sha256(secret.encode("utf-8")).digest())
+
+
+def _get_message_participant_role(thread: dict, user_id: str) -> str | None:
+    candidate_query = urllib.parse.urlencode({"id": f"eq.{thread.get('candidate_id')}", "user_id": f"eq.{user_id}", "select": "id", "limit": "1"})
+    candidate_rows = _supabase_request(f"/rest/v1/candidate_profiles?{candidate_query}", service_role=True)
+    if isinstance(candidate_rows, list) and candidate_rows:
+        return "candidate"
+    employer_query = urllib.parse.urlencode({"id": f"eq.{thread.get('employer_id')}", "user_id": f"eq.{user_id}", "select": "id", "limit": "1"})
+    employer_rows = _supabase_request(f"/rest/v1/employer_profiles?{employer_query}", service_role=True)
+    if isinstance(employer_rows, list) and employer_rows:
+        return "employer"
+    # Supports deployments where thread participant columns already contain auth user UUIDs.
+    if user_id == str(thread.get("candidate_id")):
+        return "candidate"
+    if user_id == str(thread.get("employer_id")):
+        return "employer"
+    return None
+
+
+def _get_authorized_message_thread(application_id: str, user_id: str) -> dict:
+    query = urllib.parse.urlencode({"application_id": f"eq.{application_id}", "select": "id,application_id,employer_id,candidate_id,status", "limit": "1"})
+    rows = _supabase_request(f"/rest/v1/message_threads?{query}", service_role=True)
+    thread = rows[0] if isinstance(rows, list) and rows else None
+    if not isinstance(thread, dict):
+        raise HTTPException(status_code=404, detail="No active message thread was found for this application.")
+    participant_role = _get_message_participant_role(thread, user_id)
+    if not participant_role:
+        raise HTTPException(status_code=403, detail="You do not have access to this message thread.")
+    if thread.get("status") not in {None, "pending", "active", "accepted", "open"}:
+        raise HTTPException(status_code=403, detail="This message thread is not active.")
+    return {**thread, "participant_role": participant_role}
+
+
+def _create_employer_message_thread(application_id: str, user_id: str) -> dict:
+    app_query = urllib.parse.urlencode({"id": f"eq.{application_id}", "select": "id,user_id,job_id,status", "limit": "1"})
+    app_rows = _supabase_request(f"/rest/v1/job_applications?{app_query}", service_role=True)
+    application = app_rows[0] if isinstance(app_rows, list) and app_rows else None
+    if not isinstance(application, dict):
+        raise HTTPException(status_code=404, detail="Application was not found.")
+    if str(application.get("status") or "").lower() != "interviewing":
+        raise HTTPException(status_code=403, detail="Message requests are available only for interviewing applications.")
+
+    employer_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "id", "limit": "1"})
+    employer_rows = _supabase_request(f"/rest/v1/employer_profiles?{employer_query}", service_role=True)
+    employer = employer_rows[0] if isinstance(employer_rows, list) and employer_rows else None
+    candidate_query = urllib.parse.urlencode({"user_id": f"eq.{application.get('user_id')}", "select": "id", "limit": "1"})
+    candidate_rows = _supabase_request(f"/rest/v1/candidate_profiles?{candidate_query}", service_role=True)
+    candidate = candidate_rows[0] if isinstance(candidate_rows, list) and candidate_rows else None
+    if not isinstance(employer, dict) or not isinstance(candidate, dict):
+        raise HTTPException(status_code=409, detail="The employer or candidate profile could not be resolved.")
+
+    ownership_query = urllib.parse.urlencode({"job_id": f"eq.{application.get('job_id')}", "employer_id": f"eq.{employer['id']}", "select": "id", "limit": "1"})
+    owned_jobs = _supabase_request(f"/rest/v1/employer_job_posts?{ownership_query}", service_role=True)
+    if not isinstance(owned_jobs, list) or not owned_jobs:
+        raise HTTPException(status_code=403, detail="This application does not belong to your employer account.")
+
+    existing_request_query = urllib.parse.urlencode({
+        "application_id": f"eq.{application_id}",
+        "employer_id": f"eq.{user_id}",
+        "candidate_id": f"eq.{application['user_id']}",
+        "status": "eq.pending",
+        "select": "id,application_id,employer_id,candidate_id,status",
+        "order": "created_at.desc",
+        "limit": "1",
+    })
+    existing_requests = _supabase_request(f"/rest/v1/message_requests?{existing_request_query}", service_role=True)
+    request_row = existing_requests[0] if isinstance(existing_requests, list) and existing_requests else None
+    if not isinstance(request_row, dict):
+        request_body = {
+            "application_id": application_id,
+            "employer_id": user_id,
+            "candidate_id": application["user_id"],
+            "status": "pending",
+        }
+        request_rows = _supabase_request("/rest/v1/message_requests", method="POST", service_role=True, body=request_body, prefer="return=representation")
+        request_row = request_rows[0] if isinstance(request_rows, list) and request_rows else None
+    if not isinstance(request_row, dict) or not request_row.get("id"):
+        raise HTTPException(status_code=500, detail="The message request could not be created.")
+
+    thread_body = {
+        "request_id": request_row["id"],
+        "application_id": application_id,
+        "employer_id": user_id,
+        "candidate_id": application["user_id"],
+        "status": "active",
+    }
+    thread_rows = _supabase_request("/rest/v1/message_threads", method="POST", service_role=True, body=thread_body, prefer="return=representation")
+    thread = thread_rows[0] if isinstance(thread_rows, list) and thread_rows else None
+    if not isinstance(thread, dict):
+        raise HTTPException(status_code=500, detail="The message thread could not be created.")
+    return {**thread, "participant_role": "employer"}
+
+
+@app.get("/api/messages/{application_id}")
+def get_application_messages(application_id: str, authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    thread = _get_authorized_message_thread(application_id, user_id)
+    query = urllib.parse.urlencode({"thread_id": f"eq.{thread['id']}", "select": "id,sender_user_id,sender_role,ciphertext,encryption_nonce,encryption_version,message_kind,created_at", "deleted_at": "is.null", "order": "created_at.asc"})
+    rows = _supabase_request(f"/rest/v1/application_messages?{query}", service_role=True)
+    cipher = _message_cipher()
+    output = []
+    for row in rows if isinstance(rows, list) else []:
+        try:
+            plaintext = cipher.decrypt(base64.b64decode(row["encryption_nonce"]), base64.b64decode(row["ciphertext"]), str(thread["id"]).encode("utf-8")).decode("utf-8")
+        except Exception:
+            continue
+        output.append({**row, "message_text": plaintext})
+    return output
+
+
+@app.post("/api/messages")
+def create_application_message(payload: MessageCreateRequest, authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    text = payload.message_text.strip()
+    if not text or len(text) > 4000:
+        raise HTTPException(status_code=400, detail="Message must contain between 1 and 4000 characters.")
+    try:
+        thread = _get_authorized_message_thread(payload.application_id, user_id)
+    except HTTPException as exc:
+        if payload.message_kind != "request" or exc.status_code != 404:
+            raise
+        thread = _create_employer_message_thread(payload.application_id, user_id)
+    sender_role = str(thread["participant_role"])
+    if payload.message_kind == "request" and sender_role != "employer":
+        raise HTTPException(status_code=403, detail="Only the employer can initiate a message request.")
+    if payload.message_kind == "message":
+        state_query = urllib.parse.urlencode({"id": f"eq.{payload.application_id}", "select": "message_request_state", "limit": "1"})
+        state_rows = _supabase_request(f"/rest/v1/job_applications?{state_query}", service_role=True)
+        request_state = state_rows[0].get("message_request_state") if isinstance(state_rows, list) and state_rows else None
+        if request_state != "accepted":
+            raise HTTPException(status_code=403, detail="The candidate must accept the message request before replies can be sent.")
+    cipher = _message_cipher()
+    nonce = os.urandom(12)
+    ciphertext = cipher.encrypt(nonce, text.encode("utf-8"), str(thread["id"]).encode("utf-8"))
+    body = {
+        "thread_id": thread["id"], "application_id": payload.application_id,
+        "sender_user_id": user_id, "sender_role": sender_role,
+        "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
+        "encryption_nonce": base64.b64encode(nonce).decode("ascii"),
+        "encryption_version": 1, "message_kind": "text",
+    }
+    saved = _supabase_request("/rest/v1/application_messages", method="POST", service_role=True, body=body, prefer="return=representation")
+    row = saved[0] if isinstance(saved, list) and saved else body
+    return {**row, "message_text": text}
+
+
+@app.post("/api/messages/application-status")
+def update_employer_application_status(payload: EmployerApplicationStatusRequest, authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    allowed = {"shortlisted", "interviewing", "hired", "rejected"}
+    status = payload.status.strip().lower()
+    if status not in allowed:
+        raise HTTPException(status_code=400, detail="Invalid application status.")
+    if status == "rejected" and not (payload.rejection_reason or "").strip():
+        raise HTTPException(status_code=400, detail="A rejection reason is required.")
+
+    app_query = urllib.parse.urlencode({"id": f"eq.{payload.application_id}", "select": "id,job_id", "limit": "1"})
+    app_rows = _supabase_request(f"/rest/v1/job_applications?{app_query}", service_role=True)
+    application = app_rows[0] if isinstance(app_rows, list) and app_rows else None
+    employer_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "id", "limit": "1"})
+    employer_rows = _supabase_request(f"/rest/v1/employer_profiles?{employer_query}", service_role=True)
+    employer = employer_rows[0] if isinstance(employer_rows, list) and employer_rows else None
+    if not isinstance(application, dict) or not isinstance(employer, dict):
+        raise HTTPException(status_code=404, detail="Application or employer profile was not found.")
+    owner_query = urllib.parse.urlencode({"job_id": f"eq.{application.get('job_id')}", "employer_id": f"eq.{employer['id']}", "select": "id", "limit": "1"})
+    owned = _supabase_request(f"/rest/v1/employer_job_posts?{owner_query}", service_role=True)
+    if not isinstance(owned, list) or not owned:
+        raise HTTPException(status_code=403, detail="This application does not belong to your employer account.")
+
+    body = {"status": status, "updated_at": _safe_timestamp()}
+    if status == "rejected":
+        body["rejection_reason"] = payload.rejection_reason.strip()
+    updated = _supabase_request(f"/rest/v1/job_applications?id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
+    if status == "rejected":
+        _supabase_request(f"/rest/v1/message_threads?application_id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body={"status": "closed"})
+    return {"application": updated[0] if isinstance(updated, list) and updated else body}
 
 
 def _supabase_request(
@@ -560,24 +790,24 @@ def admin_overview(authorization: Annotated[Optional[str], Header()] = None) -> 
     profiles = _admin_select(
         "profiles",
         "id,role,first_name,last_name,email,created_at",
-        limit=12,
+        limit=500,
         order="created_at.desc",
     )
     job_posts = _admin_select(
         "employer_job_posts",
         "id,job_id,job_title,company_name,posting_status,created_at,updated_at",
-        limit=12,
+        limit=500,
         order="updated_at.desc",
     )
     applications = _admin_select(
         "job_applications",
         "id,user_id,job_id,job_title,company_name,status,message_request_state,applied_at,updated_at",
-        limit=12,
+        limit=500,
         order="updated_at.desc",
     )
     messages = _admin_select(
         "application_messages",
-        "id,application_id,sender_user_id,sender_role,message_kind,message_text,created_at",
+        "id,thread_id,application_id,sender_user_id,sender_role,message_kind,encryption_version,created_at,read_at,deleted_at",
         limit=12,
         order="created_at.desc",
     )
@@ -614,6 +844,92 @@ def admin_overview(authorization: Annotated[Optional[str], Header()] = None) -> 
             "evidence": evidence,
         },
     }
+
+
+@app.post("/api/admin/applications/reset")
+def admin_reset_application(payload: AdminResetApplicationRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    application_id = payload.application_id.strip()
+    if not application_id:
+        raise HTTPException(status_code=400, detail="Application ID is required.")
+    encoded_id = urllib.parse.quote(application_id, safe="")
+    _supabase_request(f"/rest/v1/application_messages?application_id=eq.{encoded_id}", method="DELETE", service_role=True)
+    _supabase_request(f"/rest/v1/message_threads?application_id=eq.{encoded_id}", method="DELETE", service_role=True)
+    _supabase_request(f"/rest/v1/message_requests?application_id=eq.{encoded_id}", method="DELETE", service_role=True)
+    rows = _supabase_request(
+        f"/rest/v1/job_applications?id=eq.{encoded_id}",
+        method="PATCH",
+        service_role=True,
+        body={"status": "pending", "message_request_state": "none"},
+        prefer="return=representation",
+    )
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=404, detail="Application was not found.")
+    return {"application": rows[0]}
+
+
+@app.patch("/api/admin/users")
+def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    body: dict[str, str] = {}
+    if payload.email is not None:
+        email = payload.email.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise HTTPException(status_code=400, detail="Enter a valid email address.")
+        body["email"] = email
+    if payload.password is not None:
+        if len(payload.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must contain at least 8 characters.")
+        body["password"] = payload.password
+    if not body:
+        raise HTTPException(status_code=400, detail="No user changes were provided.")
+    updated = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(payload.user_id, safe='')}", method="PUT", service_role=True, body=body)
+    if "email" in body:
+        _supabase_request(f"/rest/v1/profiles?id=eq.{urllib.parse.quote(payload.user_id, safe='')}", method="PATCH", service_role=True, body={"email": body["email"]})
+    return {"user": updated}
+
+
+@app.patch("/api/admin/jobs")
+def admin_update_job(payload: AdminJobUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    body = {key: value.strip() for key, value in {
+        "job_title": payload.job_title,
+        "company_name": payload.company_name,
+        "posting_status": payload.posting_status,
+    }.items() if value is not None and value.strip()}
+    if body.get("posting_status") and body["posting_status"] not in {"active", "draft", "closed"}:
+        raise HTTPException(status_code=400, detail="Job status must be active, draft, or closed.")
+    if not body:
+        raise HTTPException(status_code=400, detail="No job changes were provided.")
+    rows = _supabase_request(f"/rest/v1/employer_job_posts?id=eq.{urllib.parse.quote(payload.job_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=404, detail="Job post was not found.")
+    return {"job": rows[0]}
+
+
+@app.delete("/api/admin/jobs/{job_id}")
+def admin_delete_job(job_id: str, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    rows = _supabase_request(f"/rest/v1/employer_job_posts?id=eq.{urllib.parse.quote(job_id, safe='')}", method="DELETE", service_role=True, prefer="return=representation")
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=404, detail="Job post was not found.")
+    return {"deleted": True}
+
+
+@app.patch("/api/admin/applications")
+def admin_update_application(payload: AdminApplicationUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    status = payload.status.strip().lower()
+    if status not in {"pending", "shortlisted", "interviewing", "hired", "rejected", "withdrawn"}:
+        raise HTTPException(status_code=400, detail="Invalid application status.")
+    now = datetime.now(timezone.utc).isoformat()
+    body: dict[str, object] = {"status": status, "updated_at": now}
+    if status == "withdrawn":
+        body["withdrawn_at"] = now
+    rows = _supabase_request(f"/rest/v1/job_applications?id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=404, detail="Application was not found.")
+    return {"application": rows[0]}
 
 
 @app.get("/api/jobs/list")
@@ -669,6 +985,8 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
     row = rows[0]
     if not isinstance(row, dict):
         raise HTTPException(status_code=404, detail="Job details were not found.")
+    if source == "employer" and row.get("application_deadline") and str(row.get("application_deadline")) < datetime.now(timezone.utc).date().isoformat():
+        raise HTTPException(status_code=404, detail="This job posting is closed and is no longer accepting applications.")
 
     job = {
         "job_id": str(row.get("job_id") or ""),

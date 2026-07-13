@@ -1483,6 +1483,33 @@
   line-height: 1.5;
 }
 
+.cand-notice > span {
+  flex: 1;
+}
+
+.cand-notice-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -5px -8px -5px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.cand-notice-close:hover,
+.cand-notice-close:focus-visible {
+  background: rgb(255 255 255 / 55%);
+  opacity: 1;
+  outline: none;
+}
+
 .cand-notice.info {
   background: var(--forest-l);
   border: 1px solid var(--bdr);
@@ -1853,6 +1880,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .cand-msg-request {
@@ -1913,7 +1942,9 @@
   padding: 10px 14px;
   border: 1.5px solid var(--bdr);
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
   resize: none;
   min-height: 42px;
   max-height: 110px;
@@ -1927,6 +1958,67 @@
   height: 40px;
   border-radius: 8px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+
+.cand-msg-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cand-resume-preview-modal {
+  width: min(1000px, calc(100vw - 32px));
+  height: min(820px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+}
+
+.cand-resume-preview-frame {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: #fff;
+}
+
+.msg-bubble-employer,
+.msg-bubble-candidate {
+  max-width: 76%;
+  padding: 11px 14px;
+  border: 1px solid var(--bdr);
+  border-radius: 12px;
+  color: var(--dark);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.msg-bubble-employer {
+  align-self: flex-start;
+  background: var(--forest-l);
+  border-top-left-radius: 4px;
+}
+
+.msg-bubble-candidate {
+  align-self: flex-end;
+  background: var(--rust-l);
+  border-top-right-radius: 4px;
+}
+
+.msg-bubble-sender {
+  margin-bottom: 3px;
+  color: var(--soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.msg-bubble-time {
+  margin-top: 4px;
+  color: var(--soft);
+  font-size: 10px;
 }
 
 .cand-modal-overlay {

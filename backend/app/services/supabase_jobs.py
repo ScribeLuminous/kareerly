@@ -103,6 +103,9 @@ def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
         "external_job_link_optional": _safe_text(record.get("source_url")),
         "source_dataset": source_platform or source_note or f"{source}_jobs",
         "job_source": source,
+        "created_at": _safe_text(record.get("created_at")),
+        "updated_at": _safe_text(record.get("updated_at")),
+        "posting_status": _safe_text(record.get("posting_status")),
         "job_text_for_matching": _join_job_text(record),
     }
 
@@ -138,11 +141,13 @@ def _format_salary_range(record: dict[str, Any]) -> str:
 
 def _fetch_jobs_table(table_name: str, limit: int = 500) -> list[dict[str, Any]]:
     safe_limit = max(1, min(limit, 5000))
+    common_fields = "job_id,category_code,category_name,job_subcategory,job_title,company_name,location,work_setup,employment_type,job_level,salary_min_php,salary_max_php,job_description,required_skills,preferred_skills,must_have_skill_ids,posting_status,created_at,updated_at"
+    selected_fields = f"{common_fields},source_platform,source_url,source_note" if table_name == "internal_jobs" else f"{common_fields},application_deadline"
     query = urlencode(
         {
-            "select": "*",
+            "select": selected_fields,
             "posting_status": "in.(active,open)",
-            "order": "created_at.asc",
+            "order": "created_at.desc",
             "limit": str(safe_limit),
         }
     )
@@ -170,7 +175,11 @@ def _fetch_jobs_table(table_name: str, limit: int = 500) -> list[dict[str, Any]]
     if not isinstance(data, list):
         return []
 
-    return [item for item in data if isinstance(item, dict)]
+    rows = [item for item in data if isinstance(item, dict)]
+    if table_name == "employer_job_posts":
+        today = datetime.now(timezone.utc).date().isoformat()
+        rows = [row for row in rows if not row.get("application_deadline") or str(row.get("application_deadline")) >= today]
+    return rows
 
 
 def fetch_internal_jobs(limit: int = 500) -> list[dict[str, Any]]:

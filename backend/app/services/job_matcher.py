@@ -470,13 +470,10 @@ def list_available_jobs(limit: int = 200) -> list[dict[str, Any]]:
     jobs = load_internal_jobs_dataframe(limit=safe_limit)
 
     if jobs.empty:
-        if not JOB_INDEX_PATH.exists():
-            return []
-
-        jobs = pd.read_csv(JOB_INDEX_PATH, dtype=str, keep_default_na=False)
-        jobs.columns = [str(column).strip().lstrip("\ufeff") for column in jobs.columns]
-    else:
-        jobs.columns = [str(column).strip().lstrip("\ufeff") for column in jobs.columns]
+        return []
+    jobs.columns = [str(column).strip().lstrip("\ufeff") for column in jobs.columns]
+    jobs["_source_priority"] = jobs["job_source"].map({"employer": 0, "internal": 1}).fillna(2)
+    jobs = jobs.sort_values(["_source_priority", "created_at", "job_title"], ascending=[True, False, True])
 
 
     output: list[dict[str, Any]] = []
@@ -499,12 +496,19 @@ def list_available_jobs(limit: int = 200) -> list[dict[str, Any]]:
                 "experience_level_required": safe_text(record.get("experience_level_required")),
                 "location": safe_text(record.get("location")) or "Philippines",
                 "work_type": safe_text(record.get("work_type")) or "Flexible",
+                "employment_type": safe_text(record.get("employment_type")),
                 "salary_range_monthly_php": safe_text(record.get("salary_range_monthly_php")),
+                "salary_min_php": safe_text(record.get("salary_min_php")),
+                "salary_max_php": safe_text(record.get("salary_max_php")),
                 "required_skills": required_skills[:12],
+                "preferred_skills": [skill.strip() for skill in safe_text(record.get("nice_to_have_skills_optional")).split(",") if skill.strip()],
+                "job_description": safe_text(record.get("job_description")),
                 "external_job_link_optional": external_link,
                 "source_dataset": source_dataset,
                 "company_name": company_name,
                 "job_source": safe_text(record.get("job_source")) or "internal",
+                "created_at": safe_text(record.get("created_at")),
+                "updated_at": safe_text(record.get("updated_at")),
             }
         )
 

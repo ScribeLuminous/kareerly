@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import Logo from '../components/Logo';
-import { fetchAdminOverview } from '../lib/api';
+import { deleteAdminJob, fetchAdminOverview, resetAdminApplication, updateAdminApplication, updateAdminJob, updateAdminUser } from '../lib/api';
 import type { AdminOverview } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import type { KareerlyUser } from '../lib/auth';
@@ -13,6 +13,7 @@ type AdminDashboardProps = {
 };
 
 type AdminTab = 'users' | 'jobs' | 'applications' | 'messages' | 'evidence';
+type UserFilter = 'candidate' | 'employer' | 'admin';
 
 const tabs: Array<{ id: AdminTab; label: string }> = [
   { id: 'users', label: 'Users' },
@@ -104,6 +105,43 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [userFilter, setUserFilter] = useState<UserFilter>('candidate');
+
+  const runAdminAction = async (action: (token: string) => Promise<void>, success: string) => {
+    setError(null);
+    setActionMessage(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Admin session is missing. Please log in again.');
+      await action(token);
+      setActionMessage(success);
+      await loadOverview();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unable to complete admin action.');
+    }
+  };
+
+  const resetApplication = async (applicationId: string) => {
+    if (!window.confirm('Reset this application to Pending and permanently remove its message request, thread, and messages?')) return;
+    setResettingId(applicationId);
+    setError(null);
+    setActionMessage(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Admin session is missing. Please log in again.');
+      await resetAdminApplication(token, applicationId);
+      setActionMessage('Application and related messaging records were reset successfully.');
+      await loadOverview();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unable to reset application.');
+    } finally {
+      setResettingId(null);
+    }
+  };
 
   const loadOverview = useCallback(async () => {
     setLoading(true);
@@ -138,9 +176,10 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
     ];
   }, [overview]);
 
-  const currentRows = overview?.recent[
+  const unfilteredRows = overview?.recent[
     activeTab === 'users' ? 'profiles' : activeTab === 'jobs' ? 'job_posts' : activeTab
   ] || [];
+  const currentRows = activeTab === 'users' ? unfilteredRows.filter((row) => row.role === userFilter) : unfilteredRows;
 
   const columns = useMemo(() => {
     if (activeTab === 'users') {
@@ -150,6 +189,18 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
         { key: 'first_name', label: 'First Name' },
         { key: 'last_name', label: 'Last Name' },
         { key: 'created_at', label: 'Created', render: (row: Record<string, unknown>) => dateText(row.created_at) },
+        { key: 'actions', label: 'Manage', render: (row: Record<string, unknown>) => (
+          <div className="flex flex-wrap gap-1">
+            <button className="rounded border border-bdr px-2 py-1 text-xs font-bold hover:border-rust" type="button" onClick={() => {
+              const email = window.prompt('New email address', String(row.email || ''));
+              if (email && email !== row.email) void runAdminAction((token) => updateAdminUser(token, { user_id: String(row.id), email }), 'User email updated.');
+            }}>Email</button>
+            <button className="rounded border border-bdr px-2 py-1 text-xs font-bold hover:border-rust" type="button" onClick={() => {
+              const password = window.prompt('New password (minimum 8 characters)');
+              if (password) void runAdminAction((token) => updateAdminUser(token, { user_id: String(row.id), password }), 'User password updated.');
+            }}>Password</button>
+          </div>
+        ) },
       ];
     }
     if (activeTab === 'jobs') {
@@ -159,6 +210,22 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
         { key: 'posting_status', label: 'Status', render: (row: Record<string, unknown>) => <StatusPill value={row.posting_status} /> },
         { key: 'job_id', label: 'Job ID' },
         { key: 'updated_at', label: 'Updated', render: (row: Record<string, unknown>) => dateText(row.updated_at || row.created_at) },
+        { key: 'actions', label: 'Manage', render: (row: Record<string, unknown>) => (
+          <div className="flex flex-wrap gap-1">
+            <button className="rounded border border-bdr px-2 py-1 text-xs font-bold" type="button" onClick={() => {
+              const title = window.prompt('Job title', String(row.job_title || ''));
+              const company = title === null ? null : window.prompt('Company name', String(row.company_name || ''));
+              if (title && company) void runAdminAction((token) => updateAdminJob(token, { job_id: String(row.id), job_title: title, company_name: company }), 'Job post updated.');
+            }}>Edit</button>
+            <button className="rounded border border-bdr px-2 py-1 text-xs font-bold" type="button" onClick={() => {
+              const status = window.prompt('Status: active, draft, or closed', String(row.posting_status || 'active'))?.toLowerCase();
+              if (status) void runAdminAction((token) => updateAdminJob(token, { job_id: String(row.id), posting_status: status }), 'Job status updated.');
+            }}>Status</button>
+            <button className="rounded border border-red px-2 py-1 text-xs font-bold text-red" type="button" onClick={() => {
+              if (window.confirm('Permanently delete this job post?')) void runAdminAction((token) => deleteAdminJob(token, String(row.id)), 'Job post deleted.');
+            }}>Delete</button>
+          </div>
+        ) },
       ];
     }
     if (activeTab === 'applications') {
@@ -168,13 +235,27 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
         { key: 'status', label: 'Status', render: (row: Record<string, unknown>) => <StatusPill value={row.status} /> },
         { key: 'message_request_state', label: 'Message' },
         { key: 'updated_at', label: 'Updated', render: (row: Record<string, unknown>) => dateText(row.updated_at || row.applied_at) },
+        { key: 'actions', label: 'Actions', render: (row: Record<string, unknown>) => (
+          <div className="flex flex-wrap gap-1">
+            <button className="rounded border border-bdr px-2 py-1 text-xs font-bold" type="button" onClick={() => {
+              const status = window.prompt('Status: pending, shortlisted, interviewing, hired, rejected, or withdrawn', String(row.status || 'pending'))?.toLowerCase();
+              if (status) void runAdminAction((token) => updateAdminApplication(token, { application_id: String(row.id), status }), 'Application status updated.');
+            }}>Status</button>
+            <button className="rounded border border-yellow px-2 py-1 text-xs font-bold text-yellow" type="button" onClick={() => {
+              if (window.confirm('Mark this application as withdrawn?')) void runAdminAction((token) => updateAdminApplication(token, { application_id: String(row.id), status: 'withdrawn' }), 'Application withdrawn.');
+            }}>Withdraw</button>
+            <button className="rounded-md border border-red px-2 py-1 text-xs font-bold text-red hover:bg-red-l disabled:opacity-50" type="button" disabled={resettingId === String(row.id)} onClick={() => void resetApplication(String(row.id))}>
+              {resettingId === String(row.id) ? 'Resetting…' : 'Revert'}
+            </button>
+          </div>
+        ) },
       ];
     }
     if (activeTab === 'messages') {
       return [
         { key: 'sender_role', label: 'Sender', render: (row: Record<string, unknown>) => <StatusPill value={row.sender_role} /> },
         { key: 'message_kind', label: 'Kind' },
-        { key: 'message_text', label: 'Message', render: (row: Record<string, unknown>) => truncate(row.message_text, 120) },
+        { key: 'encryption_version', label: 'Encrypted', render: (row: Record<string, unknown>) => `AES-GCM v${valueText(row.encryption_version)}` },
         { key: 'application_id', label: 'Application' },
         { key: 'created_at', label: 'Sent', render: (row: Record<string, unknown>) => dateText(row.created_at) },
       ];
@@ -186,7 +267,7 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
       { key: 'evidence_filename', label: 'Evidence File' },
       { key: 'updated_at', label: 'Updated', render: (row: Record<string, unknown>) => dateText(row.updated_at || row.evidence_uploaded_at) },
     ];
-  }, [activeTab]);
+  }, [activeTab, resettingId]);
 
   return (
     <main className="min-h-screen bg-bg text-dark">
@@ -221,6 +302,11 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
             {error}
           </div>
         )}
+        {actionMessage && (
+          <div className="mb-5 rounded-lg border border-green bg-green-l px-4 py-3 text-sm font-semibold text-green">
+            {actionMessage}
+          </div>
+        )}
 
         <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
           {metricCards.map(([label, value]) => (
@@ -249,10 +335,20 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
           ))}
         </div>
 
+        {activeTab === 'users' && (
+          <div className="mb-4 flex flex-wrap gap-2" aria-label="User role filter">
+            {(['candidate', 'employer', 'admin'] as UserFilter[]).map((role) => (
+              <button key={role} className={`rounded-lg border px-3 py-2 text-sm font-bold capitalize ${userFilter === role ? 'border-dark bg-dark text-white' : 'border-bdr bg-card text-mid'}`} type="button" onClick={() => setUserFilter(role)}>
+                {role === 'candidate' ? 'Candidates' : role === 'employer' ? 'Employers' : 'Admins'}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="rounded-lg border border-bdr bg-card">
           <div className="flex items-center justify-between px-4 py-3">
             <h2 className="text-base font-extrabold">{tabs.find((tab) => tab.id === activeTab)?.label}</h2>
-            <span className="text-xs font-semibold text-soft">{currentRows.length} recent records</span>
+            <span className="text-xs font-semibold text-soft">{currentRows.length} records</span>
           </div>
           <AdminTable rows={currentRows} columns={columns} empty={`No ${activeTab} records found.`} />
         </div>

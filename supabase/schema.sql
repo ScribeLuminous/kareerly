@@ -31,6 +31,9 @@ create table if not exists public.candidate_profiles (
   updated_at timestamptz default now()
 );
 
+alter table public.candidate_profiles add column if not exists public_id text;
+create unique index if not exists candidate_profiles_public_id_key on public.candidate_profiles(public_id) where public_id is not null;
+
 create table if not exists public.employer_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references public.profiles(id) on delete cascade,
@@ -105,6 +108,7 @@ create table if not exists public.internal_jobs (
   required_skills text,
   preferred_skills text,
   must_have_skill_ids text,
+  application_deadline date,
 
   source_platform text,
   source_url text,
@@ -119,6 +123,8 @@ create table if not exists public.internal_jobs (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.employer_job_posts add column if not exists application_deadline date;
 
 create table if not exists public.employer_job_posts (
   id uuid primary key default gen_random_uuid(),
@@ -152,6 +158,11 @@ create table if not exists public.employer_job_posts (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+create index if not exists internal_jobs_active_created_idx
+  on public.internal_jobs (posting_status, created_at desc);
+create index if not exists employer_job_posts_active_created_idx
+  on public.employer_job_posts (posting_status, created_at desc);
 
 create table if not exists public.learning_resources (
   id uuid primary key default gen_random_uuid(),
@@ -203,8 +214,10 @@ create table if not exists public.job_applications (
   job_source text not null default 'internal' check (job_source in ('internal', 'employer')),
   job_id text not null,
   status text default 'submitted',
+  rejection_reason text,
   created_at timestamptz default now()
 );
+alter table public.job_applications add column if not exists rejection_reason text;
 
 create table if not exists public.application_messages (
   id uuid primary key default gen_random_uuid(),
@@ -292,6 +305,24 @@ create policy "Users can insert own profile" on public.profiles for insert with 
 
 drop policy if exists "Users can manage own candidate profile" on public.candidate_profiles;
 create policy "Users can manage own candidate profile" on public.candidate_profiles for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create or replace function public.get_employer_applicant_public_ids()
+returns table(application_id uuid, public_id text)
+language sql
+security definer
+set search_path = public
+as $$
+  select applications.id, candidates.public_id
+  from public.job_applications as applications
+  join public.candidate_profiles as candidates on candidates.user_id = applications.user_id
+  join public.employer_job_posts as jobs on jobs.job_id = applications.job_id
+  join public.employer_profiles as employers on employers.id = jobs.employer_id
+  where applications.job_source = 'employer'
+    and employers.user_id = auth.uid();
+$$;
+
+revoke all on function public.get_employer_applicant_public_ids() from public;
+grant execute on function public.get_employer_applicant_public_ids() to authenticated;
 
 drop policy if exists "Users can manage own employer profile" on public.employer_profiles;
 create policy "Users can manage own employer profile" on public.employer_profiles for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -410,6 +441,21 @@ for insert with check (
     join public.employer_profiles on employer_profiles.id = employer_job_posts.employer_id
     where job_applications.id = application_messages.application_id
       and employer_profiles.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Candidates can send own application messages" on public.application_messages;
+create policy "Candidates can send own application messages" on public.application_messages
+for insert with check (
+  sender_user_id = auth.uid()
+  and sender_role = 'candidate'
+  and message_kind = 'message'
+  and exists (
+    select 1
+    from public.job_applications
+    where job_applications.id = application_messages.application_id
+      and job_applications.user_id = auth.uid()
+      and job_applications.message_request_state = 'accepted'
   )
 );
 

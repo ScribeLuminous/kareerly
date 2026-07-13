@@ -6,6 +6,46 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000
 const REQUEST_TIMEOUT_MS = 90_000;
 export const CONFIRMED_SKILL_LIMIT = 20;
 
+export type PersistedApplicationMessage = {
+  id?: string;
+  sender_role: 'candidate' | 'employer';
+  message_kind: 'request' | 'message';
+  message_text: string;
+  created_at?: string | null;
+};
+
+async function authenticatedMessageRequest(path: string, options: RequestInit = {}) {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Your session has expired. Please log in again.');
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(getReadableMessage(payload) || 'Unable to process the message.');
+  return payload;
+}
+
+export async function loadApplicationMessages(applicationId: string): Promise<PersistedApplicationMessage[]> {
+  const payload = await authenticatedMessageRequest(`/api/messages/${encodeURIComponent(applicationId)}`);
+  return Array.isArray(payload) ? payload as PersistedApplicationMessage[] : [];
+}
+
+export async function sendApplicationMessage(input: { applicationId: string; text: string; kind?: 'request' | 'message' }): Promise<PersistedApplicationMessage> {
+  return authenticatedMessageRequest('/api/messages', {
+    method: 'POST',
+    body: JSON.stringify({ application_id: input.applicationId, message_text: input.text, message_kind: input.kind || 'message' }),
+  }) as Promise<PersistedApplicationMessage>;
+}
+
+export async function updateEmployerApplicationStatus(input: { applicationId: string; status: string; rejectionReason?: string }): Promise<void> {
+  await authenticatedMessageRequest('/api/messages/application-status', {
+    method: 'POST',
+    body: JSON.stringify({ application_id: input.applicationId, status: input.status, rejection_reason: input.rejectionReason || null }),
+  });
+}
+
 function getReadableMessage(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -92,6 +132,10 @@ export type AvailableJobItem = {
   external_job_link_optional?: string;
   source_dataset?: string;
   company_name?: string;
+  created_at?: string;
+  updated_at?: string;
+  salary_min_php?: string;
+  salary_max_php?: string;
 };
 
 export type JobDetailResponse = {
@@ -154,6 +198,39 @@ export async function fetchAdminOverview(accessToken: string): Promise<AdminOver
 
   return response.json() as Promise<AdminOverview>;
 }
+
+export async function resetAdminApplication(accessToken: string, applicationId: string): Promise<void> {
+  const response = await fetchWithTimeout(
+    `${API_BASE_URL}/api/admin/applications/reset`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ application_id: applicationId }),
+    },
+    'Application reset timed out. Please try again.',
+  );
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(getReadableMessage(errorBody?.detail || errorBody) || 'Unable to reset application.');
+  }
+}
+
+async function adminMutation(accessToken: string, path: string, method: string, body?: object): Promise<void> {
+  const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  }, 'Admin action timed out. Please try again.');
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(getReadableMessage(errorBody?.detail || errorBody) || 'Unable to complete admin action.');
+  }
+}
+
+export const updateAdminUser = (token: string, input: { user_id: string; email?: string; password?: string }) => adminMutation(token, '/api/admin/users', 'PATCH', input);
+export const updateAdminJob = (token: string, input: { job_id: string; job_title?: string; company_name?: string; posting_status?: string }) => adminMutation(token, '/api/admin/jobs', 'PATCH', input);
+export const deleteAdminJob = (token: string, jobId: string) => adminMutation(token, `/api/admin/jobs/${encodeURIComponent(jobId)}`, 'DELETE');
+export const updateAdminApplication = (token: string, input: { application_id: string; status: string }) => adminMutation(token, '/api/admin/applications', 'PATCH', input);
 
 export async function analyzeResume(resumeFile: File, _legacySurveyAnswers?: Partial<SurveyAnswers>): Promise<ResumeAnalysisResult> {
   const formData = new FormData();
