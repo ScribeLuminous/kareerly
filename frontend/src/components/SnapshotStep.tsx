@@ -231,12 +231,13 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
     );
   }
 
+  const stepFourLimit = isLoggedIn ? 5 : 3;
   const reportData = shouldUseLimitedReport
     ? {
-        fit_now_matches: limitedReport?.fit_now_matches || [],
-        aspiration_matches: limitedReport?.aspiration_matches || [],
+        fit_now_matches: (limitedReport?.fit_now_matches || []).slice(0, stepFourLimit),
+        aspiration_matches: (limitedReport?.aspiration_matches || []).slice(0, stepFourLimit),
         skill_gaps: limitedReport?.skill_gaps || [],
-        learning_recommendations: limitedReport?.learning_recommendations || [],
+        learning_recommendations: (limitedReport?.learning_recommendations || []).slice(0, stepFourLimit),
       }
     : {
         fit_now_matches: matchResults.fit_now_matches || [],

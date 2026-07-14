@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
+from datetime import datetime
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -20,6 +23,7 @@ SUPABASE_ANON_KEY = (
     or os.getenv("VITE_SUPABASE_ANON_KEY")
     or "sb_publishable_Z77o41ry4seJ7opnojlbaA_aiNUFo6B"
 )
+PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
 SKILL_ID_ALIASES = {
     "SK_PYTHON": "SK001",
@@ -71,12 +75,23 @@ def _join_job_text(record: dict[str, Any]) -> str:
     return " ".join(_safe_text(record.get(field)) for field in fields if _safe_text(record.get(field))).lower()
 
 
+def _split_job_content(value: Any) -> tuple[str, str]:
+    text = _safe_text(value).replace("\r\n", "\n").replace("\r", "\n")
+    marker = re.search(r"(?:^|\n)\s*(?:key responsibilities|responsibilities|what you'll do)\s*:\s*", text, re.IGNORECASE)
+    if not marker:
+        return text, ""
+    description = text[: marker.start()].strip()
+    items = [re.sub(r"^\s*[-–—•*]\s*", "", item).strip() for item in text[marker.end() :].splitlines()]
+    return description, "\n".join(item for item in items if item)
+
+
 def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
     required_skills = _safe_text(record.get("required_skills"))
     preferred_skills = _safe_text(record.get("preferred_skills"))
     must_have_skill_ids = _normalize_skill_ids(record.get("must_have_skill_ids"))
     source_note = _safe_text(record.get("source_note"))
     source_platform = _safe_text(record.get("source_platform"))
+    description, responsibilities = _split_job_content(record.get("job_description"))
 
     return {
         "job_id": _safe_text(record.get("job_id")),
@@ -92,7 +107,8 @@ def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
         "salary_min_php": _safe_text(record.get("salary_min_php")),
         "salary_max_php": _safe_text(record.get("salary_max_php")),
         "salary_range_monthly_php": _format_salary_range(record),
-        "job_description": _safe_text(record.get("job_description")),
+        "job_description": description,
+        "responsibilities": responsibilities,
         "required_skills_comma_separated": required_skills,
         "required_skill_ids": must_have_skill_ids,
         "must_have_skill_ids": must_have_skill_ids,
@@ -143,42 +159,52 @@ def _fetch_jobs_table(table_name: str, limit: int = 500) -> list[dict[str, Any]]
     safe_limit = max(1, min(limit, 5000))
     common_fields = "job_id,category_code,category_name,job_subcategory,job_title,company_name,location,work_setup,employment_type,job_level,salary_min_php,salary_max_php,job_description,required_skills,preferred_skills,must_have_skill_ids,posting_status,created_at,updated_at"
     selected_fields = f"{common_fields},source_platform,source_url,source_note" if table_name == "internal_jobs" else f"{common_fields},application_deadline"
-    query = urlencode(
-        {
-            "select": selected_fields,
-            "posting_status": "in.(active,open)",
-            "order": "created_at.desc",
-            "limit": str(safe_limit),
-        }
-    )
-    request = Request(
-        f"{SUPABASE_URL}/rest/v1/{table_name}?{query}",
-        headers={
-            "apikey": SUPABASE_ANON_KEY,
-            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-            "Accept": "application/json",
-        },
-        method="GET",
-    )
+    page_size = min(500, safe_limit)
+    rows: list[dict[str, Any]] = []
 
-    try:
-        with urlopen(request, timeout=12) as response:
-            payload = response.read().decode("utf-8")
-    except (HTTPError, URLError, TimeoutError, OSError):
-        return []
+    while len(rows) < safe_limit:
+        current_limit = min(page_size, safe_limit - len(rows))
+        query = urlencode(
+            {
+                "select": selected_fields,
+                "posting_status": "in.(active,open)",
+                "order": "created_at.desc",
+                "limit": str(current_limit),
+                "offset": str(len(rows)),
+            }
+        )
+        request = Request(
+            f"{SUPABASE_URL}/rest/v1/{table_name}?{query}",
+            headers={
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+                "Accept": "application/json",
+            },
+            method="GET",
+        )
 
-    try:
-        data = json.loads(payload)
-    except json.JSONDecodeError:
-        return []
+        try:
+            with urlopen(request, timeout=12) as response:
+                payload = response.read().decode("utf-8")
+        except (HTTPError, URLError, TimeoutError, OSError):
+            return rows
 
-    if not isinstance(data, list):
-        return []
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            return rows
 
-    rows = [item for item in data if isinstance(item, dict)]
+        if not isinstance(data, list):
+            return rows
+
+        page = [item for item in data if isinstance(item, dict)]
+        rows.extend(page)
+        if len(page) < current_limit:
+            break
+
     if table_name == "employer_job_posts":
-        today = datetime.now(timezone.utc).date().isoformat()
-        rows = [row for row in rows if not row.get("application_deadline") or str(row.get("application_deadline")) >= today]
+        today = datetime.now(PHILIPPINE_TIMEZONE).date().isoformat()
+        rows = [row for row in rows if not row.get("application_deadline") or str(row.get("application_deadline")) > today]
     return rows
 
 

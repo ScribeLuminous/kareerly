@@ -308,7 +308,10 @@ class JobMatcher:
         similarities = cosine_similarity(resume_vector, self.job_tfidf_matrix).flatten()
         retrieval_similarities = cosine_similarity(retrieval_vector, self.job_tfidf_matrix).flatten()
 
-        top_indices = retrieval_similarities.argsort()[::-1][:top_n_retrieval]
+        # Rank and score the complete jobs table. `top_n_retrieval` is retained in
+        # the public signature for compatibility, but display limits are applied
+        # only after matching so no possible database job is skipped.
+        top_indices = retrieval_similarities.argsort()[::-1]
 
         base_results = []
 
@@ -465,8 +468,8 @@ def match_jobs(
     )
 
 
-def list_available_jobs(limit: int = 200) -> list[dict[str, Any]]:
-    safe_limit = max(1, min(limit, 500))
+def list_available_jobs(limit: int = 5000) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(limit, 5000))
     jobs = load_internal_jobs_dataframe(limit=safe_limit)
 
     if jobs.empty:
@@ -503,6 +506,7 @@ def list_available_jobs(limit: int = 200) -> list[dict[str, Any]]:
                 "required_skills": required_skills[:12],
                 "preferred_skills": [skill.strip() for skill in safe_text(record.get("nice_to_have_skills_optional")).split(",") if skill.strip()],
                 "job_description": safe_text(record.get("job_description")),
+                "responsibilities": [item.strip() for item in safe_text(record.get("responsibilities")).splitlines() if item.strip()],
                 "external_job_link_optional": external_link,
                 "source_dataset": source_dataset,
                 "company_name": company_name,

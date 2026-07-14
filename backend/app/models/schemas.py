@@ -20,6 +20,8 @@ class CandidateProfile(BaseModel):
     education_indicators: List[str] = []
     certification_indicators: List[str] = []
     experience_indicators: List[str] = []
+    education: List[dict] = []
+    certifications: List[dict] = []
 
 
 class AnalyzeResponse(BaseModel):

@@ -40,16 +40,19 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import DOMPurify from 'dompurify';
+import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, runJobMatches, runMatchesFromResume, sendApplicationMessage, validateCertificateFile } from '../lib/api';
+import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, loadCandidateAccountSettings, runJobMatches, runMatchesFromResume, saveCandidateAccountSettings, searchSkills, sendApplicationMessage, validateCertificateFile } from '../lib/api';
 import type { AvailableJobItem } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
 import type { DevelopmentProgressRecord, LearningRecommendation as RunLearningRecommendation } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
-import type { CourseRecommendation, JobMatch, MatchResultItem, ParsedResume, PrioritizedSkillGap, SkillGap, SurveyAnswers } from '../types';
+import { formatJobDescription } from '../lib/jobDescription';
+import type { CourseRecommendation, JobMatch, MatchResultItem, ParsedResume, PrioritizedSkillGap, SelectedSkill, SkillGap, SurveyAnswers } from '../types';
 import './candidate-dashboard-v5.css';
 
 type DashboardProps = {
@@ -893,19 +896,107 @@ function mapApplicationRow(row: JobApplicationRow, jobs: DashboardJob[]): Dashbo
   };
 }
 
+type ExtractedEducation = NonNullable<ResumeAnalyzeResponse['candidate_profile']['education']>[number];
+
+function extractEducationFromSavedText(resumeText: string): ExtractedEducation[] {
+  if (!resumeText.trim()) return [];
+  const compact = resumeText.replace(/\s+/g, ' ').trim();
+  const degreePatterns: Array<{ pattern: RegExp; attainment: string }> = [
+    {
+      pattern: /\b(bachelor\s+of\s+science\s+in\s+computer\s+science)\b/i,
+      attainment: "Bachelor's Degree",
+    },
+    {
+      pattern: /\b(?:bachelor(?:'s)?|baccalaureate)\s+(?:of|in)\s+([a-z][a-z &,/()\-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
+      attainment: "Bachelor's Degree",
+    },
+    {
+      pattern: /\bmaster(?:'s)?\s+(?:of|in)\s+([a-z][a-z &,/()\-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
+      attainment: "Master's Degree",
+    },
+    {
+      pattern: /\b(?:doctorate|doctor|phd)\s+(?:of|in)?\s*([a-z][a-z &,/()\-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
+      attainment: 'Doctorate Degree',
+    },
+    {
+      pattern: /\bassociate(?:'s)?\s+(?:of|in)\s+([a-z][a-z &,/()\-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
+      attainment: 'Associate Degree',
+    },
+  ];
+
+  let degreeProgram = '';
+  let attainment = '';
+  for (const entry of degreePatterns) {
+    const match = compact.match(entry.pattern);
+    if (!match) continue;
+    const degreePrefix = match[0].slice(0, Math.max(0, match[0].length - (match[1]?.length || 0))).trim();
+    degreeProgram = titleCase(`${degreePrefix} ${match[1] || match[0]}`)
+      .replace(/\bOf\b/g, 'of')
+      .replace(/\bIn\b/g, 'in');
+    attainment = entry.attainment;
+    break;
+  }
+
+  if (!degreeProgram) return [];
+  return [{
+    highest_educational_attainment: attainment,
+    degree_program: degreeProgram,
+    school_university: '',
+    year_graduated: '',
+  }];
+}
+
+function withExtractedEducation(analysis: ResumeAnalyzeResponse): ResumeAnalyzeResponse {
+  const existingEducation = analysis.candidate_profile?.education || [];
+  if (existingEducation.length > 0) return analysis;
+  const resumeText = analysis.normalized_for_matching?.resume_text_for_matching
+    || analysis.parsedResume?.cleanedText
+    || analysis.parsedResume?.rawText
+    || '';
+  const education = extractEducationFromSavedText(resumeText);
+  if (education.length === 0) return analysis;
+  return {
+    ...analysis,
+    candidate_profile: {
+      ...analysis.candidate_profile,
+      education,
+    },
+    parsedResume: {
+      ...analysis.parsedResume,
+      education: education.map((item) => ({
+        institution: item.school_university,
+        degree: item.degree_program,
+        field: item.degree_program,
+        graduationYear: Number(item.year_graduated) || 0,
+      })),
+    },
+  };
+}
+
 function normalizeSavedResumeAnalysis(record: Awaited<ReturnType<typeof loadLatestResume>>): ResumeAnalyzeResponse | null {
   const analysis = record?.extracted_profile_json;
   if (!analysis) return null;
   const resumeText = analysis.normalized_for_matching?.resume_text_for_matching || record.parsed_text || '';
-  return {
+  const savedEducation = analysis.candidate_profile?.education || [];
+  const education = savedEducation.length > 0 ? savedEducation : extractEducationFromSavedText(resumeText);
+  return withExtractedEducation({
     ...analysis,
+    candidate_profile: {
+      ...analysis.candidate_profile,
+      education,
+    },
     normalized_for_matching: {
       ...(analysis.normalized_for_matching || {}),
       resume_text_for_matching: resumeText,
     },
     parsedResume: analysis.parsedResume || {
       skills: (analysis.candidate_profile?.skills || []).map((skill) => ({ name: skill.skill_name })),
-      education: [],
+      education: education.map((item) => ({
+        institution: item.school_university,
+        degree: item.degree_program,
+        field: item.degree_program,
+        graduationYear: Number(item.year_graduated) || 0,
+      })),
       experience: [],
       rawText: resumeText,
       cleanedText: resumeText,
@@ -916,7 +1007,7 @@ function normalizeSavedResumeAnalysis(record: Awaited<ReturnType<typeof loadLate
     jobMatches: analysis.jobMatches || [],
     skillGaps: analysis.skillGaps || [],
     courseRecommendations: analysis.courseRecommendations || [],
-  } as ResumeAnalyzeResponse;
+  } as ResumeAnalyzeResponse);
 }
 
 function mapRunGap(gap: PrioritizedSkillGap): DashboardGap {
@@ -1113,6 +1204,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [resumePostRefreshTarget, setResumePostRefreshTarget] = useState<'dashboard' | 'preferences'>('dashboard');
   const [savedResumeFileName, setSavedResumeFileName] = useState('');
   const [resumePreview, setResumePreview] = useState<{ url: string; name: string; mimeType: string; local: boolean } | null>(null);
+  const [docxPreviewResult, setDocxPreviewResult] = useState<{ url: string; html: string; error: string } | null>(null);
   const [candidatePublicId, setCandidatePublicId] = useState('');
   const [skillNames, setSkillNames] = useState<string[]>(() => extractSkillsFromResume(state.resume));
   const [selectedThreadJobId, setSelectedThreadJobId] = useState<string>('');
@@ -1137,18 +1229,22 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     schoolUniversity: '',
     yearGraduated: '',
   });
+  const [accountIdentity, setAccountIdentity] = useState({ name: currentUser.name, email: currentUser.email });
+  const [accountPassword, setAccountPassword] = useState({ current: '', next: '', confirm: '' });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [profileSaveNotice, setProfileSaveNotice] = useState<string | null>(null);
 
   const toastTimeoutRef = useRef<number | null>(null);
 
-  const displayName = currentUser.name || currentUser.email.split('@')[0] || 'Candidate';
-  const displayEmail = currentUser.email;
+  const displayName = accountIdentity.name || currentUser.email.split('@')[0] || 'Candidate';
+  const displayEmail = accountIdentity.email;
   const initials = getInitials(displayName, displayEmail);
   const surveyAnswers = state.surveyAnswers || defaultSurveyAnswers;
   const candidateProfile = state.resumeAnalysis?.candidate_profile;
   const educationIndicators = candidateProfile?.education_indicators || [];
   const certificationIndicators = candidateProfile?.certification_indicators || [];
+  const extractedCertifications = candidateProfile?.certifications || [];
   const experienceIndicators = candidateProfile?.experience_indicators || [];
   const matchedLocation = extraPreferences.preferredLocation || surveyAnswers.setup || '';
 
@@ -1156,6 +1252,34 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     const extracted = extractSkillsFromResume(state.resume);
     if (extracted.length > 0) setSkillNames(extracted);
   }, [state.resume?.skills]);
+
+  useEffect(() => {
+    const isDocx = resumePreview
+      && (resumePreview.mimeType.includes('wordprocessingml') || resumePreview.name.toLowerCase().endsWith('.docx'));
+
+    if (!isDocx || !resumePreview) return;
+
+    let cancelled = false;
+
+    const renderDocx = async () => {
+      try {
+        const response = await fetch(resumePreview.url);
+        if (!response.ok) throw new Error(`Unable to load resume (${response.status}).`);
+        const result = await mammoth.convertToHtml({ arrayBuffer: await response.arrayBuffer() });
+        if (!cancelled) setDocxPreviewResult({ url: resumePreview.url, html: DOMPurify.sanitize(result.value), error: '' });
+      } catch (error) {
+        console.warn('Unable to render DOCX resume preview:', error);
+        if (!cancelled) setDocxPreviewResult({
+          url: resumePreview.url,
+          html: '',
+          error: 'Unable to preview this DOCX file. Please try again or upload a new copy.',
+        });
+      }
+    };
+
+    void renderDocx();
+    return () => { cancelled = true; };
+  }, [resumePreview]);
 
   const updateSkillProgressStatus = (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => {
     setSkillProgressRecords((current) => {
@@ -1204,8 +1328,11 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         }))
       : [];
 
-    const certificationItems = certificationIndicators.length
-      ? certificationIndicators.map((item, index) => ({
+    const certificationNames = extractedCertifications.length
+      ? extractedCertifications.map((item) => item.title).filter(Boolean)
+      : certificationIndicators;
+    const certificationItems = certificationNames.length
+      ? certificationNames.map((item, index) => ({
           id: `cert-${index}`,
           title: item,
           evidenceType: inferEvidenceType(item),
@@ -1229,34 +1356,47 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       : [];
 
     setEvidenceRecords([...certificationItems, ...experienceItems, ...educationItems]);
-  }, [educationIndicators.join('|'), certificationIndicators.join('|'), experienceIndicators.join('|')]);
+  }, [educationIndicators.join('|'), certificationIndicators.join('|'), extractedCertifications.map((item) => item.title).join('|'), experienceIndicators.join('|')]);
 
   useEffect(() => {
     let isMounted = true;
     void (async () => {
-      const { data } = await supabase
-        .from('candidate_profiles')
-        .select('public_id, birthday, location, education_json')
-        .eq('user_id', currentUser.id)
-        .maybeSingle();
+      const data = await loadCandidateAccountSettings();
       if (!isMounted || !data) return;
+      setAccountIdentity({ name: data.full_name || currentUser.name, email: data.email || currentUser.email });
       setCandidatePublicId(String(data.public_id || ''));
-      const education = (data.education_json as Record<string, string> | null) || {};
       setProfileForm((current) => ({
         ...current,
-        contactNumber: education.contactNumber || '',
-        address: education.address || '',
-        birthday: data.birthday || '',
-        location: data.location || '',
-        highestEducationalAttainment: education.highestEducationalAttainment || '',
-        degreeProgram: education.degreeProgram || '',
-        schoolUniversity: education.schoolUniversity || '',
-        yearGraduated: education.yearGraduated || '',
+        contactNumber: data.contact_number || current.contactNumber,
+        address: data.address || current.address,
+        birthday: data.birthday || current.birthday,
+        location: data.location || current.location,
+        highestEducationalAttainment: data.highest_educational_attainment || current.highestEducationalAttainment,
+        degreeProgram: data.degree_program || current.degreeProgram,
+        schoolUniversity: data.school_university || current.schoolUniversity,
+        yearGraduated: data.year_graduated || current.yearGraduated,
       }));
-    })();
+    })().catch((error) => { if (isMounted) console.warn('Unable to load account settings:', error); });
     return () => {
       isMounted = false;
     };
+  }, [currentUser.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+    void supabase
+      .from('saved_jobs')
+      .select('job_id, job_source')
+      .eq('user_id', currentUser.id)
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        if (error) {
+          console.warn('Unable to load saved jobs:', error);
+          return;
+        }
+        setSavedJobs(new Set((data || []).map((row) => String(row.job_id)).filter(Boolean)));
+      });
+    return () => { isMounted = false; };
   }, [currentUser.id]);
 
   useEffect(() => {
@@ -1293,40 +1433,19 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     setIsSavingProfile(true);
     setProfileSaveNotice(null);
     try {
-      await updateCandidateProfile({
-        userId: currentUser.id,
+      const saved = await saveCandidateAccountSettings({
+        full_name: accountIdentity.name,
+        email: accountIdentity.email,
         birthday: profileForm.birthday,
         location: profileForm.location,
-        contactNumber: profileForm.contactNumber,
+        contact_number: profileForm.contactNumber,
         address: profileForm.address,
-        educationJson: {
-          highestEducationalAttainment: profileForm.highestEducationalAttainment,
-          degreeProgram: profileForm.degreeProgram,
-          schoolUniversity: profileForm.schoolUniversity,
-          yearGraduated: profileForm.yearGraduated,
-        },
+        highest_educational_attainment: profileForm.highestEducationalAttainment,
+        degree_program: profileForm.degreeProgram,
+        school_university: profileForm.schoolUniversity,
+        year_graduated: profileForm.yearGraduated,
       });
-
-      const { data } = await supabase
-        .from('candidate_profiles')
-        .select('birthday, location, education_json')
-        .eq('user_id', currentUser.id)
-        .maybeSingle();
-
-      if (data) {
-        const education = (data.education_json as Record<string, string> | null) || {};
-        setProfileForm((current) => ({
-          ...current,
-          contactNumber: education.contactNumber || profileForm.contactNumber,
-          address: education.address || profileForm.address,
-          birthday: data.birthday || '',
-          location: data.location || '',
-          highestEducationalAttainment: education.highestEducationalAttainment || '',
-          degreeProgram: education.degreeProgram || '',
-          schoolUniversity: education.schoolUniversity || '',
-          yearGraduated: education.yearGraduated || '',
-        }));
-      }
+      setAccountIdentity({ name: saved.full_name, email: saved.email });
 
       setProfileSaveNotice('Personal details saved successfully.');
       showToast('Personal details saved.', 'success');
@@ -1339,36 +1458,78 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     }
   };
 
-  const loadKareers = useCallback(async () => {
-    setIsLoadingKareers(true);
+  const updateCandidatePassword = async () => {
+    if (!accountPassword.current || !accountPassword.next || accountPassword.next !== accountPassword.confirm) {
+      showToast(accountPassword.next !== accountPassword.confirm ? 'New passwords do not match.' : 'Complete all password fields.', 'warn');
+      return;
+    }
+    if (accountPassword.next.length < 8) { showToast('New password must be at least 8 characters.', 'warn'); return; }
+    setIsUpdatingPassword(true);
+    try {
+      const { error: verifyError } = await supabase.auth.signInWithPassword({ email: displayEmail, password: accountPassword.current });
+      if (verifyError) throw new Error('Current password is incorrect.');
+      const { error } = await supabase.auth.updateUser({ password: accountPassword.next });
+      if (error) throw error;
+      setAccountPassword({ current: '', next: '', confirm: '' });
+      showToast('Password updated successfully.', 'success');
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Unable to update password.', 'danger'); }
+    finally { setIsUpdatingPassword(false); }
+  };
+
+  const loadKareers = useCallback(async (silent = false) => {
+    if (!silent) setIsLoadingKareers(true);
     setKareersError(null);
     try {
-      const response = await fetchAvailableJobs(500);
+      const response = await fetchAvailableJobs();
       setAvailableJobs(response.results || []);
     } catch (error) {
-      setAvailableJobs([]);
+      if (!silent) setAvailableJobs([]);
       setKareersError(error instanceof Error ? error.message : 'Unable to load jobs.');
     } finally {
-      setIsLoadingKareers(false);
+      if (!silent) setIsLoadingKareers(false);
     }
   }, []);
 
   useEffect(() => { void loadKareers(); }, [loadKareers]);
 
+  useEffect(() => {
+    if (activePage !== 'kareers') return;
+    void loadKareers(true);
+    const refresh = () => { if (document.visibilityState === 'visible') void loadKareers(true); };
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [activePage, loadKareers]);
+
   const jobs = useMemo<DashboardJob[]>(() => {
+    const catalogById = new Map(availableJobs.map((job) => [job.job_id, job]));
+    const restoreCatalogIdentity = (job: DashboardJob): DashboardJob => {
+      const catalog = catalogById.get(job.id);
+      if (!catalog) return job;
+      return {
+        ...job,
+        company: job.company && job.company !== 'Unknown company' ? job.company : catalog.company_name || 'Kareerly Partner Employer',
+        jobSource: catalog.job_source === 'employer' ? 'employer' : job.jobSource,
+      };
+    };
     if (state.matchResults) {
-      const fitNow = (state.matchResults.all_fit_now_matches || state.matchResults.fit_now_matches || []).map((match) => mapRunMatch(match, 'fit-now'));
+      const fitNow = (state.matchResults.all_fit_now_matches || state.matchResults.fit_now_matches || []).map((match) => restoreCatalogIdentity(mapRunMatch(match, 'fit-now')));
       const fitNowIds = new Set(fitNow.map((job) => job.id));
       const aspiration = (state.matchResults.all_aspiration_matches || state.matchResults.aspiration_matches || [])
-        .map((match) => mapRunMatch(match, 'aspiration'))
+        .map((match) => restoreCatalogIdentity(mapRunMatch(match, 'aspiration')))
         .filter((job) => !fitNowIds.has(job.id));
       return [...fitNow, ...aspiration].sort((a, b) => b.matchScore - a.matchScore);
     }
     if (state.results?.jobMatches?.length) {
-      return state.results.jobMatches.map(mapModelMatch).sort((a, b) => b.matchScore - a.matchScore);
+      return state.results.jobMatches.map((match) => restoreCatalogIdentity(mapModelMatch(match))).sort((a, b) => b.matchScore - a.matchScore);
     }
     return [];
-  }, [state.matchResults, state.results?.jobMatches]);
+  }, [availableJobs, state.matchResults, state.results?.jobMatches]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1751,6 +1912,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       return a.title.localeCompare(b.title);
     });
   }, [availableJobs, jobs]);
+  const savedJobRows = useMemo(() => kareersList.filter((job) => savedJobs.has(job.id)), [kareersList, savedJobs]);
 
   useEffect(() => {
     if (!selectedKareerId && kareersList.length > 0) setSelectedKareerId(kareersList[0].id);
@@ -1810,9 +1972,12 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       if (!isMounted) return;
       const requestUpdates: Record<string, string> = {};
       const replyUpdates: Record<string, Array<{ from: 'employer' | 'candidate'; text: string; time: string }>> = {};
-      results.forEach(({ app, rows }) => rows.forEach((row) => {
-        if (row.message_kind === 'request') requestUpdates[app.jobId] = String(row.message_text || '');
-        else {
+      results.forEach(({ app, rows }) => {
+        const explicitRequest = rows.find((row) => row.message_kind === 'request');
+        const legacyRequest = explicitRequest || rows.find((row) => row.sender_role === 'employer');
+        if (legacyRequest) requestUpdates[app.jobId] = String(legacyRequest.message_text || '');
+        rows.forEach((row) => {
+          if (row === legacyRequest) return;
           const entries = replyUpdates[app.jobId] || [];
           entries.push({
             from: row.sender_role === 'candidate' ? 'candidate' : 'employer',
@@ -1820,8 +1985,8 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
             time: row.created_at ? new Date(row.created_at).toLocaleString() : 'Just now',
           });
           replyUpdates[app.jobId] = entries;
-        }
-      }));
+        });
+      });
       setMessageRequests(requestUpdates);
       setMessageReplies(replyUpdates);
     };
@@ -1871,14 +2036,25 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   };
 
   const applyAnalysisResult = (data: ResumeAnalyzeResponse) => {
-    setResumeAnalysis(data);
-    setParsedResume(data.parsedResume);
+    const enrichedData = withExtractedEducation(data);
+    setResumeAnalysis(enrichedData);
+    setParsedResume(enrichedData.parsedResume);
     setResults({
-      jobMatches: data.jobMatches,
-      skillGaps: data.skillGaps,
-      courseRecommendations: data.courseRecommendations,
-      summary: data.summary,
+      jobMatches: enrichedData.jobMatches,
+      skillGaps: enrichedData.skillGaps,
+      courseRecommendations: enrichedData.courseRecommendations,
+      summary: enrichedData.summary,
     });
+    const extractedEducation = enrichedData.candidate_profile?.education?.[0];
+    if (extractedEducation) {
+      setProfileForm((current) => ({
+        ...current,
+        highestEducationalAttainment: extractedEducation.highest_educational_attainment || current.highestEducationalAttainment,
+        degreeProgram: extractedEducation.degree_program || current.degreeProgram,
+        schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
+        yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
+      }));
+    }
   };
 
   const runMatchingWithSkills = async (resume: ParsedResume, skills: string[], answers: SurveyAnswers, resumeFileOverride?: File | null) => {
@@ -1896,15 +2072,25 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     const fallbackSkills = skills
       .map((skill) => skill.trim().toUpperCase())
       .filter((skill) => Boolean(skill));
+    const resolvedSkillRecords = (await Promise.all(skills.map(async (skill): Promise<SelectedSkill | null> => {
+      const normalized = normalizeSkill(skill);
+      const existing = (state.selectedSkills || []).find((item) => normalizeSkill(item.skill_name) === normalized && item.skill_id);
+      if (existing) return existing;
+      if (/^SK\d+$/i.test(skill.trim())) return { skill_id: skill.trim().toUpperCase(), skill_name: skill.trim(), source: 'confirmed_skill' };
+      try {
+        const response = await searchSkills(skill, 5);
+        const match = response.results.find((item) => normalizeSkill(item.skill_name) === normalized) || response.results[0];
+        return match?.skill_id ? { skill_id: match.skill_id, skill_name: match.skill_name || skill, skill_category: match.skill_category, skill_subcategory: match.skill_subcategory, source: 'confirmed_skill' } : null;
+      } catch {
+        return null;
+      }
+    }))).filter((item): item is SelectedSkill => Boolean(item?.skill_id));
+    const resolvedSkillIds = resolvedSkillRecords.map((item) => String(item.skill_id).trim().toUpperCase()).filter(Boolean);
     const finalCandidateSkillIds = Array.from(
       new Set(
-        inputSkillIds.length > 0
-          ? inputSkillIds
-          : selectedSkillIds.length > 0
-            ? selectedSkillIds
-            : extractedSkillIds.length > 0
-              ? extractedSkillIds
-              : fallbackSkills,
+        [...inputSkillIds, ...selectedSkillIds, ...extractedSkillIds, ...resolvedSkillIds].length > 0
+          ? [...inputSkillIds, ...selectedSkillIds, ...extractedSkillIds, ...resolvedSkillIds]
+          : fallbackSkills,
       ),
     );
 
@@ -1920,9 +2106,11 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     };
 
     const activeResumeFile = resumeFileOverride || state.resumeFile;
-    const confirmedSkillRecords = (state.selectedSkills || [])
-      .filter((skill) => finalCandidateSkillIds.includes(skill.skill_id?.trim().toUpperCase() || ''))
-      .slice(0, 20);
+    const confirmedSkillRecords = Array.from(new Map(
+      [...(state.selectedSkills || []), ...resolvedSkillRecords]
+        .filter((skill) => skill.skill_id && finalCandidateSkillIds.includes(skill.skill_id.trim().toUpperCase()))
+        .map((skill) => [skill.skill_id, skill]),
+    ).values()).slice(0, 20);
     const runTextMatcher = () =>
       runJobMatches({
           user_mode: 'logged_in',
@@ -1964,6 +2152,16 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     }
     setMatchResults(result);
     if (currentUser?.id) {
+      await supabase.from('user_skills').delete().eq('user_id', currentUser.id);
+      if (resolvedSkillRecords.length > 0) {
+        await supabase.from('user_skills').insert(resolvedSkillRecords.map((skill) => ({
+          user_id: currentUser.id,
+          skill_id: skill.skill_id,
+          skill_name: skill.skill_name,
+          confidence: 1,
+          source: 'confirmed_skill',
+        })));
+      }
       await saveMatchHistory({
         userId: currentUser.id,
         resumeId: state.savedResumeId,
@@ -1972,38 +2170,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       });
     }
     return result;
-  };
-
-  const refreshFromResumeFile = async (file: File, answers: SurveyAnswers, overrideSkills?: string[]) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await analyzeResume(file, answers);
-      setResumeFile(file);
-      applyAnalysisResult(data);
-      if (currentUser?.id) {
-        const resumeId = await saveResumeAnalysis({
-          userId: currentUser.id,
-          fileName: file.name,
-          file,
-          analysis: data,
-        });
-        setSavedResumeId(resumeId);
-        setSavedResumeFileName(file.name);
-      }
-      const extracted = extractSkillsFromResume(data.parsedResume);
-      const finalSkills = (overrideSkills && overrideSkills.length > 0 ? overrideSkills : extracted.length > 0 ? extracted : skillNames).filter(Boolean);
-      setSkillNames(finalSkills);
-      await runMatchingWithSkills(data.parsedResume, finalSkills, answers, file);
-      showInlineNotice('Resume and skills updated. Job matches, gaps, and recommendations were refreshed.', 'success');
-      showToast('Dashboard data refreshed from updated resume.', 'success');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to refresh resume analysis.';
-      setError(message);
-      showToast(message, 'danger');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handlePreferencesSave = async (answers: SurveyAnswers) => {
@@ -2020,29 +2186,24 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         console.warn('Unable to save preferences to Supabase:', error);
       });
     }
-    if (!state.resumeFile) {
-      showInlineNotice('Preferences saved. Upload a resume to refresh recommendations.', 'warn');
+    const savedResume = state.resume || state.resumeAnalysis?.parsedResume;
+    const resumeText = savedResume ? extractResumeText(savedResume) : '';
+    if (!savedResume || !resumeText) {
+      showInlineNotice('Preferences saved. Existing progress was kept; upload a resume if you want to generate Aspiration Opportunities.', 'warn');
       showToast('Preferences saved.', 'success');
       return;
     }
-    await refreshFromResumeFile(state.resumeFile, answers);
-  };
 
-  const handleSkillRefresh = async (skills: string[]) => {
-    if (!state.resume || !state.surveyAnswers) {
-      showToast('Resume or preferences are missing. Upload and analyze a resume first.', 'warn');
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const cleanSkills = Array.from(new Set(skills.map((skill) => skill.trim()).filter(Boolean)));
+      const cleanSkills = Array.from(new Set(skillNames.map((skill) => skill.trim()).filter(Boolean)));
       setSkillNames(cleanSkills);
-      await runMatchingWithSkills(state.resume, cleanSkills, state.surveyAnswers);
-      showInlineNotice('Skills confirmed. Matches and skill-gap recommendations were refreshed.', 'success');
-      showToast('Skills confirmed and matching updated.', 'success');
+      await runMatchingWithSkills(savedResume, cleanSkills, answers);
+      showInlineNotice('Preferences and confirmed skills saved. Your matches, skill gaps, recommendations, and progress were refreshed.', 'success');
+      showToast('Profile recommendations refreshed.', 'success');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to refresh matching.';
+      const message = error instanceof Error ? error.message : 'Unable to refresh your profile recommendations.';
       setError(message);
       showToast(message, 'danger');
     } finally {
@@ -2062,15 +2223,29 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     setJobDetailOpen(true);
   };
 
-  const toggleSaved = (jobId: string) => {
+  const toggleSaved = async (jobId: string) => {
     const alreadySaved = savedJobs.has(jobId);
+    const job = kareersList.find((item) => item.id === jobId) || jobs.find((item) => item.id === jobId);
+    const jobSource = job?.jobSource || 'internal';
     setSavedJobs((current) => {
       const next = new Set(current);
       if (next.has(jobId)) next.delete(jobId);
       else next.add(jobId);
       return next;
     });
-    showToast(alreadySaved ? 'Job removed from saved list.' : 'Job saved.', 'success');
+    const result = alreadySaved
+      ? await supabase.from('saved_jobs').delete().eq('user_id', currentUser.id).eq('job_source', jobSource).eq('job_id', jobId)
+      : await supabase.from('saved_jobs').upsert({ user_id: currentUser.id, job_source: jobSource, job_id: jobId }, { onConflict: 'user_id,job_source,job_id' });
+    if (result.error) {
+      setSavedJobs((current) => {
+        const next = new Set(current);
+        if (alreadySaved) next.add(jobId); else next.delete(jobId);
+        return next;
+      });
+      showToast('Unable to update saved jobs in Supabase.', 'danger');
+      return;
+    }
+    showToast(alreadySaved ? 'Job removed from saved list.' : 'Job saved to your account.', 'success');
   };
 
   const applyToInternalJob = async (job: DashboardJob): Promise<boolean> => {
@@ -2201,7 +2376,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     const reply = { from: 'candidate' as const, text, time: 'Just now' };
     setMessageReplies((current) => ({ ...current, [selectedMessageApp.jobId]: [...(current[selectedMessageApp.jobId] || []), reply] }));
     setMessageDraft('');
-    showToast('Message sent.', 'success');
   };
 
   const openResumeModal = () => {
@@ -2282,8 +2456,30 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     setError(null);
     try {
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
-      const data = await analyzeResume(resumeUploadFile, prefs);
+      const data = withExtractedEducation(await analyzeResume(resumeUploadFile, prefs));
       setResumeAnalyzeData(data);
+      const extractedEducation = data.candidate_profile?.education?.[0];
+      if (extractedEducation) {
+        setProfileForm((current) => ({
+          ...current,
+          highestEducationalAttainment: extractedEducation.highest_educational_attainment || current.highestEducationalAttainment,
+          degreeProgram: extractedEducation.degree_program || current.degreeProgram,
+          schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
+          yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
+        }));
+        await saveCandidateAccountSettings({
+          full_name: accountIdentity.name,
+          email: accountIdentity.email,
+          birthday: profileForm.birthday,
+          location: profileForm.location,
+          contact_number: profileForm.contactNumber,
+          address: profileForm.address,
+          highest_educational_attainment: extractedEducation.highest_educational_attainment || profileForm.highestEducationalAttainment,
+          degree_program: extractedEducation.degree_program || profileForm.degreeProgram,
+          school_university: extractedEducation.school_university || profileForm.schoolUniversity,
+          year_graduated: extractedEducation.year_graduated || profileForm.yearGraduated,
+        });
+      }
       const extracted = extractSkillsFromResume(data.parsedResume);
       const baseline = extracted.length > 0 ? extracted : skillNames;
       const unique = Array.from(new Set(baseline.map((item) => item.trim()).filter(Boolean)));
@@ -2765,6 +2961,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               jobFilter={jobFilter}
               applications={applications}
               savedJobs={savedJobs}
+              savedJobRows={savedJobRows}
               fitNowCount={topFitNowMatchesCount}
               aspirationCount={topAspirationMatchesCount}
               onSearch={setJobSearch}
@@ -2842,7 +3039,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                 setExtraPreferences({ jobLevel: 'Entry Level', preferredLocation: 'Metro Manila / Laguna' });
                 showToast('Changes reset.', 'success');
               }}
-              onRefreshSkills={() => void handleSkillRefresh(skillNames)}
             />
           )}
 
@@ -2852,8 +3048,10 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               uiLanguage={uiLanguage}
               evidenceRecords={evidenceRecords}
               profile={profileForm}
+              password={accountPassword}
               savedResumeFileName={savedResumeFileName}
               isSavingProfile={isSavingProfile}
+              isUpdatingPassword={isUpdatingPassword}
               profileSaveNotice={profileSaveNotice}
               onLanguage={setUiLanguage}
               onOpenDelete={() => setDeleteModalOpen(true)}
@@ -2864,6 +3062,9 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               onReplaceEvidence={handleReplaceEvidence}
               onDeleteEvidence={handleDeleteEvidence}
               onProfileChange={setProfileForm}
+              onIdentityChange={setAccountIdentity}
+              onPasswordChange={setAccountPassword}
+              onUpdatePassword={updateCandidatePassword}
               onSave={saveCandidateProfile}
             />
           )}
@@ -3036,8 +3237,16 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
             </div>
             {resumePreview.mimeType.includes('pdf') || resumePreview.name.toLowerCase().endsWith('.pdf') ? (
               <iframe className="cand-resume-preview-frame" src={resumePreview.url} title={`Preview of ${resumePreview.name}`} />
+            ) : docxPreviewResult?.url !== resumePreview.url ? (
+              <div className="cand-resume-preview-status" role="status">Preparing DOCX preview…</div>
+            ) : docxPreviewResult.error ? (
+              <div className="cand-notice info m-4"><span>{docxPreviewResult.error}</span></div>
             ) : (
-              <div className="cand-notice info m-4"><span>Inline preview is available for PDF files. DOCX resumes cannot be rendered directly by this browser.</span></div>
+              <div
+                className="cand-resume-preview-document"
+                aria-label={`Preview of ${resumePreview.name}`}
+                dangerouslySetInnerHTML={{ __html: docxPreviewResult.html }}
+              />
             )}
           </div>
         </div>
@@ -3394,6 +3603,7 @@ function JobMatchesPage({
   jobFilter,
   applications,
   savedJobs,
+  savedJobRows,
   fitNowCount,
   aspirationCount,
   onSearch,
@@ -3410,6 +3620,7 @@ function JobMatchesPage({
   jobFilter: JobFilter;
   applications: DashboardApplication[];
   savedJobs: Set<string>;
+  savedJobRows: DashboardJob[];
   fitNowCount: number;
   aspirationCount: number;
   onSearch: (value: string) => void;
@@ -3421,6 +3632,10 @@ function JobMatchesPage({
 }) {
   const fitNowJobs = jobs.filter((job) => job.matchCategory === 'fit-now');
   const aspirationJobs = jobs.filter((job) => job.matchCategory === 'aspiration');
+  const savedTableRows = savedJobRows.filter((job) => {
+    const query = jobSearch.trim().toLowerCase();
+    return !query || [job.title, job.company, job.location, job.category || '', job.subCategory || ''].join(' ').toLowerCase().includes(query);
+  });
 
   const groupedSections =
     jobFilter === 'fit-now'
@@ -3552,10 +3767,64 @@ function JobMatchesPage({
           <FilterTab active={jobFilter === 'fit-now'} onClick={() => onFilter('fit-now')}><UIIcon name="check-circle" className="cand-tab-icon green" />Fit-Now ({fitNowCount})</FilterTab>
           <FilterTab active={jobFilter === 'aspiration'} onClick={() => onFilter('aspiration')}><UIIcon name="rocket" className="cand-tab-icon mauve" />Aspiration ({aspirationCount})</FilterTab>
           <FilterTab active={jobFilter === 'all'} onClick={() => onFilter('all')}>Show All Matches ({allMatchesCount})</FilterTab>
+          <FilterTab active={jobFilter === 'saved'} onClick={() => onFilter('saved')}><UIIcon name="bookmark" className="cand-tab-icon" />Saved Jobs ({savedJobs.size})</FilterTab>
         </div>
       </div>
 
-      {jobs.length > 0 ? (
+      {jobFilter === 'saved' ? (
+        savedTableRows.length > 0 ? (
+          <div className="cand-table-wrap">
+            <table className="cand-table">
+              <thead>
+                <tr>
+                  <th>Job &amp; Company</th>
+                  <th>Category</th>
+                  <th>Location &amp; Setup</th>
+                  <th>Match Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {savedTableRows.map((job) => {
+                  const activeApplication = applications.find((app) => app.jobId === job.id && app.jobSource === job.jobSource && app.status !== 'Withdrawn');
+                  return (
+                    <tr key={`saved-${job.jobSource}-${job.id}`}>
+                      <td>
+                        <div className="text-sm font-bold text-dark">{job.title}</div>
+                        <div className="text-xs text-soft">{job.company}</div>
+                      </td>
+                      <td>
+                        <div className="text-xs font-bold text-mid">{job.category || 'Uncategorized'}</div>
+                        <div className="text-xs text-soft">{job.subCategory || job.jobLevel || ''}</div>
+                      </td>
+                      <td>
+                        <div className="text-xs text-mid">{job.location}</div>
+                        <div className="text-xs text-soft">{job.setup}</div>
+                      </td>
+                      <td>
+                        {job.hasMatchScore
+                          ? <span className="font-display text-sm font-extrabold text-rust">{job.matchScore}% · {job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration'}</span>
+                          : <span className="cand-status-badge">Not matched</span>}
+                      </td>
+                      <td>
+                        <div className="flex flex-wrap gap-2">
+                          <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onView(job)}><UIIcon name="eye" className="cand-btn-icon" />View</button>
+                          {job.sourceType === 'external' ? (
+                            <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onVisitSite(job)}><UIIcon name="external" className="cand-btn-icon" />Visit Site</button>
+                          ) : (
+                            <button className="cand-btn-primary cand-btn-sm" type="button" disabled={Boolean(activeApplication)} onClick={() => onApply(job)}><UIIcon name="paper-plane" className="cand-btn-icon" />{activeApplication ? 'Applied' : 'Apply'}</button>
+                          )}
+                          <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onSave(job.id)}><UIIcon name="trash" className="cand-btn-icon" />Remove</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : <div className="cand-empty">No saved jobs match your search. Save any role from Careers or Job Matches to see it here.</div>
+      ) : jobs.length > 0 ? (
         <div className={`cand-match-groups ${groupedSections.length === 1 ? 'single' : 'dual'}`}>
           {groupedSections.map((section) => (
             <div key={section.key} className="cand-card cand-match-group-card">
@@ -4087,7 +4356,6 @@ function PreferencesPage({
   onUpdateSkills,
   onSave,
   onReset,
-  onRefreshSkills,
 }: {
   surveyAnswers: SurveyAnswers;
   extraPreferences: { jobLevel: string; preferredLocation: string };
@@ -4097,7 +4365,6 @@ function PreferencesPage({
   onUpdateSkills: (skills: string[]) => void;
   onSave: (answers: SurveyAnswers) => void;
   onReset: () => void;
-  onRefreshSkills: () => void;
 }) {
   const [draft, setDraft] = useState<SurveyAnswers>(surveyAnswers);
   const [skillInput, setSkillInput] = useState('');
@@ -4207,15 +4474,12 @@ function PreferencesPage({
             <button className="cand-btn-secondary" type="button" onClick={addSkill}>
               Add
             </button>
-            <button className="cand-btn-primary" type="button" disabled={isLoading || skillNames.length === 0} onClick={onRefreshSkills}>
-              Confirm Skills and Refresh
-            </button>
           </div>
         </div>
 
         <div className="cand-form-actions">
           <button className="cand-btn-primary" type="button" disabled={isLoading} onClick={() => onSave(draft)}>
-            Save Preferences
+            {isLoading ? 'Saving and Refreshing...' : 'Save Preferences'}
           </button>
           <button className="cand-btn-secondary" type="button" onClick={onReset}>
             Reset Changes
@@ -4240,8 +4504,10 @@ function AccountSettingsPage({
   uiLanguage,
   evidenceRecords,
   profile,
+  password,
   savedResumeFileName,
   isSavingProfile,
+  isUpdatingPassword,
   profileSaveNotice,
   onLanguage,
   onOpenDelete,
@@ -4252,6 +4518,9 @@ function AccountSettingsPage({
   onReplaceEvidence,
   onDeleteEvidence,
   onProfileChange,
+  onIdentityChange,
+  onPasswordChange,
+  onUpdatePassword,
   onSave,
 }: {
   user: { name: string; email: string; publicId: string };
@@ -4268,7 +4537,9 @@ function AccountSettingsPage({
     schoolUniversity: string;
     yearGraduated: string;
   };
+  password: { current: string; next: string; confirm: string };
   isSavingProfile: boolean;
+  isUpdatingPassword: boolean;
   profileSaveNotice: string | null;
   onLanguage: (lang: 'en' | 'fil') => void;
   onOpenDelete: () => void;
@@ -4288,6 +4559,9 @@ function AccountSettingsPage({
     schoolUniversity: string;
     yearGraduated: string;
   }) => void;
+  onIdentityChange: (identity: { name: string; email: string }) => void;
+  onPasswordChange: (password: { current: string; next: string; confirm: string }) => void;
+  onUpdatePassword: () => void;
   onSave: () => void;
 }) {
   const t = (text: string) => tr(uiLanguage, text);
@@ -4335,8 +4609,8 @@ function AccountSettingsPage({
             </div>
           )}
           <div className="space-y-3">
-            <FormField label={t('Full Name')}><input className="cand-form-input" defaultValue={user.name} /></FormField>
-            <FormField label={t('Email Address')}><input className="cand-form-input" defaultValue={user.email} /></FormField>
+            <FormField label={t('Full Name')}><input className="cand-form-input" value={user.name} onChange={(event) => onIdentityChange({ name: event.target.value, email: user.email })} /></FormField>
+            <FormField label={t('Email Address')}><input className="cand-form-input" type="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} /></FormField>
             <FormField label={t('Candidate ID')}><input className="cand-form-input" value={user.publicId || t('Not available')} readOnly /></FormField>
             <FormField label={t('Contact Number')}><input className="cand-form-input" value={profile.contactNumber} onChange={(event) => onProfileChange({ ...profile, contactNumber: event.target.value })} placeholder={t('Enter contact number')} /></FormField>
             <FormField label={t('Birthday')}><input className="cand-form-input" value={profile.birthday} onChange={(event) => onProfileChange({ ...profile, birthday: event.target.value })} type="date" /></FormField>
@@ -4352,12 +4626,12 @@ function AccountSettingsPage({
           <div className="cand-acct-section">
             <div className="cand-acct-title">{t('Password & Security')}</div>
             <div className="space-y-3">
-              <FormField label={t('Current Password')}><input className="cand-form-input" type="password" /></FormField>
-              <FormField label={t('New Password')}><input className="cand-form-input" type="password" /></FormField>
-              <FormField label={t('Confirm New Password')}><input className="cand-form-input" type="password" /></FormField>
+              <FormField label={t('Current Password')}><input className="cand-form-input" type="password" value={password.current} onChange={(event) => onPasswordChange({ ...password, current: event.target.value })} /></FormField>
+              <FormField label={t('New Password')}><input className="cand-form-input" type="password" value={password.next} onChange={(event) => onPasswordChange({ ...password, next: event.target.value })} /></FormField>
+              <FormField label={t('Confirm New Password')}><input className="cand-form-input" type="password" value={password.confirm} onChange={(event) => onPasswordChange({ ...password, confirm: event.target.value })} /></FormField>
             </div>
-            <button className="cand-btn-primary mt-4" type="button" onClick={onSave} disabled={isSavingProfile}>
-              {isSavingProfile ? `${t('Saving')}...` : t('Update Password')}
+            <button className="cand-btn-primary mt-4" type="button" onClick={onUpdatePassword} disabled={isUpdatingPassword}>
+              {isUpdatingPassword ? `${t('Updating')}...` : t('Update Password')}
             </button>
           </div>
 
@@ -4728,8 +5002,8 @@ function KareersPage({
               </div>
 
               <div className="mb-2 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>
-              <div className="cand-kareer-detail-box">
-                {activeSelected.description || 'Full job description is not available yet for this listing, but you can still explore the role details and guidance below.'}
+              <div className="cand-kareer-detail-box whitespace-pre-wrap">
+                {activeSelected.description ? formatJobDescription(activeSelected.description) : 'Full job description is not available yet for this listing, but you can still explore the role details and guidance below.'}
               </div>
 
               <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Responsibilities</div>
@@ -5248,8 +5522,8 @@ function JobDetailModal({
         </div>
 
         <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>
-        <div className="cand-job-description-box">
-          {job.description?.trim() || 'Full job description is not available yet for this listing, but you can still explore the role details and personalized guidance below.'}
+        <div className="cand-job-description-box whitespace-pre-wrap">
+          {job.description?.trim() ? formatJobDescription(job.description) : 'Full job description is not available yet for this listing, but you can still explore the role details and personalized guidance below.'}
         </div>
 
         <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Responsibilities</div>

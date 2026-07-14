@@ -27,8 +27,7 @@ export class RoleMismatchError extends Error {
   actualRole: AuthRole;
 
   constructor(actualRole: AuthRole) {
-    const roleLabel = actualRole === 'candidate' ? 'Candidate' : actualRole === 'employer' ? 'Employer' : 'Admin';
-    super(`This account is registered as a ${roleLabel}. Please use the ${roleLabel} Login page.`);
+    super('Unable to log in. Please check your login credentials and account type.');
     this.name = 'RoleMismatchError';
     this.actualRole = actualRole;
   }
@@ -43,7 +42,6 @@ type ProfileRow = {
   candidate_profiles?: {
     birthday?: string | null;
     location?: string | null;
-    education_json?: unknown;
     certifications_json?: unknown;
   } | null;
   employer_profiles?: Array<{ company_name: string | null }> | { company_name: string | null } | null;
@@ -86,7 +84,7 @@ function mapProfile(profile: ProfileRow): KareerlyUser {
     role: profile.role,
     birthday: profile.candidate_profiles?.birthday || null,
     location: profile.candidate_profiles?.location || null,
-    educationJson: profile.candidate_profiles?.education_json || null,
+    educationJson: null,
     certificationsJson: profile.candidate_profiles?.certifications_json || null,
     company: employerProfile?.company_name || undefined,
   };
@@ -95,7 +93,7 @@ function mapProfile(profile: ProfileRow): KareerlyUser {
 async function getProfileForUserId(userId: string): Promise<KareerlyUser | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, role, first_name, last_name, email, candidate_profiles(birthday,location,education_json,certifications_json), employer_profiles(company_name)')
+    .select('id, role, first_name, last_name, email, candidate_profiles(birthday,location,certifications_json), employer_profiles(company_name)')
     .eq('id', userId)
     .maybeSingle();
 
@@ -210,14 +208,6 @@ export function getFriendlyAuthErrorMessage(error: unknown): string {
     return 'Please confirm your email address before logging in.';
   }
 
-  if (lowerMessage.includes('registered as a candidate account')) {
-    return 'This email is registered as a candidate account. Please use the job seeker login instead.';
-  }
-
-  if (lowerMessage.includes('registered as a employer account')) {
-    return 'This email is registered as an employer account. Please use the employer login instead.';
-  }
-
   if (lowerMessage.includes('invalid login credentials') || lowerMessage === 'unable to log in.' || status === 400) {
     return 'Invalid email or password. Please check your details or reset your password.';
   }
@@ -324,15 +314,6 @@ export async function updateCandidateProfile(input: {
   const payload: Record<string, unknown> = {};
   if (typeof input.location === 'string') payload.location = input.location;
   if (typeof input.birthday === 'string') payload.birthday = input.birthday || null;
-  if (input.educationJson !== undefined) {
-    const education =
-      input.educationJson && typeof input.educationJson === 'object' && !Array.isArray(input.educationJson)
-        ? { ...(input.educationJson as Record<string, unknown>) }
-        : {};
-    if (typeof input.contactNumber === 'string') education.contactNumber = input.contactNumber;
-    if (typeof input.address === 'string') education.address = input.address;
-    payload.education_json = education;
-  }
   if (input.certificationsJson !== undefined) payload.certifications_json = input.certificationsJson;
   if (typeof input.preferredIndustry === 'string') payload.preferred_industry = input.preferredIndustry;
   if (typeof input.preferredWorkSetup === 'string') payload.preferred_work_setup = input.preferredWorkSetup;

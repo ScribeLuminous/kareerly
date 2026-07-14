@@ -58,13 +58,14 @@ SECTION_HEADINGS = [
     r"education",
     r"educational background",
     r"academic",
-    r"certificat",
+    r"certifications?",
+    r"certificates?",
     r"licenses?",
     r"training",
     r"courses?",
-    r"experience",
-    r"work experience",
-    r"professional experience",
+    r"experiences?",
+    r"work experiences?",
+    r"professional experiences?",
     r"employment history",
     r"internship",
     r"projects?",
@@ -270,6 +271,109 @@ def extract_certification_indicators(resume_text: str) -> List[str]:
     ]
 
 
+DEGREE_PATTERNS = [
+    (r"\bbachelor\s+of\s+science\s+in\s+computer\s+science\b", "Bachelor's Degree"),
+    (r"\b(?:bachelor(?:'s)?|baccalaureate)\s+(?:of|in)\s+[A-Za-z][A-Za-z &,/()\-]{2,80}", "Bachelor's Degree"),
+    (r"\b(?:master(?:'s)?|master)\s+(?:of|in)\s+[A-Za-z][A-Za-z &,/()\-]{2,80}", "Master's Degree"),
+    (r"\b(?:doctor(?:ate)?|doctor)\s+(?:of|in)\s+[A-Za-z][A-Za-z &,/()\-]{2,80}", "Doctorate Degree"),
+    (r"\b(?:associate(?:'s)?|associate)\s+(?:of|in)\s+[A-Za-z][A-Za-z &,/()\-]{2,80}", "Associate Degree"),
+    (r"\b(?:BS|BSc|BA|AB|MS|MSc|MA|MBA|PhD)\s+(?:in\s+)?[A-Za-z][A-Za-z &,/()\-]{2,80}", "Degree"),
+]
+
+SCHOOL_PATTERN = re.compile(
+    r"\b(?:"
+    r"(?:University|College|Institute|Academy|School)\s+of\s+[A-Za-z][A-Za-z &'.\-]{1,80}"
+    r"|[A-Za-z0-9&'.\-]+(?:\s+[A-Za-z0-9&'.\-]+){0,7}\s+"
+    r"(?:University|College|Institute|Academy|School)(?:\s+of\s+[A-Za-z &'.\-]+)?"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _clean_extracted_line(value: str) -> str:
+    value = re.sub(r"\s+", " ", value or "").strip(" \t\r\n|,;:-")
+    return value.strip(" ,;:-")
+
+
+def extract_education(resume_text: str, sections: Dict[str, str]) -> List[Dict[str, str]]:
+    education_text = next(
+        (text for heading, text in sections.items() if heading != "full_text" and any(key in heading for key in ("education", "academic"))),
+        resume_text,
+    )
+    school = ""
+    for line in education_text.splitlines():
+        school_match = SCHOOL_PATTERN.search(line)
+        if school_match:
+            school = _clean_extracted_line(school_match.group(0))
+            break
+
+    flattened = re.sub(r"\s+", " ", education_text)
+    if school:
+        flattened = re.split(re.escape(school), flattened, maxsplit=1, flags=re.IGNORECASE)[0]
+
+    degree_program = ""
+    attainment = ""
+    for pattern, label in DEGREE_PATTERNS:
+        match = re.search(pattern, flattened, re.IGNORECASE)
+        if match:
+            degree_program = _clean_extracted_line(match.group(0))
+            degree_program = re.split(
+                r"\s+(?:CONTACT|EXPERIENCES?|SKILLS?|CERTIFICATIONS?|PROJECTS?)\b",
+                degree_program,
+                maxsplit=1,
+                flags=re.IGNORECASE,
+            )[0].strip()
+            attainment = label
+            break
+
+    year = ""
+    education_lines = [line.strip() for line in education_text.splitlines() if line.strip()]
+    relevant_lines = []
+    for index, line in enumerate(education_lines):
+        if (degree_program and compact_text(line) in compact_text(degree_program)) or (school and compact_text(line) in compact_text(school)):
+            relevant_lines.extend(education_lines[max(0, index - 1):index + 3])
+    year_matches = re.findall(r"\b(?:19|20)\d{2}\b", " ".join(relevant_lines))
+    if year_matches:
+        year = year_matches[-1]
+
+    if not any((degree_program, school, year)):
+        return []
+    return [{
+        "highest_educational_attainment": attainment,
+        "degree_program": degree_program,
+        "school_university": school,
+        "year_graduated": year,
+    }]
+
+
+def extract_certifications(resume_text: str, sections: Dict[str, str]) -> List[Dict[str, str]]:
+    certification_sections = [
+        text for heading, text in sections.items()
+        if heading != "full_text" and any(key in heading for key in ("certificat", "license", "training", "course"))
+    ]
+    if not certification_sections:
+        return []
+
+    results = []
+    seen = set()
+    for section_text in certification_sections:
+        for raw_line in section_text.splitlines():
+            title = _clean_extracted_line(re.sub(r"^[\s•●▪◦*\-]+", "", raw_line))
+            if len(title) < 3 or re.fullmatch(r"(?:19|20)\d{2}", title):
+                continue
+            normalized = title.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            year_match = re.search(r"\b(?:19|20)\d{2}\b", title)
+            results.append({
+                "title": re.sub(r"\s*[-–|,]?\s*\b(?:19|20)\d{2}\b.*$", "", title).strip(),
+                "issuer": "",
+                "year": year_match.group(0) if year_match else "",
+            })
+    return [item for item in results if item["title"]][:20]
+
+
 def extract_experience_indicators(resume_text: str) -> List[str]:
     indicators = []
 
@@ -372,6 +476,8 @@ def analyze_resume_file(file_path: str, skill_extractor: SkillExtractor) -> Dict
     education_indicators = extract_education_indicators(cleaned)
     certification_indicators = extract_certification_indicators(cleaned)
     experience_indicators = extract_experience_indicators(cleaned)
+    education = extract_education(cleaned, sections)
+    certifications = extract_certifications(cleaned, sections)
     candidate_full_name = extract_candidate_full_name(raw_text, cleaned)
 
     warnings = []
@@ -400,6 +506,8 @@ def analyze_resume_file(file_path: str, skill_extractor: SkillExtractor) -> Dict
         "education_indicators": education_indicators,
         "certification_indicators": certification_indicators,
         "experience_indicators": experience_indicators,
+        "education": education,
+        "certifications": certifications,
     }
 
     normalized_for_matching = {
