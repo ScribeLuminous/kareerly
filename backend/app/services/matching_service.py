@@ -34,11 +34,6 @@ REFERENCE_JOBS_PATH = os.path.join(DATA_DIR, "reference_jobs.csv")
 SKILLS_REFERENCE_PATH = os.path.join(DATA_DIR, "skills_reference.csv")
 LEARNING_RESOURCES_PATH = os.path.join(DATA_DIR, "learning_resources.csv")
 
-# If jobs are small, score all jobs directly.
-# If jobs are large, use TF-IDF first then Cross-Encoder reranking.
-MAX_JOBS_FOR_DIRECT_CROSS_ENCODER = 200
-TOP_N_FOR_RERANK = 150
-
 TOP_FIT_NOW = 10
 TOP_ASPIRATION = 10
 MAX_CONFIRMED_SKILLS = 20
@@ -956,31 +951,11 @@ def match_resume_to_jobs(
         extracted_skills=[{"skill_name": name} for name in candidate_skill_names],
         preferences={},
     )
-    aspiration_retrieval_text = build_candidate_profile_text(
-        resume_text=resume_text,
-        extracted_skills=[{"skill_name": name} for name in candidate_skill_names],
-        preferences=preferences,
-    )
-
     jobs_df = load_reference_jobs()
 
-    if len(jobs_df) > MAX_JOBS_FOR_DIRECT_CROSS_ENCODER:
-        fit_now_candidate_jobs = tfidf_prefilter(
-            candidate_profile_text=resume_evidence_text,
-            jobs_df=jobs_df,
-            top_n=TOP_N_FOR_RERANK,
-        )
-        aspiration_candidate_jobs = tfidf_prefilter(
-            candidate_profile_text=aspiration_retrieval_text,
-            jobs_df=jobs_df,
-            top_n=TOP_N_FOR_RERANK,
-        )
-        candidate_jobs = merge_candidate_job_pools(
-            fit_now_candidate_jobs,
-            aspiration_candidate_jobs,
-        )
-    else:
-        candidate_jobs = jobs_df.copy()
+    # Score every available database job. Result visibility is handled separately
+    # by report access control; retrieval must not silently discard possible jobs.
+    candidate_jobs = jobs_df.copy()
 
     scored_jobs = cross_encoder_score_jobs(resume_evidence_text, candidate_jobs)
 
@@ -1055,11 +1030,15 @@ def match_resume_to_jobs(
         results.append({
             "job_id": job.get("job_id", ""),
             "job_title": job.get("job_title", ""),
+            "company": job.get("company_name", ""),
+            "company_name": job.get("company_name", ""),
+            "job_source": job.get("job_source", "internal"),
             "job_category": job.get("job_category", ""),
             "job_subcategory": job.get("job_subcategory", ""),
             "category_id": job.get("category_id_norm", ""),
             "location": job.get("location", ""),
             "work_type": job.get("work_type", ""),
+            "employment_type": job.get("employment_type", ""),
             "experience_level_required": job.get("experience_level_required", ""),
             "salary_range_monthly_php": job.get("salary_range_monthly_php", ""),
             "job_description": job.get("job_description", ""),
@@ -1212,8 +1191,8 @@ def match_resume_to_jobs(
             "extracted_skill_names": candidate_skill_names,
             "total_jobs_loaded": int(len(jobs_df)),
             "total_jobs_scored": int(len(scored_jobs)),
-            "fit_now_count": len(fit_now_matches),
-            "aspiration_count": len(aspiration_matches),
+            "fit_now_count": len(all_fit_now_matches),
+            "aspiration_count": len(all_aspiration_matches),
             "top_10_scores": top_10_scores,
         },
         "metadata": {

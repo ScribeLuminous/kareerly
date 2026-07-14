@@ -1,0 +1,47 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# macOS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Testing / cache
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# Local uploads
+uploads/
+
+# Temporary files
+tmp/
+temp/
+
+# Development notebooks
+*.ipynb
+
+# Frontend artifacts
+node_modules/
+dist/

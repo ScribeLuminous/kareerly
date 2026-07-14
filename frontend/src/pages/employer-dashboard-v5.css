@@ -843,6 +843,15 @@
   color: var(--rust);
 }
 
+.emp-btn-secondary:disabled,
+.emp-btn-secondary:disabled:hover {
+  background: #f2f0ed;
+  border-color: #ded9d2;
+  color: #aaa29a;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
 .emp-btn-danger {
   background: var(--red);
   color: #fff;
@@ -2197,6 +2206,11 @@
   font-size: 13px;
   color: var(--mid);
   line-height: 1.6;
+}
+
+.emp-job-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .emp-job-detail-meta-row {

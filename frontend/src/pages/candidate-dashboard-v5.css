@@ -1984,6 +1984,44 @@
   background: #fff;
 }
 
+.cand-resume-preview-status {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--mid);
+  font-weight: 600;
+}
+
+.cand-resume-preview-document {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 48px clamp(28px, 7vw, 88px);
+  background: #fff;
+  color: #20201e;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.cand-resume-preview-document img {
+  max-width: 100%;
+  height: auto;
+}
+
+.cand-resume-preview-document table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cand-resume-preview-document td,
+.cand-resume-preview-document th {
+  padding: 6px;
+  border: 1px solid #ddd;
+  vertical-align: top;
+}
+
 .msg-bubble-employer,
 .msg-bubble-candidate {
   max-width: 76%;

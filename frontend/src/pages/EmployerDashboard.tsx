@@ -43,8 +43,15 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Logo from '../components/Logo';
-import { loadApplicationMessages, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
+import {
+  loadApplicationMessages,
+  loadEmployerAccountSettings,
+  saveEmployerAccountSettings,
+  sendApplicationMessage,
+  updateEmployerApplicationStatus,
+} from '../lib/api';
 import { supabase } from '../lib/supabase';
+import { formatJobDescription, joinJobContent, splitJobContent } from '../lib/jobDescription';
 import './employer-dashboard-v5.css';
 
 type EmployerDashboardProps = {
@@ -113,6 +120,7 @@ type EmployerJob = {
   subcategory: string;
   experienceLevel: string;
   description: string;
+  responsibilities: string[];
   requiredSkills: string[];
   niceToHaveSkills: string[];
   workSetup: string;
@@ -139,6 +147,7 @@ type EmployerJobPostRow = {
   salary_min_php: number | null;
   salary_max_php: number | null;
   job_description: string | null;
+  responsibilities?: string | null;
   required_skills: string | null;
   preferred_skills: string | null;
   posting_status: string | null;
@@ -216,6 +225,7 @@ type JobFormState = {
   subcategory: string;
   experienceLevel: string;
   description: string;
+  responsibilities: string;
   workSetup: string;
   location: string;
   salaryRange: string;
@@ -404,7 +414,10 @@ const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
   category: row.category_name || '',
   subcategory: row.job_subcategory || '',
   experienceLevel: row.job_level || '',
-  description: row.job_description || '',
+  description: splitJobContent(row.job_description || '').description,
+  responsibilities: row.responsibilities
+    ? row.responsibilities.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
+    : splitJobContent(row.job_description || '').responsibilities,
   requiredSkills: splitSkills(row.required_skills),
   niceToHaveSkills: splitSkills(row.preferred_skills),
   workSetup: row.work_setup || '',
@@ -412,7 +425,7 @@ const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
   province: (row.location || '').split(',').slice(1).join(',').trim(),
   salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
   deadline: row.application_deadline || '',
-  status: row.application_deadline && row.application_deadline < todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
+  status: row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
   postedDate: row.created_at ? row.created_at.slice(0, 10) : todayIso(),
 });
 
@@ -461,6 +474,7 @@ const emptyJobForm: JobFormState = {
   subcategory: '',
   experienceLevel: '',
   description: '',
+  responsibilities: '',
   workSetup: '',
   location: '',
   salaryRange: '',
@@ -616,7 +630,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     );
   }
 
-  const companyName = employer.company || 'Employer Workspace';
+  const [companyName, setCompanyName] = useState(employer.company || 'Employer Workspace');
   const companyInitials = getInitials(companyName);
   const contactName = employer.name || 'Employer Manager';
   const [activePage, setActivePage] = useState<EmployerPage>('dashboard');
@@ -624,6 +638,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [jobs, setJobs] = useState<EmployerJob[]>(initialJobs);
+  const [currentDate, setCurrentDate] = useState(todayIso);
   const [employerProfileId, setEmployerProfileId] = useState('');
   const [isSavingJob, setIsSavingJob] = useState(false);
   const [applications, setApplications] = useState<CandidateApplication[]>(initialApplications);
@@ -669,9 +684,111 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     contactEmail: employer.email,
     contactNumber: 'Enter contact number',
   });
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const toastTimerRef = useRef<number | null>(null);
 
   const unreadCount = useMemo(() => notifications.filter((item) => item.unread).length, [notifications]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentDate(todayIso()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadSettings = async () => {
+      try {
+        const saved = await loadEmployerAccountSettings();
+        if (!isMounted) return;
+        setAccountProfile({
+          company: saved.company_name || companyName,
+          industry: saved.industry || '',
+          size: saved.company_size || '',
+          location: saved.company_location || '',
+          website: saved.company_website || '',
+          about: saved.company_description || '',
+          contactPerson: saved.contact_person_name || contactName,
+          contactRole: saved.contact_role || '',
+          contactEmail: saved.account_email || saved.business_email || employer.email,
+          contactNumber: saved.contact_number || '',
+        });
+        if (saved.company_name) setCompanyName(saved.company_name);
+      } catch (error) {
+        if (isMounted) showToast(error instanceof Error ? error.message : 'Unable to load account settings.', 'warn');
+      }
+    };
+    void loadSettings();
+    return () => { isMounted = false; };
+  }, [employer.id]);
+
+  const saveCompanyProfile = async () => {
+    if (!accountProfile.company.trim()) {
+      showToast('Company name is required.', 'warn');
+      return;
+    }
+    setIsSavingAccount(true);
+    try {
+      const saved = await saveEmployerAccountSettings({
+        company_name: accountProfile.company,
+        industry: accountProfile.industry,
+        company_size: accountProfile.size,
+        company_location: accountProfile.location,
+        company_website: accountProfile.website,
+        company_description: accountProfile.about,
+      });
+      setCompanyName(saved.company_name || accountProfile.company.trim());
+      showToast('Company profile saved to Supabase.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save company profile.', 'danger');
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
+
+  const saveContactDetails = async () => {
+    setIsSavingAccount(true);
+    try {
+      await saveEmployerAccountSettings({
+        contact_person_name: accountProfile.contactPerson,
+        contact_role: accountProfile.contactRole,
+        business_email: accountProfile.contactEmail,
+        account_email: accountProfile.contactEmail,
+        first_name: accountProfile.contactPerson.trim().split(/\s+/)[0] || '',
+        last_name: accountProfile.contactPerson.trim().split(/\s+/).slice(1).join(' '),
+        contact_number: accountProfile.contactNumber,
+      });
+      showToast('Contact details saved to Supabase.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save contact details.', 'danger');
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
+
+  const updatePassword = async () => {
+    if (!passwordForm.current || !passwordForm.next || passwordForm.next !== passwordForm.confirm) {
+      showToast(passwordForm.next !== passwordForm.confirm ? 'New passwords do not match.' : 'Complete all password fields.', 'warn');
+      return;
+    }
+    if (passwordForm.next.length < 8) {
+      showToast('New password must be at least 8 characters.', 'warn');
+      return;
+    }
+    setIsSavingAccount(true);
+    try {
+      const { error: verifyError } = await supabase.auth.signInWithPassword({ email: employer.email, password: passwordForm.current });
+      if (verifyError) throw new Error('Current password is incorrect.');
+      const { error } = await supabase.auth.updateUser({ password: passwordForm.next });
+      if (error) throw error;
+      setPasswordForm({ current: '', next: '', confirm: '' });
+      showToast('Password updated in Supabase Auth.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to update password.', 'danger');
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
 
   const allApplicationsCount = applications.length;
   const openJobsCount = jobs.filter((job) => job.status === 'open').length;
@@ -888,6 +1005,17 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       }
 
       if (!isMounted) return;
+      const expiredJobIds = (data || [])
+        .filter((row) => row.application_deadline && row.application_deadline <= currentDate && ['active', 'open'].includes(String(row.posting_status)))
+        .map((row) => row.job_id);
+      if (expiredJobIds.length > 0) {
+        const { error: closeError } = await supabase
+          .from('employer_job_posts')
+          .update({ posting_status: 'closed', updated_at: new Date().toISOString() })
+          .in('job_id', expiredJobIds);
+        if (closeError) console.warn('Unable to persist expired job statuses:', closeError);
+      }
+      if (!isMounted) return;
       const savedJobs = Array.isArray(data) ? (data as EmployerJobPostRow[]).map(toEmployerJob) : [];
       setJobs(savedJobs);
       setSelectedJobId(savedJobs[0]?.id || '');
@@ -898,17 +1026,17 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     return () => {
       isMounted = false;
     };
-  }, [employer.id]);
+  }, [employer.id, currentDate]);
 
   useEffect(() => {
-    const expiredOpenJobs = jobs.filter((job) => job.status === 'open' && job.deadline && job.deadline < todayIso());
+    const expiredOpenJobs = jobs.filter((job) => job.status === 'open' && job.deadline && job.deadline <= currentDate);
     if (expiredOpenJobs.length === 0) return;
     setJobs((current) => current.map((job) => expiredOpenJobs.some((expired) => expired.id === job.id) ? { ...job, status: 'closed' } : job));
     void Promise.all(expiredOpenJobs.map((job) => supabase
       .from('employer_job_posts')
       .update({ posting_status: 'closed', updated_at: new Date().toISOString() })
       .eq('job_id', job.id)));
-  }, [jobs]);
+  }, [jobs, currentDate]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1011,6 +1139,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       subcategory: job.subcategory,
       experienceLevel: job.experienceLevel,
       description: job.description,
+      responsibilities: job.responsibilities.join('\n'),
       workSetup: job.workSetup,
       location: toFormLocation(job),
       salaryRange: toSalaryInputValue(job.salaryRange),
@@ -1087,6 +1216,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     if (!jobForm.subcategory.trim()) return 'Subcategory is required.';
     if (!jobForm.experienceLevel.trim()) return 'Experience Level is required.';
     if (!jobForm.description.trim()) return 'Job Description is required.';
+    if (!jobForm.responsibilities.trim()) return 'Add at least one responsibility.';
     if (requiredSkillsDraft.length === 0) return 'Add at least one required skill.';
     if (!jobForm.workSetup.trim()) return 'Work Setup is required.';
     if (!jobForm.location.trim()) return 'Location is required.';
@@ -1124,14 +1254,19 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       category_name: jobForm.category,
       job_subcategory: jobForm.subcategory,
       job_title: jobForm.title.trim(),
-      company_name: companyName,
+      company_name: accountProfile.company.trim() || companyName,
       location,
       work_setup: jobForm.workSetup,
       employment_type: 'Full-time',
       job_level: jobForm.experienceLevel,
       salary_min_php: salaryMinPhp,
       salary_max_php: salaryMaxPhp,
-      job_description: jobForm.description.trim(),
+      job_description: joinJobContent(jobForm.description, jobForm.responsibilities),
+      responsibilities: jobForm.responsibilities
+        .split(/\r?\n/)
+        .map((item) => item.replace(/^\s*[-–—•*]\s*/, '').trim())
+        .filter(Boolean)
+        .join('\n'),
       required_skills: requiredSkillsDraft.join(', '),
       preferred_skills: niceSkillsDraft.join(', '),
       must_have_skill_ids: '',
@@ -1145,6 +1280,17 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       .upsert(payload, { onConflict: 'job_id' })
       .select('*')
       .single();
+
+    if (saveError && String(saveError.message || '').includes('responsibilities')) {
+      const { responsibilities: _responsibilities, ...payloadWithoutResponsibilities } = payload;
+      const retryResult = await supabase
+        .from('employer_job_posts')
+        .upsert(payloadWithoutResponsibilities, { onConflict: 'job_id' })
+        .select('*')
+        .single();
+      savedPost = retryResult.data;
+      saveError = retryResult.error;
+    }
 
     if (saveError && String(saveError.message || '').includes('job_subcategory')) {
       const { job_subcategory: _jobSubcategory, ...payloadWithoutSubcategory } = payload;
@@ -1340,7 +1486,6 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       ]);
     }
     setMessageDraft('');
-    showToast(isRequest ? 'Message request sent and saved.' : 'Message sent and saved.', 'success');
   };
 
   const requestDeleteEmployerProfile = () => {
@@ -1722,7 +1867,13 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                             <UIIcon name="users" />
                             Applicants
                           </button>
-                          <button className="emp-btn-secondary" type="button" onClick={() => closeJobPosting(selectedJob.id)}>
+                          <button
+                            className="emp-btn-secondary"
+                            type="button"
+                            onClick={() => closeJobPosting(selectedJob.id)}
+                            disabled={selectedJob.status === 'closed'}
+                            title={selectedJob.status === 'closed' ? 'This job is already closed.' : 'Close this job'}
+                          >
                             <UIIcon name="times-circle" />
                             Close
                           </button>
@@ -1750,7 +1901,14 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                       </div>
 
                       <div className="emp-job-detail-section-label">Job Description</div>
-                      <div className="emp-job-detail-box">{selectedJob.description}</div>
+                      <div className="emp-job-detail-box emp-job-description">{formatJobDescription(selectedJob.description)}</div>
+
+                      <div className="emp-job-detail-section-label">Responsibilities</div>
+                      <div className="emp-job-detail-box emp-job-description">
+                        {selectedJob.responsibilities.length > 0
+                          ? selectedJob.responsibilities.map((item) => `• ${item}`).join('\n')
+                          : 'Responsibilities have not yet been provided.'}
+                      </div>
 
                       <div className="emp-job-detail-section-label">Required Skills</div>
                       <div className="emp-skill-chips">
@@ -2228,7 +2386,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                       onChange={(event) => setAccountProfile((current) => ({ ...current, about: event.target.value }))}
                     />
                   </div>
-                  <button className="emp-btn-primary" type="button" onClick={() => showToast('Company profile saved.', 'success')}>
+                  <button className="emp-btn-primary" type="button" disabled={isSavingAccount} onClick={() => void saveCompanyProfile()}>
                     <UIIcon name="check" />
                     Save Profile
                   </button>
@@ -2257,7 +2415,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                       />
                     </div>
                     <div className="emp-form-group mb-4">
-                      <label className="emp-form-label">Email Address</label>
+                      <label className="emp-form-label">Account &amp; Contact Email</label>
                       <input
                         className="emp-input"
                         type="email"
@@ -2273,7 +2431,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                         onChange={(event) => setAccountProfile((current) => ({ ...current, contactNumber: event.target.value }))}
                       />
                     </div>
-                    <button className="emp-btn-primary" type="button" onClick={() => showToast('Contact details saved.', 'success')}>
+                    <button className="emp-btn-primary" type="button" disabled={isSavingAccount} onClick={() => void saveContactDetails()}>
                       <UIIcon name="check" />
                       Save Contact
                     </button>
@@ -2286,17 +2444,17 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                     </div>
                     <div className="emp-form-group mb-4">
                       <label className="emp-form-label">Current Password</label>
-                      <input className="emp-input" type="password" placeholder="Enter current password" />
+                      <input className="emp-input" type="password" value={passwordForm.current} onChange={(event) => setPasswordForm((current) => ({ ...current, current: event.target.value }))} placeholder="Enter current password" />
                     </div>
                     <div className="emp-form-group mb-4">
                       <label className="emp-form-label">New Password</label>
-                      <input className="emp-input" type="password" placeholder="Enter new password" />
+                      <input className="emp-input" type="password" value={passwordForm.next} onChange={(event) => setPasswordForm((current) => ({ ...current, next: event.target.value }))} placeholder="Enter new password" />
                     </div>
                     <div className="emp-form-group mb-4">
                       <label className="emp-form-label">Confirm New Password</label>
-                      <input className="emp-input" type="password" placeholder="Confirm new password" />
+                      <input className="emp-input" type="password" value={passwordForm.confirm} onChange={(event) => setPasswordForm((current) => ({ ...current, confirm: event.target.value }))} placeholder="Confirm new password" />
                     </div>
-                    <button className="emp-btn-primary" type="button" onClick={() => showToast('Password updated.', 'success')}>
+                    <button className="emp-btn-primary" type="button" disabled={isSavingAccount} onClick={() => void updatePassword()}>
                       <UIIcon name="check" />
                       Update Password
                     </button>
@@ -3040,9 +3198,24 @@ function JobEditorPanel({
             className="emp-textarea"
             style={{ minHeight: 96 }}
             value={form.description}
-            placeholder="Describe the role, responsibilities, and expectations..."
+            placeholder="Describe the role and its purpose..."
             onChange={(event) => onUpdateForm('description', event.target.value)}
           />
+          <div className="emp-form-hint">Give candidates a concise overview of the role.</div>
+        </div>
+      </div>
+
+      <div className="emp-form-grid full">
+        <div className="emp-form-group">
+          <label className="emp-form-label required">Responsibilities</label>
+          <textarea
+            className="emp-textarea"
+            style={{ minHeight: 132 }}
+            value={form.responsibilities}
+            placeholder={'Enter one responsibility per line.\nExample: Resolve customer support tickets within agreed response times.'}
+            onChange={(event) => onUpdateForm('responsibilities', event.target.value)}
+          />
+          <div className="emp-form-hint">Enter one responsibility per line. These appear as a separate list on the candidate job view.</div>
         </div>
       </div>
 

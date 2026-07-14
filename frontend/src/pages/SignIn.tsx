@@ -1,6 +1,6 @@
 import AuthShell from '../components/AuthShell';
 import { useState } from 'react';
-import { getFriendlyAuthErrorMessage, RoleMismatchError, signInWithEmail } from '../lib/auth';
+import { getFriendlyAuthErrorMessage, signInWithEmail } from '../lib/auth';
 import type { KareerlyUser } from '../lib/auth';
 
 type SignInProps = {
@@ -14,7 +14,6 @@ type SignInProps = {
 
 export default function SignIn({ expectedRole = 'candidate', onAuthenticated, onCreateAccount, onSwitchRole, onResetPassword, onHome }: SignInProps) {
   const [error, setError] = useState<string | null>(null);
-  const [mismatchedRole, setMismatchedRole] = useState<'candidate' | 'employer' | 'admin' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEmployerLogin = expectedRole === 'employer';
   const isAdminLogin = expectedRole === 'admin';
@@ -28,7 +27,6 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
     const password = String(form.get('password') || '');
 
     setError(null);
-    setMismatchedRole(null);
     setIsSubmitting(true);
 
     try {
@@ -36,7 +34,6 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
       onAuthenticated(user);
     } catch (error) {
       console.warn('Sign-in failed:', error);
-      if (error instanceof RoleMismatchError) setMismatchedRole(error.actualRole);
       const message = getFriendlyAuthErrorMessage(error);
       setError(message.startsWith('Invalid email or password') ? `Invalid email or password for this ${isAdminLogin ? 'admin' : isEmployerLogin ? 'employer' : 'candidate'} account. Please check your details or reset your password.` : message);
     } finally {
@@ -78,11 +75,6 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
         {error && (
           <div className="mb-3 rounded-lg border border-red bg-red-l px-3 py-2 text-sm font-semibold text-red" role="alert" aria-live="polite">
             <div>{error}</div>
-            {mismatchedRole && onSwitchRole && mismatchedRole !== 'admin' && (
-              <button className="mt-2 font-bold underline" type="button" onClick={onSwitchRole}>
-                Go to {mismatchedRole === 'candidate' ? 'Candidate' : 'Employer'} Login
-              </button>
-            )}
           </div>
         )}
 

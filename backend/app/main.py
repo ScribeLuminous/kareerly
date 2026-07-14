@@ -12,6 +12,7 @@ import urllib.request
 from pathlib import Path
 from typing import Annotated, Optional
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,6 +34,7 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 app = FastAPI(title="Kareerly ML Backend")
+PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
 frontend_urls = os.getenv(
     "FRONTEND_URLS",
@@ -82,6 +84,35 @@ class EmployerApplicationStatusRequest(BaseModel):
     application_id: str
     status: str
     rejection_reason: Optional[str] = None
+
+
+class EmployerAccountSettingsRequest(BaseModel):
+    company_name: Optional[str] = None
+    company_size: Optional[str] = None
+    industry: Optional[str] = None
+    business_email: Optional[str] = None
+    company_location: Optional[str] = None
+    company_website: Optional[str] = None
+    company_description: Optional[str] = None
+    contact_person_name: Optional[str] = None
+    contact_role: Optional[str] = None
+    contact_number: Optional[str] = None
+    account_email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class CandidateAccountSettingsRequest(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    contact_number: Optional[str] = None
+    birthday: Optional[str] = None
+    address: Optional[str] = None
+    location: Optional[str] = None
+    highest_educational_attainment: Optional[str] = None
+    degree_program: Optional[str] = None
+    school_university: Optional[str] = None
+    year_graduated: Optional[str] = None
 
 
 class AdminResetApplicationRequest(BaseModel):
@@ -385,6 +416,141 @@ def _safe_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+EMPLOYER_SETTINGS_COLUMNS = (
+    "id,user_id,company_name,company_size,industry,business_email,company_location,"
+    "company_website,company_description,contact_person_name,contact_role,contact_number,updated_at"
+)
+
+
+def _require_employer_profile(user_id: str) -> dict:
+    query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "*", "limit": "1"})
+    rows = _supabase_request(f"/rest/v1/employer_profiles?{query}", service_role=True)
+    profile = rows[0] if isinstance(rows, list) and rows else None
+    if not isinstance(profile, dict):
+        raise HTTPException(status_code=404, detail="Employer profile was not found.")
+    user_query = urllib.parse.urlencode({"id": f"eq.{user_id}", "select": "first_name,last_name,email", "limit": "1"})
+    users = _supabase_request(f"/rest/v1/profiles?{user_query}", service_role=True)
+    user = users[0] if isinstance(users, list) and users else {}
+    auth_user = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", service_role=True)
+    metadata = auth_user.get("user_metadata") if isinstance(auth_user, dict) and isinstance(auth_user.get("user_metadata"), dict) else {}
+    optional_fields = ("company_location", "company_website", "company_description", "contact_person_name", "contact_role", "contact_number")
+    return {
+        **profile, **{field: profile.get(field) or metadata.get(field) for field in optional_fields},
+        "account_email": user.get("email"), "first_name": user.get("first_name"), "last_name": user.get("last_name"),
+    }
+
+
+@app.get("/api/employer/account-settings")
+def get_employer_account_settings(authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    return _require_employer_profile(user_id)
+
+
+@app.patch("/api/employer/account-settings")
+def update_employer_account_settings(payload: EmployerAccountSettingsRequest, authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    profile = _require_employer_profile(user_id)
+    payload_values = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
+    account_fields = {key: payload_values.pop(key) for key in ("account_email", "first_name", "last_name") if key in payload_values}
+    body = {key: (value.strip() if isinstance(value, str) else value) for key, value in payload_values.items()}
+    if "company_name" in body and not body["company_name"]:
+        raise HTTPException(status_code=400, detail="Company name is required.")
+    if "business_email" in body and body["business_email"] and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", body["business_email"]):
+        raise HTTPException(status_code=400, detail="Enter a valid contact email address.")
+    account_email = str(account_fields.get("account_email") or "").strip()
+    if account_email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", account_email):
+        raise HTTPException(status_code=400, detail="Enter a valid account email address.")
+    profile_body = {key: str(value or "").strip() for key, value in account_fields.items() if key in {"first_name", "last_name"}}
+    if account_email:
+        profile_body["email"] = account_email
+    metadata = {key: value for key, value in body.items() if key != "updated_at"}
+    if profile_body:
+        profile_body["updated_at"] = _safe_timestamp()
+        _supabase_request(f"/rest/v1/profiles?id=eq.{urllib.parse.quote(user_id, safe='')}", method="PATCH", service_role=True, body=profile_body)
+        metadata.update({"first_name": profile_body.get("first_name"), "last_name": profile_body.get("last_name"), "role": "employer"})
+        auth_body = {"user_metadata": metadata}
+        if account_email:
+            auth_body["email"] = account_email
+            auth_body["email_confirm"] = True
+        _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body=auth_body)
+    elif metadata:
+        _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"user_metadata": {**metadata, "role": "employer"}})
+    if not body:
+        return _require_employer_profile(user_id)
+    supported_body = {key: value for key, value in body.items() if key in {"company_name", "company_size", "industry", "business_email"}}
+    supported_body["updated_at"] = _safe_timestamp()
+    profile_id = urllib.parse.quote(str(profile["id"]), safe="")
+    rows = _supabase_request(
+        f"/rest/v1/employer_profiles?id=eq.{profile_id}", method="PATCH", service_role=True,
+        body=supported_body, prefer="return=representation",
+    )
+    return _require_employer_profile(user_id)
+
+
+def _require_candidate_settings(user_id: str) -> dict:
+    user_query = urllib.parse.urlencode({"id": f"eq.{user_id}", "select": "first_name,last_name,email", "limit": "1"})
+    users = _supabase_request(f"/rest/v1/profiles?{user_query}", service_role=True)
+    user = users[0] if isinstance(users, list) and users else None
+    if not isinstance(user, dict):
+        raise HTTPException(status_code=404, detail="Candidate profile was not found.")
+    candidate_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "public_id,location", "limit": "1"})
+    candidates = _supabase_request(f"/rest/v1/candidate_profiles?{candidate_query}", service_role=True)
+    candidate = candidates[0] if isinstance(candidates, list) and candidates else {}
+    auth_user = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", service_role=True)
+    metadata = auth_user.get("user_metadata") if isinstance(auth_user, dict) and isinstance(auth_user.get("user_metadata"), dict) else {}
+    return {
+        "full_name": f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip(), "email": user.get("email"),
+        "public_id": candidate.get("public_id"), "birthday": metadata.get("birthday"), "location": candidate.get("location") or metadata.get("location"),
+        "contact_number": metadata.get("contact_number"), "address": metadata.get("address"),
+        "highest_educational_attainment": metadata.get("highest_educational_attainment"),
+        "degree_program": metadata.get("degree_program"),
+        "school_university": metadata.get("school_university"),
+        "year_graduated": metadata.get("year_graduated"),
+    }
+
+
+@app.get("/api/candidate/account-settings")
+def get_candidate_account_settings(authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    return _require_candidate_settings(user_id)
+
+
+@app.patch("/api/candidate/account-settings")
+def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    current = _require_candidate_settings(user_id)
+    values = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
+    full_name = str(values.pop("full_name", current.get("full_name") or "")).strip()
+    email = str(values.pop("email", current.get("email") or "")).strip().lower()
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Full name is required.")
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    name_parts = full_name.split(None, 1)
+    first_name, last_name = name_parts[0], name_parts[1] if len(name_parts) > 1 else ""
+    profile_body = {"first_name": first_name, "last_name": last_name, "email": email, "updated_at": _safe_timestamp()}
+    _supabase_request(f"/rest/v1/profiles?id=eq.{urllib.parse.quote(user_id, safe='')}", method="PATCH", service_role=True, body=profile_body)
+    metadata = {
+        "first_name": first_name, "last_name": last_name, "role": "candidate", "birthday": values.get("birthday") or None,
+        "location": values.get("location") or "", "contact_number": values.get("contact_number") or "", "address": values.get("address") or "",
+        "highest_educational_attainment": values.get("highest_educational_attainment") or "", "degree_program": values.get("degree_program") or "",
+        "school_university": values.get("school_university") or "", "year_graduated": values.get("year_graduated") or "",
+    }
+    _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"email": email, "email_confirm": True, "user_metadata": metadata})
+    candidate_body = {"user_id": user_id, "location": values.get("location") or None, "updated_at": _safe_timestamp()}
+    query = urllib.parse.urlencode({"on_conflict": "user_id"})
+    _supabase_request(f"/rest/v1/candidate_profiles?{query}", method="POST", service_role=True, body=candidate_body, prefer="resolution=merge-duplicates")
+    return _require_candidate_settings(user_id)
+
+
 def _sync_match_results_to_supabase(
     *,
     authorization: str | None,
@@ -401,6 +567,8 @@ def _sync_match_results_to_supabase(
     parsed_text = str(result.get("resume_text_for_matching") or result.get("resume_text_preview") or "")
     confirmed_skill_records = result.get("confirmed_skill_records") or result.get("extracted_skills") or []
     skill_gaps = result.get("skill_gaps") or result.get("prioritized_skill_gaps") or []
+    extracted_education = (result.get("candidate_profile") or {}).get("education") or []
+    education = extracted_education[0] if isinstance(extracted_education, list) and extracted_education and isinstance(extracted_education[0], dict) else None
 
     candidate_profile_payload = {
         "user_id": user_id,
@@ -418,6 +586,18 @@ def _sync_match_results_to_supabase(
         body=candidate_profile_payload,
         prefer="resolution=merge-duplicates",
     )
+
+    if education:
+        auth_user = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", service_role=True)
+        existing_metadata = auth_user.get("user_metadata") if isinstance(auth_user, dict) and isinstance(auth_user.get("user_metadata"), dict) else {}
+        education_metadata = {
+            key: str(education.get(key) or "")
+            for key in ("highest_educational_attainment", "degree_program", "school_university", "year_graduated")
+        }
+        _supabase_request(
+            f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True,
+            body={"user_metadata": {**existing_metadata, **education_metadata}},
+        )
 
     resume_rows = _supabase_request(
         "/rest/v1/resumes?select=id",
@@ -663,9 +843,12 @@ def _apply_report_access_control(
         ),
     }
 
+    all_fit_now_matches = result.get("all_fit_now_matches") or result.get("fit_now_matches", [])
+    all_aspiration_matches = result.get("all_aspiration_matches") or result.get("aspiration_matches", [])
+
     result["limited_report"] = {
-        "fit_now_matches": result.get("fit_now_matches", [])[:job_limit],
-        "aspiration_matches": result.get("aspiration_matches", [])[:job_limit],
+        "fit_now_matches": all_fit_now_matches[:job_limit],
+        "aspiration_matches": all_aspiration_matches[:job_limit],
         "skill_gaps": result.get("skill_gaps", result.get("prioritized_skill_gaps", []))[:gap_limit],
         "learning_recommendations": result.get("learning_recommendations", [])[:learning_limit],
         "development_progress": result.get("development_progress", []),
@@ -953,7 +1136,7 @@ def admin_update_application(payload: AdminApplicationUpdateRequest, authorizati
 
 
 @app.get("/api/jobs/list")
-def jobs_list(limit: int = 200) -> dict:
+def jobs_list(limit: int = 5000) -> dict:
     return {"results": list_available_jobs(limit=limit)}
 
 
@@ -963,6 +1146,19 @@ def _split_detail_list(value: object) -> list[str]:
     if not isinstance(value, str):
         return []
     return [item.strip() for item in re.split(r"\r?\n|;|,", value) if item.strip()]
+
+
+def _split_job_description_sections(value: object) -> tuple[str, list[str]]:
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    marker = re.search(r"(?:^|\n)\s*(?:key responsibilities|responsibilities|what you'll do)\s*:\s*", text, re.IGNORECASE)
+    if not marker:
+        return text, []
+    description = text[: marker.start()].strip()
+    responsibilities = [
+        re.sub(r"^\s*[-–—•*]\s*", "", item).strip()
+        for item in text[marker.end() :].splitlines()
+    ]
+    return description, [item for item in responsibilities if item]
 
 
 def _format_detail_salary(record: dict) -> str:
@@ -1005,9 +1201,10 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
     row = rows[0]
     if not isinstance(row, dict):
         raise HTTPException(status_code=404, detail="Job details were not found.")
-    if source == "employer" and row.get("application_deadline") and str(row.get("application_deadline")) < datetime.now(timezone.utc).date().isoformat():
+    if source == "employer" and row.get("application_deadline") and str(row.get("application_deadline")) <= datetime.now(PHILIPPINE_TIMEZONE).date().isoformat():
         raise HTTPException(status_code=404, detail="This job posting is closed and is no longer accepting applications.")
 
+    description, embedded_responsibilities = _split_job_description_sections(row.get("job_description"))
     job = {
         "job_id": str(row.get("job_id") or ""),
         "job_source": source,
@@ -1020,8 +1217,8 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
         "employment_type": str(row.get("employment_type") or ""),
         "location": str(row.get("location") or ""),
         "salary_range_monthly_php": _format_detail_salary(row),
-        "job_description": str(row.get("job_description") or ""),
-        "responsibilities": _split_detail_list(row.get("responsibilities")),
+        "job_description": description,
+        "responsibilities": _split_detail_list(row.get("responsibilities")) or embedded_responsibilities,
         "required_skills": _split_detail_list(row.get("required_skills")),
         "preferred_skills": _split_detail_list(row.get("preferred_skills")),
         "external_job_link_optional": str(row.get("source_url") or ""),

@@ -41,9 +41,22 @@ create table if not exists public.employer_profiles (
   company_size text,
   industry text,
   business_email text,
+  company_location text,
+  company_website text,
+  company_description text,
+  contact_person_name text,
+  contact_role text,
+  contact_number text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.employer_profiles add column if not exists company_location text;
+alter table public.employer_profiles add column if not exists company_website text;
+alter table public.employer_profiles add column if not exists company_description text;
+alter table public.employer_profiles add column if not exists contact_person_name text;
+alter table public.employer_profiles add column if not exists contact_role text;
+alter table public.employer_profiles add column if not exists contact_number text;
 
 create table if not exists public.resumes (
   id uuid primary key default gen_random_uuid(),
@@ -105,6 +118,7 @@ create table if not exists public.internal_jobs (
   salary_max_php integer,
 
   job_description text,
+  responsibilities text,
   required_skills text,
   preferred_skills text,
   must_have_skill_ids text,
@@ -123,8 +137,6 @@ create table if not exists public.internal_jobs (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
-
-alter table public.employer_job_posts add column if not exists application_deadline date;
 
 create table if not exists public.employer_job_posts (
   id uuid primary key default gen_random_uuid(),
@@ -146,6 +158,7 @@ create table if not exists public.employer_job_posts (
   salary_max_php integer,
 
   job_description text,
+  responsibilities text,
   required_skills text,
   preferred_skills text,
   must_have_skill_ids text,
@@ -158,6 +171,9 @@ create table if not exists public.employer_job_posts (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.employer_job_posts add column if not exists application_deadline date;
+alter table public.employer_job_posts add column if not exists responsibilities text;
 
 create index if not exists internal_jobs_active_created_idx
   on public.internal_jobs (posting_status, created_at desc);
@@ -353,7 +369,10 @@ drop policy if exists "Anyone can read active internal jobs" on public.internal_
 create policy "Anyone can read active internal jobs" on public.internal_jobs for select using (posting_status = 'active');
 
 drop policy if exists "Anyone can read active employer job posts" on public.employer_job_posts;
-create policy "Anyone can read active employer job posts" on public.employer_job_posts for select using (posting_status = 'active');
+create policy "Anyone can read active employer job posts" on public.employer_job_posts for select using (
+  posting_status = 'active'
+  and (application_deadline is null or application_deadline > (now() at time zone 'Asia/Manila')::date)
+);
 
 drop policy if exists "Employers can manage own job posts" on public.employer_job_posts;
 create policy "Employers can manage own job posts" on public.employer_job_posts for all using (
@@ -504,3 +523,47 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_auth_user();
+
+-- Deadline dates are inclusive closure dates in Philippine local time. The
+-- scheduled job persists the status even when no employer has the dashboard open.
+create extension if not exists pg_cron with schema extensions;
+
+create or replace function public.close_expired_employer_job_posts()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  closed_count integer;
+begin
+  update public.employer_job_posts
+  set posting_status = 'closed', updated_at = now()
+  where posting_status in ('active', 'open')
+    and application_deadline is not null
+    and application_deadline <= (now() at time zone 'Asia/Manila')::date;
+
+  get diagnostics closed_count = row_count;
+  return closed_count;
+end;
+$$;
+
+do $$
+declare
+  existing_job_id bigint;
+begin
+  select jobid into existing_job_id
+  from cron.job
+  where jobname = 'close-expired-employer-job-posts';
+
+  if existing_job_id is not null then
+    perform cron.unschedule(existing_job_id);
+  end if;
+
+  perform cron.schedule(
+    'close-expired-employer-job-posts',
+    '*/5 * * * *',
+    'select public.close_expired_employer_job_posts();'
+  );
+end;
+$$;

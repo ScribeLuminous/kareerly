@@ -82,6 +82,17 @@ export interface ResumeAnalysisResult {
     education_indicators: string[];
     certification_indicators: string[];
     experience_indicators: string[];
+    education?: Array<{
+      highest_educational_attainment: string;
+      degree_program: string;
+      school_university: string;
+      year_graduated: string;
+    }>;
+    certifications?: Array<{
+      title: string;
+      issuer: string;
+      year: string;
+    }>;
   };
   normalized_for_matching: {
     skill_ids: string[];

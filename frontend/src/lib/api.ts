@@ -46,6 +46,56 @@ export async function updateEmployerApplicationStatus(input: { applicationId: st
   });
 }
 
+export type EmployerAccountSettings = {
+  company_name: string | null;
+  company_size: string | null;
+  industry: string | null;
+  business_email: string | null;
+  company_location: string | null;
+  company_website: string | null;
+  company_description: string | null;
+  contact_person_name: string | null;
+  contact_role: string | null;
+  contact_number: string | null;
+  account_email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+export async function loadEmployerAccountSettings(): Promise<EmployerAccountSettings> {
+  return authenticatedMessageRequest('/api/employer/account-settings') as Promise<EmployerAccountSettings>;
+}
+
+export async function saveEmployerAccountSettings(input: Partial<EmployerAccountSettings>): Promise<EmployerAccountSettings> {
+  return authenticatedMessageRequest('/api/employer/account-settings', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }) as Promise<EmployerAccountSettings>;
+}
+
+export type CandidateAccountSettings = {
+  full_name: string;
+  email: string;
+  public_id: string | null;
+  contact_number: string | null;
+  birthday: string | null;
+  address: string | null;
+  location: string | null;
+  highest_educational_attainment: string | null;
+  degree_program: string | null;
+  school_university: string | null;
+  year_graduated: string | null;
+};
+
+export const loadCandidateAccountSettings = () =>
+  authenticatedMessageRequest('/api/candidate/account-settings') as Promise<CandidateAccountSettings>;
+
+export const saveCandidateAccountSettings = (input: Partial<CandidateAccountSettings>) =>
+  authenticatedMessageRequest('/api/candidate/account-settings', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }) as Promise<CandidateAccountSettings>;
+
 function getReadableMessage(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -263,7 +313,12 @@ export async function analyzeResume(resumeFile: File, _legacySurveyAnswers?: Par
 
   const parsedResume = data.parsedResume || {
     skills: (data.candidate_profile?.skills || []).map((skill) => ({ name: skill.skill_name })),
-    education: [],
+    education: (data.candidate_profile?.education || []).map((item) => ({
+      institution: item.school_university,
+      degree: item.degree_program,
+      field: item.degree_program,
+      graduationYear: Number(item.year_graduated) || 0,
+    })),
     experience: [],
     normalized_for_matching: {
       resume_text_for_matching: resumeTextForMatching,
@@ -676,15 +731,16 @@ export async function searchSkills(query: string, limit = 20): Promise<{ results
   return { results: Array.isArray(data.results) ? data.results : [] };
 }
 
-export async function fetchAvailableJobs(limit = 200): Promise<{ results: AvailableJobItem[] }> {
+export async function fetchAvailableJobs(limit = 5000): Promise<{ results: AvailableJobItem[] }> {
   let response: Response;
-  const safeLimit = Math.max(1, Math.min(limit, 500));
+  const safeLimit = Math.max(1, Math.min(limit, 5000));
 
   try {
     response = await fetchWithTimeout(
       `${API_BASE_URL}/api/jobs/list?limit=${safeLimit}`,
       {
         method: 'GET',
+        cache: 'no-store',
       },
       'Job listing request timed out. Please try again.',
     );
