@@ -1,3 +1,25 @@
+# Authentication configuration
+
+Copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` from the Supabase project containing your existing accounts.
+Use a public publishable/anon key, never a service-role key. Set these variables in
+frontend hosting as well; restart or rebuild/redeploy after any change because Vite
+embeds them at build time. Startup/build now rejects missing configuration.
+
+## Sign-in connectivity incident (2026-09-11)
+
+Login calls Supabase directly, not FastAPI. The previously hardcoded project hostname
+`dgnxigotdpqiwohocloi.supabase.co` failed DNS resolution while `supabase.com` was
+reachable. This prevents credentials from being checked.
+
+Check the project in the Supabase dashboard and restore it if paused. If its URL
+changed, update frontend and backend Supabase settings to the project holding the
+existing accounts and redeploy. Check `/auth/v1/token` in browser Network tools and
+verify an existing account can log in after recovery. Changing passwords or switching
+account types does not repair DNS failures.
+
+Run authentication regression checks with `node --test tests/auth.test.mjs`.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
