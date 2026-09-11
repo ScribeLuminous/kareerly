@@ -55,7 +55,7 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
         <input
           id={emailInputId}
           name="email"
-          className="input-base mb-3 border-2 bg-bg py-2.5 text-base outline-none focus:border-rust focus:bg-card"
+          className="input-base mb-2 border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card"
           placeholder="email@email.com"
           required
           type="email"
@@ -66,7 +66,7 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
         <input
           id={passwordInputId}
           name="password"
-          className="input-base mb-3 border-2 bg-bg py-2.5 text-base outline-none focus:border-rust focus:bg-card"
+          className="input-base mb-2 border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card"
           placeholder="••••••••"
           required
           type="password"

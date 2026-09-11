@@ -2886,8 +2886,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                 <NavItem icon="briefcase" active={activePage === 'jobmatches'} onClick={() => setActivePage('jobmatches')}>{tr(uiLanguage, 'Job Matches')}</NavItem>
                 <NavItem icon="puzzle" active={activePage === 'skillgaps'} onClick={() => setActivePage('skillgaps')}>{tr(uiLanguage, 'Skill Gaps')}</NavItem>
                 <NavItem icon="layers" active={activePage === 'applications'} onClick={() => setActivePage('applications')}>{tr(uiLanguage, 'Applications')}</NavItem>
-                <NavItem icon="sliders" active={activePage === 'preferences'} onClick={() => setActivePage('preferences')}>{tr(uiLanguage, 'Preferences')}</NavItem>
-                <NavItem icon="user" active={activePage === 'account'} onClick={() => setActivePage('account')}>{tr(uiLanguage, 'Account Settings')}</NavItem>
               </div>
               <div className="cand-sidebar-section border-t border-bdr pt-5">
                 <div className="cand-sidebar-title">{tr(uiLanguage, 'Explore')}</div>
