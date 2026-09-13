@@ -163,6 +163,25 @@ export interface SkillGap {
 }
 
 // Course / Learning
+
+/** Inferred credential class. Only `course` awards nothing the candidate can show. */
+export type CredentialType =
+  | 'exam_review'
+  | 'professional_certificate'
+  | 'industry_certification'
+  | 'certificate_course'
+  | 'course';
+
+/** What a resolved resource link actually points at. */
+export type ResourceLinkKind = 'canonical' | 'provider_search' | 'web_search';
+
+export const CREDENTIAL_GRANTING: CredentialType[] = [
+  'exam_review',
+  'professional_certificate',
+  'industry_certification',
+  'certificate_course',
+];
+
 export interface Course {
   id: string;
   title: string;
@@ -170,6 +189,7 @@ export interface Course {
   skillsTargeted: string[];
   duration?: string;
   certificateAvailable: boolean;
+  credentialType?: CredentialType;
   isFree: boolean;
   url?: string;
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
@@ -268,12 +288,23 @@ export interface PrioritizedSkillGap {
 }
 
 export interface LearningRecommendation {
+  review_status?: string;
+  matched_gap_skill_names?: string[];
+  certificate_cost?: string;
+  prerequisites?: string;
+  credential_conditions?: string;
+  last_verified_at?: string;
   resource_id: string;
   title: string;
   description: string;
   provider: string;
   provider_type: string;
   resource_type: string;
+  credential_type?: CredentialType;
+  grants_credential?: boolean;
+  credential_label?: string;
+  url_kind?: ResourceLinkKind;
+  url_label?: string;
   level: string;
   language: string;
   delivery_mode: string;
