@@ -52,7 +52,7 @@ import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/u
 import type { DevelopmentProgressRecord, LearningRecommendation as RunLearningRecommendation } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
 import { formatJobDescription } from '../lib/jobDescription';
-import type { CourseRecommendation, JobMatch, MatchResultItem, ParsedResume, PrioritizedSkillGap, SelectedSkill, SkillGap, SurveyAnswers } from '../types';
+import type { CredentialType, CourseRecommendation, JobMatch, MatchResultItem, ParsedResume, PrioritizedSkillGap, SelectedSkill, SkillGap, SurveyAnswers } from '../types';
 import './candidate-dashboard-v5.css';
 
 type DashboardProps = {
@@ -76,7 +76,7 @@ type DashboardPage =
   | 'messages';
 
 type JobFilter = 'top' | 'fit-now' | 'aspiration' | 'all' | 'internal' | 'external' | 'saved';
-type UpskillTab = 'recommended' | 'inprogress' | 'completed' | 'by-gap';
+type UpskillTab = 'recommended' | 'by-gap';
 type ToastType = '' | 'success' | 'warn' | 'danger';
 type ApplicationStatus = 'Pending' | 'Shortlisted' | 'Interviewing' | 'Hired' | 'Rejected' | 'Withdrawn';
 type MessageRequestState = 'Pending' | 'Accepted' | 'Declined' | 'Ignored';
@@ -87,7 +87,7 @@ const FILIPINO_UI: Record<string, string> = {
   'My Career': 'Aking Karera', Dashboard: 'Dashboard', 'Job Matches': 'Mga Tugmang Trabaho',
   'Skill Gaps': 'Mga Kasanayang Kailangang Linangin', Applications: 'Mga Aplikasyon',
   Preferences: 'Mga Kagustuhan', 'Account Settings': 'Mga Setting ng Account', Explore: 'Tuklasin',
-  Kareers: 'Mga Karera', 'Upskilling Path': 'Landas sa Paglinang ng Kasanayan', Messages: 'Mga Mensahe',
+  Kareers: 'Mga Karera', 'Learning Paths': 'Landas sa Paglinang ng Kasanayan', Messages: 'Mga Mensahe',
   Language: 'Wika', English: 'Ingles', Filipino: 'Filipino', Logout: 'Mag-logout',
   'Location not set': 'Hindi pa nakatakda ang lokasyon', 'No notifications yet.': 'Wala pang abiso.',
   'Language Preference': 'Piniling Wika',
@@ -178,6 +178,7 @@ type DashboardJob = {
   description?: string;
   matchedSkills: string[];
   missingSkills: string[];
+  missingSkillIds?: string[];
   explanation: string;
   category?: string;
   subCategory?: string;
@@ -214,10 +215,20 @@ type DashboardCourse = {
   provider: string;
   duration: string;
   level: string;
-  certificateAvailable: boolean;
+  credentialType: CredentialType;
+  credentialLabel: string;
   isFree: boolean;
   gapTag: string;
+  mappedSkills: string[];
+  mappedSkillIds: string[];
+  reviewed: boolean;
+  fees: string;
+  certificateCost: string;
+  prerequisites: string;
+  credentialConditions: string;
+  verifiedAt?: string;
   url?: string;
+  urlLabel: string;
   source: 'backend';
 };
 
@@ -294,7 +305,7 @@ type EvidenceUploadRecord = {
   status: 'Pending Verification' | 'Verified';
 };
 
-const PROGRESS_EMPTY_TEXT = 'No skill progress recorded yet. Your development progress will appear here after you start a recommended course, upload evidence, or update your resume with newly gained skills.';
+const PROGRESS_EMPTY_TEXT = 'No skill progress recorded yet. Opening a learning resource does not record progress. Review your resume to keep your profile information current.';
 const SKILL_PROGRESS_PERCENT: Record<SkillProgressStatus, number> = {
   missing: 0,
   started: 10,
@@ -524,10 +535,11 @@ function getCareerGuidance(job: DashboardJob): string {
 }
 
 function getLearningForJob(job: DashboardJob, courses: DashboardCourse[]): DashboardCourse[] {
-  const missing = job.missingSkills.map((skill) => normalizeSkill(skill));
-  if (missing.length === 0) return courses.slice(0, 3);
-  const matched = courses.filter((course) => missing.some((skill) => normalizeSkill(course.gapTag).includes(skill) || skill.includes(normalizeSkill(course.gapTag))));
-  return (matched.length > 0 ? matched : courses).slice(0, 3);
+  return courses.filter((course) => course.reviewed && (
+    job.missingSkillIds?.length
+      ? course.mappedSkillIds.some((id) => job.missingSkillIds!.includes(id))
+      : course.mappedSkills.some((skill) => job.missingSkills.some((gap) => cleanSkillDisplayName(gap).toLowerCase() === cleanSkillDisplayName(skill).toLowerCase()))
+  ));
 }
 
 function formatGapMissingCount(gap: DashboardGap): string {
@@ -757,6 +769,7 @@ function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration')
         : undefined,
     matchedSkills,
     missingSkills,
+    missingSkillIds: match.missing_skill_ids,
     explanation: match.explanation || '',
     category: titleCase(categoryLabel),
     subCategory: titleCase(subCategoryLabel),
@@ -1026,7 +1039,7 @@ function mapRunGap(gap: PrioritizedSkillGap): DashboardGap {
     recommendedLevel: severity === 'Critical' ? 'Beginner -> Intermediate' : severity === 'High' ? 'Beginner -> Intermediate' : 'Beginner',
     category: classifySkillCategory(gap.skill_name || ''),
     relatedJobs: (gap.related_jobs || []).map(titleCase).slice(0, 4),
-    topResources: (gap.recommended_learning_resources || []).map(mapRunLearningRecommendation),
+    topResources: (gap.recommended_learning_resources || []).map(mapRunLearningRecommendation).filter((course) => course.reviewed),
     skillId: gap.skill_id,
   };
 }
@@ -1077,6 +1090,26 @@ function mapModelGap(gap: SkillGap, matches: JobMatch[]): DashboardGap {
   };
 }
 
+const CREDENTIAL_LABELS: Record<CredentialType, string> = {
+  exam_review: 'Licensure exam review',
+  professional_certificate: 'Professional certificate',
+  industry_certification: 'Industry certification',
+  certificate_course: 'Certificate on completion',
+  course: 'Course, no certificate',
+};
+
+/** Only these award something a candidate can show an employer. */
+function grantsCredential(credentialType: CredentialType): boolean {
+  return credentialType !== 'course' && credentialType !== 'exam_review';
+}
+
+function resolveCredentialType(value: unknown, fallbackHasCertificate?: boolean): CredentialType {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw in CREDENTIAL_LABELS) return raw as CredentialType;
+  // Legacy records with only a boolean: keep the weaker of the two claims.
+  return fallbackHasCertificate ? 'certificate_course' : 'course';
+}
+
 function mapCourse(rec: CourseRecommendation): DashboardCourse {
   const primaryGap = cleanSkillDisplayName(rec.matchedSkillGaps?.[0] || rec.course?.skillsTargeted?.[0] || rec.course?.title || 'General');
   return {
@@ -1085,26 +1118,36 @@ function mapCourse(rec: CourseRecommendation): DashboardCourse {
     provider: rec.course?.provider || 'Course provider',
     duration: rec.course?.duration || 'Self-paced',
     level: rec.course?.difficulty || 'beginner',
-    certificateAvailable: Boolean(rec.course?.certificateAvailable),
+    credentialType: resolveCredentialType(rec.course?.credentialType, rec.course?.certificateAvailable),
+    credentialLabel: CREDENTIAL_LABELS[resolveCredentialType(rec.course?.credentialType, rec.course?.certificateAvailable)],
     isFree: Boolean(rec.course?.isFree),
     gapTag: primaryGap,
+    mappedSkills: [], mappedSkillIds: [], reviewed: false, fees: 'Unknown', certificateCost: 'Unknown', prerequisites: 'Unknown', credentialConditions: 'Unknown',
     url: rec.course?.url,
+    urlLabel: 'Open Resource',
     source: 'backend',
   };
 }
 
 function mapRunLearningRecommendation(rec: RunLearningRecommendation): DashboardCourse {
-  const gapTag = cleanSkillDisplayName(rec.skills_youll_gain || rec.title || 'General');
+  const mappedSkills = (rec.matched_gap_skill_names || []).filter(Boolean);
+  const gapTag = mappedSkills.map(cleanSkillDisplayName).join(', ');
   return {
     id: rec.resource_id || rec.title,
     title: rec.title || 'Untitled course',
     provider: rec.provider || 'Course provider',
-    duration: rec.estimated_duration || 'Self-paced',
-    level: rec.level || 'beginner',
-    certificateAvailable: Boolean(rec.certification_score && rec.certification_score > 0),
+    duration: rec.estimated_duration || 'Duration unknown',
+    level: rec.level || 'Level unknown',
+    credentialType: resolveCredentialType(rec.credential_type),
+    credentialLabel: rec.credential_label || CREDENTIAL_LABELS[resolveCredentialType(rec.credential_type)],
     isFree: !String(rec.cost_type || '').toLowerCase().includes('paid'),
     gapTag,
+    mappedSkills, mappedSkillIds: rec.matched_gap_skill_ids || [], reviewed: rec.review_status === 'verified' && mappedSkills.length > 0 && rec.matched_gap_skill_ids?.length > 0,
+    fees: rec.cost_type || 'Unknown', certificateCost: rec.certificate_cost || 'Unknown',
+    prerequisites: rec.prerequisites || 'Unknown', credentialConditions: rec.credential_conditions || 'Unknown',
+    verifiedAt: rec.last_verified_at,
     url: rec.url || undefined,
+    urlLabel: ['Start learning', 'View preparation course', 'View certification'].includes(rec.url_label || '') ? rec.url_label! : 'Start learning',
     source: 'backend',
   };
 }
@@ -1211,8 +1254,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [messageRequests, setMessageRequests] = useState<Record<string, string>>({});
   const [messageDraft, setMessageDraft] = useState('');
   const [messageReplies, setMessageReplies] = useState<Record<string, Array<{ from: 'employer' | 'candidate'; text: string; time: string }>>>({});
-  const [startedCourseIds, setStartedCourseIds] = useState<Set<string>>(() => new Set());
-  const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(() => new Set());
   const [extraPreferences, setExtraPreferences] = useState({ jobLevel: '', preferredLocation: '' });
   const [availableJobs, setAvailableJobs] = useState<AvailableJobItem[]>([]);
   const [isLoadingKareers, setIsLoadingKareers] = useState(true);
@@ -1280,40 +1321,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     void renderDocx();
     return () => { cancelled = true; };
   }, [resumePreview]);
-
-  const updateSkillProgressStatus = (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => {
-    setSkillProgressRecords((current) => {
-      const existing = current[skillKey];
-      if (!existing) return current;
-      return {
-        ...current,
-        [skillKey]: {
-          ...existing,
-          status,
-          progressPercent: SKILL_PROGRESS_PERCENT[status],
-          selectedResourceId: selectedResourceId || existing.selectedResourceId,
-        },
-      };
-    });
-  };
-
-  const uploadSkillEvidence = (skillKey: string, file: File | null) => {
-    if (!file) return;
-    setSkillProgressRecords((current) => {
-      const existing = current[skillKey];
-      if (!existing) return current;
-      return {
-        ...current,
-        [skillKey]: {
-          ...existing,
-          status: 'evidenced',
-          progressPercent: SKILL_PROGRESS_PERCENT.evidenced,
-          evidenceFilename: file.name,
-          evidenceUploadedAt: dateTodayIso(),
-        },
-      };
-    });
-  };
 
   useEffect(() => {
     const educationItems = educationIndicators.length
@@ -1571,9 +1578,9 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
   const courses = useMemo<DashboardCourse[]>(() => {
     if (state.matchResults?.learning_recommendations?.length) {
-      return state.matchResults.learning_recommendations.map(mapRunLearningRecommendation);
+      return state.matchResults.learning_recommendations.map(mapRunLearningRecommendation).filter((course) => course.reviewed);
     }
-    return (state.results?.courseRecommendations || []).map(mapCourse);
+    return (state.results?.courseRecommendations || []).map(mapCourse).filter((course) => course.reviewed);
   }, [state.matchResults?.learning_recommendations, state.results?.courseRecommendations]);
 
   useEffect(() => {
@@ -1729,8 +1736,8 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       const missing = missingByCategory.get(category)?.size || 0;
       const matched = matchedByCategory.get(category)?.size || 0;
       const courseIds = Array.from(courseIdsByCategory.get(category) || []);
-      const completed = courseIds.filter((courseId) => completedCourseIds.has(courseId)).length;
-      const startedOnly = courseIds.filter((courseId) => startedCourseIds.has(courseId) && !completedCourseIds.has(courseId)).length;
+      const completed = 0;
+      const startedOnly = 0;
       const evidenceUploaded = evidenceByCategory.get(category) || 0;
       const hasProgressEvidence = completed > 0 || startedOnly > 0 || evidenceUploaded > 0 || missing > 0 || matched > 0;
       const relatedSkillRecords = [
@@ -1764,12 +1771,12 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
         inProgress: startedOnly,
         evidenceUploaded,
         relatedSkillRecords: Array.from(new Set(relatedSkillRecords)),
-        recentActivity: completed > 0 ? `${completed} completed learning record${completed === 1 ? '' : 's'}` : startedOnly > 0 ? `${startedOnly} learning record${startedOnly === 1 ? '' : 's'} in progress` : evidenceUploaded > 0 ? `${evidenceUploaded} evidence upload${evidenceUploaded === 1 ? '' : 's'}` : undefined,
+        recentActivity: evidenceUploaded > 0 ? `${evidenceUploaded} evidence upload${evidenceUploaded === 1 ? '' : 's'}` : undefined,
       };
     })
       .filter((row) => row.relatedSkillRecords.length > 0 || row.missing > 0 || row.matched > 0 || row.completed > 0 || row.inProgress > 0 || row.evidenceUploaded > 0)
       .sort((a, b) => b.percent - a.percent);
-  }, [completedCourseIds, courses, evidenceRecords, gaps, jobs, skillProgressRecords, startedCourseIds, state.matchResults?.development_progress]);
+  }, [courses, evidenceRecords, gaps, jobs, skillProgressRecords, state.matchResults?.development_progress]);
 
   const metricCards = useMemo(() => {
     const fitNowCount = jobs.filter((job) => job.matchCategory === 'fit-now').length;
@@ -1919,20 +1926,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   }, [kareersList, selectedKareerId]);
 
   const selectedKareer = kareersList.find((item) => item.id === selectedKareerId) || null;
-
-  const inProgressCourses = useMemo(() => courses.filter((course) => startedCourseIds.has(course.id) && !completedCourseIds.has(course.id)), [completedCourseIds, courses, startedCourseIds]);
-  const completedCourses = useMemo(() => courses.filter((course) => completedCourseIds.has(course.id)), [completedCourseIds, courses]);
-  const recommendedCourses = useMemo(() => courses.filter((course) => !startedCourseIds.has(course.id) && !completedCourseIds.has(course.id)), [completedCourseIds, courses, startedCourseIds]);
-
-  const groupedCoursesByGap = useMemo(() => {
-    const groups = new Map<string, DashboardCourse[]>();
-    courses.forEach((course) => {
-      const key = course.gapTag || 'General';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)?.push(course);
-    });
-    return Array.from(groups.entries()).map(([gapTag, grouped]) => ({ gapTag, courses: grouped }));
-  }, [courses]);
 
   const eligibleMessageApps = useMemo(
     () => applications.filter((app) =>
@@ -2892,7 +2885,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               <div className="cand-sidebar-section border-t border-bdr pt-5">
                 <div className="cand-sidebar-title">{tr(uiLanguage, 'Explore')}</div>
                 <NavItem icon="compass" active={activePage === 'kareers'} onClick={() => setActivePage('kareers')}>{tr(uiLanguage, 'Kareers')}</NavItem>
-                <NavItem icon="graduation" active={activePage === 'upskilling'} onClick={() => setActivePage('upskilling')}>{tr(uiLanguage, 'Upskilling Path')}</NavItem>
+                <NavItem icon="graduation" active={activePage === 'upskilling'} onClick={() => setActivePage('upskilling')}>{tr(uiLanguage, 'Learning Paths')}</NavItem>
                 <button className={`cand-nav-item ${activePage === 'messages' ? 'active' : ''}`} type="button" onClick={() => setActivePage('messages')}>
                   <UIIcon name="message" className="cand-nav-icon" />
                   {tr(uiLanguage, 'Messages')}
@@ -2986,8 +2979,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               courses={courses}
               evidenceRecords={evidenceRecords}
               skillProgressRecords={skillProgressRecords}
-              onUpdateSkillProgress={updateSkillProgressStatus}
-              onUploadSkillEvidence={uploadSkillEvidence}
               onOpenUpskilling={() => setActivePage('upskilling')}
               onOpenResume={openResumeModal}
             />
@@ -3093,24 +3084,8 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
             <UpskillingPage
               tab={upskillTab}
               courses={courses}
-              categoryProgress={categoryProgress}
-              groupedCoursesByGap={groupedCoursesByGap}
-              recommended={recommendedCourses}
-              inProgress={inProgressCourses}
-              completed={completedCourses}
+              jobs={jobs}
               onTab={setUpskillTab}
-              onStart={(course) => {
-                setStartedCourseIds((current) => new Set([...Array.from(current), course.id]));
-                showToast(`Marked ${course.title} as in progress.`, 'success');
-              }}
-              onComplete={(course) => {
-                setCompletedCourseIds((current) => new Set([...Array.from(current), course.id]));
-                showToast(`${course.title} marked completed.`, 'success');
-              }}
-              onViewCourse={(course) => {
-                if (course.url) window.open(course.url, '_blank', 'noopener,noreferrer');
-                else showToast(`Opening ${course.provider} learning page...`, 'success');
-              }}
             />
           )}
 
@@ -3579,11 +3554,11 @@ function DashboardOverview({
                     <div className="text-sm font-bold text-dark">{course.title}</div>
                     <div className="text-xs text-soft">{course.provider} · {course.duration}</div>
                   </div>
-                  <span className={`cand-pill ${course.isFree ? 'free' : 'paid'}`}>{course.isFree ? 'Free' : 'Paid'}</span>
+                  <span className={`cand-pill ${course.isFree ? 'free' : 'paid'}`}>{course.fees}</span>
                 </div>
               ))}
               <button className="cand-btn-secondary mt-4 w-full justify-center" type="button" onClick={onOpenUpskilling}>
-                View Full Path
+                View resources
               </button>
             </>
           ) : (
@@ -3869,8 +3844,6 @@ function SkillGapsPage({
   courses,
   evidenceRecords,
   skillProgressRecords,
-  onUpdateSkillProgress,
-  onUploadSkillEvidence,
   onOpenUpskilling,
   onOpenResume,
 }: {
@@ -3880,8 +3853,6 @@ function SkillGapsPage({
   courses: DashboardCourse[];
   evidenceRecords: EvidenceUploadRecord[];
   skillProgressRecords: Record<string, SkillProgressRecord>;
-  onUpdateSkillProgress: (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => void;
-  onUploadSkillEvidence: (skillKey: string, file: File | null) => void;
   onOpenUpskilling: () => void;
   onOpenResume: () => void;
 }) {
@@ -3948,19 +3919,8 @@ function SkillGapsPage({
   const recommendedResourceByGap = useMemo(() => {
     const map = new Map<string, DashboardCourse>();
     gaps.forEach((gap) => {
-      if (gap.topResources?.[0]) {
-        map.set(gap.skill, gap.topResources[0]);
-        return;
-      }
-      const match = courses.find((course) => {
-        const gapName = normalizeSkill(gap.skill);
-        const gapId = (gap.skillId || '').trim().toUpperCase();
-        const courseGapTag = normalizeSkill(course.gapTag || '');
-        const courseTitle = normalizeSkill(course.title || '');
-        return courseGapTag === gapName
-          || courseTitle.includes(gapName)
-          || (gapId && course.id.toUpperCase().includes(gapId));
-      });
+      const match = [...(gap.topResources || []), ...courses].find((course) =>
+        course.reviewed && course.mappedSkills.some((skill) => normalizeSkill(skill) === normalizeSkill(gap.skill)));
       if (match) map.set(gap.skill, match);
     });
     return map;
@@ -4033,10 +3993,6 @@ function SkillGapsPage({
                 </div>
                 <div className="cand-gap-col-body">
                   {column.items.length > 0 ? column.items.map((gap) => {
-                    const progressKey = (gap.skillId || normalizeSkill(gap.skill)).toUpperCase();
-                    const progressRecord = skillProgressRecords[progressKey];
-                    const gapProgress = progressRecord?.progressPercent ?? categoryProgress.find((row) => row.category === gap.category)?.percent ?? 0;
-                    const gapStatus = categoryStatus(gapProgress);
                     const recommendedResource = recommendedResourceByGap.get(gap.skill);
                     return (
                       <div key={`${column.key}-${gap.skill}`} className="cand-gap-k-card">
@@ -4067,35 +4023,16 @@ function SkillGapsPage({
                             </div>
                           ) : null}
                         </div>
-                        <div className="cand-gap-progress">
-                          <div className="cand-gap-progress-bar">
-                            <div className="cand-gap-progress-fill" style={{ width: `${gapProgress}%`, background: categoryBarColor(gap.category) }} />
-                          </div>
-                          <span className="cand-gap-progress-text">{gapProgress}%</span>
-                          <span className={gapStatus.className}>{gapStatus.label}</span>
-                        </div>
-                        <div className="mt-1 text-[11px] text-soft">{gapStatus.interpretation}</div>
+                        <p className="mt-2 text-xs text-soft">Learning and certificates are managed by the provider. Kareerly does not verify completion. Opening a resource does not change skill coverage, readiness, or match scores.</p>
                         <div className="cand-gap-actions">
-                          <button className="cand-gap-start" type="button" onClick={() => onUpdateSkillProgress(progressKey, 'started', recommendedResource?.id)}>
-                            <UIIcon name="graduation" className="cand-btn-icon" />Start Learning
+                          <button className="cand-gap-start" type="button" disabled={!recommendedResource || !learningResourceUrl(recommendedResource)} onClick={() => {
+                            const url = recommendedResource && learningResourceUrl(recommendedResource);
+                            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                          }}>
+                            <UIIcon name="graduation" className="cand-btn-icon" />{recommendedResource?.urlLabel || 'Start learning'}
                           </button>
-                          <button className="cand-gap-resource" type="button" onClick={() => onUpdateSkillProgress(progressKey, 'in_progress', recommendedResource?.id)}>
-                            Mark In Progress
-                          </button>
-                          <button className="cand-gap-resource" type="button" onClick={() => onUpdateSkillProgress(progressKey, 'completed', recommendedResource?.id)}>
-                            Mark Completed
-                          </button>
-                          <label className="cand-gap-resource cand-gap-upload">
-                            Upload Evidence
-                            <input
-                              type="file"
-                              accept="application/pdf,.pdf"
-                              className="hidden"
-                              onChange={(event) => onUploadSkillEvidence(progressKey, event.target.files?.[0] || null)}
-                            />
-                          </label>
                           <button className="cand-gap-resource" type="button" onClick={onOpenUpskilling}>
-                            View Top 3
+                            View resources
                           </button>
                         </div>
                       </div>
@@ -5130,187 +5067,104 @@ function KareersPage({
   );
 }
 
-function UpskillingPage({
-  tab,
-  courses,
-  categoryProgress,
-  groupedCoursesByGap,
-  recommended,
-  inProgress,
-  completed,
-  onTab,
-  onStart,
-  onComplete,
-  onViewCourse,
-}: {
+function learningResourceUrl(course: DashboardCourse): string | undefined {
+  try {
+    if (!course.url) return undefined;
+    const url = new URL(course.url);
+    return ['https:', 'http:'].includes(url.protocol) && url.hostname && !url.username && !url.password && !/\s/.test(course.url) ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function UpskillingPage({ tab, courses, jobs, onTab }: {
   tab: UpskillTab;
   courses: DashboardCourse[];
-  categoryProgress: Array<{ category: SkillCategory; percent: number; missing: number; matched: number; completed: number }>;
-  groupedCoursesByGap: Array<{ gapTag: string; courses: DashboardCourse[] }>;
-  recommended: DashboardCourse[];
-  inProgress: DashboardCourse[];
-  completed: DashboardCourse[];
+  jobs: DashboardJob[];
   onTab: (tab: UpskillTab) => void;
-  onStart: (course: DashboardCourse) => void;
-  onComplete: (course: DashboardCourse) => void;
-  onViewCourse: (course: DashboardCourse) => void;
 }) {
+  const [selectedJobId, setSelectedJobId] = useState(jobs[0]?.id || '');
+  const selectedJob = jobs.find((job) => job.id === selectedJobId) || jobs[0];
+  const visibleCourses = selectedJob ? getLearningForJob(selectedJob, courses) : [];
+  const groups = new Map<string, DashboardCourse[]>();
+  (selectedJob?.missingSkills || []).forEach((skill) => {
+    groups.set(skill, visibleCourses.filter((course) => course.mappedSkills.some((mapped) => cleanSkillDisplayName(mapped).toLowerCase() === cleanSkillDisplayName(skill).toLowerCase())));
+  });
+  const uncovered = Array.from(groups).filter(([, resources]) => resources.length === 0).map(([skill]) => cleanSkillDisplayName(skill));
+
   return (
     <div>
       <div className="cand-page-header">
-        <h1 className="cand-page-title">Upskilling Path</h1>
-        <p className="cand-page-subtitle">Recommended learning pathways based on your identified skill gaps with progress tracking</p>
+        <h1 className="cand-page-title">Learning Paths</h1>
+        <p className="cand-page-subtitle">Explore learning resources for the skills connected to your job matches.</p>
       </div>
-
       <div className="cand-card mb-6">
-        <h2 className="cand-card-title">Category Progress Overview</h2>
-        <div className="grid gap-3 md:grid-cols-5">
-          {categoryProgress.slice(0, 5).map((row) => (
-            <div key={row.category} className="rounded-lg bg-bg p-3 text-center">
-              <div className="font-display text-xl font-extrabold" style={{ color: categoryBarColor(row.category) }}>
-                {row.percent}%
-              </div>
-              <div className="mb-1 mt-1 text-[10px] font-bold uppercase tracking-[0.4px] text-soft">{row.category}</div>
-              <div className="cand-sdp-bar-wrap">
-                <div className="cand-sdp-bar-fill" style={{ width: `${row.percent}%`, background: categoryBarColor(row.category) }} />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="cand-sdp-disclaimer mt-3">
-          Career-guidance indicator only. Progress updates based on learning completion, evidence uploads, and refreshed skill data.
-        </div>
+        <h2 className="cand-card-title"><UIIcon name="external" className="cand-title-icon" />Learn on the provider’s platform</h2>
+        <p className="text-sm text-mid">Choose a resource below to visit its provider. Enrollment, learning, assessments, and certificate issuance happen on their platform.</p>
+        <p className="mt-3 text-xs text-soft">Kareerly does not verify course completion or authenticate earned certificates. Opening a resource does not mark it completed, confirm a new skill, or change your job-match score.</p>
       </div>
-
-      <div className="cand-upskill-tabs">
-        <button className={`cand-upskill-tab ${tab === 'recommended' ? 'active' : ''}`} type="button" onClick={() => onTab('recommended')}>Recommended Learning Pathways</button>
-        <button className={`cand-upskill-tab ${tab === 'inprogress' ? 'active' : ''}`} type="button" onClick={() => onTab('inprogress')}>In Progress</button>
-        <button className={`cand-upskill-tab ${tab === 'completed' ? 'active' : ''}`} type="button" onClick={() => onTab('completed')}>Completed</button>
-        <button className={`cand-upskill-tab ${tab === 'by-gap' ? 'active' : ''}`} type="button" onClick={() => onTab('by-gap')}>By Skill Gap</button>
+      <div className="cand-card mb-6">
+        <label htmlFor="learning-target-job" className="block text-sm font-bold text-dark">Choose a job to focus on</label>
+        <select id="learning-target-job" value={selectedJob?.id || ''} onChange={(event) => setSelectedJobId(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-dark">
+          {jobs.length === 0 && <option value="">No matched jobs available</option>}
+          {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} — {job.company}</option>)}
+        </select>
+        <p className="mt-2 text-xs text-soft">{selectedJob ? `Resources related to skills not identified in your profile for ${selectedJob.title}.` : 'Select a job to narrow these resources to its identified skill gaps.'} These are suggested resources, not an assessed learning sequence.</p>
       </div>
-
-      {courses.length === 0 ? (
-        <div className="cand-empty">Upskilling recommendations will appear after skill gaps are generated from your latest resume and match results.</div>
+      <div className="cand-upskill-tabs" aria-label="Learning resource views">
+        <button className={`cand-upskill-tab ${tab === 'recommended' ? 'active' : ''}`} type="button" aria-pressed={tab === 'recommended'} onClick={() => onTab('recommended')}>Recommended resources</button>
+        <button className={`cand-upskill-tab ${tab === 'by-gap' ? 'active' : ''}`} type="button" aria-pressed={tab === 'by-gap'} onClick={() => onTab('by-gap')}>By skill gap</button>
+      </div>
+      {uncovered.length > 0 && <p className="cand-empty mb-4">No reviewed resources mapped to: {uncovered.join(', ')}. Check another matched job or return as the catalog grows.</p>}
+      {visibleCourses.length === 0 ? (
+        <div className="cand-empty">{selectedJob ? 'No reviewed resources are available for this job’s identified skill gaps. Choose another matched job or check back as the catalog grows.' : 'Match your profile to jobs first to explore resources for their identified skill gaps.'}</div>
+      ) : tab === 'recommended' ? (
+        visibleCourses.map((course) => <CourseCard key={course.id} course={course} />)
       ) : (
-        <>
-          {tab === 'recommended' && (
-            <div>
-              {recommended.length > 0 ? recommended.map((course) => <CourseCard key={course.id} course={course} onView={onViewCourse} onStart={onStart} />) : <div className="cand-empty">No recommended courses remaining.</div>}
-            </div>
-          )}
-
-          {tab === 'inprogress' && (
-            <div>
-              {inProgress.length > 0 ? inProgress.map((course) => <CourseCard key={course.id} course={course} inProgress onView={onViewCourse} onComplete={onComplete} />) : <div className="cand-empty">No courses in progress.</div>}
-            </div>
-          )}
-
-          {tab === 'completed' && (
-            <div>
-              {completed.length > 0 ? (
-                <>
-                  {completed.map((course) => <CourseCard key={course.id} course={course} completed onView={onViewCourse} />)}
-                  <div className="cand-evidence-upload mt-3">
-                    <UIIcon name="upload" className="cand-upload-inline-icon" />
-                    <span>Upload New Certificate or Evidence</span>
-                  </div>
-                </>
-              ) : (
-                <div className="cand-empty">No completed courses yet.</div>
-              )}
-            </div>
-          )}
-
-          {tab === 'by-gap' && (
-            <div className="space-y-3">
-              {groupedCoursesByGap.length > 0 ? (
-                groupedCoursesByGap.map((group) => (
-                  <div key={group.gapTag} className="cand-card">
-                    <div className="text-sm font-bold text-dark">{cleanSkillDisplayName(group.gapTag)}</div>
-                    <div className="mt-1 text-xs text-soft">{group.courses.length} course recommendation(s)</div>
-                    <button className="cand-btn-secondary mt-3" type="button" onClick={() => onTab('recommended')}>
-                      View Courses
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <div className="cand-empty">No course groups available.</div>
-              )}
-            </div>
-          )}
-        </>
+        Array.from(groups.entries()).map(([gap, resources]) => (
+          <section key={gap} className="mb-6" aria-label={cleanSkillDisplayName(gap)}>
+            <h2 className="mb-3 text-sm font-bold text-dark">{cleanSkillDisplayName(gap)} · {resources.length} resource{resources.length === 1 ? '' : 's'}</h2>
+            {resources.length ? resources.map((course) => <CourseCard key={course.id} course={course} />) : <p className="text-sm text-soft">No reviewed resource available for this skill.</p>}
+          </section>
+        ))
       )}
     </div>
   );
 }
 
-function CourseCard({
-  course,
-  inProgress,
-  completed,
-  onView,
-  onStart,
-  onComplete,
-}: {
-  course: DashboardCourse;
-  inProgress?: boolean;
-  completed?: boolean;
-  onView: (course: DashboardCourse) => void;
-  onStart?: (course: DashboardCourse) => void;
-  onComplete?: (course: DashboardCourse) => void;
-}) {
+function CourseCard({ course }: { course: DashboardCourse }) {
+  const url = learningResourceUrl(course);
+
   return (
     <div className="cand-course-card">
       <div className="cand-course-top">
         <div className="cand-provider-badge">{course.provider.slice(0, 2).toUpperCase()}</div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-dark">{course.title}</div>
+          <h3 className="text-sm font-bold text-dark">{course.title}</h3>
           <div className="text-xs text-soft">{course.provider}</div>
         </div>
-        <span className={`cand-pill ${course.isFree ? 'free' : 'paid'}`}>{course.isFree ? 'Free' : 'Paid'}</span>
       </div>
       <div className="cand-course-meta">
-        <span>{course.duration}</span>
-        <span>{course.level}</span>
-        <span>{course.certificateAvailable ? 'Certificate available' : 'No certificate'}</span>
-        <span className="cand-course-gap-tag">{cleanSkillDisplayName(course.gapTag)}</span>
+        {course.verifiedAt && <span>Catalog checked: {course.verifiedAt}</span>}
+        <span>{course.duration || 'Duration not stated'}</span>
+        <span>{course.level || 'Level not stated'}</span>
+        <span className="cand-course-gap-tag">{cleanSkillDisplayName(course.gapTag) || 'General career development'}</span>
       </div>
       <div className="cand-job-section">
-        <div className="cand-job-section-label">Related Skill Gap</div>
-        <div className="text-xs text-mid">{cleanSkillDisplayName(course.gapTag) || 'General career development'}</div>
+        <div className="cand-job-section-label">Why this resource is suggested</div>
+        <div className="text-xs text-mid">{course.gapTag ? `Listed for ${cleanSkillDisplayName(course.gapTag)}, a skill associated with your job matches. Check the provider’s learning outcomes and prerequisites to decide whether it fits your needs.` : 'A general career-development resource. Check its learning outcomes to see whether it fits your goal.'}</div>
       </div>
       <div className="cand-job-section">
-        <div className="cand-job-section-label">Why Recommended</div>
-        <div className="text-xs text-mid">Helps address a repeated skill gap found in your matched roles.</div>
+        <div className="cand-job-section-label">Check with the provider</div>
+        <div className="text-xs text-mid">Course fees: {course.fees}. Certificate or exam fees: {course.certificateCost}. Prerequisites: {course.prerequisites}. Credential conditions: {course.credentialConditions}. Confirm current requirements with the provider.</div>
       </div>
-      {inProgress && (
-        <div>
-          <div className="flex justify-between text-xs text-soft">
-            <span>Progress</span>
-            <span>50%</span>
-          </div>
-          <div className="cand-progress-bar">
-            <div className="cand-progress-fill" style={{ width: '50%' }} />
-          </div>
-        </div>
-      )}
-      <div className="cand-course-actions">
-        <span className="text-xs text-soft">{completed ? 'Completed learning' : inProgress ? 'Learning in progress' : 'Recommended learning pathway'}</span>
-        <div className="flex gap-2">
-          <button className="cand-btn-primary cand-btn-sm" type="button" onClick={() => onView(course)}>
-            View Course
-          </button>
-          {!completed && !inProgress && onStart && (
-            <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onStart(course)}>
-              Start
-            </button>
-          )}
-          {inProgress && onComplete && (
-            <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onComplete(course)}>
-              Mark Completed
-            </button>
-          )}
-        </div>
+      <div className="cand-course-actions flex-wrap gap-3">
+        <span className="text-xs text-soft">Opens the provider’s site in a new tab</span>
+        {url ? (
+          <a className="cand-btn-primary cand-btn-sm" href={url} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel}: ${course.title} (opens in a new tab)`}>
+            {course.urlLabel}<UIIcon name="external" className="cand-btn-icon" />
+          </a>
+        ) : <span className="text-xs text-soft">Provider link unavailable</span>}
       </div>
     </div>
   );
@@ -5588,13 +5442,15 @@ function JobDetailModal({
                 <UIIcon name="graduation" className="cand-inline-info-icon" />
                 <div>
                   <strong>{course.title}</strong>
-                  <div className="text-xs text-mid">{course.provider} · {course.level} · {course.duration} · {course.isFree ? 'Free' : 'Paid or varies'}</div>
+                  <div className="text-xs text-mid">
+                    {course.provider} · {course.level} · {course.duration} · {course.fees} ·{' '}
+                    <span className={grantsCredential(course.credentialType) ? 'cand-credential-yes' : 'cand-credential-no'}>{course.credentialLabel}</span>
+                  </div>
                   <div className="text-xs text-mid">This learning resource supports {cleanSkillDisplayName(course.gapTag)}, one of the skills connected to this role.</div>
-                  {course.url && (
-                    <button className="cand-btn-secondary cand-btn-sm mt-2" type="button" onClick={() => window.open(course.url, '_blank', 'noopener,noreferrer')}>
-                      Open Resource
-                    </button>
-                  )}
+                  {learningResourceUrl(course) ? (
+                    <a className="cand-btn-secondary cand-btn-sm mt-2" href={learningResourceUrl(course)} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel}: ${course.title} (opens in a new tab)`}>{course.urlLabel}</a>
+                  ) : <span className="text-xs text-soft">Provider link unavailable</span>}
+                  <p className="text-xs text-soft">The provider manages learning and certificates. Kareerly does not verify completion; opening this resource does not change skills, readiness, or match scores.</p>
                 </div>
               </div>
             ))
