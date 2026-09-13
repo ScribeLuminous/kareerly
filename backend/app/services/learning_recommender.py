@@ -3,12 +3,12 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 from typing import Any, Optional
-import math
+from datetime import date
+from urllib.parse import urlsplit
 
 import pandas as pd
 
 from .supabase_learning_resources import load_learning_resources_dataframe
-from .cross_encoder_service import score_text_pairs
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -394,6 +394,45 @@ def compute_certification_score(
     )
 
 
+def provider_url(value: Any) -> str:
+    """Only catalog URLs; never manufacture provider search links."""
+    text = str(value or "").strip()
+    try:
+        parsed = urlsplit(text)
+        if (parsed.scheme in {"https", "http"} and parsed.hostname
+                and not parsed.username and not parsed.password
+                and not any(char.isspace() for char in text)):
+            _ = parsed.port
+            return text
+    except ValueError:
+        pass
+    return ""
+
+
+def resource_is_reviewed(resource: Any) -> bool:
+    """Fail closed for legacy, generated, and incomplete review records."""
+    def field(key: str) -> str:
+        value = resource.get(key, "")
+        return "" if pd.isna(value) else str(value).strip()
+
+    try:
+        checked = date.fromisoformat(field("last_verified_at"))
+    except ValueError:
+        return False
+    return (
+        field("status").lower() == "active"
+        and field("skill_id_mapping_status").lower() == "reviewed"
+        and field("review_status").lower() == "verified"
+        and checked <= date.today()
+        and all(field(key) for key in (
+            "resource_id", "course_or_certification_title", "offered_by_provider",
+            "reviewer", "source_evidence", "skill_id_mapping_notes", "catalog_version",
+        ))
+        and bool(provider_url(field("source_evidence")))
+        and bool(split_ids(field("skill_ids")))
+    )
+
+
 def recommend_learning_resources_for_gap(
     gap: dict[str, Any],
     learning_df: Optional[pd.DataFrame] = None,
@@ -403,112 +442,42 @@ def recommend_learning_resources_for_gap(
 ) -> list[dict[str, Any]]:
     if learning_df is None:
         learning_df = load_learning_resources()
-    if learning_df.empty:
-        return []
-
-    if skills_lookup is None:
-        skills_lookup = _skills_lookup_by_id(load_skills_reference())
-
     skill_id = str(gap.get("skill_id", "")).strip().upper()
-    skill_meta = skills_lookup.get(skill_id, {})
-    skill_name = str(gap.get("skill_name") or skill_meta.get("skill_name") or skill_id).strip()
-    skill_aliases = _skill_aliases(skill_meta)
-    if skill_name:
-        skill_aliases.add(skill_name.lower())
-
-    gap_category_name = str(gap.get("category_name") or skill_meta.get("skill_category") or "").strip().lower()
-    preferred_skill = str((preferences or {}).get("skill_to_develop", "")).strip().lower()
-
-    recommendations: list[dict[str, Any]] = []
-    resource_texts = [_resource_text(resource) for _, resource in learning_df.iterrows()]
-    cross_encoder_scores: list[float] = []
-    try:
-        query = " ".join(
-            part for part in [
-                f"Learning resource for skill gap: {skill_name}",
-                f"Target skill: {preferred_skill}" if preferred_skill else "",
-                f"Career category: {gap_category_name}" if gap_category_name else "",
-            ]
-            if part
-        )
-        raw_scores = score_text_pairs(query, resource_texts)
-        cross_encoder_scores = [1.0 / (1.0 + math.exp(-float(score))) for score in raw_scores]
-    except Exception:
-        # Keep an explicit keyword fallback for offline development only.
-        cross_encoder_scores = [0.0] * len(resource_texts)
-
-    for resource_position, (_, resource) in enumerate(learning_df.iterrows()):
-        resource_skill_ids = set(split_ids(resource.get("skill_ids", "")))
-        resource_mapped_names = {item.lower() for item in split_text_values(resource.get("mapped_skill_names", ""))}
-        resource_text = _resource_text(resource)
-
-        id_match = skill_id and skill_id in resource_skill_ids
-        alias_match = bool(skill_aliases.intersection(resource_mapped_names))
-        keyword_match = any(alias in resource_text for alias in skill_aliases)
-
-        if not (id_match or alias_match or keyword_match):
+    if not skill_id or learning_df.empty:
+        return []
+    skill_name = str(gap.get("skill_name") or (skills_lookup or {}).get(skill_id, {}).get("skill_name") or skill_id)
+    recommendations = []
+    for _, resource in learning_df.iterrows():
+        if not resource_is_reviewed(resource) or skill_id not in split_ids(resource.get("skill_ids", "")):
             continue
-
-        keyword_relevance = 1.0 if id_match else 0.85 if alias_match else 0.65
-        cross_encoder_relevance = cross_encoder_scores[resource_position]
-        semantic_or_keyword_relevance = (
-            cross_encoder_relevance if cross_encoder_relevance > 0 else keyword_relevance
-        )
-        skill_coverage = min(len(resource_skill_ids.intersection({skill_id})) or int(alias_match) or int(keyword_match), 1)
-        provider_trust_score = safe_float(resource.get("provider_trust_score_auto", 70.0), default=70.0) / 100.0
-
-        level_text = str(resource.get("level", "")).lower()
-        level_fit = 1.0 if "beginner" in level_text or "foundation" in level_text else 0.8 if level_text else 0.6
-        duration_text = str(resource.get("estimated_duration", "")).lower()
-        cost_fit = 1.0 if "free" in str(resource.get("cost_type", "")).lower() else 0.75
-        if any(token in duration_text for token in ["week", "hour", "self-paced"]):
-            cost_fit = min(1.0, cost_fit + 0.1)
-
-        if preferred_skill and preferred_skill in resource_text:
-            semantic_or_keyword_relevance = min(1.0, semantic_or_keyword_relevance + 0.1)
-
-        learning_score = (
-            0.35 * semantic_or_keyword_relevance
-            + 0.25 * float(skill_coverage)
-            + 0.20 * provider_trust_score
-            + 0.10 * level_fit
-            + 0.10 * cost_fit
-        )
-
-        recommendations.append(
-            {
-                "resource_id": resource.get("resource_id", ""),
-                "title": resource.get("course_or_certification_title", ""),
-                "description": resource.get("course_or_certification_description", ""),
-                "provider": resource.get("offered_by_provider", ""),
-                "provider_type": resource.get("provider_type", ""),
-                "resource_type": resource.get("resource_type", ""),
-                "level": resource.get("level", ""),
-                "language": resource.get("language", ""),
-                "delivery_mode": resource.get("delivery_mode", ""),
-                "cost_type": resource.get("cost_type", ""),
-                "estimated_duration": resource.get("estimated_duration", ""),
-                "matched_gap_skill_ids": [skill_id] if skill_id else [],
-                "skills_youll_gain": resource.get("skills_youll_gain", ""),
-                "certification_score": round(learning_score, 4),
-                "recommendation_percentage": round(learning_score * 100, 2),
-                "url": resource.get("external_course_or_certification_link", ""),
-                "category_name": resource.get("category_name", ""),
-                "semantic_or_keyword_relevance": round(semantic_or_keyword_relevance, 4),
-                "cross_encoder_relevance": round(cross_encoder_relevance, 4),
-                "relevance_method": (
-                    "cross_encoder_bert" if cross_encoder_relevance > 0 else "keyword_fallback"
-                ),
-                "gap_skill_name": skill_name,
-                "why_recommended": (
-                    f"Helps address the repeated skill gap in {skill_name}."
-                    if skill_name
-                    else "Helps address a repeated skill gap found in your recommended roles."
-                ),
-            }
-        )
-
-    return sorted(recommendations, key=lambda item: item["certification_score"], reverse=True)[:max_recommendations]
+        def value(key: str, default: str = "") -> str:
+            raw = resource.get(key, "")
+            return default if pd.isna(raw) or not str(raw).strip() else str(raw).strip()
+        # Resource kind is reviewed catalog data, independent of award claims.
+        kind = value("resource_type").lower()
+        action = "View preparation course" if kind in {"exam_review", "exam_preparation"} else "View certification" if kind in {"certification", "credential", "exam", "industry_certification"} else "Start learning"
+        credential_verified = value("credential_review_status").lower() == "verified" and bool(value("credential_conditions")) and bool(provider_url(value("credential_evidence")))
+        recommendations.append({
+            "resource_id": value("resource_id"), "title": value("course_or_certification_title"),
+            "description": value("course_or_certification_description"), "provider": value("offered_by_provider"),
+            "provider_type": value("provider_type"), "resource_type": kind,
+            "review_status": "verified", "matched_gap_skill_ids": [skill_id],
+            "matched_gap_skill_names": [skill_name], "gap_skill_name": skill_name,
+            "skills_youll_gain": value("skills_youll_gain"),
+            "credential_label": value("credential_conditions") if credential_verified else "Credential conditions unknown",
+            "credential_conditions": value("credential_conditions") if credential_verified else "Unknown — check with provider",
+            "cost_type": value("cost_type", "Unknown — check with provider"),
+            "certificate_cost": value("certificate_cost", "Unknown — check with provider"),
+            "prerequisites": value("prerequisites", "Unknown — check with provider"),
+            "level": value("level"), "estimated_duration": value("estimated_duration"),
+            "language": value("language"), "delivery_mode": value("delivery_mode"),
+            "url": provider_url(value("external_course_or_certification_link")), "url_label": action,
+            "last_verified_at": value("last_verified_at"),
+            "certification_score": 0, "recommendation_percentage": 0,
+            "why_recommended": f"Reviewed catalog mapping to {skill_name}.",
+            "relevance_method": "reviewed_skill_id_mapping",
+        })
+    return sorted(recommendations, key=lambda item: item["resource_id"])[:max(0, max_recommendations)]
 
 
 def recommend_learning_resources(
@@ -519,83 +488,13 @@ def recommend_learning_resources(
 ) -> list[dict]:
     if learning_df is None:
         learning_df = load_learning_resources()
-    skills_lookup = _skills_lookup_by_id(load_skills_reference())
-    flattened: list[dict[str, Any]] = []
-    seen_resource_ids: set[str] = set()
-
+    resources: dict[str, dict] = {}
     for gap in skill_gaps:
-        for resource in recommend_learning_resources_for_gap(
-            gap=gap,
-            learning_df=learning_df,
-            skills_lookup=skills_lookup,
-            preferences=preferences,
-            max_recommendations=3,
-        ):
-            resource_id = str(resource.get("resource_id", "")).strip()
-            if not resource_id or resource_id in seen_resource_ids:
-                continue
-            seen_resource_ids.add(resource_id)
-            flattened.append(resource)
-
-    if len(flattened) < max_recommendations and learning_df is not None and not learning_df.empty:
-        preferred_skill = str((preferences or {}).get("skill_to_develop", "")).strip().lower()
-        preferred_industry = str((preferences or {}).get("industry", "")).strip().lower()
-        gap_skill_names = [
-            str(gap.get("skill_name") or gap.get("skill") or "").strip()
-            for gap in skill_gaps
-            if str(gap.get("skill_name") or gap.get("skill") or "").strip()
-        ]
-
-        fallback_rows: list[dict[str, Any]] = []
-        for _, resource in learning_df.iterrows():
-            resource_id = str(resource.get("resource_id", "")).strip()
-            if not resource_id or resource_id in seen_resource_ids:
-                continue
-
-            resource_text = _resource_text(resource)
-            provider_trust_score = safe_float(resource.get("provider_trust_score_auto", 70.0), default=70.0) / 100.0
-            keyword_fit = 0.0
-            if preferred_skill and preferred_skill in resource_text:
-                keyword_fit += 0.15
-            if preferred_industry and preferred_industry in resource_text:
-                keyword_fit += 0.10
-
-            level_text = str(resource.get("level", "")).lower()
-            level_fit = 1.0 if "beginner" in level_text or "foundation" in level_text else 0.8 if level_text else 0.6
-            cost_fit = 1.0 if "free" in str(resource.get("cost_type", "")).lower() else 0.75
-            learning_score = min(0.84, 0.35 + keyword_fit + (0.25 * provider_trust_score) + (0.15 * level_fit) + (0.10 * cost_fit))
-
-            fallback_rows.append(
-                {
-                    "resource_id": resource_id,
-                    "title": resource.get("course_or_certification_title", ""),
-                    "description": resource.get("course_or_certification_description", ""),
-                    "provider": resource.get("offered_by_provider", ""),
-                    "provider_type": resource.get("provider_type", ""),
-                    "resource_type": resource.get("resource_type", ""),
-                    "level": resource.get("level", ""),
-                    "language": resource.get("language", ""),
-                    "delivery_mode": resource.get("delivery_mode", ""),
-                    "cost_type": resource.get("cost_type", ""),
-                    "estimated_duration": resource.get("estimated_duration", ""),
-                    "matched_gap_skill_ids": [],
-                    "skills_youll_gain": resource.get("skills_youll_gain", ""),
-                    "certification_score": round(learning_score, 4),
-                    "recommendation_percentage": round(learning_score * 100, 2),
-                    "url": resource.get("external_course_or_certification_link", ""),
-                    "category_name": resource.get("category_name", ""),
-                    "semantic_or_keyword_relevance": round(0.50 + keyword_fit, 4),
-                    "gap_skill_name": gap_skill_names[0] if gap_skill_names else "",
-                    "why_recommended": (
-                        "Recommended from the learning catalog to support your career goals while more precise skill matches are limited."
-                    ),
-                }
-            )
-
-        for resource in sorted(fallback_rows, key=lambda item: item["certification_score"], reverse=True):
-            if len(flattened) >= max_recommendations:
-                break
-            seen_resource_ids.add(str(resource.get("resource_id", "")).strip())
-            flattened.append(resource)
-
-    return sorted(flattened, key=lambda item: item["certification_score"], reverse=True)[:max_recommendations]
+        for resource in recommend_learning_resources_for_gap(gap, learning_df, preferences=preferences):
+            existing = resources.get(resource["resource_id"])
+            if existing:
+                for id_key in ("matched_gap_skill_ids", "matched_gap_skill_names"):
+                    existing[id_key] = list(dict.fromkeys(existing[id_key] + resource[id_key]))
+            else:
+                resources[resource["resource_id"]] = resource
+    return list(resources.values())[:max(0, max_recommendations)]
