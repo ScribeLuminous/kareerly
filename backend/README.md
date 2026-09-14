@@ -3,7 +3,7 @@
 Local setup:
 
 ```bash
-cd /Users/dustinef/Documents/ADM-Thesis/kareerly_system
+# From the repository root
 python3 -m venv backend/.venv
 source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
@@ -114,3 +114,40 @@ Not yet included in this baseline:
 - evidence strength as a Fit-Now component
 - semantic embeddings
 - Resume2Vec
+
+## Start the complete local app
+
+After installing backend requirements and running `npm ci` in `frontend`, run:
+
+```bash
+cd frontend
+npm run dev
+```
+
+This starts FastAPI on `127.0.0.1:8000`, waits up to 60 attempts for
+`GET /api/health` to return `{"status":"ok"}`, then starts Vite on port 5173.
+A process or occupied port alone does not count as ready. Startup errors appear
+in `backend/.uvicorn.log`; Vite does not launch when health fails.
+To use an existing Python environment, set `BACKEND_PYTHON=/absolute/path/to/python`.
+The backend remains running after Vite exits; stop it with `bash backend/dev_server.sh stop`.
+
+The frontend defaults to `http://127.0.0.1:8000`; override with
+`VITE_API_BASE_URL` in `frontend/.env` and restart Vite. Default CORS allows both
+`http://localhost:5173` and `http://127.0.0.1:5173`. If overriding `FRONTEND_URLS`,
+include the origins used by your browser. Supabase credentials are required for
+account services, but missing credentials do not prevent health/public routes
+from starting. Matching still requires its datasets and model dependencies.
+
+Regression checks:
+
+```bash
+backend/.venv/bin/python -m pip install -r backend/requirements-test.txt
+backend/.venv/bin/python -m unittest discover -s backend/tests -v
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+Evidence is currently stored in dashboard state with browser blob URLs, not durable
+storage. Resume re-analysis no longer changes it; a dashboard unmount or page reload
+still clears it. PDF validation only checks size and basic structure. A successful
+`status: valid` response means file checks passed, never credential verification.

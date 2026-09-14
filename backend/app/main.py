@@ -64,16 +64,6 @@ SUPABASE_ANON_KEY = os.getenv(
 )
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
-if not SUPABASE_URL:
-    raise RuntimeError("SUPABASE_URL is not configured.")
-
-if not SUPABASE_ANON_KEY:
-    raise RuntimeError("SUPABASE_ANON_KEY is not configured.")
-
-if not SUPABASE_SERVICE_ROLE_KEY:
-    raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is not configured.")
-
-
 class MessageCreateRequest(BaseModel):
     application_id: str
     message_text: str
@@ -335,6 +325,8 @@ def _supabase_request(
     body: object | None = None,
     prefer: str | None = None,
 ) -> object:
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        raise HTTPException(status_code=503, detail="Supabase is not configured for account services.")
     api_key = SUPABASE_SERVICE_ROLE_KEY if service_role else SUPABASE_ANON_KEY
     bearer = SUPABASE_SERVICE_ROLE_KEY if service_role else token
     if not api_key:
@@ -872,38 +864,7 @@ def _is_valid_certificate_pdf(filename: str, file_bytes: bytes) -> tuple[bool, s
     if "/Type /Page" not in decoded:
         return False, "The uploaded file does not appear to be a valid PDF document."
 
-    has_certificate_keyword = any(
-        keyword in lower_name
-        for keyword in [
-            "certificate",
-            "cert",
-            "tesda",
-            "diploma",
-            "credential",
-            "license",
-            "licence",
-            "training",
-        ]
-    )
-    has_document_keyword = any(
-        keyword in decoded.lower()
-        for keyword in [
-            "certificate",
-            "certification",
-            "tesda",
-            "diploma",
-            "awarded",
-            "issued",
-            "completion",
-            "credential",
-            "license",
-            "licence",
-        ]
-    )
-    if not has_certificate_keyword and not has_document_keyword:
-        return False, "No certificate markers were detected in filename or document content."
-
-    return True, "Certificate file passed baseline validation checks."
+    return True, "PDF file checks passed. Pending Verification: issuer authenticity, completion, and certificate validity have not been verified."
 
 
 @app.get("/api/skills/search")
