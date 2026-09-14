@@ -1,3 +1,4 @@
+import { prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } from '../lib/evidence';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -107,7 +108,7 @@ const FILIPINO_UI: Record<string, string> = {
   'Enter highest educational attainment': 'Ilagay ang pinakamataas na natapos na edukasyon',
   'Enter degree or program': 'Ilagay ang degree o programa', 'Enter school or university': 'Ilagay ang paaralan o unibersidad',
   'Enter graduation year': 'Ilagay ang taon ng pagtatapos', 'Save Education': 'I-save ang Edukasyon',
-  'Certifications & Uploaded Evidence': 'Mga Sertipikasyon at Na-upload na Katibayan',
+  'User-Uploaded Evidence': 'Mga Sertipikasyon at Na-upload na Katibayan',
   'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Delete: 'Tanggalin',
   'Delete Profile': 'Tanggalin ang Profile', 'Request Profile Deletion': 'Humiling na Tanggalin ang Profile',
 };
@@ -247,7 +248,7 @@ type SkillProgressRecord = {
   evidenceUploadedAt?: string;
 };
 
-type EvidenceType = 'Certificate' | 'Course Completion' | 'Portfolio' | 'Project' | 'Training' | 'Other';
+
 
 type DashboardApplication = {
   id: string;
@@ -281,18 +282,6 @@ type JobApplicationRow = {
   applied_at?: string | null;
 };
 
-type EvidenceUploadRecord = {
-  id: string;
-  title: string;
-  evidenceType: EvidenceType;
-  relatedSkill: string;
-  category: string;
-  uploadedAt: string;
-  notes?: string;
-  fileName?: string;
-  fileUrl?: string;
-  status: 'Pending Verification' | 'Verified';
-};
 
 const PROGRESS_EMPTY_TEXT = 'No skill progress recorded yet. Your development progress will appear here after you start a recommended course, upload evidence, or update your resume with newly gained skills.';
 const SKILL_PROGRESS_PERCENT: Record<SkillProgressStatus, number> = {
@@ -1038,20 +1027,6 @@ function parseProgressPercent(record: DevelopmentProgressRecord): number {
   return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
-function inferEvidenceType(title: string): EvidenceType {
-  const value = title.toLowerCase();
-  if (value.includes('certificate')) return 'Certificate';
-  if (value.includes('course')) return 'Course Completion';
-  if (value.includes('portfolio')) return 'Portfolio';
-  if (value.includes('project')) return 'Project';
-  if (value.includes('training')) return 'Training';
-  return 'Other';
-}
-
-function inferEvidenceCategory(title: string): string {
-  return classifySkillCategory(cleanSkillDisplayName(title));
-}
-
 function normalizeProgressLabel(percent: number, backendLabel?: string): ProgressStatus {
   const derived = categoryStatus(percent);
   if (!backendLabel?.trim()) return derived;
@@ -1243,8 +1218,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const surveyAnswers = state.surveyAnswers || defaultSurveyAnswers;
   const candidateProfile = state.resumeAnalysis?.candidate_profile;
   const educationIndicators = candidateProfile?.education_indicators || [];
-  const certificationIndicators = candidateProfile?.certification_indicators || [];
-  const extractedCertifications = candidateProfile?.certifications || [];
   const experienceIndicators = candidateProfile?.experience_indicators || [];
   const matchedLocation = extraPreferences.preferredLocation || surveyAnswers.setup || '';
 
@@ -1296,67 +1269,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       };
     });
   };
-
-  const uploadSkillEvidence = (skillKey: string, file: File | null) => {
-    if (!file) return;
-    setSkillProgressRecords((current) => {
-      const existing = current[skillKey];
-      if (!existing) return current;
-      return {
-        ...current,
-        [skillKey]: {
-          ...existing,
-          status: 'evidenced',
-          progressPercent: SKILL_PROGRESS_PERCENT.evidenced,
-          evidenceFilename: file.name,
-          evidenceUploadedAt: dateTodayIso(),
-        },
-      };
-    });
-  };
-
-  useEffect(() => {
-    const educationItems = educationIndicators.length
-      ? educationIndicators.map((item, index) => ({
-          id: `edu-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Verified' as const,
-        }))
-      : [];
-
-    const certificationNames = extractedCertifications.length
-      ? extractedCertifications.map((item) => item.title).filter(Boolean)
-      : certificationIndicators;
-    const certificationItems = certificationNames.length
-      ? certificationNames.map((item, index) => ({
-          id: `cert-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Pending Verification' as const,
-        }))
-      : [];
-
-    const experienceItems = experienceIndicators.length
-      ? experienceIndicators.map((item, index) => ({
-          id: `exp-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Verified' as const,
-        }))
-      : [];
-
-    setEvidenceRecords([...certificationItems, ...experienceItems, ...educationItems]);
-  }, [educationIndicators.join('|'), certificationIndicators.join('|'), extractedCertifications.map((item) => item.title).join('|'), experienceIndicators.join('|')]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2624,59 +2536,11 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     notes?: string;
     file: File | null;
   }) => {
-    const isEditing = Boolean(draft.id);
-    const existingRecord = draft.id ? evidenceRecords.find((record) => record.id === draft.id) || null : null;
-    const file = draft.file;
-    const fileName = file?.name.trim() || existingRecord?.fileName || '';
-
-    if (!isEditing && !file) {
-      showToast('Please upload a PDF evidence file before saving.', 'warn');
-      return;
-    }
-
-    if (file) {
-    const lowerName = fileName.toLowerCase();
-    const isPdfExtension = lowerName.endsWith('.pdf');
-    const isPdfMime = file.type === 'application/pdf' || file.type === '';
-
-    if (!isPdfExtension || !isPdfMime) {
-      showToast('Only PDF certificate files are accepted. Photos and non-certificate documents are blocked.', 'warn');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('Certificate file must be 5MB or smaller.', 'warn');
-      return;
-    }
-
-    const suspiciousPhotoName = /(screenshot|screen shot|img[_-]?\d+|photo|selfie|camera|whatsapp image)/i.test(lowerName);
-    if (suspiciousPhotoName) {
-      showToast('Screenshot/photo-like filenames are blocked. Please upload the original certificate PDF.', 'warn');
-      return;
-    }
-    }
-
+    const existingRecord = draft.id ? evidenceRecords.find((record) => record.id === draft.id) : undefined;
     setLoading(true);
     setError(null);
     try {
-      let validationMessage = 'Evidence saved with safeguards. Marked as Pending Verification.';
-      if (file) {
-        const validation = await validateCertificateFile(file);
-        validationMessage = validation.message || validationMessage;
-      }
-
-      const nextRecord: EvidenceUploadRecord = {
-        id: draft.id || `ev-${Date.now()}`,
-        title: draft.title.trim(),
-        evidenceType: draft.evidenceType,
-        relatedSkill: draft.relatedSkill.trim(),
-        category: draft.category.trim() || 'Other',
-        uploadedAt: dateTodayIso(),
-        notes: draft.notes?.trim() || '',
-        fileName: file?.name || existingRecord?.fileName,
-        fileUrl: file ? URL.createObjectURL(file) : existingRecord?.fileUrl,
-        status: 'Pending Verification',
-      };
+      const nextRecord = await prepareEvidenceUpload(draft, existingRecord, validateCertificateFile);
 
       setEvidenceRecords((current) => {
         if (draft.id) {
@@ -2687,7 +2551,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
       setEvidenceModalOpen(false);
       setEditingEvidence(null);
-      showToast(validationMessage, 'success');
+      showToast('Evidence saved. Pending Verification; file checks do not verify the credential.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to validate certificate upload.';
       setError(message);
@@ -2987,7 +2851,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               evidenceRecords={evidenceRecords}
               skillProgressRecords={skillProgressRecords}
               onUpdateSkillProgress={updateSkillProgressStatus}
-              onUploadSkillEvidence={uploadSkillEvidence}
+              onUploadSkillEvidence={openEvidenceUploadModal}
               onOpenUpskilling={() => setActivePage('upskilling')}
               onOpenResume={openResumeModal}
             />
@@ -3881,7 +3745,7 @@ function SkillGapsPage({
   evidenceRecords: EvidenceUploadRecord[];
   skillProgressRecords: Record<string, SkillProgressRecord>;
   onUpdateSkillProgress: (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => void;
-  onUploadSkillEvidence: (skillKey: string, file: File | null) => void;
+  onUploadSkillEvidence: () => void;
   onOpenUpskilling: () => void;
   onOpenResume: () => void;
 }) {
@@ -4085,15 +3949,9 @@ function SkillGapsPage({
                           <button className="cand-gap-resource" type="button" onClick={() => onUpdateSkillProgress(progressKey, 'completed', recommendedResource?.id)}>
                             Mark Completed
                           </button>
-                          <label className="cand-gap-resource cand-gap-upload">
+                          <button className="cand-gap-resource cand-gap-upload" type="button" onClick={onUploadSkillEvidence}>
                             Upload Evidence
-                            <input
-                              type="file"
-                              accept="application/pdf,.pdf"
-                              className="hidden"
-                              onChange={(event) => onUploadSkillEvidence(progressKey, event.target.files?.[0] || null)}
-                            />
-                          </label>
+                          </button>
                           <button className="cand-gap-resource" type="button" onClick={onOpenUpskilling}>
                             View Top 3
                           </button>
@@ -4669,9 +4527,9 @@ function AccountSettingsPage({
       </div>
 
       <div className="cand-acct-section">
-        <div className="cand-acct-title">Certifications & Uploaded Evidence</div>
+        <div className="cand-acct-title">User-Uploaded Evidence</div>
         <p className="mb-3 text-xs text-soft">
-          Safeguards enabled: PDF-only uploads, PDF signature and page-structure checks, certificate keyword checks, photo-like filename blocking, and pending-verification status.
+          Parsed resume information is used for your profile and job matching. Only PDFs submitted through Upload Evidence appear here. File checks do not confirm issuer authenticity, completion, or certificate validity. Uploads remain Pending Verification.
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-xs text-soft">Upload certificates, course completion files, portfolio outputs, or project samples to support your Skill Development Progress.</div>
@@ -5915,7 +5773,7 @@ function EvidenceFormModal({
         </FormField>
 
         <div className="cand-notice info">
-          <span>PDF only. Uploaded evidence remains pending verification until reviewed by the existing workflow.</span>
+          <span>PDF only. Uploaded evidence remains pending verification until independently reviewed.</span>
         </div>
 
         <div className="cand-modal-actions">
