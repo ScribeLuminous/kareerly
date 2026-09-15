@@ -147,12 +147,11 @@ export async function getCurrentKareerlyUser(): Promise<KareerlyUser | null> {
 export async function signInWithEmail(email: string, password: string, expectedRole?: AuthRole): Promise<KareerlyUser> {
   authOperationVersion += 1;
   authStatus = 'verifying_role';
-  const verificationErrorMessage = expectedRole === 'candidate'
-    ? 'We could not verify your account. Please try logging in as an employer instead.'
-    : expectedRole === 'employer'
-      ? 'We could not verify your account. Please try logging in as a candidate instead.'
-      : 'We could not verify your account. Please try again.';
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const verificationErrorMessage = 'We could not verify your account profile. Please try again shortly or contact support.';
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password }).catch((error: unknown) => {
+    authStatus = 'signed_out';
+    throw error;
+  });
   if (error) {
     authStatus = 'signed_out';
     throw error;
@@ -203,6 +202,17 @@ export function getFriendlyAuthErrorMessage(error: unknown): string {
   ].find((item) => item.trim())?.trim() || '';
   const status = 'status' in record ? Number(record.status) : null;
   const lowerMessage = message.toLowerCase();
+
+  if (
+    record.name === 'AuthRetryableFetchError' ||
+    lowerMessage.includes('failed to fetch') ||
+    lowerMessage.includes('fetch failed') ||
+    lowerMessage.includes('networkerror') ||
+    lowerMessage.includes('network request failed') ||
+    lowerMessage === 'load failed'
+  ) {
+    return 'Unable to reach the sign-in service. Please check your connection and try again. If this continues, contact support.';
+  }
 
   if (lowerMessage.includes('email not confirmed')) {
     return 'Please confirm your email address before logging in.';
