@@ -3147,3 +3147,49 @@
     min-width: 0;
   }
 }
+
+/* Credential classification: certifications vs plain courses */
+.cand-credential-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.cand-credential-toggle {
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mid, #475569);
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.cand-credential-toggle:hover {
+  border-color: var(--brand, #2563eb);
+  color: var(--brand, #2563eb);
+}
+
+.cand-credential-toggle.active {
+  background: var(--brand, #2563eb);
+  border-color: var(--brand, #2563eb);
+  color: #fff;
+}
+
+.cand-credential-filter-note {
+  font-size: 11px;
+  color: var(--soft, #94a3b8);
+}
+
+.cand-credential-yes {
+  font-weight: 700;
+  color: #047857;
+}
+
+.cand-credential-no {
+  color: var(--soft, #94a3b8);
+}
