@@ -1,3 +1,4 @@
+import { savedMatchScore, scoreLabel } from '../lib/uiData';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -67,7 +68,7 @@ type JobStatus = 'open' | 'draft' | 'closed';
 type CandidateStatus = 'Pending' | 'Shortlisted' | 'Interviewing' | 'Hired' | 'Rejected' | 'Withdrawn';
 type MessageRequestState = 'none' | 'pending' | 'accepted' | 'declined' | 'ignored';
 type ToastType = '' | 'success' | 'warn' | 'danger';
-type MatchBucket = 'top' | 'good' | 'partial';
+type MatchBucket = 'top' | 'good' | 'partial' | 'unknown';
 type CandidateFilter = 'all' | 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn';
 type ReviewAction = 'shortlisted' | 'interviewing' | 'hired' | 'rejected';
 type CandidateView = 'kanban' | 'table';
@@ -124,6 +125,7 @@ type EmployerJob = {
   requiredSkills: string[];
   niceToHaveSkills: string[];
   workSetup: string;
+  employmentType: string;
   city: string;
   province: string;
   salaryRange: string;
@@ -168,6 +170,7 @@ type CandidateApplication = {
   role: string;
   jobId: string;
   matchPercent: number;
+  hasMatchScore: boolean;
   matchedSkills: string[];
   missingSkills: string[];
   status: CandidateStatus;
@@ -227,6 +230,7 @@ type JobFormState = {
   description: string;
   responsibilities: string;
   workSetup: string;
+  employmentType: string;
   location: string;
   salaryRange: string;
   deadline: string;
@@ -421,12 +425,13 @@ const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
   requiredSkills: splitSkills(row.required_skills),
   niceToHaveSkills: splitSkills(row.preferred_skills),
   workSetup: row.work_setup || '',
+  employmentType: row.employment_type || '',
   city: (row.location || '').split(',')[0]?.trim() || '',
   province: (row.location || '').split(',').slice(1).join(',').trim(),
   salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
   deadline: row.application_deadline || '',
   status: row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
-  postedDate: row.created_at ? row.created_at.slice(0, 10) : todayIso(),
+  postedDate: row.created_at ? row.created_at.slice(0, 10) : '',
 });
 
 const mapMessageRequestState = (state: string | null | undefined): MessageRequestState => {
@@ -437,7 +442,7 @@ const mapMessageRequestState = (state: string | null | undefined): MessageReques
 const toMessageEntry = (row: ApplicationMessageRow): MessageEntry => ({
   from: row.sender_role === 'employer' ? 'employer' : 'candidate',
   text: row.message_text,
-  time: row.created_at ? formatDateLabel(row.created_at.slice(0, 10)) : 'Just now',
+  time: row.created_at ? formatDateLabel(row.created_at.slice(0, 10)) : 'Time unavailable',
 });
 
 const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], messages: ApplicationMessageRow[] = [], publicId = ''): CandidateApplication => {
@@ -445,7 +450,8 @@ const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], mes
   const status = mapApplicationStatus(row.status);
   const matchedSkills = Array.isArray(row.matched_skills) ? row.matched_skills.filter(Boolean) : [];
   const missingSkills = Array.isArray(row.missing_skills) ? row.missing_skills.filter(Boolean) : [];
-  const matchPercent = Math.max(0, Math.min(100, Math.round(Number(row.match_score || 0))));
+  const savedScore = savedMatchScore(row.match_score);
+  const matchPercent = savedScore ?? 0;
 
   return {
     id: row.id,
@@ -454,14 +460,15 @@ const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], mes
     role: row.job_title || relatedJob?.title || 'Untitled role',
     jobId: row.job_id,
     matchPercent,
+    hasMatchScore: savedScore !== null,
     matchedSkills,
     missingSkills,
     status,
-    appliedDate: (row.applied_at || row.created_at || todayIso()).slice(0, 10),
+    appliedDate: (row.applied_at || row.created_at || '').slice(0, 10),
     location: row.candidate_location || 'Location not provided',
-    matchSummary: matchPercent > 0 ? `${matchPercent}% candidate-side match at application time.` : 'Candidate applied without a saved match score.',
+    matchSummary: savedScore !== null ? `${matchPercent}% candidate-side match at application time.` : 'Candidate applied without a saved match score.',
     strengthNote: matchedSkills.length > 0 ? `Matched skills: ${matchedSkills.slice(0, 4).join(', ')}` : 'Matched skills were not captured yet.',
-    gapNote: missingSkills.length > 0 ? `Potential gaps: ${missingSkills.slice(0, 4).join(', ')}` : 'No major missing skills were captured.',
+    gapNote: missingSkills.length > 0 ? `Potential gaps: ${missingSkills.slice(0, 4).join(', ')}` : 'Missing skill information was not captured.',
     recommendation: status === 'Withdrawn' ? 'Application withdrawn by candidate.' : 'Review candidate application details and decide next status.',
     messageRequestState: mapMessageRequestState(row.message_request_state),
     messages: messages.map(toMessageEntry),
@@ -476,6 +483,7 @@ const emptyJobForm: JobFormState = {
   description: '',
   responsibilities: '',
   workSetup: '',
+  employmentType: '',
   location: '',
   salaryRange: '',
   deadline: '',
@@ -559,13 +567,15 @@ function getStatusBadgeClass(status: CandidateStatus): string {
   return 'emp-status-badge emp-status-withdrawn';
 }
 
-function getMatchBucket(score: number): MatchBucket {
+function getMatchBucket(score: number, hasMatchScore = true): MatchBucket {
+  if (!hasMatchScore) return 'unknown';
   if (score >= 90) return 'top';
   if (score >= 75) return 'good';
   return 'partial';
 }
 
 function matchBucketLabel(bucket: MatchBucket): string {
+  if (bucket === 'unknown') return 'Match not available';
   if (bucket === 'top') return 'Top Match (90%+)';
   if (bucket === 'good') return 'Good Match (75-89%)';
   return 'Partial Match (<75%)';
@@ -573,7 +583,7 @@ function matchBucketLabel(bucket: MatchBucket): string {
 
 function formatDateLabel(value: string): string {
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
+  if (!value || Number.isNaN(parsed.getTime())) return 'Date unavailable';
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -630,6 +640,10 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     );
   }
 
+  return <EmployerWorkspace employer={employer} onHome={onHome} onLogout={onLogout} />;
+}
+
+function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboardProps, 'onHome' | 'onLogout'> & { employer: NonNullable<EmployerDashboardProps['employer']> }) {
   const [companyName, setCompanyName] = useState(employer.company || 'Employer Workspace');
   const companyInitials = getInitials(companyName);
   const contactName = employer.name || 'Employer Manager';
@@ -638,6 +652,8 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [jobs, setJobs] = useState<EmployerJob[]>(initialJobs);
+  const [jobsLoadStatus, setJobsLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [applicationsLoadStatus, setApplicationsLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [currentDate, setCurrentDate] = useState(todayIso);
   const [employerProfileId, setEmployerProfileId] = useState('');
   const [isSavingJob, setIsSavingJob] = useState(false);
@@ -805,7 +821,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
     const rows: Array<{ id: string; type: 'match' | 'warn'; title: string; desc: string; meta: string }> = strong.map((candidate) => ({
       id: `${candidate.id}-alert`,
       type: 'match',
-      title: `${candidate.publicId || 'Candidate'} - ${candidate.matchPercent}% match for ${candidate.role}`,
+      title: `${candidate.publicId || 'Candidate'} - ${scoreLabel(candidate.hasMatchScore ? candidate.matchPercent : null)} match for ${candidate.role}`,
       desc: candidate.matchSummary,
       meta: `Applied ${formatDateLabel(candidate.appliedDate)} · Top Match category`,
     }));
@@ -815,7 +831,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
         type: 'warn',
         title: `${withdrawn.publicId || 'Candidate'} withdrew their application`,
         desc: `The candidate withdrew from ${withdrawn.role}. This record is now closed and read-only.`,
-        meta: `Withdrawn ${formatDateLabel(withdrawn.appliedDate)}`,
+        meta: `Applied ${formatDateLabel(withdrawn.appliedDate)} · Currently withdrawn`,
       });
     }
     return rows;
@@ -856,7 +872,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
         const good = candidates.filter(
           (candidate) => candidate.matchPercent >= 75 && candidate.matchPercent < 90,
         ).length;
-        const partial = candidates.filter((candidate) => candidate.matchPercent < 75).length;
+        const partial = candidates.filter((candidate) => candidate.hasMatchScore && candidate.matchPercent < 75).length;
         return [job.id, { applications: candidates.length, top, good, partial }];
       }),
     );
@@ -873,7 +889,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
         candidate.fullName,
         candidate.role,
         candidate.status,
-        matchBucketLabel(getMatchBucket(candidate.matchPercent)),
+        matchBucketLabel(getMatchBucket(candidate.matchPercent, candidate.hasMatchScore)),
         ...candidate.matchedSkills,
         ...candidate.missingSkills,
       ]
@@ -899,10 +915,11 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
   );
 
   const groupedCandidates = useMemo(() => {
-    const top = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent) === 'top');
-    const good = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent) === 'good');
-    const partial = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent) === 'partial');
-    return { top, good, partial };
+    const top = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) === 'top');
+    const good = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) === 'good');
+    const partial = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) === 'partial');
+    const unknown = activeCandidates.filter((candidate) => !candidate.hasMatchScore);
+    return { top, good, partial, unknown };
   }, [activeCandidates]);
 
   const messageThreads = useMemo(() => {
@@ -984,12 +1001,12 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
 
       if (profileError) {
         console.warn('Unable to load employer profile:', profileError);
-        if (isMounted) showToast('Unable to load employer profile from Supabase.', 'warn');
+        if (isMounted) { setJobsLoadStatus('error'); showToast('Unable to load employer profile from Supabase.', 'warn'); }
         return;
       }
 
       const profileId = profile?.id ? String(profile.id) : '';
-      if (!profileId) return;
+      if (!profileId) { if (isMounted) setJobsLoadStatus('ready'); return; }
       if (isMounted) setEmployerProfileId(profileId);
 
       const { data, error } = await supabase
@@ -1000,7 +1017,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
 
       if (error) {
         console.warn('Unable to load employer job posts:', error);
-        if (isMounted) showToast('Unable to load saved job posts from Supabase.', 'warn');
+        if (isMounted) { setJobsLoadStatus('error'); showToast('Unable to load saved job posts from Supabase.', 'warn'); }
         return;
       }
 
@@ -1018,6 +1035,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       if (!isMounted) return;
       const savedJobs = Array.isArray(data) ? (data as EmployerJobPostRow[]).map(toEmployerJob) : [];
       setJobs(savedJobs);
+      setJobsLoadStatus('ready');
       setSelectedJobId(savedJobs[0]?.id || '');
     };
 
@@ -1045,6 +1063,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       const jobIds = Array.from(new Set(jobs.map((job) => job.id).filter(Boolean)));
       if (jobIds.length === 0) {
         setApplications([]);
+        setApplicationsLoadStatus(jobsLoadStatus);
         return;
       }
 
@@ -1056,7 +1075,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
 
       if (error) {
         console.warn('Unable to load job applications:', error);
-        if (isMounted) showToast('Unable to load applicants from Supabase.', 'warn');
+        if (isMounted) { setApplicationsLoadStatus('error'); showToast('Unable to load applicants from Supabase.', 'warn'); }
         return;
       }
 
@@ -1085,7 +1104,9 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
         })),
       ]));
 
+      if (!isMounted) return;
       setApplications(rows.map((row) => toCandidateApplication(row, jobs, messagesByApplication.get(row.id) || [], publicIdsByApplication.get(row.id) || '')));
+      setApplicationsLoadStatus('ready');
     };
 
     void loadJobApplications();
@@ -1095,7 +1116,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       isMounted = false;
       window.clearInterval(refreshTimer);
     };
-  }, [jobs]);
+  }, [jobs, jobsLoadStatus]);
 
   const markNotificationsRead = () => {
     setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
@@ -1141,6 +1162,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       description: job.description,
       responsibilities: job.responsibilities.join('\n'),
       workSetup: job.workSetup,
+      employmentType: job.employmentType,
       location: toFormLocation(job),
       salaryRange: toSalaryInputValue(job.salaryRange),
       deadline: job.deadline,
@@ -1257,7 +1279,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
       company_name: accountProfile.company.trim() || companyName,
       location,
       work_setup: jobForm.workSetup,
-      employment_type: 'Full-time',
+      employment_type: jobForm.employmentType.trim() || null,
       job_level: jobForm.experienceLevel,
       salary_min_php: salaryMinPhp,
       salary_max_php: salaryMaxPhp,
@@ -1669,10 +1691,10 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
               </div>
 
               <div className="emp-metrics-grid">
-                <MetricCard icon="layers" iconClass="rust" number={allApplicationsCount} label="Total Applications" numberClass="rust" />
-                <MetricCard icon="briefcase" iconClass="forest" number={openJobsCount} label="Open Jobs" numberClass="forest" />
-                <MetricCard icon="star" iconClass="green" number={topMatchesCount} label="Top Matches (90%+)" numberClass="green" />
-                <MetricCard icon="calendar-check" iconClass="mauve" number={interviewingCount} label="Interviewing" numberClass="mauve" />
+                <MetricCard icon="layers" iconClass="rust" number={applicationsLoadStatus === 'ready' ? allApplicationsCount : '—'} label="Total Applications" numberClass="rust" />
+                <MetricCard icon="briefcase" iconClass="forest" number={jobsLoadStatus === 'ready' ? openJobsCount : '—'} label="Open Jobs" numberClass="forest" />
+                <MetricCard icon="star" iconClass="green" number={applicationsLoadStatus === 'ready' ? topMatchesCount : '—'} label="Top Matches (90%+)" numberClass="green" />
+                <MetricCard icon="calendar-check" iconClass="mauve" number={applicationsLoadStatus === 'ready' ? interviewingCount : '—'} label="Interviewing" numberClass="mauve" />
               </div>
 
               <div className="emp-dashboard-grid">
@@ -2045,6 +2067,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                     <CandidateGroup title="Top Matches (90%+)" type="top" candidates={groupedCandidates.top} onReview={openReview} />
                     <CandidateGroup title="Good Matches (75-89%)" type="good" candidates={groupedCandidates.good} onReview={openReview} />
                     <CandidateGroup title="Partial Matches (<75%)" type="partial" candidates={groupedCandidates.partial} onReview={openReview} />
+                    {groupedCandidates.unknown.length > 0 && <CandidateGroup title="Match not available" type="unknown" candidates={groupedCandidates.unknown} onReview={openReview} />}
                   </div>
 
                   <div className="emp-final-section">
@@ -2100,8 +2123,8 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                       </thead>
                       <tbody>
                         {filteredCandidates.map((candidate) => {
-                          const bucket = getMatchBucket(candidate.matchPercent);
-                          const bucketColor = bucket === 'top' ? 'text-green' : bucket === 'good' ? 'text-amber' : 'text-rust';
+                          const bucket = getMatchBucket(candidate.matchPercent, candidate.hasMatchScore);
+                          const bucketColor = bucket === 'top' ? 'text-green' : bucket === 'good' ? 'text-amber' : bucket === 'unknown' ? 'text-soft' : 'text-rust';
                           return (
                             <tr key={candidate.id} className={candidate.status === 'Withdrawn' ? 'withdrawn-row' : ''}>
                               <td>
@@ -2113,7 +2136,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                               <td>{candidate.role}</td>
                               <td>
                                 <span className="font-display font-extrabold" style={{ color: getMatchColor(candidate.matchPercent) }}>
-                                  {candidate.matchPercent}%
+                                  {scoreLabel(candidate.hasMatchScore ? candidate.matchPercent : null)}
                                 </span>
                               </td>
                               <td>
@@ -2214,7 +2237,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                             {selectedThreadCandidate.publicId || 'Not available'} — {selectedThreadCandidate.role}
                           </h4>
                           <p className="text-xs text-soft">
-                            {selectedThreadCandidate.status} · {selectedThreadCandidate.matchPercent}% match · Message request{' '}
+                            {selectedThreadCandidate.status} · {scoreLabel(selectedThreadCandidate.hasMatchScore ? selectedThreadCandidate.matchPercent : null)} match · Message request{' '}
                             {isDraftRequestThread ? 'draft' : selectedThreadCandidate.messageRequestState === 'accepted' ? 'accepted' : 'pending'}
                           </p>
                         </div>
@@ -2255,7 +2278,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                         {selectedThreadCandidate.messageRequestState !== 'accepted' && selectedThreadCandidate.messages.map((entry, index) => (
                           <div key={`${selectedThreadCandidate.id}-${index}`} className="flex flex-col">
                             <div className={`emp-msg-bubble-sender ${entry.from === 'employer' ? 'text-right' : ''}`}>
-                              {entry.from === 'employer' ? `${companyName} HR (You)` : selectedThreadCandidate.publicId || 'Candidate'}
+                              {entry.from === 'employer' ? `${companyName} (You)` : selectedThreadCandidate.publicId || 'Candidate'}
                             </div>
                             <div className={entry.from === 'employer' ? 'emp-msg-bubble-employer' : 'emp-msg-bubble-candidate'}>
                               {entry.text}
@@ -2275,7 +2298,7 @@ export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp,
                             {selectedThreadCandidate.messages.map((entry, index) => (
                               <div key={`${selectedThreadCandidate.id}-${index}`} className="flex flex-col">
                                 <div className={`emp-msg-bubble-sender ${entry.from === 'employer' ? 'text-right' : ''}`}>
-                                  {entry.from === 'employer' ? `${companyName} HR (You)` : selectedThreadCandidate.publicId || 'Candidate'}
+                                  {entry.from === 'employer' ? `${companyName} (You)` : selectedThreadCandidate.publicId || 'Candidate'}
                                 </div>
                                 <div className={entry.from === 'employer' ? 'emp-msg-bubble-employer' : 'emp-msg-bubble-candidate'}>
                                   {entry.text}
@@ -2577,7 +2600,7 @@ function MetricCard({
 }: {
   icon: IconName;
   iconClass: string;
-  number: number;
+  number: number | string;
   label: string;
   numberClass: string;
 }) {
@@ -2614,7 +2637,7 @@ function CandidateGroup({
   return (
     <div className="emp-kanban-col">
       <div className={`emp-kanban-header ${type}`}>
-        <UIIcon name={type === 'top' ? 'star' : type === 'good' ? 'check' : 'times-circle'} />
+        <UIIcon name={type === 'top' ? 'star' : type === 'good' ? 'check' : type === 'unknown' ? 'users' : 'times-circle'} />
         {title}
         <span className="emp-kanban-count">{candidates.length}</span>
       </div>
@@ -2634,7 +2657,7 @@ function CandidateGroup({
                 </div>
                 <div className="emp-app-match-row">
                   <div className="emp-app-match" style={{ color: getMatchColor(candidate.matchPercent) }}>
-                    {candidate.matchPercent}%
+                    {scoreLabel(candidate.hasMatchScore ? candidate.matchPercent : null)}
                   </div>
                   <div className="emp-app-role">{candidate.role}</div>
                 </div>
@@ -2726,7 +2749,7 @@ function ApplicantReviewModal({
   onSendRequest: (candidateId: string) => void;
   onOpenMessages: (candidateId: string) => void;
 }) {
-  const bucket = getMatchBucket(candidate.matchPercent);
+  const bucket = getMatchBucket(candidate.matchPercent, candidate.hasMatchScore);
   const bucketLabel = matchBucketLabel(bucket);
   const isFinal = candidate.status === 'Hired' || candidate.status === 'Rejected' || candidate.status === 'Withdrawn';
   const isWithdrawn = candidate.status === 'Withdrawn';
@@ -2765,13 +2788,13 @@ function ApplicantReviewModal({
             className="emp-match-band"
             style={{
               background:
-                candidate.matchPercent >= 90
+                !candidate.hasMatchScore ? 'var(--bg)' : candidate.matchPercent >= 90
                   ? 'var(--green-l)'
                   : candidate.matchPercent >= 75
                     ? 'var(--amber-l)'
                     : 'var(--rust-l)',
               color:
-                candidate.matchPercent >= 90
+                !candidate.hasMatchScore ? 'var(--soft)' : candidate.matchPercent >= 90
                   ? 'var(--green)'
                   : candidate.matchPercent >= 75
                     ? 'var(--amber)'
@@ -2779,7 +2802,7 @@ function ApplicantReviewModal({
             }}
           >
             <UIIcon name="star" />
-            {candidate.matchPercent}% Match
+            {candidate.hasMatchScore ? `${candidate.matchPercent}% Match` : 'Match not available'}
             <span className="text-xs opacity-80">· {bucketLabel}</span>
           </div>
 
@@ -3134,6 +3157,21 @@ function JobEditorPanel({
         <div className="emp-form-group">
           <label className="emp-form-label required">Location</label>
           <input className="emp-input" value={form.location} onChange={(event) => onUpdateForm('location', event.target.value)} placeholder="City, Province" />
+        </div>
+      </div>
+
+      <div className="emp-form-grid">
+        <div className="emp-form-group">
+          <label className="emp-form-label" htmlFor="job-employment-type">Employment Type</label>
+          <select id="job-employment-type" className="emp-select" value={form.employmentType} onChange={(event) => onUpdateForm('employmentType', event.target.value)}>
+            <option value="">Not specified</option>
+            {form.employmentType && !['Full-time', 'Part-time', 'Contract', 'Temporary', 'Internship'].includes(form.employmentType) && <option value={form.employmentType}>{form.employmentType}</option>}
+            <option value="Full-time">Full-time</option>
+            <option value="Part-time">Part-time</option>
+            <option value="Contract">Contract</option>
+            <option value="Temporary">Temporary</option>
+            <option value="Internship">Internship</option>
+          </select>
         </div>
       </div>
 
