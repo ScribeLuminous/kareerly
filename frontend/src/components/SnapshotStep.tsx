@@ -1,4 +1,5 @@
 import { useOnboarding } from '../hooks/useOnboarding';
+import StepArrowButton from './StepArrowButton';
 import {
   faBookOpen,
   faBriefcase,
@@ -392,12 +393,9 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
         </div>
       ) : null}
 
-      <button
-        onClick={() => goToStep(3)}
-        className="w-full mt-8 px-5 py-3 border-1.5 border-bdr rounded-lg bg-white text-mid font-semibold hover:border-rust hover:text-rust transition-all duration-150"
-      >
-        Go Back
-      </button>
+      <div className="mt-8">
+        <StepArrowButton direction="back" label="Back to career preferences" onClick={() => goToStep(3)} />
+      </div>
     </div>
   );
 }
