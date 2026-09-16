@@ -81,6 +81,9 @@ backend/transformers_cache/
 *.pth
 *.onnx
 
+# Verified production bi-encoder required by the matching API (no training data).
+!backend/trained_models/kareerly-bi-encoder/model.safetensors
+
 # Optional generated ML artifacts
 backend/models/*.joblib
 backend/models/*.pkl

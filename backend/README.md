@@ -138,6 +138,78 @@ include the origins used by your browser. Supabase credentials are required for
 account services, but missing credentials do not prevent health/public routes
 from starting. Matching still requires its datasets and model dependencies.
 
+## Vercel and Render connection checks
+
+Set Vercel's `VITE_API_BASE_URL` to the public Render origin (for example,
+`https://kareerly-yvze.onrender.com`), without `/api`, and redeploy Vercel.
+Vercel builds now reject missing, localhost, and malformed backend origins.
+In Render, set `FRONTEND_URLS` to a comma-separated list of the exact public
+website origins allowed to call the API. A Vercel dashboard URL such as
+`https://vercel.com/team/project` is not a website origin. Include any preview
+origins you actually use, and redeploy Render after changing its configuration.
+
+Check both health and the browser preflight; health alone does not verify CORS:
+
+```bash
+curl -i https://kareerly-yvze.onrender.com/api/health
+curl -i -X OPTIONS https://kareerly-yvze.onrender.com/api/matches/from-resume \
+  -H 'Origin: https://YOUR-PUBLIC-WEBSITE.vercel.app' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type,authorization'
+```
+
+The preflight must return 200 and `Access-Control-Allow-Origin` matching the
+website. `400 Disallowed CORS origin` indicates Render's `FRONTEND_URLS` needs
+that origin. Matching runs in a worker thread so inference does not block the
+API event loop, and failures appear in backend logs.
+
+## Production matching algorithm
+
+Both `/api/matches/run` and `/api/matches/from-resume` use the same fine-tuned
+all-MiniLM-L6-v2 Sentence-Transformer bi-encoder. Candidate and job text are
+encoded separately; raw cosine similarity determines ranking. Job embeddings
+are reused until the job inputs change. There is no Cross-Encoder or TF-IDF
+production fallback. Missing or corrupt model artifacts return readable 503
+responses rather than a result labeled as the trained model.
+
+The verified epoch-three checkpoint is packaged in
+`backend/trained_models/kareerly-bi-encoder/`, with model configuration,
+tokenizer, pooling configuration, frozen training-derived skill IDF features,
+and checksum provenance. Its weights match the saved September 10 experiment.
+The package contains no training resumes or job records. Include the entire
+model directory when committing/deploying; the `.gitignore` exception keeps
+this specific production weight file available to Git. Render can keep its
+existing `pip install -r backend/requirements.txt` build and
+`uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT` start command when
+its root directory is the repository root. With a `backend` root directory,
+use `pip install -r requirements.txt` and `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+No model download environment variable is required. Optionally configure
+`KAREERLY_BI_ENCODER_MODEL_PATH` for a separately provisioned copy.
+
+Model inputs reproduce the research representation: `[ROLE]`, up to 32
+canonical semantic skill labels ordered by training-job IDF, and up to 1,400
+characters of contact-redacted supporting evidence, truncated to 256 model
+tokens. Survey preferences and structured job location are excluded from
+semantic inputs. The twenty-skill confirmation interface remains unchanged;
+its existing database IDs are used for deterministic coverage and gap reports.
+Unknown confirmed IDs return 400. Related skill names and shared words do not
+receive exact skill credit.
+
+The thesis describes priorities without numerical Fit-Now cutoffs. Application
+rule defaults are therefore explicit and configurable, rather than represented
+as trained or evaluated thresholds: `KAREERLY_FIT_NOW_MIN_COSINE=0.45`,
+`KAREERLY_FIT_NOW_MIN_COVERAGE=0.50`, and no missing explicitly designated
+must-have skills. Jobs that fail these rules remain Aspiration results; none
+are promoted merely to fill the Fit-Now view. Cosine ranks each view, with skill
+coverage, preference alignment, and reviewed learning-resource coverage serving
+as deterministic tie factors. Learning availability requires a reviewed skill-ID
+mapping and a usable provider URL, with no keyword or semantic learning model.
+Match percentages are nonnegative cosine similarity times 100, not hiring
+probabilities. Raw signed cosine and rule thresholds remain in the response.
+Guest limits (three per view), registered initial limits (five per view), and
+full dashboard limits (ten per view) are unchanged. TF-IDF remains isolated in
+`job_matcher.JobMatcher` for evaluation.
+
 Regression checks:
 
 ```bash
