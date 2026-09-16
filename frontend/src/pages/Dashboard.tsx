@@ -1,3 +1,4 @@
+import { applicationNotices, savedMatchScore, scoreLabel } from '../lib/uiData';
 import { prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } from '../lib/evidence';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -171,6 +172,7 @@ type DashboardJob = {
   salary: string;
   matchScore: number;
   hasMatchScore: boolean;
+  confidence?: string;
   matchCategory: 'fit-now' | 'aspiration';
   sourceType: 'internal' | 'external';
   requiredSkills: string[];
@@ -197,13 +199,12 @@ const TOP_MATCHES_PER_CATEGORY = 10;
 type DashboardGap = {
   skill: string;
   severity: SeverityLevel;
-  affectedCount: number;
+  affectedCount: number | null;
   affectedPercent?: number;
   priorityScore?: number;
   categoryName?: string;
   requirementImportance?: string;
   learningResourceAvailable?: boolean;
-  recommendedLevel: string;
   category: SkillCategory;
   relatedJobs: string[];
   topResources?: DashboardCourse[];
@@ -267,7 +268,8 @@ type DashboardApplication = {
   jobSource: 'internal' | 'employer';
   jobTitle: string;
   company: string;
-  matchScore: number;
+  matchScore: number | null;
+  updatedAt?: string;
   status: ApplicationStatus;
   dateApplied: string;
   sourceType: 'internal' | 'external';
@@ -291,6 +293,7 @@ type JobApplicationRow = {
   status?: string | null;
   created_at?: string | null;
   applied_at?: string | null;
+  updated_at?: string | null;
 };
 
 
@@ -459,17 +462,17 @@ function getMatchReadinessClass(score: number): string {
 }
 
 function getMatchBadgeLabel(job: DashboardJob): string {
+  if (!job.hasMatchScore) return 'Match not available';
   const score = job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : 0;
   return `${score}% · ${getMatchReadinessLabel(score)}`;
 }
 
-function getConfidenceLabel(job: DashboardJob): 'High' | 'Medium' | 'Low' {
-  if (job.matchScore >= 80 && job.matchedSkills.length >= 2) return 'High';
-  if (job.matchScore >= 50 || job.matchedSkills.length > 0) return 'Medium';
-  return 'Low';
+function getConfidenceLabel(job: DashboardJob): string {
+  return job.confidence || 'Not available';
 }
 
 function buildJobExplanation(job: DashboardJob): string {
+  if (!job.hasMatchScore) return 'Run matching with your current profile to see your alignment with this role.';
   const score = job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : 0;
   const matchedCount = job.matchedSkills.length;
   const missingCount = job.missingSkills.length;
@@ -499,7 +502,7 @@ function buildKareerGuidanceText(job: DashboardJob): string {
   if (job.hasMatchScore && (job.matchScore > 0 || job.matchedSkills.length > 0)) {
     return buildJobExplanation(job);
   }
-  return 'This role is not currently among your strongest matches because several required skills have not yet been identified in your profile. You can still apply if you are interested, or use the recommended learning pathway to improve your readiness.';
+  return 'Match information is not available for this role. Run matching with your current profile to see your alignment.';
 }
 
 function buildKareerScoreSupport(job: DashboardJob): string {
@@ -517,6 +520,7 @@ function getRecommendedNextStep(job: DashboardJob): string {
 }
 
 function getCareerGuidance(job: DashboardJob): string {
+  if (!job.hasMatchScore) return 'Run matching with your current profile to generate career guidance for this role.';
   if (job.matchScore >= 80 && job.missingSkills.length <= 2) return 'You are already a strong candidate for this role.';
   if (job.missingSkills.length > 0 && job.missingSkills.length <= 3) return `This role is achievable after improving ${job.missingSkills.length === 1 ? 'one key skill' : `${job.missingSkills.length} key skills`}.`;
   if (job.missingSkills.length > 0) return `Consider completing the recommended ${cleanSkillDisplayName(job.missingSkills[0])} learning pathway before applying.`;
@@ -532,6 +536,7 @@ function getLearningForJob(job: DashboardJob, courses: DashboardCourse[]): Dashb
 }
 
 function formatGapMissingCount(gap: DashboardGap): string {
+  if (gap.affectedCount === null) return 'Affected match count unavailable';
   return `Missing in ${gap.affectedCount} match${gap.affectedCount === 1 ? '' : 'es'}`;
 }
 
@@ -559,7 +564,7 @@ function getInitials(name: string, email: string): string {
 
 function formatDateLabel(value: string): string {
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
+  if (!value || Number.isNaN(parsed.getTime())) return 'Date unavailable';
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -587,14 +592,6 @@ function extractResumeText(resume: ParsedResume | null | undefined): string {
     resume.raw_text ||
     ''
   ).trim();
-}
-
-function getInternalExternalHint(text: string): 'internal' | 'external' {
-  const value = text.toLowerCase();
-  if (value.includes('external') || value.includes('jobstreet') || value.includes('linkedin') || value.includes('indeed')) {
-    return 'external';
-  }
-  return 'internal';
 }
 
 function classifySkillCategory(skill: string): SkillCategory {
@@ -675,66 +672,24 @@ function categoryBarColor(category: SkillCategory): string {
   return 'var(--tan)';
 }
 
-function inferJobMetadata(title: string, matchedSkills: string[], missingSkills: string[]) {
-  const value = title.toLowerCase();
-  const allSkills = [...matchedSkills, ...missingSkills].map((skill) => normalizeSkill(skill));
-  const hasDataScience = allSkills.some((skill) => /(python|pandas|numpy|sql|tableau|power bi|analytics|statistics|r language)/.test(skill));
-
-  if (/analyst|business intelligence|bi|research/.test(value) || hasDataScience) {
-    return {
-      category: 'Data & Analytics',
-      subCategory: /business intelligence|bi/.test(value) ? 'Business Intelligence' : /research/.test(value) ? 'Research & Statistics' : 'Data Analysis',
-      jobLevel: /senior|lead/.test(value) ? 'Senior' : /junior/.test(value) ? 'Junior' : /trainee|intern/.test(value) ? 'Trainee' : 'Entry Level',
-      niceToHaveSkills: [],
-    };
-  }
-
-  if (/engineer|database|db|pipeline|etl/.test(value)) {
-    return {
-      category: 'Engineering',
-      subCategory: 'Data Engineering',
-      jobLevel: /senior|lead/.test(value) ? 'Senior' : /junior/.test(value) ? 'Junior' : 'Mid-Level',
-      niceToHaveSkills: [],
-    };
-  }
-
-  if (/support|specialist|coordinator|assistant/.test(value)) {
-    return {
-      category: 'Operations & Support',
-      subCategory: 'Technical Support',
-      jobLevel: /senior|lead/.test(value) ? 'Senior' : 'Entry Level',
-      niceToHaveSkills: [],
-    };
-  }
-
-  return {
-    category: 'General Opportunities',
-    subCategory: 'Career Path',
-    jobLevel: 'Entry to Mid-Level',
-    niceToHaveSkills: [],
-  };
-}
-
 function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration'): DashboardJob {
   const scoreContext = category === 'fit-now' ? 'fit_now' : 'aspiration';
   const normalizedScore = extractMatchPercent(match, scoreContext);
   const score = normalizedScore === null ? 0 : Math.round(normalizedScore);
-  const metaText = `${match.company || ''} ${match.job_title || ''} ${match.explanation || ''}`.trim();
   const dynamic = match as unknown as Record<string, unknown>;
   const externalUrl = typeof dynamic.job_url === 'string' ? dynamic.job_url : typeof dynamic.url === 'string' ? dynamic.url : undefined;
   const jobSource = dynamic.job_source === 'employer' ? 'employer' : 'internal';
-  const sourceType: 'internal' | 'external' = externalUrl ? 'external' : getInternalExternalHint(metaText);
+  const sourceType: 'internal' | 'external' = externalUrl ? 'external' : 'internal';
   const location = match.location || 'Location not specified';
-  const setup = location.toLowerCase().includes('remote') ? 'Remote' : location.toLowerCase().includes('hybrid') ? 'Hybrid' : 'Onsite';
+  const setup = typeof dynamic.work_setup === 'string' && dynamic.work_setup.trim() ? dynamic.work_setup : typeof dynamic.work_type === 'string' && dynamic.work_type.trim() ? dynamic.work_type : 'Work setup not specified';
   const matchedSkills = cleanSkillList(match.matched_skills || []);
   const missingSkills = cleanSkillList(match.missing_skills || []);
   const requiredSkills = Array.from(new Set([...cleanSkillList(extractStringList(match.required_skills)), ...matchedSkills, ...missingSkills]));
   const preferredSkills = cleanSkillList(extractStringList(match.preferred_skills));
   const responsibilities = extractStringList((match as unknown as Record<string, unknown>).responsibilities);
-  const inferredMeta = inferJobMetadata(match.job_title || '', matchedSkills, missingSkills);
-  const categoryLabel = typeof dynamic.category === 'string' && dynamic.category.trim() ? dynamic.category : inferredMeta.category;
-  const subCategoryLabel = typeof dynamic.sub_category === 'string' && dynamic.sub_category.trim() ? dynamic.sub_category : inferredMeta.subCategory;
-  const jobLevel = typeof dynamic.job_level === 'string' && dynamic.job_level.trim() ? dynamic.job_level : inferredMeta.jobLevel;
+  const categoryLabel = typeof dynamic.category === 'string' && dynamic.category.trim() ? dynamic.category : 'Not specified';
+  const subCategoryLabel = typeof dynamic.sub_category === 'string' && dynamic.sub_category.trim() ? dynamic.sub_category : 'Not specified';
+  const jobLevel = typeof dynamic.job_level === 'string' && dynamic.job_level.trim() ? dynamic.job_level : 'Not specified';
   return {
     id: match.job_id || `${match.job_title}-${match.company}-${category}`,
     jobSource,
@@ -743,9 +698,10 @@ function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration')
     location,
     setup,
     employmentType: titleCase(match.employment_type || 'Not specified'),
-    salary: typeof dynamic.salary_range_monthly_php === 'string' && dynamic.salary_range_monthly_php.trim() ? dynamic.salary_range_monthly_php : 'Salary varies by employer',
+    salary: typeof dynamic.salary_range_monthly_php === 'string' && dynamic.salary_range_monthly_php.trim() ? dynamic.salary_range_monthly_php : 'Salary not specified',
     matchScore: score,
     hasMatchScore: normalizedScore !== null,
+    confidence: typeof dynamic.confidence === 'string' && dynamic.confidence.trim() ? dynamic.confidence.trim() : undefined,
     matchCategory: category,
     sourceType,
     requiredSkills,
@@ -763,7 +719,7 @@ function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration')
     category: titleCase(categoryLabel),
     subCategory: titleCase(subCategoryLabel),
     jobLevel: titleCase(jobLevel),
-    niceToHaveSkills: inferredMeta.niceToHaveSkills,
+    niceToHaveSkills: [],
     externalUrl,
   };
 }
@@ -774,16 +730,15 @@ function mapModelMatch(match: JobMatch): DashboardJob {
   const matchedSkills = cleanSkillList((match.requiredSkills || []).filter((skill) => !(match.missingSkills || []).includes(skill)));
   const missingSkills = cleanSkillList(match.missingSkills || []);
   const requiredSkills = Array.from(new Set([...matchedSkills, ...missingSkills]));
-  const inferredMeta = inferJobMetadata(match.title, matchedSkills, missingSkills);
   return {
     id: match.id,
     jobSource: 'internal',
     title: match.title,
     company: match.company || 'Unknown company',
-    location: 'Philippines',
-    setup: 'Flexible',
+    location: 'Location not specified',
+    setup: 'Work setup not specified',
     employmentType: 'Not specified',
-    salary: 'Salary varies by employer',
+    salary: 'Salary not specified',
     matchScore: score,
     hasMatchScore: true,
     matchCategory: category,
@@ -795,19 +750,19 @@ function mapModelMatch(match: JobMatch): DashboardJob {
     matchedSkills,
     missingSkills,
     explanation: '',
-    category: inferredMeta.category,
-    subCategory: inferredMeta.subCategory,
-    jobLevel: inferredMeta.jobLevel,
-    niceToHaveSkills: inferredMeta.niceToHaveSkills,
+    category: 'Not specified',
+    subCategory: 'Not specified',
+    jobLevel: 'Not specified',
+    niceToHaveSkills: [],
     externalUrl: undefined,
   };
 }
 
 function mapAvailableJob(job: AvailableJobItem): DashboardJob {
-  const location = job.location || 'Philippines';
-  const workType = (job.work_type || '').toLowerCase();
-  const setup = workType.includes('remote') ? 'Remote' : workType.includes('hybrid') ? 'Hybrid' : workType.includes('onsite') || workType.includes('on-site') ? 'Onsite' : 'Flexible';
-  const sourceType: 'internal' | 'external' = 'internal';
+  const location = job.location || 'Location not specified';
+  const workType = (job.work_type || job.work_setup || '').toLowerCase();
+  const setup = workType.includes('remote') ? 'Remote' : workType.includes('hybrid') ? 'Hybrid' : workType.includes('onsite') || workType.includes('on-site') ? 'Onsite' : (job.work_type || job.work_setup || 'Work setup not specified');
+  const sourceType: 'internal' | 'external' = job.external_job_link_optional ? 'external' : 'internal';
   const jobSource: 'internal' | 'employer' = job.job_source === 'employer' ? 'employer' : 'internal';
   const requiredSkills = Array.isArray(job.required_skills) ? cleanSkillList(job.required_skills).slice(0, 12) : [];
   const preferredSkills = cleanSkillList(extractStringList(job.preferred_skills));
@@ -817,11 +772,11 @@ function mapAvailableJob(job: AvailableJobItem): DashboardJob {
     id: job.job_id || `${job.job_title}-${job.company_name || 'company'}`,
     jobSource,
     title: job.job_title || 'Untitled role',
-    company: job.company_name || 'Kareerly Partner Employer',
+    company: job.company_name || 'Unknown company',
     location,
     setup,
     employmentType: titleCase(job.employment_type || 'Not specified'),
-    salary: job.salary_range_monthly_php || 'Salary varies by employer',
+    salary: job.salary_range_monthly_php || 'Salary not specified',
     matchScore: 0,
     hasMatchScore: false,
     matchCategory: 'aspiration',
@@ -831,11 +786,11 @@ function mapAvailableJob(job: AvailableJobItem): DashboardJob {
     responsibilities,
     description: job.job_description || job.description || undefined,
     matchedSkills: [],
-    missingSkills: requiredSkills,
-    explanation: 'This role is available from the current internal jobs table and can be explored without resume upload.',
-    category: titleCase(job.job_category || 'General Opportunities'),
-    subCategory: titleCase(job.job_subcategory || 'Career Path'),
-    jobLevel: titleCase(job.experience_level_required || 'Entry Level'),
+    missingSkills: [],
+    explanation: 'This role is available in the jobs catalog and can be explored without resume upload.',
+    category: titleCase(job.job_category || 'Not specified'),
+    subCategory: titleCase(job.job_subcategory || 'Not specified'),
+    jobLevel: titleCase(job.experience_level_required || 'Not specified'),
     niceToHaveSkills: [],
     externalUrl: job.external_job_link_optional || undefined,
     createdAt: job.created_at,
@@ -889,10 +844,11 @@ function mapApplicationRow(row: JobApplicationRow, jobs: DashboardJob[]): Dashbo
     jobId: row.job_id,
     jobSource: row.job_source || relatedJob?.jobSource || 'internal',
     jobTitle: row.job_title || relatedJob?.title || 'Untitled role',
-    company: row.company_name || relatedJob?.company || 'Kareerly Partner Employer',
-    matchScore: Number(row.match_score ?? relatedJob?.matchScore ?? 0),
+    company: row.company_name || relatedJob?.company || 'Unknown company',
+    matchScore: savedMatchScore(row.match_score),
+    updatedAt: row.updated_at || undefined,
     status: mapApplicationStatus(row.status),
-    dateApplied: (row.applied_at || row.created_at || dateTodayIso()).slice(0, 10),
+    dateApplied: (row.applied_at || row.created_at || '').slice(0, 10),
     sourceType: 'internal',
     messageRequestState: row.message_request_state || 'none',
   };
@@ -1014,7 +970,7 @@ function normalizeSavedResumeAnalysis(record: Awaited<ReturnType<typeof loadLate
 
 function mapRunGap(gap: PrioritizedSkillGap): DashboardGap {
   const severity = mapSeverity(String(gap.severity || 'Moderate'));
-  const affectedCount = extractSkillGapMatchCount(gap) ?? 0;
+  const affectedCount = extractSkillGapMatchCount(gap);
   const affectedPercent = extractSkillGapMatchPercent(gap);
   return {
     skill: cleanSkillDisplayName(gap.skill_name || 'Unnamed skill'),
@@ -1025,7 +981,6 @@ function mapRunGap(gap: PrioritizedSkillGap): DashboardGap {
     categoryName: gap.category_name || gap.skill_category || '',
     requirementImportance: gap.requirement_importance || '',
     learningResourceAvailable: Boolean(gap.learning_resource_available),
-    recommendedLevel: severity === 'Critical' ? 'Beginner -> Intermediate' : severity === 'High' ? 'Beginner -> Intermediate' : 'Beginner',
     category: classifySkillCategory(gap.skill_name || ''),
     relatedJobs: (gap.related_jobs || []).map(titleCase).slice(0, 4),
     topResources: (gap.recommended_learning_resources || []).map(mapRunLearningRecommendation).filter((course) => course.reviewed),
@@ -1059,7 +1014,6 @@ function mapModelGap(gap: SkillGap, matches: JobMatch[]): DashboardGap {
     skill: cleanSkillDisplayName(gap.skill),
     severity,
     affectedCount: gap.frequency || related.length,
-    recommendedLevel: severity === 'Critical' ? 'Beginner -> Intermediate' : severity === 'High' ? 'Beginner -> Intermediate' : 'Beginner',
     category: classifySkillCategory(gap.skill),
     relatedJobs: related,
   };
@@ -1091,10 +1045,10 @@ function mapCourse(rec: CourseRecommendation): DashboardCourse {
     id: rec.id || rec.courseId,
     title: rec.course?.title || 'Untitled course',
     provider: rec.course?.provider || 'Course provider',
-    duration: rec.course?.duration || 'Self-paced',
-    level: rec.course?.difficulty || 'beginner',
+    duration: rec.course?.duration || 'Duration unknown',
+    level: rec.course?.difficulty || 'Level unknown',
     credentialType: resolveCredentialType(rec.course?.credentialType, rec.course?.certificateAvailable),
-    credentialLabel: CREDENTIAL_LABELS[resolveCredentialType(rec.course?.credentialType, rec.course?.certificateAvailable)],
+    credentialLabel: rec.course?.credentialType || rec.course?.certificateAvailable !== undefined ? CREDENTIAL_LABELS[resolveCredentialType(rec.course?.credentialType, rec.course?.certificateAvailable)] : 'Credential not specified',
     isFree: Boolean(rec.course?.isFree),
     gapTag: primaryGap,
     mappedSkills: [], mappedSkillIds: [], reviewed: false, fees: 'Unknown', certificateCost: 'Unknown', prerequisites: 'Unknown', credentialConditions: 'Unknown',
@@ -1114,8 +1068,8 @@ function mapRunLearningRecommendation(rec: RunLearningRecommendation): Dashboard
     duration: rec.estimated_duration || 'Duration unknown',
     level: rec.level || 'Level unknown',
     credentialType: resolveCredentialType(rec.credential_type),
-    credentialLabel: rec.credential_label || CREDENTIAL_LABELS[resolveCredentialType(rec.credential_type)],
-    isFree: !String(rec.cost_type || '').toLowerCase().includes('paid'),
+    credentialLabel: rec.credential_label || (rec.credential_type ? CREDENTIAL_LABELS[resolveCredentialType(rec.credential_type)] : 'Credential not specified'),
+    isFree: String(rec.cost_type || '').trim().toLowerCase() === 'free',
     gapTag,
     mappedSkills, mappedSkillIds: rec.matched_gap_skill_ids || [], reviewed: rec.review_status === 'verified' && mappedSkills.length > 0 && rec.matched_gap_skill_ids?.length > 0,
     fees: rec.cost_type || 'Unknown', certificateCost: rec.certificate_cost || 'Unknown',
@@ -1138,14 +1092,6 @@ function getPreferenceLabel(table: Record<string, string>, key: string): string 
   return table[key] || key;
 }
 
-function dateTodayIso(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function statusKey(status: ApplicationStatus): 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn' {
   return status.toLowerCase() as 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn';
 }
@@ -1165,6 +1111,10 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     );
   }
 
+  return <CandidateWorkspace currentUser={currentUser} onHome={onHome} onUpdateResume={onUpdateResume} onLogout={onLogout} />;
+}
+
+function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: Pick<DashboardProps, 'onHome' | 'onUpdateResume' | 'onLogout'> & { currentUser: NonNullable<DashboardProps['currentUser']> }) {
   const {
     state,
     setResumeFile,
@@ -1188,6 +1138,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [selectedKareerId, setSelectedKareerId] = useState<string>('');
   const [savedJobs, setSavedJobs] = useState<Set<string>>(() => new Set());
   const [applications, setApplications] = useState<DashboardApplication[]>([]);
+  const [applicationLoadStatus, setApplicationLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [readNotifications, setReadNotifications] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const [inlineNotice, setInlineNotice] = useState<{ message: string; type: ToastType } | null>(null);
@@ -1260,7 +1211,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const candidateProfile = state.resumeAnalysis?.candidate_profile;
   const educationIndicators = candidateProfile?.education_indicators || [];
   const experienceIndicators = candidateProfile?.experience_indicators || [];
-  const matchedLocation = extraPreferences.preferredLocation || surveyAnswers.setup || '';
+  const matchedLocation = profileForm.location || extraPreferences.preferredLocation || '';
 
   useEffect(() => {
     const extracted = extractSkillsFromResume(state.resume);
@@ -1464,8 +1415,8 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       const catalog = catalogById.get(job.id);
       if (!catalog) return job;
       return {
-        ...job,
-        company: job.company && job.company !== 'Unknown company' ? job.company : catalog.company_name || 'Kareerly Partner Employer',
+        ...mergeSupabaseJobDetails(job, catalog),
+        company: job.company && job.company !== 'Unknown company' ? job.company : catalog.company_name || 'Unknown company',
         jobSource: catalog.job_source === 'employer' ? 'employer' : job.jobSource,
       };
     };
@@ -1495,12 +1446,14 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
       if (error) {
         console.warn('Unable to load applications:', error);
+        if (isMounted) setApplicationLoadStatus('error');
         return;
       }
 
       if (!isMounted) return;
       const rows = Array.isArray(data) ? (data as JobApplicationRow[]) : [];
       setApplications(rows.map((row) => mapApplicationRow(row, jobs)));
+      setApplicationLoadStatus('ready');
     })();
 
     return () => {
@@ -1724,6 +1677,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   }, [courses, evidenceRecords, gaps, jobs, skillProgressRecords, state.matchResults?.development_progress]);
 
   const metricCards = useMemo(() => {
+    const hasMatchingResults = Boolean(state.matchResults || state.results);
     const fitNowCount = jobs.filter((job) => job.matchCategory === 'fit-now').length;
     const aspirationCount = jobs.filter((job) => job.matchCategory === 'aspiration').length;
     const topFitNowCount = Math.min(fitNowCount, TOP_MATCHES_PER_CATEGORY);
@@ -1748,30 +1702,30 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       },
       {
         label: 'Job Matches',
-        value: String(fitNowCount + aspirationCount),
-        detail: `Showing top ${topFitNowCount} Fit-Now · ${topAspirationCount} Aspiration`,
+        value: hasMatchingResults ? String(fitNowCount + aspirationCount) : '—',
+        detail: hasMatchingResults ? `Showing top ${topFitNowCount} Fit-Now · ${topAspirationCount} Aspiration` : state.isLoading ? 'Matching in progress' : 'Run matching to see your results',
         iconClass: 'amber',
         valueColor: 'var(--amber)',
         icon: 'briefcase' as IconName,
       },
       {
         label: 'Skill Gaps',
-        value: String(gaps.length),
-        detail: `${gaps.filter((gap) => gap.severity === 'Critical').length} critical · ${gaps.filter((gap) => gap.severity === 'High').length} high`,
+        value: hasMatchingResults ? String(gaps.length) : '—',
+        detail: hasMatchingResults ? `${gaps.filter((gap) => gap.severity === 'Critical').length} critical · ${gaps.filter((gap) => gap.severity === 'High').length} high` : 'Run matching to identify skill gaps',
         iconClass: 'mauve',
         valueColor: 'var(--mauve)',
         icon: 'puzzle' as IconName,
       },
       {
         label: 'Applications',
-        value: String(applications.length),
-        detail: `${applications.filter((app) => app.status === 'Interviewing').length} interviewing · ${applications.filter((app) => app.status === 'Shortlisted').length} shortlisted`,
+        value: applicationLoadStatus === 'ready' ? String(applications.length) : '—',
+        detail: applicationLoadStatus === 'ready' ? `${applications.filter((app) => app.status === 'Interviewing').length} interviewing · ${applications.filter((app) => app.status === 'Shortlisted').length} shortlisted` : applicationLoadStatus === 'error' ? 'Applications unavailable' : 'Loading applications',
         iconClass: 'forest',
         valueColor: 'var(--forest)',
         icon: 'layers' as IconName,
       },
     ];
-  }, [applications, educationIndicators.length, experienceIndicators.length, gaps, jobs, profileForm.degreeProgram, profileForm.highestEducationalAttainment, profileForm.location, profileForm.schoolUniversity, profileForm.yearGraduated, skillNames.length, state.resume, state.resumeAnalysis, state.resumeFile, surveyAnswers.industry, surveyAnswers.role, surveyAnswers.salary, surveyAnswers.setup]);
+  }, [applicationLoadStatus, state.matchResults, state.results, state.isLoading, applications, educationIndicators.length, experienceIndicators.length, gaps, jobs, profileForm.degreeProgram, profileForm.highestEducationalAttainment, profileForm.location, profileForm.schoolUniversity, profileForm.yearGraduated, skillNames.length, state.resume, state.resumeAnalysis, state.resumeFile, surveyAnswers.industry, surveyAnswers.role, surveyAnswers.salary, surveyAnswers.setup]);
 
   const topJobHighlights = useMemo(() => jobs.slice(0, 3), [jobs]);
 
@@ -1794,13 +1748,13 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
     if (firstCriticalGap) steps.push(`Complete ${firstCriticalGap.skill} learning resources to reduce critical gaps.`);
     if (firstFitNow) steps.push(`Apply to ${firstFitNow.title} at ${firstFitNow.company} (${getMatchScoreBadge(firstFitNow)} match).`);
-    if (interviewingApp) steps.push(`Check ${interviewingApp.company} interview-stage updates in Messages.`);
+    if (interviewingApp) steps.push(interviewingApp.messageRequestState === 'pending' || interviewingApp.messageRequestState === 'accepted' ? `Check ${interviewingApp.company} interview-stage updates in Messages.` : `Review your ${interviewingApp.jobTitle} application at ${interviewingApp.company}.`);
     if (steps.length === 0) steps.push('Upload a resume and confirm skills to generate personalized next steps.');
     return steps.slice(0, 3);
   }, [applications, gaps, jobs]);
 
   const courseRecommendations = useMemo(() => courses.slice(0, 3), [courses]);
-  const notificationRows = useMemo(() => buildNotificationRows(jobs, applications), [applications, jobs]);
+  const notificationRows = useMemo(() => buildNotificationRows(applications), [applications]);
   const unreadNotificationCount = useMemo(
     () => notificationRows.filter((row) => row.unread && !readNotifications[row.id]).length,
     [notificationRows, readNotifications],
@@ -1920,7 +1874,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
           entries.push({
             from: row.sender_role === 'candidate' ? 'candidate' : 'employer',
             text: String(row.message_text || ''),
-            time: row.created_at ? new Date(row.created_at).toLocaleString() : 'Just now',
+            time: row.created_at ? new Date(row.created_at).toLocaleString() : 'Time unavailable',
           });
           replyUpdates[app.jobId] = entries;
         });
@@ -2206,7 +2160,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       candidate_name: currentUser.name,
       candidate_email: currentUser.email,
       candidate_location: profileForm.location,
-      match_score: Math.round(job.matchScore || 0),
+      match_score: job.hasMatchScore ? Math.round(job.matchScore) : null,
       matched_skills: job.matchedSkills,
       missing_skills: job.missingSkills,
       status: 'pending',
@@ -2627,7 +2581,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     closeResumePreview();
   };
 
-  const hasData = jobs.length > 0 || gaps.length > 0 || courses.length > 0;
+  const hasData = Boolean(state.matchResults || state.results || state.resumeAnalysis || applications.length);
 
   return (
     <div className="cand-dashboard">
@@ -2883,6 +2837,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
 
           {activePage === 'applications' && (
             <ApplicationsPage
+              loadStatus={applicationLoadStatus}
               applications={applications}
               onViewJob={(application) => {
                 const knownJob = jobs.find((item) => item.id === application.jobId && item.jobSource === application.jobSource);
@@ -2895,9 +2850,9 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                   setup: 'Work setup not specified',
                   employmentType: 'Not specified',
                   salary: 'Salary not specified',
-                  matchScore: application.matchScore,
-                  hasMatchScore: application.matchScore > 0,
-                  matchCategory: application.matchScore >= 60 ? 'fit-now' : 'aspiration',
+                  matchScore: application.matchScore ?? 0,
+                  hasMatchScore: application.matchScore !== null,
+                  matchCategory: (application.matchScore ?? 0) >= 60 ? 'fit-now' : 'aspiration',
                   sourceType: 'internal',
                   requiredSkills: [],
                   preferredSkills: [],
@@ -2924,7 +2879,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
               onSave={handlePreferencesSave}
               onReset={() => {
                 setSurveyAnswers(defaultSurveyAnswers);
-                setExtraPreferences({ jobLevel: 'Entry Level', preferredLocation: 'Metro Manila / Laguna' });
+                setExtraPreferences({ jobLevel: '', preferredLocation: '' });
                 showToast('Changes reset.', 'success');
               }}
             />
@@ -3133,63 +3088,13 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   );
 }
 
-function buildNotificationRows(jobs: DashboardJob[], applications: DashboardApplication[]) {
-  const rows: Array<{
-    id: string;
-    iconClass: string;
-    iconName: IconName;
-    title: string;
-    message: string;
-    time: string;
-    unread: boolean;
-  }> = [];
-  if (jobs.length > 0) {
-    rows.push({
-      id: 'match',
-      iconClass: 'match',
-      iconName: 'briefcase',
-      title: `${Math.min(3, jobs.length)} new job matches found`,
-      message: 'Your profile has updated role opportunities.',
-      time: '2 hours ago',
-      unread: true,
-    });
-  }
-  const interviewing = applications.find((app) => app.status === 'Interviewing');
-  if (interviewing) {
-    rows.push({
-      id: 'msg',
-      iconClass: 'msg',
-      iconName: 'message',
-      title: 'Interview message request',
-      message: `${interviewing.company} sent a message request.`,
-      time: '4 hours ago',
-      unread: true,
-    });
-  }
-  const shortlisted = applications.find((app) => app.status === 'Shortlisted');
-  if (shortlisted) {
-    rows.push({
-      id: 'app',
-      iconClass: 'app',
-      iconName: 'layers',
-      title: 'Application shortlisted',
-      message: `${shortlisted.jobTitle} moved to Shortlisted.`,
-      time: 'Yesterday',
-      unread: true,
-    });
-  }
-  if (jobs.length > 0) {
-    rows.push({
-      id: 'resume',
-      iconClass: 'resume',
-      iconName: 'check-circle',
-      title: 'Resume processed',
-      message: 'Detected skills were refreshed from your latest resume analysis.',
-      time: '2 days ago',
-      unread: false,
-    });
-  }
-  return rows;
+function buildNotificationRows(applications: DashboardApplication[]) {
+  return applicationNotices(applications).map((notice) => ({
+    ...notice,
+    iconClass: notice.kind === 'message' ? 'msg' : 'app',
+    iconName: (notice.kind === 'message' ? 'message' : 'layers') as IconName,
+    unread: true,
+  }));
 }
 
 function NavItem({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: IconName; children: ReactNode }) {
@@ -3354,7 +3259,7 @@ function DashboardOverview({
                       {getMatchScoreBadge(job)}
                     </div>
                     <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-                      {job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration'}
+                      {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}
                     </span>
                   </div>
                 </div>
@@ -3553,7 +3458,7 @@ function JobMatchesPage({
           </div>
           <div>
             <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-              {job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration'}
+              {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}
             </span>
           </div>
         </div>
@@ -3675,7 +3580,7 @@ function JobMatchesPage({
                       </td>
                       <td>
                         {job.hasMatchScore
-                          ? <span className="font-display text-sm font-extrabold text-rust">{job.matchScore}% · {job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration'}</span>
+                          ? <span className="font-display text-sm font-extrabold text-rust">{job.matchScore}% · {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}</span>
                           : <span className="cand-status-badge">Not matched</span>}
                       </td>
                       <td>
@@ -3794,14 +3699,7 @@ function SkillGapsPage({
     return map;
   }, [gaps]);
 
-  const boardGaps = useMemo(() => {
-    return gaps.map((gap) => {
-      let boardSeverity: SeverityLevel = 'Moderate';
-      if (gap.affectedCount >= 3) boardSeverity = 'Critical';
-      else if (gap.affectedCount === 2) boardSeverity = 'High';
-      return { ...gap, boardSeverity };
-    });
-  }, [gaps]);
+  const boardGaps = useMemo(() => gaps.map((gap) => ({ ...gap, boardSeverity: gap.severity })), [gaps]);
 
   const critical = boardGaps.filter((gap) => gap.boardSeverity === 'Critical');
   const high = boardGaps.filter((gap) => gap.boardSeverity === 'High');
@@ -3907,7 +3805,7 @@ function SkillGapsPage({
                           <span><UIIcon name="target" className="cand-mini-icon" />{gap.category}</span>
                         </div>
                         <div className="text-[11px] text-soft">
-                          This skill is prioritized because it appears as a missing requirement in {gap.affectedCount} of your recommended roles.
+                          {gap.affectedCount === null ? 'This skill was identified as a gap in your matching results.' : `This skill is prioritized because it appears as a missing requirement in ${gap.affectedCount} of your recommended roles.`}
                         </div>
                         <div className="cand-gap-jobs">
                           {gap.relatedJobs.map((jobTitle) => (
@@ -4056,11 +3954,13 @@ function StatusBadge({ status }: { status: ApplicationStatus }) {
 }
 
 function ApplicationsPage({
+  loadStatus,
   applications,
   onViewJob,
   onWithdraw,
   onOpenMessages,
 }: {
+  loadStatus: 'loading' | 'ready' | 'error';
   applications: DashboardApplication[];
   onViewJob: (application: DashboardApplication) => void;
   onWithdraw: (application: DashboardApplication) => void;
@@ -4074,7 +3974,7 @@ function ApplicationsPage({
     return applications.filter((application) => {
       if (statusFilter !== 'all' && statusKey(application.status) !== statusFilter) return false;
       if (!query) return true;
-      return `${application.jobTitle} ${application.company} ${application.status} ${application.matchScore}%`
+      return `${application.jobTitle} ${application.company} ${application.status} ${scoreLabel(application.matchScore)}`
         .toLowerCase()
         .includes(query);
     });
@@ -4146,7 +4046,7 @@ function ApplicationsPage({
                       <div className="text-xs text-soft">{application.company}</div>
                     </td>
                     <td>
-                      <span className="font-display text-sm font-extrabold text-rust">{application.matchScore}%</span>
+                      <span className="font-display text-sm font-extrabold text-rust">{scoreLabel(application.matchScore)}</span>
                     </td>
                     <td className="text-xs text-soft">{formatDateLabel(application.dateApplied)}</td>
                     <td><StatusBadge status={application.status} /></td>
@@ -4173,7 +4073,7 @@ function ApplicationsPage({
         </div>
       ) : (
         <div className="cand-empty">
-          {applications.length > 0 ? 'No applications match the selected filter/search.' : 'No internal applications yet. Apply from Job Matches to start tracking.'}
+          {loadStatus === 'loading' ? 'Loading applications…' : loadStatus === 'error' ? 'Applications could not be loaded. Please try again later.' : applications.length > 0 ? 'No applications match the selected filter/search.' : 'No internal applications yet. Apply from Job Matches to start tracking.'}
         </div>
       )}
 
@@ -4731,7 +4631,7 @@ function KareersPage({
                 <div key={job.id} className={`cand-kareer-item ${selectedId === job.id ? 'active' : ''}`}>
                   <button className="cand-kareer-select" type="button" onClick={() => onSelect(job.id)}>
                     <div className="text-sm font-bold text-dark"><UIIcon name="briefcase" className="cand-chip-icon" />{job.title}</div>
-                    <div className="text-xs text-soft">{job.company} · {job.category || 'Career Path'}</div>
+                    <div className="text-xs text-soft">{job.company} · {job.category || 'Not specified'}</div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {job.matchedSkills.slice(0, 3).map((skill) => (
                         <span key={`${job.id}-${skill}`} className="rounded-full bg-cream-d px-2 py-0.5 text-[10px] font-semibold text-mid">
@@ -4741,8 +4641,8 @@ function KareersPage({
                     </div>
                     <div className="cand-kareer-item-badges">
                       <span className="cand-kareer-mini-badge">{job.setup}</span>
-                      <span className="cand-kareer-mini-badge">{job.jobLevel || 'Entry Level'}</span>
-                      <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration'}</span>
+                      <span className="cand-kareer-mini-badge">{job.jobLevel || 'Not specified'}</span>
+                      <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Match not available'}</span>
                     </div>
                     <div className="cand-kareer-view-link">View Details</div>
                   </button>
@@ -4834,15 +4734,15 @@ function KareersPage({
               )}
 
               <div className="cand-kareer-info-grid">
-                <div><span className="cand-kareer-info-label">Category</span><span className="cand-kareer-info-value">{activeSelected.category || 'General Opportunities'}</span></div>
-                <div><span className="cand-kareer-info-label">Sub-category</span><span className="cand-kareer-info-value">{activeSelected.subCategory || 'Career Path'}</span></div>
-                <div><span className="cand-kareer-info-label">Experience Level</span><span className="cand-kareer-info-value">{activeSelected.jobLevel || 'Entry Level'}</span></div>
+                <div><span className="cand-kareer-info-label">Category</span><span className="cand-kareer-info-value">{activeSelected.category || 'Not specified'}</span></div>
+                <div><span className="cand-kareer-info-label">Sub-category</span><span className="cand-kareer-info-value">{activeSelected.subCategory || 'Not specified'}</span></div>
+                <div><span className="cand-kareer-info-label">Experience Level</span><span className="cand-kareer-info-value">{activeSelected.jobLevel || 'Not specified'}</span></div>
                 <div><span className="cand-kareer-info-label">Posted</span><span className="cand-kareer-info-value">{activeSelected.createdAt ? formatDateLabel(activeSelected.createdAt) : 'Date not available'}</span></div>
                 <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{activeSelected.location}</span></div>
                 <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{activeSelected.setup}</span></div>
                 <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{activeSelected.employmentType || 'Not specified'}</span></div>
                 <div><span className="cand-kareer-info-label">Salary</span><span className="cand-kareer-info-value">{activeSelected.salary || 'Salary not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Match Category</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? (activeSelected.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Not currently recommended'}</span></div>
+                <div><span className="cand-kareer-info-label">Match Category</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? (activeSelected.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Not available'}</span></div>
                 <div><span className="cand-kareer-info-label">Match Percentage</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? `${Math.round(activeSelected.matchScore)}%` : 'Not available'}</span></div>
               </div>
 
@@ -5259,7 +5159,7 @@ function JobDetailModal({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-              {job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration'}
+              {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}
             </span>
             <span className={`cand-type-tag ${job.sourceType === 'internal' ? 'cand-type-internal' : 'cand-type-external'}`}>
               {job.sourceType === 'internal' ? 'Internal' : 'External'}
@@ -5275,12 +5175,12 @@ function JobDetailModal({
         </div>
 
         <div className="cand-modal-meta-grid">
-          <div><span className="cand-kareer-info-label">Job Category</span><span className="cand-kareer-info-value">{job.category || 'General Opportunities'}</span></div>
+          <div><span className="cand-kareer-info-label">Job Category</span><span className="cand-kareer-info-value">{job.category || 'Not specified'}</span></div>
           <div><span className="cand-kareer-info-label">Job Level</span><span className="cand-kareer-info-value">{job.jobLevel || 'Not specified'}</span></div>
           <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{job.employmentType || 'Not specified'}</span></div>
           <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{job.location || '—'}</span></div>
           <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{job.setup || '—'}</span></div>
-          <div><span className="cand-kareer-info-label">Salary Range</span><span className="cand-kareer-info-value">{job.salary || 'Salary varies by employer'}</span></div>
+          <div><span className="cand-kareer-info-label">Salary Range</span><span className="cand-kareer-info-value">{job.salary || 'Salary not specified'}</span></div>
         </div>
 
         <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>

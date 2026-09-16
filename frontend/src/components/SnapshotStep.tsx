@@ -95,7 +95,8 @@ function getMissingSkillText(match: MatchResultItem, skillNameLookup: Map<string
 }
 
 function getMatchCategoryLabel(matchType: 'fit_now' | 'aspiration', percent: number | null): string {
-  if (percent === null || percent <= 0) return 'Partial Match';
+  if (percent === null) return 'Match not available';
+  if (percent <= 0) return 'Partial Match';
   if (matchType === 'fit_now') return 'Fit-Now';
   if (percent >= 60) return 'Aspiration';
   return 'Partial Match';
@@ -190,10 +191,10 @@ function LearningRow({ recommendation }: { recommendation: LearningRecommendatio
       </div>
       <div
         className={`flex-shrink-0 rounded-lg px-3 py-1 text-xs font-bold ${
-          String(recommendation.cost_type || '').toLowerCase().includes('paid') ? 'bg-rust-l text-rust' : 'bg-green-l text-green'
+          String(recommendation.cost_type || '').toLowerCase() === 'free' ? 'bg-green-l text-green' : 'bg-bg text-soft'
         }`}
       >
-        {String(recommendation.cost_type || '').toLowerCase().includes('paid') ? 'Paid' : 'Free'}
+        {recommendation.cost_type || 'Cost unknown'}
       </div>
     </div>
   );
