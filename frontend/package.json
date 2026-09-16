@@ -7,9 +7,11 @@
     "dev": "npm run dev:backend && vite",
     "dev:backend": "bash ../backend/dev_server.sh start",
     "dev:frontend": "vite",
+    "dev": "bash ../backend/dev_server.sh start && vite --host 127.0.0.1 --port 5173 --strictPort",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
