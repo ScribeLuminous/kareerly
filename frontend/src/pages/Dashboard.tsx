@@ -1311,49 +1311,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     });
   };
   useEffect(() => {
-    const educationItems = educationIndicators.length
-      ? educationIndicators.map((item, index) => ({
-          id: `edu-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Verified' as const,
-        }))
-      : [];
-
-    const certificationNames = extractedCertifications.length
-      ? extractedCertifications.map((item) => item.title).filter(Boolean)
-      : certificationIndicators;
-    const certificationItems = certificationNames.length
-      ? certificationNames.map((item, index) => ({
-          id: `cert-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Pending Verification' as const,
-        }))
-      : [];
-
-    const experienceItems = experienceIndicators.length
-      ? experienceIndicators.map((item, index) => ({
-          id: `exp-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Verified' as const,
-        }))
-      : [];
-
-    setEvidenceRecords([...certificationItems, ...experienceItems, ...educationItems]);
-  }, [educationIndicators.join('|'), certificationIndicators.join('|'), extractedCertifications.map((item) => item.title).join('|'), experienceIndicators.join('|')]);
-
-  useEffect(() => {
     let isMounted = true;
     void (async () => {
       const data = await loadCandidateAccountSettings();
@@ -3784,6 +3741,8 @@ function SkillGapsPage({
   courses,
   evidenceRecords,
   skillProgressRecords,
+  onUpdateSkillProgress,
+  onUploadSkillEvidence,
   onOpenUpskilling,
   onOpenResume,
 }: {
@@ -3935,6 +3894,7 @@ function SkillGapsPage({
                 </div>
                 <div className="cand-gap-col-body">
                   {column.items.length > 0 ? column.items.map((gap) => {
+                    const progressKey = (gap.skillId || normalizeSkill(gap.skill)).toUpperCase();
                     const recommendedResource = recommendedResourceByGap.get(gap.skill);
                     return (
                       <div key={`${column.key}-${gap.skill}`} className="cand-gap-k-card">
