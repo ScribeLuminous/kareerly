@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VENV_PYTHON="$ROOT_DIR/backend/.venv/bin/python"
+VENV_PYTHON="${BACKEND_PYTHON:-$ROOT_DIR/backend/.venv/bin/python}"
 PID_FILE="$ROOT_DIR/backend/.uvicorn.pid"
 LOG_FILE="$ROOT_DIR/backend/.uvicorn.log"
 BACKEND_PORT="8000"
@@ -28,6 +28,19 @@ find_listener_pid() {
   echo "$listener_pid"
 }
 
+wait_for_health() {
+  for _ in {1..60}; do
+    if curl --fail --silent --max-time 1 "http://127.0.0.1:${BACKEND_PORT}/api/health" | "$VENV_PYTHON" -c 'import json,sys; assert json.load(sys.stdin) == {"status": "ok"}' 2>/dev/null; then
+      echo "Backend healthy at http://127.0.0.1:${BACKEND_PORT}/api/health"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Backend did not become healthy. Check $LOG_FILE and port ${BACKEND_PORT}."
+  tail -n 40 "$LOG_FILE" 2>/dev/null || true
+  return 1
+}
+
 start_server() {
   if [[ ! -x "$VENV_PYTHON" ]]; then
     echo "Missing venv python at $VENV_PYTHON"
@@ -38,14 +51,16 @@ start_server() {
   if is_running; then
     echo "Backend already running (PID $(cat "$PID_FILE"))."
     echo "Health: http://127.0.0.1:${BACKEND_PORT}/api/health"
-    exit 0
+    wait_for_health
+    return
   fi
 
   if listener_pid="$(find_listener_pid)"; then
     echo "Port ${BACKEND_PORT} is already in use by PID ${listener_pid}."
       echo "Backend may already be running outside dev_server.sh."
       echo "Health: http://127.0.0.1:${BACKEND_PORT}/api/health"
-      return 0
+      wait_for_health
+      return
   fi
 
   cd "$ROOT_DIR"
@@ -55,6 +70,7 @@ start_server() {
   sleep 1
 
   if kill -0 "$pid" 2>/dev/null; then
+    wait_for_health
     echo "Backend started in background (PID $pid)."
     echo "Log: $LOG_FILE"
     echo "Health: http://127.0.0.1:${BACKEND_PORT}/api/health"

@@ -2,7 +2,7 @@ import type { JobMatchRunResults, MatchResultItem, PrioritizedSkillGap, ResumeAn
 import { normalizeMatchItemPercentages, normalizeSkillGapPercentages, parseNumericValue } from './matchScoring';
 import { supabase } from './supabase';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const REQUEST_TIMEOUT_MS = 90_000;
 export const CONFIRMED_SKILL_LIMIT = 20;
 
@@ -238,7 +238,7 @@ export async function fetchAdminOverview(accessToken: string): Promise<AdminOver
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the FastAPI backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+    throw new Error('Cannot reach the FastAPI backend. Check the configured API URL and run npm run dev to start the local backend.');
   }
 
   if (!response.ok) {
@@ -299,7 +299,7 @@ export async function analyzeResume(resumeFile: File, _legacySurveyAnswers?: Par
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the ML backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+    throw new Error('Cannot reach the ML backend. Check the configured API URL and run npm run dev to start the local backend.');
   }
 
   if (!response.ok) {
@@ -484,7 +484,7 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the job matching backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+    throw new Error('Cannot reach the job matching backend. Check the configured API URL and run npm run dev to start the local backend.');
   }
 
   if (!response.ok) {
@@ -606,15 +606,12 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the job matching backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+    throw new Error('Cannot reach the job matching backend. Check the configured API URL and run npm run dev to start the local backend.');
   }
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
     const detail = getReadableMessage(errorBody?.detail || errorBody) || 'Job matching failed.';
-    if (response.status >= 500) {
-      throw new Error('We could not generate matches right now. Please try again or upload a clearer resume.');
-    }
     throw new Error(detail);
   }
 
@@ -718,8 +715,9 @@ export async function searchSkills(query: string, limit = 20): Promise<{ results
       },
       'Skill search timed out. Please try again.',
     );
-  } catch {
-    throw new Error('Cannot reach skill search backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('timed out')) throw error;
+    throw new Error('Cannot reach skill search backend. Check the configured API URL and run npm run dev to start the local backend.');
   }
 
   if (!response.ok) {
@@ -744,8 +742,9 @@ export async function fetchAvailableJobs(limit = 5000): Promise<{ results: Avail
       },
       'Job listing request timed out. Please try again.',
     );
-  } catch {
-    throw new Error('Cannot reach jobs listing backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('timed out')) throw error;
+    throw new Error('Cannot reach jobs listing backend. Check the configured API URL and run npm run dev to start the local backend.');
   }
 
   if (!response.ok) {
@@ -768,8 +767,9 @@ export async function fetchJobDetails(jobId: string, jobSource: 'internal' | 'em
       },
       'Job details request timed out. Please try again.',
     );
-  } catch {
-    throw new Error('Cannot reach jobs detail backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('timed out')) throw error;
+    throw new Error('Cannot reach jobs detail backend. Check the configured API URL and run npm run dev to start the local backend.');
   }
 
   if (!response.ok) {
@@ -795,8 +795,9 @@ export async function validateCertificateFile(certificateFile: File): Promise<{ 
       },
       'Certificate validation timed out. Please try again.',
     );
-  } catch {
-    throw new Error('Cannot reach certificate validation backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('timed out')) throw error;
+    throw new Error('Cannot reach certificate validation backend. Check the configured API URL and run npm run dev to start the local backend.');
   }
 
   if (!response.ok) {
@@ -806,8 +807,8 @@ export async function validateCertificateFile(certificateFile: File): Promise<{ 
 
   const data = (await response.json()) as { status?: string; message?: string };
   return {
-    status: data.status || 'valid',
-    message: data.message || 'Certificate file passed baseline validation checks.',
+    status: data.status || 'invalid',
+    message: data.message || 'PDF file checks passed. Credential verification is pending.',
   };
 }
 
