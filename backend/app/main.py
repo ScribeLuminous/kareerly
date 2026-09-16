@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import base64
 import hashlib
 import os
@@ -16,13 +17,14 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from .models.schemas import RunMatchesRequest
-from .services.job_matcher import list_available_jobs, match_jobs
-from .services.matching_service import match_resume_to_jobs
+from .services.job_matcher import list_available_jobs
+from .services.matching_service import MatchingModelUnavailable, match_resume_to_jobs, match_jobs
 from .services.resume_analyzer import analyze_resume_file
 from .services.skill_extractor import SkillExtractor
 
@@ -34,6 +36,7 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 app = FastAPI(title="Kareerly ML Backend")
+logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
 frontend_urls = os.getenv(
@@ -1291,14 +1294,20 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
 
     try:
         # Always compute enough results for the logged-in full dashboard.
-        result = match_jobs(
+        result = await run_in_threadpool(
+            match_jobs,
             resume_text_for_matching=resume_text_for_matching,
             candidate_skill_ids=candidate_skill_ids,
             preferences=preferences,
             top_n_retrieval=150,
             top_n_output=10,
         )
+    except MatchingModelUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        logger.exception("Text job matching failed")
         raise HTTPException(status_code=500, detail=f"Job matching failed: {exc}") from exc
 
     return _apply_report_access_control(result, user_mode, view_mode)
@@ -1347,7 +1356,8 @@ async def match_from_resume(
         if not file_bytes:
             raise HTTPException(status_code=400, detail="Uploaded resume file is empty.")
 
-        result = match_resume_to_jobs(
+        result = await run_in_threadpool(
+            match_resume_to_jobs,
             file_bytes=file_bytes,
             filename=file.filename,
             preferences=preferences_payload,
@@ -1355,7 +1365,8 @@ async def match_from_resume(
         )
         if user_mode in {"registered", "logged_in"}:
             try:
-                _sync_match_results_to_supabase(
+                await run_in_threadpool(
+                    _sync_match_results_to_supabase,
                     authorization=authorization,
                     result=result,
                     filename=file.filename,
@@ -1370,9 +1381,13 @@ async def match_from_resume(
         raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except MatchingModelUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except RuntimeError as exc:
+        logger.exception("Resume matching service failed")
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        logger.exception("Resume job matching failed")
         raise HTTPException(
             status_code=500,
             detail="We could not generate matches right now. Please try again or upload a clearer resume.",

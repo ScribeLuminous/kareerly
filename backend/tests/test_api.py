@@ -2,6 +2,9 @@ import unittest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from backend.app.main import app
+from backend.app.services.matching_service import MatchingModelUnavailable
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 class ApiRegressionTests(unittest.TestCase):
     def setUp(self):
@@ -31,10 +34,39 @@ class ApiRegressionTests(unittest.TestCase):
             result = self.client.post('/api/matches/run', json={'resume_text_for_matching': 'SQL developer'})
             self.assertEqual(result.status_code, 200)
             match.assert_called_once()
+
         with patch('backend.app.main.match_resume_to_jobs', return_value={}) as match, patch('backend.app.main._apply_report_access_control', return_value={'fit_now_matches': []}):
             result = self.client.post('/api/matches/from-resume', files={'file': ('resume.pdf', b'%PDF sample')})
             self.assertEqual(result.status_code, 200)
             match.assert_called_once()
+
+    def test_health_responds_while_matching_is_running(self):
+        started = threading.Event()
+        release = threading.Event()
+        def slow_match(**kwargs):
+            started.set()
+            release.wait(5)
+            return {}
+        with TestClient(app) as client, ThreadPoolExecutor(max_workers=1) as executor, patch('backend.app.main.match_jobs', side_effect=slow_match):
+            future = executor.submit(client.post, '/api/matches/run', json={'resume_text_for_matching': 'SQL developer'})
+            try:
+                self.assertTrue(started.wait(2))
+                self.assertEqual(client.get('/api/health').status_code, 200)
+                self.assertFalse(future.done())
+            finally:
+                release.set()
+            self.assertEqual(future.result().status_code, 200)
+
+    def test_model_failure_is_readable_with_cors(self):
+        with patch('backend.app.main.match_resume_to_jobs', side_effect=MatchingModelUnavailable('Model not cached')):
+            result = self.client.post('/api/matches/from-resume', files={'file': ('resume.pdf', b'%PDF sample')}, headers={'Origin': 'http://localhost:5173'})
+        self.assertEqual(result.status_code, 503)
+        self.assertEqual(result.json()['detail'], 'Model not cached')
+        self.assertEqual(result.headers['access-control-allow-origin'], 'http://localhost:5173')
+        with patch('backend.app.main.match_jobs', side_effect=MatchingModelUnavailable('Model not cached')):
+            result = self.client.post('/api/matches/run', json={'resume_text_for_matching': 'SQL developer'}, headers={'Origin': 'http://localhost:5173'})
+        self.assertEqual(result.status_code, 503)
+        self.assertEqual(result.headers['access-control-allow-origin'], 'http://localhost:5173')
 
     def test_pdf_checks_do_not_verify_credentials(self):
         self.assertEqual(self.client.post('/api/certificates/validate').status_code, 422)
