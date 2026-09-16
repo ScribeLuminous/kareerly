@@ -22,6 +22,9 @@ SUPABASE_ANON_KEY = (
 )
 
 EXPECTED_COLUMNS = [
+    "review_status", "reviewer", "source_evidence", "last_verified_at", "catalog_version",
+    "credential_review_status", "credential_conditions", "credential_evidence",
+    "certificate_cost", "prerequisites",
     "resource_id",
     "course_or_certification_title",
     "course_or_certification_description",
@@ -37,6 +40,7 @@ EXPECTED_COLUMNS = [
     "provider_type",
     "provider_trust_score_auto",
     "resource_type",
+    "credential_type",
     "language",
     "delivery_mode",
     "cost_type",
@@ -58,6 +62,7 @@ COLUMN_ALIASES = {
     "duration": "estimated_duration",
     "skill_id": "skill_ids",
     "skill_ids_csv": "skill_ids",
+    "credential": "credential_type",
 }
 
 
