@@ -11,7 +11,7 @@ Kareerly is a Vite/React frontend with a FastAPI matching backend and Supabase p
 - `frontend/`: Vite/React application
 - `supabase/`: database schema and migrations
 
-Cross-Encoder BERT is the primary semantic ranker for job matches and learning-resource relevance. TF-IDF is retained only as a baseline and large-catalog retrieval helper.
+Both job matching endpoints use the shared fine-tuned all-MiniLM-L6-v2 bi-encoder and cosine similarity, with deterministic canonical skill coverage and preference explanations. The verified checkpoint is bundled in `backend/trained_models/kareerly-bi-encoder/`. Learning resources use reviewed skill-ID mappings; TF-IDF is retained only for offline evaluation. See `backend/README.md` for model provenance and Vercel/Render configuration.
 
 ## Run locally
 
@@ -27,3 +27,7 @@ cd frontend
 npm ci
 npm run dev
 ```
+
+`npm run dev` starts the FastAPI backend on port `8000` before starting Vite. If
+FastAPI is already running separately, use `npm run dev:frontend` to start only
+the frontend.

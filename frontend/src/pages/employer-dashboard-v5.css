@@ -1012,6 +1012,11 @@
   color: var(--rust);
 }
 
+.emp-kanban-header.unknown {
+  background: var(--bg);
+  color: var(--soft);
+}
+
 .emp-kanban-count {
   background: #fff;
   border-radius: 20px;

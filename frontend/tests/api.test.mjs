@@ -19,10 +19,41 @@ test('matching HTTP errors preserve server messages and normalize local URL', as
 });
 test('matching distinguishes network failure and timeout', async () => {
  const original = globalThis.fetch;
+ const originalConsoleError = console.error;
  try {
+  console.error = () => {};
   globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
   for (const request of requests) await assert.rejects(request(), /Cannot reach/);
   globalThis.fetch = async () => { throw new DOMException('aborted', 'AbortError'); };
   for (const request of requests) await assert.rejects(request(), /timed out/);
- } finally { globalThis.fetch = original; }
+ } finally { globalThis.fetch = original; console.error = originalConsoleError; }
+});
+
+test('hosted matching connection errors identify backend and CORS origin', async () => {
+ const hostedSource = source.replace('http://127.0.0.1:8000/ ', 'https://backend.example.org/ ');
+ const hostedApi = await import(moduleUrl(hostedSource));
+ const original = globalThis.fetch;
+ const originalLocation = globalThis.location;
+ const originalConsoleError = console.error;
+ try {
+  globalThis.location = { origin: 'https://frontend.example.org' };
+  console.error = () => {};
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  for (const request of [
+   () => hostedApi.runJobMatches({ resume_text_for_matching: 'SQL developer', preferences: {} }),
+   () => hostedApi.runMatchesFromResume({ resumeFile: new File(['resume'], 'resume.pdf'), preferences: {} }),
+  ]) {
+   await assert.rejects(request(), error => {
+    assert.match(error.message, /https:\/\/backend.example.org/);
+    assert.match(error.message, /FRONTEND_URLS/);
+    assert.match(error.message, /https:\/\/frontend.example.org/);
+    assert.doesNotMatch(error.message, /npm run dev/);
+    return true;
+   });
+  }
+ } finally {
+  globalThis.fetch = original;
+  globalThis.location = originalLocation;
+  console.error = originalConsoleError;
+ }
 });
