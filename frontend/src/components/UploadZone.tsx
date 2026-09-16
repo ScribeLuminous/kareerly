@@ -5,7 +5,6 @@ import {
   faFileLines,
   faGraduationCap,
   faLock,
-  faMagnifyingGlass,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -15,6 +14,7 @@ import { analyzeResume } from '../lib/api';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveResumeAnalysis } from '../lib/userData';
 import type { ResumeAnalysisResult, SelectedSkill } from '../types';
+import StepArrowButton from './StepArrowButton';
 
 const CONFIRMED_SKILL_LIMIT = 20;
 
@@ -266,14 +266,10 @@ export default function UploadZone() {
             </button>
           </div>
 
-          <button
-            onClick={handleContinue}
-            disabled={state.isLoading}
-            className="mx-auto w-full max-w-xs bg-forest text-white font-bold py-4 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
-            <span>Analyze Resume</span>
-          </button>
+          <div className="flex flex-col items-center gap-2">
+            <StepArrowButton direction="next" label="Next: analyze resume and review skills" onClick={handleContinue} loading={state.isLoading} />
+            <span className="text-xs font-semibold text-mid" aria-live="polite">{state.isLoading ? 'Analyzing resume…' : 'Analyze resume'}</span>
+          </div>
 
           <div className="flex items-center justify-center gap-1.5 text-xs text-soft mt-6">
             <FontAwesomeIcon icon={faLock} aria-hidden="true" />

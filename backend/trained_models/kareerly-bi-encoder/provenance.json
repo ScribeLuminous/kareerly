@@ -1,0 +1,14 @@
+{
+  "model_id": "kareerly-skills-first-minilm-2026-09-10",
+  "base_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "architecture": "shared_sentence_transformer_bi_encoder",
+  "weight_sha256": "1f40779eebb414e42d6b13d0466f29a629a55589227ef9ba4e13dabf05dadfb9",
+  "selection": "validation NDCG@10; epoch 3",
+  "max_seq_length": 256,
+  "max_input_skills": 32,
+  "max_evidence_chars": 1400,
+  "source_checkpoint": "kareerly-retriever-skills-first-2026-09-10-gpu",
+  "skill_idf_source_sha256": "97c52c284810b0164fa50f06b3ccea55b4eb271db503ccb117f1215553bc2579",
+  "feature_sha256": "57b5ae7b4d8d526ff1dd1c934cea90423fee5aa34d804d0aeb8bcb4f4b424bf2",
+  "evaluation_scope": "Offline weak relevance labels; not hiring probability or deployment accuracy"
+}

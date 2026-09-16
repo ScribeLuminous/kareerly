@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VENV_PYTHON="${KAREERLY_BACKEND_PYTHON:-$ROOT_DIR/backend/.venv/bin/python}"
 VENV_PYTHON="${BACKEND_PYTHON:-$ROOT_DIR/backend/.venv/bin/python}"
 PID_FILE="$ROOT_DIR/backend/.uvicorn.pid"
 LOG_FILE="$ROOT_DIR/backend/.uvicorn.log"
@@ -45,6 +46,7 @@ start_server() {
   if [[ ! -x "$VENV_PYTHON" ]]; then
     echo "Missing venv python at $VENV_PYTHON"
     echo "Run: python3 -m venv backend/.venv && source backend/.venv/bin/activate && pip install -r backend/requirements.txt"
+    echo "For a shared worktree environment, set KAREERLY_BACKEND_PYTHON to an existing venv python."
     exit 1
   fi
 
