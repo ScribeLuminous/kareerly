@@ -460,25 +460,25 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           )}
         </div>
 
-        <div className="flex gap-4 justify-between">
+        <div className="flex items-center justify-between px-2 sm:px-4">
           <button
+            type="button"
             onClick={() => goToStep(1)}
-            className="flex-1 rounded-lg border border-bdr bg-white px-5 py-3.5 font-semibold text-mid transition-all hover:border-rust hover:text-rust"
+            className="inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-bdr bg-white text-lg text-mid shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-rust hover:bg-rust hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rust-l"
+            aria-label="Back to resume upload"
+            title="Back"
           >
-            <span className="inline-flex items-center gap-2">
-              <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
-              <span>Back</span>
-            </span>
+            <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
           </button>
           <button
+            type="button"
             onClick={handleContinueToPreferences}
             disabled={!canContinueToPreferences || state.isLoading || !state.resumeAnalysis}
-            className="flex-1 rounded-lg bg-rust px-5 py-3.5 font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-bdr bg-white text-lg text-mid shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-rust hover:bg-rust hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rust-l disabled:cursor-not-allowed disabled:border-bdr disabled:bg-bg disabled:text-soft disabled:opacity-50 disabled:shadow-none disabled:hover:translate-y-0"
+            aria-label="Continue to career preferences"
+            title="Next"
           >
-            <span className="inline-flex items-center gap-2">
-              <span>Next</span>
-              <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
-            </span>
+            <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
           </button>
         </div>
 
