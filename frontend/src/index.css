@@ -27,6 +27,23 @@
 }
 
 @layer components {
+  .step-arrow-button {
+    @apply inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-bdr bg-white text-xl text-mid shadow-sm transition-colors duration-150;
+  }
+
+  .step-arrow-button:not(:disabled):hover,
+  .step-arrow-button:not(:disabled):focus-visible {
+    @apply border-rust bg-rust text-white;
+  }
+
+  .step-arrow-button:focus-visible {
+    @apply outline-none ring-4 ring-rust-l;
+  }
+
+  .step-arrow-button:disabled {
+    @apply cursor-not-allowed bg-bg text-soft opacity-50 shadow-none;
+  }
+
   .btn {
     @apply px-5 py-3 rounded-lg font-medium transition-all duration-150;
   }

@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  faArrowLeft,
-  faArrowRight,
   faCirclePlus,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
@@ -11,6 +9,7 @@ import type { SelectedSkill, SurveyAnswers } from '../types';
 import { buildResumeAnalysisFromMatchResults, CONFIRMED_SKILL_LIMIT, runMatchesFromResume, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
+import StepArrowButton from './StepArrowButton';
 
 type SurveyStepProps = {
   isLoggedIn: boolean;
@@ -461,25 +460,17 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         </div>
 
         <div className="flex items-center justify-between px-2 sm:px-4">
-          <button
-            type="button"
+          <StepArrowButton
+            direction="back"
+            label="Back to resume upload"
             onClick={() => goToStep(1)}
-            className="inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-bdr bg-white text-lg text-mid shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-rust hover:bg-rust hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rust-l"
-            aria-label="Back to resume upload"
-            title="Back"
-          >
-            <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
+          />
+          <StepArrowButton
+            direction="next"
+            label="Next: career preferences"
             onClick={handleContinueToPreferences}
             disabled={!canContinueToPreferences || state.isLoading || !state.resumeAnalysis}
-            className="inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-bdr bg-white text-lg text-mid shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-rust hover:bg-rust hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rust-l disabled:cursor-not-allowed disabled:border-bdr disabled:bg-bg disabled:text-soft disabled:opacity-50 disabled:shadow-none disabled:hover:translate-y-0"
-            aria-label="Continue to career preferences"
-            title="Next"
-          >
-            <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
-          </button>
+          />
         </div>
 
         {state.error && (
@@ -555,26 +546,23 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         />
       </div>
 
-      <div className="flex gap-3 justify-between">
-        <button
+      <div className="flex items-start justify-between px-2 sm:px-4">
+        <StepArrowButton
+          direction="back"
+          label="Back to skills review"
           onClick={() => goToStep(2)}
-          className="flex-1 rounded-lg border border-bdr bg-white px-5 py-3.5 font-semibold text-mid transition-all hover:border-rust hover:text-rust"
-        >
-          <span className="inline-flex items-center gap-2">
-            <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
-            <span>Back</span>
-          </span>
-        </button>
-        <button
-          onClick={handleRunMatching}
-          disabled={!isPreferencesComplete || state.isLoading || !state.resumeAnalysis}
-          className="flex-1 rounded-lg bg-rust px-5 py-3.5 font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <span className="inline-flex items-center gap-2">
-            <span>{state.isLoading ? 'Analyzing resume and generating job matches…' : 'Generate Report'}</span>
-            <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
-          </span>
-        </button>
+          disabled={state.isLoading}
+        />
+        <div className="flex flex-col items-center gap-2">
+          <StepArrowButton
+            direction="next"
+            label="Next: generate career report"
+            onClick={handleRunMatching}
+            disabled={!isPreferencesComplete || !state.resumeAnalysis}
+            loading={state.isLoading}
+          />
+          <span className="text-xs font-semibold text-mid" aria-live="polite">{state.isLoading ? 'Generating report…' : 'Generate report'}</span>
+        </div>
       </div>
 
       {state.error && (
