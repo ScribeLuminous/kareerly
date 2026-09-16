@@ -250,8 +250,8 @@ export default function UploadZone() {
             <span className="text-2xl flex-shrink-0 text-forest">
               <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
             </span>
-            <div className="flex-1">
-              <div className="font-bold text-sm text-forest">{state.resumeFile.name}</div>
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-sm text-forest [overflow-wrap:anywhere]">{state.resumeFile.name}</div>
               <div className="text-xs text-forest-m mt-0.5">
                 {formatFileSize(state.resumeFile.size)} · Ready for analysis
               </div>
@@ -260,12 +260,13 @@ export default function UploadZone() {
               onClick={handleRemoveFile}
               className="text-soft hover:text-red transition-colors text-xl px-1 flex-shrink-0"
               title="Remove"
+              aria-label="Remove resume"
             >
               <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
             </button>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-center gap-2">
             <StepArrowButton direction="next" label="Next: analyze resume and review skills" onClick={handleContinue} loading={state.isLoading} />
             <span className="text-xs font-semibold text-mid" aria-live="polite">{state.isLoading ? 'Analyzing resume…' : 'Analyze resume'}</span>
           </div>
