@@ -250,8 +250,8 @@ export default function UploadZone() {
             <span className="text-2xl flex-shrink-0 text-forest">
               <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
             </span>
-            <div className="flex-1">
-              <div className="font-bold text-sm text-forest">{state.resumeFile.name}</div>
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-sm text-forest [overflow-wrap:anywhere]">{state.resumeFile.name}</div>
               <div className="text-xs text-forest-m mt-0.5">
                 {formatFileSize(state.resumeFile.size)} · Ready for analysis
               </div>
@@ -260,6 +260,7 @@ export default function UploadZone() {
               onClick={handleRemoveFile}
               className="text-soft hover:text-red transition-colors text-xl px-1 flex-shrink-0"
               title="Remove"
+              aria-label="Remove resume"
             >
               <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
             </button>
@@ -268,7 +269,7 @@ export default function UploadZone() {
           <button
             onClick={handleContinue}
             disabled={state.isLoading}
-            className="w-full bg-forest text-white font-bold py-4 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="mx-auto w-full max-w-xs bg-forest text-white font-bold py-4 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
             <span>Analyze Resume</span>
