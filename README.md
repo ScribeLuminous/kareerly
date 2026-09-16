@@ -27,3 +27,7 @@ cd frontend
 npm ci
 npm run dev
 ```
+
+`npm run dev` starts the FastAPI backend on port `8000` before starting Vite. If
+FastAPI is already running separately, use `npm run dev:frontend` to start only
+the frontend.

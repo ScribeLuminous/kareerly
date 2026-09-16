@@ -1372,7 +1372,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       setSavedResumeId(latestResume.id);
       const restoredSkills = extractSkillsFromResume(analysis.parsedResume);
       if (restoredSkills.length > 0) setSkillNames(restoredSkills);
-      showInlineNotice(`Loaded saved resume${latestResume.original_filename ? `: ${latestResume.original_filename}` : ''}.`, 'success');
     })();
 
     return () => {
