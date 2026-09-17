@@ -4,6 +4,10 @@ import { supabase } from './supabase';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const REQUEST_TIMEOUT_MS = 90_000;
+// Matching may load the encoder and embed every job before it can answer. A host
+// that sleeps when idle pays that on the first request after waking, which does
+// not fit in the default budget.
+const MATCHING_TIMEOUT_MS = 240_000;
 export const CONFIRMED_SKILL_LIMIT = 20;
 
 const REACHABILITY_PROBE_TIMEOUT_MS = 10_000;
@@ -166,9 +170,10 @@ async function fetchWithTimeout(
   url: string,
   options: RequestInit,
   timeoutMessage: string,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await fetch(url, {
@@ -516,7 +521,8 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
         },
         body: JSON.stringify(normalizedPayload),
       },
-      'Job matching timed out. Please try generating the report again.',
+      'Job matching timed out. The backend may still be starting up — please try generating the report again.',
+      MATCHING_TIMEOUT_MS,
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
@@ -638,7 +644,8 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
         headers,
         body: formData,
       },
-      'Analyzing resume and generating job matches timed out. Please try again.',
+      'Analyzing resume and generating job matches timed out. The backend may still be starting up — please try again.',
+      MATCHING_TIMEOUT_MS,
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
