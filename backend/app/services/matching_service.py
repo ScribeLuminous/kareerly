@@ -20,7 +20,7 @@ from .learning_recommender import (
     provider_url,
     split_ids,
 )
-from .bi_encoder_service import MODEL_ID, MatchingModelUnavailable, build_model_input, score_jobs
+from .bi_encoder_service import MODEL_ID, MatchingModelUnavailable, build_model_input, get_bi_encoder, score_jobs
 from .skill_extractor import SkillExtractor
 from .supabase_jobs import load_internal_jobs_dataframe
 
@@ -979,3 +979,19 @@ def prioritize_skill_gaps(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     )
 
     return gap_list[:8]
+
+
+def warm_matching_caches() -> None:
+    """Load the encoder and prime the job vectors before the first request needs them.
+
+    Both costs are paid lazily inside whichever request arrives first, which on a
+    small instance is slow enough to exceed the client's timeout. Doing the work at
+    startup moves it out of the request path. Failures are the caller's to log:
+    matching still raises its own readable errors, so a failed warmup must not stop
+    the service from booting and serving health checks.
+    """
+    get_bi_encoder()
+    jobs = load_reference_jobs()
+    if not jobs.empty:
+        # Same inputs the real request builds, so this populates the vector cache.
+        bi_encoder_score_jobs(build_model_input("warmup"), jobs)
