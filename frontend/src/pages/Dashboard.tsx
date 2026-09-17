@@ -1051,20 +1051,6 @@ function parseProgressPercent(record: DevelopmentProgressRecord): number {
   return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
-function inferEvidenceType(title: string): EvidenceType {
-  const value = title.toLowerCase();
-  if (value.includes('certificate')) return 'Certificate';
-  if (value.includes('course')) return 'Course Completion';
-  if (value.includes('portfolio')) return 'Portfolio';
-  if (value.includes('project')) return 'Project';
-  if (value.includes('training')) return 'Training';
-  return 'Other';
-}
-
-function inferEvidenceCategory(title: string): string {
-  return classifySkillCategory(cleanSkillDisplayName(title));
-}
-
 function normalizeProgressLabel(percent: number, backendLabel?: string): ProgressStatus {
   const derived = categoryStatus(percent);
   if (!backendLabel?.trim()) return derived;
@@ -1258,6 +1244,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const [availableJobs, setAvailableJobs] = useState<AvailableJobItem[]>([]);
   const [isLoadingKareers, setIsLoadingKareers] = useState(true);
   const [kareersError, setKareersError] = useState<string | null>(null);
+  // Only explicit evidence uploads belong here; resume mentions are not uploaded or verified evidence.
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceUploadRecord[]>([]);
   const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>({});
   const [profileForm, setProfileForm] = useState({
@@ -1284,8 +1271,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
   const surveyAnswers = state.surveyAnswers || defaultSurveyAnswers;
   const candidateProfile = state.resumeAnalysis?.candidate_profile;
   const educationIndicators = candidateProfile?.education_indicators || [];
-  const certificationIndicators = candidateProfile?.certification_indicators || [];
-  const extractedCertifications = candidateProfile?.certifications || [];
   const experienceIndicators = candidateProfile?.experience_indicators || [];
   const matchedLocation = extraPreferences.preferredLocation || surveyAnswers.setup || '';
 
@@ -1321,49 +1306,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     void renderDocx();
     return () => { cancelled = true; };
   }, [resumePreview]);
-
-  useEffect(() => {
-    const educationItems = educationIndicators.length
-      ? educationIndicators.map((item, index) => ({
-          id: `edu-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Verified' as const,
-        }))
-      : [];
-
-    const certificationNames = extractedCertifications.length
-      ? extractedCertifications.map((item) => item.title).filter(Boolean)
-      : certificationIndicators;
-    const certificationItems = certificationNames.length
-      ? certificationNames.map((item, index) => ({
-          id: `cert-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Pending Verification' as const,
-        }))
-      : [];
-
-    const experienceItems = experienceIndicators.length
-      ? experienceIndicators.map((item, index) => ({
-          id: `exp-${index}`,
-          title: item,
-          evidenceType: inferEvidenceType(item),
-          relatedSkill: titleCase(item),
-          category: inferEvidenceCategory(item),
-          uploadedAt: dateTodayIso(),
-          status: 'Verified' as const,
-        }))
-      : [];
-
-    setEvidenceRecords([...certificationItems, ...experienceItems, ...educationItems]);
-  }, [educationIndicators.join('|'), certificationIndicators.join('|'), extractedCertifications.map((item) => item.title).join('|'), experienceIndicators.join('|')]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2622,7 +2564,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     const file = draft.file;
     const fileName = file?.name.trim() || existingRecord?.fileName || '';
 
-    if (!isEditing && !file) {
+    if (!file && (!isEditing || !existingRecord?.fileUrl || !existingRecord?.fileName)) {
       showToast('Please upload a PDF evidence file before saving.', 'warn');
       return;
     }
@@ -2879,8 +2821,6 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
                 <NavItem icon="briefcase" active={activePage === 'jobmatches'} onClick={() => setActivePage('jobmatches')}>{tr(uiLanguage, 'Job Matches')}</NavItem>
                 <NavItem icon="puzzle" active={activePage === 'skillgaps'} onClick={() => setActivePage('skillgaps')}>{tr(uiLanguage, 'Skill Gaps')}</NavItem>
                 <NavItem icon="layers" active={activePage === 'applications'} onClick={() => setActivePage('applications')}>{tr(uiLanguage, 'Applications')}</NavItem>
-                <NavItem icon="sliders" active={activePage === 'preferences'} onClick={() => setActivePage('preferences')}>{tr(uiLanguage, 'Preferences')}</NavItem>
-                <NavItem icon="user" active={activePage === 'account'} onClick={() => setActivePage('account')}>{tr(uiLanguage, 'Account Settings')}</NavItem>
               </div>
               <div className="cand-sidebar-section border-t border-bdr pt-5">
                 <div className="cand-sidebar-title">{tr(uiLanguage, 'Explore')}</div>
@@ -5098,18 +5038,18 @@ function UpskillingPage({ tab, courses, jobs, onTab }: {
         <h1 className="cand-page-title">Learning Paths</h1>
         <p className="cand-page-subtitle">Explore learning resources for the skills connected to your job matches.</p>
       </div>
-      <div className="cand-card mb-6">
-        <h2 className="cand-card-title"><UIIcon name="external" className="cand-title-icon" />Learn on the provider’s platform</h2>
+      <div className="mb-6 max-w-4xl space-y-2">
+        <h2 className="text-sm font-bold text-dark">Learn on the provider’s platform</h2>
         <p className="text-sm text-mid">Choose a resource below to visit its provider. Enrollment, learning, assessments, and certificate issuance happen on their platform.</p>
         <p className="mt-3 text-xs text-soft">Kareerly does not verify course completion or authenticate earned certificates. Opening a resource does not mark it completed, confirm a new skill, or change your job-match score.</p>
       </div>
-      <div className="cand-card mb-6">
+      <div className="mb-6 max-w-3xl">
         <label htmlFor="learning-target-job" className="block text-sm font-bold text-dark">Choose a job to focus on</label>
-        <select id="learning-target-job" value={selectedJob?.id || ''} onChange={(event) => setSelectedJobId(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-dark">
+        <select id="learning-target-job" disabled={jobs.length === 0} aria-describedby="learning-target-help" value={selectedJob?.id || ''} onChange={(event) => setSelectedJobId(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border border-bdr bg-white px-3 py-2 text-sm text-dark disabled:text-soft">
           {jobs.length === 0 && <option value="">No matched jobs available</option>}
           {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} — {job.company}</option>)}
         </select>
-        <p className="mt-2 text-xs text-soft">{selectedJob ? `Resources related to skills not identified in your profile for ${selectedJob.title}.` : 'Select a job to narrow these resources to its identified skill gaps.'} These are suggested resources, not an assessed learning sequence.</p>
+        <p id="learning-target-help" className="mt-2 text-xs text-soft">{selectedJob ? `Resources related to skills not identified in your profile for ${selectedJob.title}.` : 'Select a job to narrow these resources to its identified skill gaps.'} These are suggested resources, not an assessed learning sequence.</p>
       </div>
       <div className="cand-upskill-tabs" aria-label="Learning resource views">
         <button className={`cand-upskill-tab ${tab === 'recommended' ? 'active' : ''}`} type="button" aria-pressed={tab === 'recommended'} onClick={() => onTab('recommended')}>Recommended resources</button>
