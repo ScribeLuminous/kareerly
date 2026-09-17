@@ -1184,6 +1184,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [availableJobs, setAvailableJobs] = useState<AvailableJobItem[]>([]);
   const [isLoadingKareers, setIsLoadingKareers] = useState(true);
   const [kareersError, setKareersError] = useState<string | null>(null);
+  // Only explicit evidence uploads belong here; resume mentions are not uploaded or verified evidence.
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceUploadRecord[]>([]);
   const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>({});
   const [profileForm, setProfileForm] = useState({
@@ -3645,8 +3646,6 @@ function SkillGapsPage({
   courses,
   evidenceRecords,
   skillProgressRecords,
-  onUpdateSkillProgress,
-  onUploadSkillEvidence,
   onOpenUpskilling,
   onOpenResume,
 }: {
