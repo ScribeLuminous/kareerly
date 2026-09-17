@@ -17,7 +17,12 @@ RUN apt-get update \
 
 COPY requirements.txt .
 
+# Install torch from the CPU-only index first. The default PyPI wheel bundles the
+# CUDA runtime, which adds gigabytes of unusable NVIDIA dependencies and pushes
+# memory past what a small CPU instance can boot with. requirements.txt then sees
+# torch as already satisfied.
 RUN python -m pip install --upgrade pip \
+    && python -m pip install --index-url https://download.pytorch.org/whl/cpu torch \
     && python -m pip install -r requirements.txt
 
 COPY . .
