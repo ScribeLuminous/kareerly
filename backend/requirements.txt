@@ -1,3 +1,8 @@
+# CPU-only wheels: the default PyPI torch bundles the CUDA runtime, which a
+# CPU-only host cannot use and cannot afford the memory for. "+cpu" builds sort
+# above the plain version, so pip prefers this index for torch.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 fastapi
 uvicorn
 python-multipart
