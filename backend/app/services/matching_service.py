@@ -3,10 +3,15 @@
 import io
 import os
 import re
+import hashlib
 import logging
+import threading
+import time
+from collections import OrderedDict
 from functools import lru_cache
 from typing import Dict, List, Any, Tuple, Optional
 
+import numpy as np
 import pandas as pd
 from pypdf import PdfReader
 from docx import Document
@@ -21,7 +26,6 @@ from .learning_recommender import (
 )
 from .bi_encoder_service import MODEL_ID, MatchingModelUnavailable, build_model_input, get_bi_encoder, score_jobs
 from .skill_extractor import SkillExtractor
-from .semantic_matching import semantic_match_candidates
 from .supabase_jobs import load_internal_jobs_dataframe
 
 # ============================================================
@@ -40,6 +44,12 @@ TOP_ASPIRATION = 10
 logger = logging.getLogger(__name__)
 MAX_CONFIRMED_SKILLS = 20
 JOBS_SOURCE = "reference_jobs.csv"
+# Reloading every job from Supabase dominated report latency. New or edited
+# employer posts appear once the cache expires or clear_reference_jobs_cache()
+# is called; the bi-encoder vector cache keys on job text, so it follows along.
+JOBS_CACHE_SECONDS = float(os.getenv("KAREERLY_JOBS_CACHE_SECONDS", "300"))
+_jobs_cache_lock = threading.Lock()
+_jobs_cache: Dict[str, Any] = {"jobs": None, "source": JOBS_SOURCE, "loaded_at": 0.0}
 
 # These are provisional operating points, not learned probabilities. They must
 # be tuned on the human-labelled Philippine development split and then frozen
@@ -94,6 +104,13 @@ def normalize_for_match(value: Any) -> str:
     text = re.sub(r"[^a-z0-9+#.\s/-]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def configured_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
 
 
 def normalize_category_id(value: Any) -> str:
@@ -164,6 +181,25 @@ def extract_resume_text(file_bytes: bytes, filename: str) -> str:
     return text
 
 
+_resume_text_cache: "OrderedDict[Tuple[str, str], str]" = OrderedDict()
+_resume_text_cache_lock = threading.Lock()
+
+
+def extract_resume_text_cached(file_bytes: bytes, filename: str) -> str:
+    """Reuse the text of a file already parsed, so repeat reports skip PDF/DOCX parsing."""
+    key = (hashlib.sha256(file_bytes).hexdigest(), filename.lower().rsplit(".", 1)[-1])
+    with _resume_text_cache_lock:
+        if key in _resume_text_cache:
+            _resume_text_cache.move_to_end(key)
+            return _resume_text_cache[key]
+    text = extract_resume_text(file_bytes, filename)
+    with _resume_text_cache_lock:
+        _resume_text_cache[key] = text
+        while len(_resume_text_cache) > 32:
+            _resume_text_cache.popitem(last=False)
+    return text
+
+
 # ============================================================
 # DATA LOADING
 # ============================================================
@@ -195,6 +231,24 @@ def load_skills_reference() -> pd.DataFrame:
 
 
 def load_reference_jobs() -> pd.DataFrame:
+    global JOBS_SOURCE
+
+    with _jobs_cache_lock:
+        cached = _jobs_cache["jobs"]
+        if cached is None or time.monotonic() - _jobs_cache["loaded_at"] >= JOBS_CACHE_SECONDS:
+            cached = _load_reference_jobs_uncached()
+            _jobs_cache.update(jobs=cached, source=JOBS_SOURCE, loaded_at=time.monotonic())
+        JOBS_SOURCE = _jobs_cache["source"]
+    # Callers add columns to the frame, so never hand out the cached object itself.
+    return cached.copy()
+
+
+def clear_reference_jobs_cache() -> None:
+    with _jobs_cache_lock:
+        _jobs_cache.update(jobs=None, loaded_at=0.0)
+
+
+def _load_reference_jobs_uncached() -> pd.DataFrame:
     global JOBS_SOURCE
 
     supabase_jobs = load_internal_jobs_dataframe()
@@ -782,13 +836,13 @@ def generate_match_explanation(
     )
 
 
-def match_text_to_jobs(
-    resume_text: str,
+def match_resume_to_jobs(
+    file_bytes: bytes,
+    filename: str,
     preferences: Optional[Dict[str, Any]] = None,
     confirmed_skills: Optional[List[Any]] = None,
-    filename: str = "text-input",
 ) -> Dict[str, Any]:
-    return match_text_to_jobs(extract_resume_text(file_bytes, filename), filename=filename,
+    return match_text_to_jobs(extract_resume_text_cached(file_bytes, filename), filename=filename,
         preferences=preferences, confirmed_skills=confirmed_skills)
 
 
@@ -892,7 +946,6 @@ def match_text_to_jobs(
 
         learning_readiness = compute_learning_readiness(skill_result["missing_skills"], available_learning_skills)
 
-        semantic_score_raw = float(job.get("semantic_score_raw", 0.0))
         semantic_score = float(job.get("semantic_score", 0.0))
         skill_coverage = float(skill_result["skill_coverage"])
 
@@ -937,13 +990,10 @@ def match_text_to_jobs(
             "external_job_link_optional": job.get("external_job_link_optional", ""),
             "source_dataset": job.get("source_dataset", ""),
             "match_type": match_type,
-            "final_score": round(float(semantic_score), 4),
-            "match_percentage": round(float(semantic_score) * 100, 2),
-            "semantic_score_raw": round(float(semantic_score_raw), 6),
+            "final_score": round(float(final_score), 4),
+            "match_percentage": round(float(final_score) * 100, 2),
             "semantic_score": round(float(semantic_score), 4),
             "skill_coverage": round(float(skill_coverage), 4),
-            "optional_skill_coverage": round(float(skill_result["optional_skill_coverage"]), 4),
-            "category_alignment": round(float(skill_result["category_alignment"]), 4),
             "preference_alignment": round(float(preference_alignment), 4),
             "evidence_strength": round(float(evidence_strength), 4),
             "learning_readiness": round(float(learning_readiness), 4),
@@ -960,8 +1010,6 @@ def match_text_to_jobs(
             "required_skill_ids": ";".join(required_ids),
             "matched_skills": skill_result["matched_skills"],
             "missing_skills": skill_result["missing_skills"],
-            "matched_skill_ids": skill_result["matched_skill_ids"],
-            "missing_skill_ids": skill_result["missing_skill_ids"],
             "explanation": explanation,
         })
 
@@ -1002,7 +1050,7 @@ def match_text_to_jobs(
         max_recommendations=10,
     )
     top_10_scores = (
-        results_df.sort_values("pipeline_rank", ascending=True)
+        results_df.sort_values("final_score", ascending=False)
         .head(10)
         .loc[:, [
             "job_title",
@@ -1045,7 +1093,6 @@ def match_text_to_jobs(
             "fit_now_count": len(all_fit_now_matches),
             "aspiration_count": len(all_aspiration_matches),
             "top_10_scores": top_10_scores,
-            "pipeline_state": pipeline_state,
         },
         "metadata": {
             "semantic_scoring_methods": scoring_methods,
@@ -1056,10 +1103,6 @@ def match_text_to_jobs(
             "jobs_source": get_jobs_source(),
             "learning_resources_source": get_learning_resources_source(),
             "total_jobs_scored": int(len(scored_jobs)),
-            "model_version": "kareerly-retriever-skills-first-2026-09-10-gpu",
-            "model_training_state": "fine-tuned on weak taxonomy-overlap supervision; Philippine human-labelled validation pending",
-            "score_interpretation": "bounded cosine similarity index; not a calibrated probability",
-            **pipeline_state,
         },
     }
 

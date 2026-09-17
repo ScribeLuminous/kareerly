@@ -76,6 +76,38 @@ class ApiRegressionTests(unittest.TestCase):
             self.assertEqual(result.status_code, 200)
             match.assert_called_once()
 
+    def test_match_routes_call_matching_with_supported_arguments(self):
+        import inspect
+        from backend.app.services import matching_service
+        with patch('backend.app.main.match_jobs', autospec=matching_service.match_jobs, return_value={}) as match, \
+             patch('backend.app.main._apply_report_access_control', return_value={}):
+            self.assertEqual(self.client.post('/api/matches/run', json={'resume_text_for_matching': 'SQL developer'}).status_code, 200)
+        match.assert_called_once()
+        self.assertTrue(callable(matching_service.match_resume_to_jobs))
+        self.assertIn('file_bytes', inspect.signature(matching_service.match_resume_to_jobs).parameters)
+
+    def test_registered_report_is_returned_before_supabase_sync(self):
+        order = []
+        def trim(result, *_):
+            result['fit_now_matches'] = result['fit_now_matches'][:1]
+            order.append('response')
+            return result
+        def sync(**kwargs):
+            order.append(('sync', len(kwargs['result']['fit_now_matches'])))
+        with patch('backend.app.main.match_resume_to_jobs', return_value={'fit_now_matches': [1, 2, 3]}), \
+             patch('backend.app.main._apply_report_access_control', side_effect=trim), \
+             patch('backend.app.main._sync_match_results_to_supabase', side_effect=sync):
+            result = self.client.post('/api/matches/from-resume', files={'file': ('resume.pdf', b'%PDF sample')}, data={'user_mode': 'registered'})
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(order, ['response', ('sync', 3)])
+
+    def test_failed_background_sync_does_not_fail_the_report(self):
+        with patch('backend.app.main.match_resume_to_jobs', return_value={}), \
+             patch('backend.app.main._apply_report_access_control', return_value={}), \
+             patch('backend.app.main._sync_match_results_to_supabase', side_effect=RuntimeError('supabase down')):
+            result = self.client.post('/api/matches/from-resume', files={'file': ('resume.pdf', b'%PDF sample')}, data={'user_mode': 'registered'})
+        self.assertEqual(result.status_code, 200)
+
     def test_health_responds_while_matching_is_running(self):
         started = threading.Event()
         release = threading.Event()
