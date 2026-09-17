@@ -104,6 +104,14 @@ export default function UploadZone() {
       return;
     }
 
+    // Choosing a different file clears the analysis, so an existing one belongs to this file.
+    // Reusing it keeps the skills a user added or removed in Step 2 when they come back.
+    if (state.resumeAnalysis) {
+      setError(null);
+      goToStep(2);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 

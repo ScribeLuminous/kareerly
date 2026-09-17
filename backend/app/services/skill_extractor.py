@@ -152,7 +152,25 @@ class SkillExtractor:
             if skill_row["skill_id"] and skill_row["skill_name"]:
                 self.rows.append(skill_row)
 
+    def _category_label_terms(self) -> set[str]:
+        """Words that only name a taxonomy category, such as "data" or "business".
+
+        related_skills also lists the skill's category and subcategory labels, and
+        splitting "Technology, Data, and Digital Systems" on commas turns ordinary
+        resume words into aliases for every skill in that category.
+        """
+        terms: set[str] = set()
+        for row in self.rows:
+            for field in ("skill_category", "skill_subcategory"):
+                label = row.get(field, "")
+                terms.add(_normalize_alias(label))
+                terms.update(_normalize_alias(part) for part in _split_alias_terms(label))
+        terms.discard("")
+        return terms
+
     def _build_alias_index(self) -> None:
+        category_terms = self._category_label_terms()
+
         for row_index, row in enumerate(self.rows):
             alias_candidates = []
 
@@ -166,6 +184,10 @@ class SkillExtractor:
                 alias_candidates.extend(_split_alias_terms(row.get(field, "")))
 
             normalized_aliases = set()
+            own_names = {
+                _normalize_alias(row.get("skill_name", "")),
+                _normalize_alias(row.get("esco_preferred_label", "")),
+            }
 
             for alias in alias_candidates:
                 normalized_alias = _normalize_alias(alias)
@@ -175,6 +197,10 @@ class SkillExtractor:
 
                 # Avoid noisy aliases like "ai", "hr", "pr" unless intentionally handled later.
                 if len(normalized_alias) < 3:
+                    continue
+
+                # A category word stays an alias only for a skill actually named that.
+                if normalized_alias in category_terms and normalized_alias not in own_names:
                     continue
 
                 normalized_aliases.add(normalized_alias)

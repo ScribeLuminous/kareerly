@@ -86,6 +86,14 @@ class ApiRegressionTests(unittest.TestCase):
         self.assertTrue(callable(matching_service.match_resume_to_jobs))
         self.assertIn('file_bytes', inspect.signature(matching_service.match_resume_to_jobs).parameters)
 
+    def test_empty_confirmed_skills_fall_back_to_resume_extraction(self):
+        with patch('backend.app.main.match_resume_to_jobs', return_value={}) as match, \
+             patch('backend.app.main._apply_report_access_control', return_value={}):
+            self.client.post('/api/matches/from-resume', files={'file': ('resume.pdf', b'%PDF sample')}, data={'confirmed_skills': '[]'})
+            self.assertIsNone(match.call_args.kwargs['confirmed_skills'])
+            self.client.post('/api/matches/from-resume', files={'file': ('resume.pdf', b'%PDF sample')}, data={'confirmed_skills': '[{"skill_id": "SK004", "skill_name": "SQL"}]'})
+            self.assertEqual(match.call_args.kwargs['confirmed_skills'][0]['skill_id'], 'SK004')
+
     def test_registered_report_is_returned_before_supabase_sync(self):
         order = []
         def trim(result, *_):

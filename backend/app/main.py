@@ -1427,7 +1427,8 @@ async def match_from_resume(
             file_bytes=file_bytes,
             filename=file.filename,
             preferences=preferences_payload,
-            confirmed_skills=confirmed_skill_records,
+            # An empty list means none were sent, not that the user has no skills.
+            confirmed_skills=confirmed_skill_records or None,
         )
         if user_mode in {"registered", "logged_in"}:
             # Saving to Supabase takes several round trips; do it after the report is
