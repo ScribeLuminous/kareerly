@@ -1,0 +1,66 @@
+{
+  "batch_id": "ph-taxonomy-2026-09-09",
+  "purpose": "User-selected Philippine postings for training-data preparation",
+  "taxonomy_scope": {"retained_categories": ["K12", "K13"], "decision": "Retained by project owner on 2026-09-09; independent domain validation is not implied."},
+  "postings": [
+    {
+      "source": "greenhouse", "source_id": "freshprints-6151690004", "company": "Frontier / Fresh Prints",
+      "url": "https://job-boards.greenhouse.io/freshprints/jobs/6151690004",
+      "fetch_url": "https://boards-api.greenhouse.io/v1/boards/freshprints/jobs/6151690004",
+      "expected_title": "Instructional Designer", "location_marker": "Philippines", "categories": ["K05"],
+      "skills": [{"id": "SK049", "evidence": "instructional design"}, {"id": "SK364", "evidence": "adult learning principles"}, {"id": "SK390", "evidence": "Build learner-specific versions of existing training materials"}]
+    },
+    {
+      "source": "greenhouse", "source_id": "eucalyptus-4725103005", "company": "Eucalyptus",
+      "url": "https://job-boards.greenhouse.io/eucalyptus/jobs/4725103005",
+      "fetch_url": "https://boards-api.greenhouse.io/v1/boards/eucalyptus/jobs/4725103005",
+      "expected_title": "Telehealth Nurse", "location_marker": "Philippines", "categories": ["K06"],
+      "skills": [{"id": "SK056", "evidence": "Triage, assess, and support patients"}, {"id": "SK440", "evidence": "Monitor patient progress"}]
+    },
+    {
+      "source": "lever", "source_id": "rise-6f0bec7e-ea66-4801-86e8-2b97d9734927", "company": "RISE",
+      "url": "https://jobs.lever.co/rise/6f0bec7e-ea66-4801-86e8-2b97d9734927",
+      "fetch_url": "https://api.lever.co/v0/postings/rise/6f0bec7e-ea66-4801-86e8-2b97d9734927?mode=json",
+      "expected_title": "Project Engineer", "location_marker": "Cebu", "categories": ["K07"],
+      "skills": [{"id": "SK068", "evidence": "Autocad"}, {"id": "SK077", "evidence": "survey designated sites"}, {"id": "SK501", "evidence": "telecommunications system design"}]
+    },
+    {
+      "source": "greenhouse", "source_id": "extenteam-5099673008", "company": "Extenteam",
+      "url": "https://job-boards.greenhouse.io/extenteam/jobs/5099673008",
+      "fetch_url": "https://boards-api.greenhouse.io/v1/boards/extenteam/jobs/5099673008",
+      "expected_title": "Vacation Rental Specialist", "location_marker": "Philippines", "categories": ["K08"],
+      "skills": [{"id": "SK080", "evidence": "Serve as the primary contact for guests"}, {"id": "SK083", "evidence": "end-to-end reservation process"}, {"id": "SK530", "evidence": "OTA messaging platforms"}]
+    },
+    {
+      "source": "employer_jsonld", "source_id": "mandarin-545357", "company": "Mandarin Oriental",
+      "url": "https://careers.mandarinoriental.com/jobs/room-attendant-manilla-metro-manila-philippines",
+      "expected_title": "Room Attendant", "location_marker": "Philippines", "categories": ["K08"],
+      "skills": [{"id": "SK079", "evidence": "Clean and service guest rooms"}]
+    },
+    {
+      "source": "employer_jsonld", "source_id": "mandarin-545331", "company": "Mandarin Oriental",
+      "url": "https://careers.mandarinoriental.com/jobs/chef-de-partie-manilla-metro-manila-philippines",
+      "expected_title": "Chef de Partie", "location_marker": "Philippines", "categories": ["K08", "K09"],
+      "skills": [{"id": "SK085", "evidence": "culinary techniques"}, {"id": "SK510", "evidence": "hygiene and safety standards"}, {"id": "SK098", "evidence": "inventory management"}]
+    },
+    {
+      "source": "employer_html", "source_id": "agway-6", "company": "Agway Chemicals Corporation",
+      "url": "https://www.agwaychem.com/careers/6",
+      "expected_title": "FIELD AGRONOMIST", "location_marker": "Benguet", "categories": ["K10"],
+      "limited_requirements": true,
+      "skills": [{"id": "SK100", "evidence": "crop production"}, {"id": "SK102", "evidence": "managing diseases and pests"}]
+    },
+    {
+      "source": "smartrecruiters_html", "source_id": "sgs-744000128107168", "company": "SGS",
+      "url": "https://jobs.smartrecruiters.com/SGS/744000128107168--laboratory-analyst-i-subic-",
+      "expected_title": "Laboratory Analyst I (Subic)", "location_marker": "Philippines", "categories": ["K12"],
+      "skills": [{"id": "LEX-005", "evidence": "Performs sampling, testing and analyses"}, {"id": "LEX-007", "evidence": "Operates and maintains equipment used in performing analyses"}, {"id": "LEX-015", "evidence": "statistical quality control charts"}]
+    },
+    {
+      "source": "employer_jsonld", "source_id": "mandarin-546644", "company": "Mandarin Oriental",
+      "url": "https://careers.mandarinoriental.com/jobs/fitness-instructor-manilla-metro-manila-philippines",
+      "expected_title": "Fitness Instructor", "location_marker": "Philippines", "categories": ["K13"],
+      "skills": [{"id": "LEX-021", "evidence": "fitness assessments"}, {"id": "LEX-024", "evidence": "Provide instruction and guidance on the proper use of fitness equipment"}, {"id": "LEX-031", "evidence": "Monitor the condition of fitness equipment"}]
+    }
+  ]
+}

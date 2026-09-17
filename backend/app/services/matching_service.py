@@ -7,7 +7,6 @@ import logging
 from functools import lru_cache
 from typing import Dict, List, Any, Tuple, Optional
 
-import numpy as np
 import pandas as pd
 from pypdf import PdfReader
 from docx import Document
@@ -22,6 +21,7 @@ from .learning_recommender import (
 )
 from .bi_encoder_service import MODEL_ID, MatchingModelUnavailable, build_model_input, get_bi_encoder, score_jobs
 from .skill_extractor import SkillExtractor
+from .semantic_matching import semantic_match_candidates
 from .supabase_jobs import load_internal_jobs_dataframe
 
 # ============================================================
@@ -40,6 +40,14 @@ TOP_ASPIRATION = 10
 logger = logging.getLogger(__name__)
 MAX_CONFIRMED_SKILLS = 20
 JOBS_SOURCE = "reference_jobs.csv"
+
+# These are provisional operating points, not learned probabilities. They must
+# be tuned on the human-labelled Philippine development split and then frozen
+# before the final Chapter 4 test run.
+FIT_MIN_COSINE = 0.35
+FIT_MIN_SKILL_COVERAGE = 0.50
+ASPIRATION_MIN_COSINE = 0.25
+ASPIRATION_MIN_SKILL_COVERAGE = 0.20
 
 
 # ============================================================
@@ -485,6 +493,141 @@ def compute_skill_coverage(candidate_skills: List[str], required_skills: List[st
     }
 
 
+def split_skill_ids(value: Any) -> List[str]:
+    """Return canonical skill identifiers without inventing text equivalences."""
+    text = clean_text(value).upper()
+    if not text:
+        return []
+    return list(dict.fromkeys(re.findall(r"\b(?:SK\d+|LEX-\d+)\b", text)))
+
+
+@lru_cache(maxsize=1)
+def get_skill_labels_by_id() -> Dict[str, str]:
+    labels: Dict[str, str] = {}
+    for _, row in load_skills_reference().iterrows():
+        skill_id = clean_text(row.get("skill_id", "")).upper()
+        label = clean_text(row.get("skill_name", ""))
+        if skill_id and label:
+            labels.setdefault(skill_id, label)
+    return labels
+
+
+@lru_cache(maxsize=1)
+def get_skill_categories_by_id() -> Dict[str, str]:
+    categories: Dict[str, str] = {}
+    for _, row in load_skills_reference().iterrows():
+        skill_id = clean_text(row.get("skill_id", "")).upper()
+        category_id = normalize_category_id(row.get("category_id", ""))
+        if skill_id and category_id:
+            categories.setdefault(skill_id, category_id)
+    return categories
+
+
+def compute_taxonomy_skill_coverage(
+    candidate_skill_records: List[Dict[str, Any]],
+    job: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Compute exact coverage on canonical IDs, falling back to named skills.
+
+    Related-skill credit is intentionally excluded from Fit-Now eligibility:
+    a sibling in the taxonomy may explain an aspiration path, but it must not
+    silently satisfy an employer's essential requirement.
+    """
+    candidate_ids = list(dict.fromkeys(
+        clean_text(item.get("skill_id", "")).upper()
+        for item in candidate_skill_records
+        if clean_text(item.get("skill_id", ""))
+    ))
+    essential_ids = split_skill_ids(
+        job.get("must_have_skill_ids") or job.get("required_skill_ids")
+    )
+    optional_ids = split_skill_ids(job.get("nice_to_have_skill_ids"))
+    category_by_skill = get_skill_categories_by_id()
+    candidate_categories = {
+        category_by_skill.get(skill_id, "") for skill_id in candidate_ids
+    }
+    candidate_categories.discard("")
+    job_category = normalize_category_id(job.get("category_id_norm") or job.get("category_id"))
+    category_alignment = 1.0 if job_category and job_category in candidate_categories else 0.0
+
+    labels = get_skill_labels_by_id()
+    if candidate_ids and essential_ids:
+        held = set(candidate_ids)
+        matched_ids = [skill_id for skill_id in essential_ids if skill_id in held]
+        missing_ids = [skill_id for skill_id in essential_ids if skill_id not in held]
+        matched_skills = [labels.get(skill_id, skill_id) for skill_id in matched_ids]
+        missing_skills = [labels.get(skill_id, skill_id) for skill_id in missing_ids]
+        optional_matched = [skill_id for skill_id in optional_ids if skill_id in held]
+        return {
+            "skill_coverage": round(len(matched_ids) / len(essential_ids), 4),
+            "optional_skill_coverage": round(
+                len(optional_matched) / len(optional_ids), 4
+            ) if optional_ids else 0.0,
+            "matched_skills": matched_skills,
+            "missing_skills": missing_skills,
+            "matched_skill_ids": matched_ids,
+            "missing_skill_ids": missing_ids,
+            "category_alignment": category_alignment,
+            "coverage_method": "canonical_taxonomy_skill_ids",
+        }
+
+    candidate_names = [
+        clean_text(item.get("skill_name", ""))
+        for item in candidate_skill_records
+        if clean_text(item.get("skill_name", ""))
+    ]
+    essential_names = split_skill_list(job.get("required_skills_for_eval", ""))
+    fallback = compute_skill_coverage(candidate_names, essential_names)
+    optional_names = split_skill_list(
+        job.get("mapped_nice_to_have_skill_names")
+        or job.get("nice_to_have_skills_optional", "")
+    )
+    optional = compute_skill_coverage(candidate_names, optional_names) if optional_names else {
+        "skill_coverage": 0.0
+    }
+    return {
+        **fallback,
+        "optional_skill_coverage": optional["skill_coverage"],
+        "matched_skill_ids": [],
+        "missing_skill_ids": [],
+        "category_alignment": category_alignment,
+        "coverage_method": "canonical_name_fallback",
+    }
+
+
+def classify_semantic_match(
+    semantic_cosine: float,
+    skill_coverage: float,
+    category_alignment: float,
+    matched_skill_count: int,
+) -> Optional[str]:
+    """Assign a defensible tier or return None when no match qualifies."""
+    if (
+        matched_skill_count >= 1
+        and skill_coverage >= configured_float(
+            "KAREERLY_FIT_MIN_SKILL_COVERAGE", FIT_MIN_SKILL_COVERAGE
+        )
+        and semantic_cosine >= configured_float(
+            "KAREERLY_FIT_MIN_COSINE", FIT_MIN_COSINE
+        )
+    ):
+        return "Fit-Now"
+    if (
+        semantic_cosine >= configured_float(
+            "KAREERLY_ASPIRATION_MIN_COSINE", ASPIRATION_MIN_COSINE
+        )
+        and (
+            skill_coverage >= configured_float(
+                "KAREERLY_ASPIRATION_MIN_SKILL_COVERAGE",
+                ASPIRATION_MIN_SKILL_COVERAGE,
+            )
+            or category_alignment >= 1.0
+        )
+    ):
+        return "Aspiration"
+    return None
+
+
 def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any]) -> float:
     if not preferences:
         return 0.0
@@ -639,11 +782,11 @@ def generate_match_explanation(
     )
 
 
-def match_resume_to_jobs(
-    file_bytes: bytes,
-    filename: str,
+def match_text_to_jobs(
+    resume_text: str,
     preferences: Optional[Dict[str, Any]] = None,
     confirmed_skills: Optional[List[Any]] = None,
+    filename: str = "text-input",
 ) -> Dict[str, Any]:
     return match_text_to_jobs(extract_resume_text(file_bytes, filename), filename=filename,
         preferences=preferences, confirmed_skills=confirmed_skills)
@@ -676,12 +819,15 @@ def match_text_to_jobs(
             continue
 
         if isinstance(item, dict):
+            skill_id = clean_text(item.get("skill_id", "")).upper()
             skill_name = clean_text(item.get("skill_name", ""))
+            if not skill_name and skill_id:
+                skill_name = get_skill_labels_by_id().get(skill_id, "")
             if not skill_name:
                 continue
             confirmed_skill_records.append(
                 {
-                    "skill_id": clean_text(item.get("skill_id", "")).upper(),
+                    "skill_id": skill_id,
                     "skill_name": skill_name,
                     "custom_skill_name": clean_text(item.get("custom_skill_name", "")),
                     "source": clean_text(item.get("source", "")) or "confirmed_skill",
@@ -746,6 +892,7 @@ def match_text_to_jobs(
 
         learning_readiness = compute_learning_readiness(skill_result["missing_skills"], available_learning_skills)
 
+        semantic_score_raw = float(job.get("semantic_score_raw", 0.0))
         semantic_score = float(job.get("semantic_score", 0.0))
         skill_coverage = float(skill_result["skill_coverage"])
 
@@ -790,10 +937,13 @@ def match_text_to_jobs(
             "external_job_link_optional": job.get("external_job_link_optional", ""),
             "source_dataset": job.get("source_dataset", ""),
             "match_type": match_type,
-            "final_score": round(float(final_score), 4),
-            "match_percentage": round(float(final_score) * 100, 2),
+            "final_score": round(float(semantic_score), 4),
+            "match_percentage": round(float(semantic_score) * 100, 2),
+            "semantic_score_raw": round(float(semantic_score_raw), 6),
             "semantic_score": round(float(semantic_score), 4),
             "skill_coverage": round(float(skill_coverage), 4),
+            "optional_skill_coverage": round(float(skill_result["optional_skill_coverage"]), 4),
+            "category_alignment": round(float(skill_result["category_alignment"]), 4),
             "preference_alignment": round(float(preference_alignment), 4),
             "evidence_strength": round(float(evidence_strength), 4),
             "learning_readiness": round(float(learning_readiness), 4),
@@ -810,6 +960,8 @@ def match_text_to_jobs(
             "required_skill_ids": ";".join(required_ids),
             "matched_skills": skill_result["matched_skills"],
             "missing_skills": skill_result["missing_skills"],
+            "matched_skill_ids": skill_result["matched_skill_ids"],
+            "missing_skill_ids": skill_result["missing_skill_ids"],
             "explanation": explanation,
         })
 
@@ -850,7 +1002,7 @@ def match_text_to_jobs(
         max_recommendations=10,
     )
     top_10_scores = (
-        results_df.sort_values("final_score", ascending=False)
+        results_df.sort_values("pipeline_rank", ascending=True)
         .head(10)
         .loc[:, [
             "job_title",
@@ -893,6 +1045,7 @@ def match_text_to_jobs(
             "fit_now_count": len(all_fit_now_matches),
             "aspiration_count": len(all_aspiration_matches),
             "top_10_scores": top_10_scores,
+            "pipeline_state": pipeline_state,
         },
         "metadata": {
             "semantic_scoring_methods": scoring_methods,
@@ -903,6 +1056,10 @@ def match_text_to_jobs(
             "jobs_source": get_jobs_source(),
             "learning_resources_source": get_learning_resources_source(),
             "total_jobs_scored": int(len(scored_jobs)),
+            "model_version": "kareerly-retriever-skills-first-2026-09-10-gpu",
+            "model_training_state": "fine-tuned on weak taxonomy-overlap supervision; Philippine human-labelled validation pending",
+            "score_interpretation": "bounded cosine similarity index; not a calibrated probability",
+            **pipeline_state,
         },
     }
 
