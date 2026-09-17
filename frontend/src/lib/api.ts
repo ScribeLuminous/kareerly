@@ -3,6 +3,9 @@ import { normalizeMatchItemPercentages, normalizeSkillGapPercentages, parseNumer
 import { supabase } from './supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const MATCH_CONNECTION_ERROR = import.meta.env.DEV
+  ? `Cannot connect to the matching service at ${API_BASE_URL}. From the frontend folder, run npm run dev:full to start both services, then retry.`
+  : 'The matching service is temporarily unavailable. Please try again shortly. If this continues, contact support.';
 const REQUEST_TIMEOUT_MS = 90_000;
 export const CONFIRMED_SKILL_LIMIT = 20;
 
@@ -484,7 +487,7 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the job matching backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+    throw new Error(MATCH_CONNECTION_ERROR);
   }
 
   if (!response.ok) {
@@ -606,7 +609,7 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the job matching backend. Start FastAPI on http://127.0.0.1:8000, then try again.');
+    throw new Error(MATCH_CONNECTION_ERROR);
   }
 
   if (!response.ok) {
@@ -697,7 +700,7 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     model_used: rawResults.model_used || '',
     metadata: {
       ...rawResults.metadata,
-      model_version: rawResults.metadata?.model_version || rawResults.model_used || 'pre-trained Cross-Encoder BERT semantic scoring',
+      model_version: rawResults.metadata?.model_version || rawResults.model_used || 'kareerly-retriever-djinni-warm-start',
       total_jobs_scored: rawResults.metadata?.total_jobs_scored || totalMatches,
       method: 'resume_upload_formdata',
       jobs_source: rawResults.metadata?.jobs_source || 'backend_job_source',

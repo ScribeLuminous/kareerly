@@ -460,10 +460,10 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           )}
         </div>
 
-        <div className="flex gap-4 justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <button
             onClick={() => goToStep(1)}
-            className="flex-1 rounded-lg border border-bdr bg-white px-5 py-3.5 font-semibold text-mid transition-all hover:border-rust hover:text-rust"
+            className="min-h-11 shrink-0 rounded-lg border border-bdr bg-white px-5 py-2.5 text-sm font-semibold text-mid transition-all hover:border-rust hover:text-rust"
           >
             <span className="inline-flex items-center gap-2">
               <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
@@ -473,7 +473,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           <button
             onClick={handleContinueToPreferences}
             disabled={!canContinueToPreferences || state.isLoading || !state.resumeAnalysis}
-            className="flex-1 rounded-lg bg-rust px-5 py-3.5 font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 shrink-0 rounded-lg bg-rust px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="inline-flex items-center gap-2">
               <span>Next</span>
@@ -555,10 +555,10 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         />
       </div>
 
-      <div className="flex gap-3 justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           onClick={() => goToStep(2)}
-          className="flex-1 rounded-lg border border-bdr bg-white px-5 py-3.5 font-semibold text-mid transition-all hover:border-rust hover:text-rust"
+          className="min-h-11 shrink-0 rounded-lg border border-bdr bg-white px-5 py-2.5 text-sm font-semibold text-mid transition-all hover:border-rust hover:text-rust"
         >
           <span className="inline-flex items-center gap-2">
             <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
@@ -568,10 +568,10 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         <button
           onClick={handleRunMatching}
           disabled={!isPreferencesComplete || state.isLoading || !state.resumeAnalysis}
-          className="flex-1 rounded-lg bg-rust px-5 py-3.5 font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-h-11 shrink-0 rounded-lg bg-rust px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span className="inline-flex items-center gap-2">
-            <span>{state.isLoading ? 'Analyzing resume and generating job matches…' : 'Generate Report'}</span>
+            <span>{state.isLoading ? 'Generating report…' : 'Generate Report'}</span>
             <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
           </span>
         </button>

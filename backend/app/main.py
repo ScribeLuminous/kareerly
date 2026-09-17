@@ -21,8 +21,8 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from .models.schemas import RunMatchesRequest
-from .services.job_matcher import list_available_jobs, match_jobs
-from .services.matching_service import match_resume_to_jobs
+from .services.job_matcher import list_available_jobs
+from .services.matching_service import match_resume_to_jobs, match_text_to_jobs
 from .services.resume_analyzer import analyze_resume_file
 from .services.skill_extractor import SkillExtractor
 
@@ -1309,7 +1309,13 @@ async def validate_certificate_file(
     if not is_valid:
         raise HTTPException(status_code=400, detail=message)
 
-    return {"status": "valid", "message": message}
+    # File screening is not issuer authentication or proof of completion.
+    return {
+        "status": "valid",
+        "verification_status": "pending_verification",
+        "authenticity_verified": False,
+        "message": "File checks passed. Evidence remains pending verification; certificate authenticity and completion have not been verified.",
+    }
 
 
 @app.post("/api/matches/run")
@@ -1329,13 +1335,12 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
     candidate_skill_ids = _normalize_candidate_skill_ids(payload.candidate_skill_ids)
 
     try:
-        # Always compute enough results for the logged-in full dashboard.
-        result = match_jobs(
-            resume_text_for_matching=resume_text_for_matching,
-            candidate_skill_ids=candidate_skill_ids,
+        # Text and file uploads use the same trained semantic matching model.
+        result = match_text_to_jobs(
+            resume_text=resume_text_for_matching,
+            confirmed_skills=[{"skill_id": skill_id} for skill_id in candidate_skill_ids],
             preferences=preferences,
-            top_n_retrieval=150,
-            top_n_output=10,
+            filename="normalized-resume-text",
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Job matching failed: {exc}") from exc
