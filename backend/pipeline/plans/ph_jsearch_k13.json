@@ -1,0 +1,116 @@
+{
+  "keywords": [
+    "software developer",
+    "data analyst",
+    "IT support",
+    "administrative assistant",
+    "accountant",
+    "human resources",
+    "sales representative",
+    "customer service",
+    "retail cashier",
+    "graphic designer",
+    "content writer",
+    "video editor",
+    "school teacher",
+    "tutor",
+    "instructional designer",
+    "hospital nurse",
+    "caregiver",
+    "pharmacy assistant",
+    "electrician",
+    "welder",
+    "construction engineer",
+    "hotel room attendant",
+    "cook",
+    "tour guide",
+    "warehouse worker",
+    "delivery driver",
+    "production operator",
+    "farm worker",
+    "agronomist",
+    "aquaculture technician",
+    "government administrative officer",
+    "security guard",
+    "legal assistant",
+    "laboratory analyst",
+    "research assistant",
+    "quality control analyst",
+    "fitness instructor",
+    "sports coach",
+    "recreation attendant"
+  ],
+  "locations": [
+    "Philippines"
+  ],
+  "pages_per_query": 1,
+  "date_posted": "all",
+  "category_queries": {
+    "K01": [
+      "software developer",
+      "data analyst",
+      "IT support"
+    ],
+    "K02": [
+      "administrative assistant",
+      "accountant",
+      "human resources"
+    ],
+    "K03": [
+      "sales representative",
+      "customer service",
+      "retail cashier"
+    ],
+    "K04": [
+      "graphic designer",
+      "content writer",
+      "video editor"
+    ],
+    "K05": [
+      "school teacher",
+      "tutor",
+      "instructional designer"
+    ],
+    "K06": [
+      "hospital nurse",
+      "caregiver",
+      "pharmacy assistant"
+    ],
+    "K07": [
+      "electrician",
+      "welder",
+      "construction engineer"
+    ],
+    "K08": [
+      "hotel room attendant",
+      "cook",
+      "tour guide"
+    ],
+    "K09": [
+      "warehouse worker",
+      "delivery driver",
+      "production operator"
+    ],
+    "K10": [
+      "farm worker",
+      "agronomist",
+      "aquaculture technician"
+    ],
+    "K11": [
+      "government administrative officer",
+      "security guard",
+      "legal assistant"
+    ],
+    "K12": [
+      "laboratory analyst",
+      "research assistant",
+      "quality control analyst"
+    ],
+    "K13": [
+      "fitness instructor",
+      "sports coach",
+      "recreation attendant"
+    ]
+  },
+  "notes": "39 discovery queries across all 13 retained categories; query tags are search intent, not validated posting labels. Review country, requirements, duplicates and source terms."
+}
