@@ -35,18 +35,40 @@ test('hosted matching connection errors identify backend and CORS origin', async
  const original = globalThis.fetch;
  const originalLocation = globalThis.location;
  const originalConsoleError = console.error;
+ const hostedRequests = [
+  () => hostedApi.runJobMatches({ resume_text_for_matching: 'SQL developer', preferences: {} }),
+  () => hostedApi.runMatchesFromResume({ resumeFile: new File(['resume'], 'resume.pdf'), preferences: {} }),
+ ];
  try {
   globalThis.location = { origin: 'https://frontend.example.org' };
   console.error = () => {};
-  globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
-  for (const request of [
-   () => hostedApi.runJobMatches({ resume_text_for_matching: 'SQL developer', preferences: {} }),
-   () => hostedApi.runMatchesFromResume({ resumeFile: new File(['resume'], 'resume.pdf'), preferences: {} }),
-  ]) {
+
+  // Health answers the opaque probe, so the matching call was refused, not unreachable.
+  globalThis.fetch = async (url, options) => {
+   if (String(url).endsWith('/api/health')) {
+    assert.equal(options.mode, 'no-cors');
+    // A real no-cors reply is opaque; only "it answered" matters to the probe.
+    return new Response(null, { status: 200 });
+   }
+   throw new TypeError('Failed to fetch');
+  };
+  for (const request of hostedRequests) {
    await assert.rejects(request(), error => {
     assert.match(error.message, /https:\/\/backend.example.org/);
     assert.match(error.message, /FRONTEND_URLS/);
     assert.match(error.message, /https:\/\/frontend.example.org/);
+    assert.doesNotMatch(error.message, /npm run dev/);
+    return true;
+   });
+  }
+
+  // Nothing answers, so the service itself is down rather than rejecting the origin.
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  for (const request of hostedRequests) {
+   await assert.rejects(request(), error => {
+    assert.match(error.message, /https:\/\/backend.example.org/);
+    assert.match(error.message, /not responding/);
+    assert.doesNotMatch(error.message, /FRONTEND_URLS/);
     assert.doesNotMatch(error.message, /npm run dev/);
     return true;
    });
