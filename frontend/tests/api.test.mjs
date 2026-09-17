@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import ts from 'typescript';
 function moduleUrl(source) { return 'data:text/javascript;base64,' + Buffer.from(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText).toString('base64'); }
 const scoring = moduleUrl(fs.readFileSync(new URL('../src/lib/matchScoring.ts', import.meta.url), 'utf8'));
-const source = fs.readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8').replace("'./matchScoring'", JSON.stringify(scoring)).replace("import { supabase } from './supabase';", 'const supabase = { auth: { getSession: async () => ({data: {session: null}}) } };').replaceAll('import.meta.env', '({ VITE_API_BASE_URL: " http://127.0.0.1:8000/ " })');
+const source = fs.readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8').replace("'./matchScoring'", JSON.stringify(scoring)).replace("import { supabase } from './supabase';", 'const supabase = { auth: { getSession: async () => ({data: {session: null}}) } };').replaceAll('import.meta.env', '({ VITE_API_BASE_URL: " http://127.0.0.1:8000/ " })').replace('BACKEND_WAKE_TIMEOUT_MS = 90_000', 'BACKEND_WAKE_TIMEOUT_MS = 0');
 const api = await import(moduleUrl(source));
 globalThis.window = globalThis;
 const requests = [() => api.runJobMatches({ resume_text_for_matching: 'SQL developer', preferences: {} }), () => api.runMatchesFromResume({ resumeFile: new File(['resume'], 'resume.pdf'), preferences: {} })];
@@ -45,8 +45,7 @@ test('hosted matching connection errors identify backend and CORS origin', async
 
   // Health answers the opaque probe, so the matching call was refused, not unreachable.
   globalThis.fetch = async (url, options) => {
-   if (String(url).endsWith('/api/health')) {
-    assert.equal(options.mode, 'no-cors');
+   if (String(url).endsWith('/api/health') && options.mode === 'no-cors') {
     // A real no-cors reply is opaque; only "it answered" matters to the probe.
     return new Response(null, { status: 200 });
    }
@@ -77,5 +76,30 @@ test('hosted matching connection errors identify backend and CORS origin', async
   globalThis.fetch = original;
   globalThis.location = originalLocation;
   console.error = originalConsoleError;
+ }
+});
+
+test('hosted requests wait for a sleeping backend and retry once', async () => {
+ const wakingSource = source.replace('http://127.0.0.1:8000/ ', 'https://backend.example.org/ ').replace('BACKEND_WAKE_TIMEOUT_MS = 0', 'BACKEND_WAKE_TIMEOUT_MS = 60_000').replace('BACKEND_WAKE_POLL_MS = 5_000', 'BACKEND_WAKE_POLL_MS = 1');
+ const wakingApi = await import(moduleUrl(wakingSource));
+ const original = globalThis.fetch;
+ let awake = false;
+ let healthChecks = 0;
+ try {
+  globalThis.fetch = async (url) => {
+   if (String(url).endsWith('/api/health')) {
+    healthChecks += 1;
+    if (healthChecks < 3) throw new TypeError('Failed to fetch');
+    awake = true;
+    return new Response('{"status":"ok"}', { status: 200 });
+   }
+   if (!awake) throw new TypeError('Failed to fetch');
+   return new Response(JSON.stringify({ status: 'success', candidate_profile: { skills: [] }, normalized_for_matching: {} }), { status: 200 });
+  };
+  const result = await wakingApi.analyzeResume(new File(['resume'], 'resume.pdf'));
+  assert.equal(result.status, 'success');
+  assert.equal(healthChecks, 3);
+ } finally {
+  globalThis.fetch = original;
  }
 });

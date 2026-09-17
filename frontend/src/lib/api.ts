@@ -11,6 +11,11 @@ const MATCHING_TIMEOUT_MS = 240_000;
 export const CONFIRMED_SKILL_LIMIT = 20;
 
 const REACHABILITY_PROBE_TIMEOUT_MS = 10_000;
+// A sleeping or redeploying host drops requests before CORS headers are added, which
+// fetch() reports exactly like a wrong URL. Give it this long to come back first.
+const BACKEND_WAKE_TIMEOUT_MS = 90_000;
+const BACKEND_WAKE_POLL_MS = 5_000;
+const isLocalBackend = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(API_BASE_URL);
 
 /** Opaque probe: it resolves whenever the host answers, even when CORS hides the body. */
 async function backendIsReachable(): Promise<boolean> {
@@ -33,8 +38,7 @@ async function backendIsReachable(): Promise<boolean> {
 
 async function backendConnectionError(error: unknown): Promise<Error> {
   console.error('Job matching backend request failed', { apiBaseUrl: API_BASE_URL, error });
-  const localBackend = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(API_BASE_URL);
-  if (localBackend) {
+  if (isLocalBackend) {
     return new Error(`Cannot reach the job matching backend at ${API_BASE_URL}. For local development, run npm run dev. For a deployed website, configure VITE_API_BASE_URL with the public backend URL and redeploy the frontend.`);
   }
 
@@ -190,6 +194,38 @@ async function fetchWithTimeout(
   }
 }
 
+async function waitForBackend(): Promise<boolean> {
+  const deadline = Date.now() + BACKEND_WAKE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/api/health`, { cache: 'no-store' }, 'Health check timed out.', REACHABILITY_PROBE_TIMEOUT_MS);
+      if (response.ok) return true;
+    } catch {
+      // Still starting up.
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, BACKEND_WAKE_POLL_MS));
+  }
+  return false;
+}
+
+/** fetchWithTimeout for the hosted backend: waits out a cold start once, then explains the failure. */
+async function fetchBackend(url: string, options: RequestInit, timeoutMessage: string, timeoutMs?: number): Promise<Response> {
+  try {
+    return await fetchWithTimeout(url, options, timeoutMessage, timeoutMs);
+  } catch (error) {
+    if (error instanceof Error && error.message === timeoutMessage) throw error;
+    if (!isLocalBackend && await waitForBackend()) {
+      try {
+        return await fetchWithTimeout(url, options, timeoutMessage, timeoutMs);
+      } catch (retryError) {
+        if (retryError instanceof Error && retryError.message === timeoutMessage) throw retryError;
+        throw await backendConnectionError(retryError);
+      }
+    }
+    throw await backendConnectionError(error);
+  }
+}
+
 export type UserMode = 'guest' | 'registered' | 'logged_in';
 export type ViewMode = 'initial' | 'full';
 export type SkillSearchItem = {
@@ -327,21 +363,15 @@ export async function analyzeResume(resumeFile: File, _legacySurveyAnswers?: Par
   const formData = new FormData();
   formData.append('resume', resumeFile);
 
-  let response: Response;
 
-  try {
-    response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/resume/analyze`,
-      {
-        method: 'POST',
-        body: formData,
-      },
-      'Resume analysis timed out. Please try again with a smaller or simpler PDF/DOCX file.',
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the ML backend. Check the configured API URL and run npm run dev to start the local backend.');
-  }
+  const response = await fetchBackend(
+    `${API_BASE_URL}/api/resume/analyze`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+    'Resume analysis timed out. Please try again with a smaller or simpler PDF/DOCX file.',
+  );
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
@@ -509,25 +539,19 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     },
   };
 
-  let response: Response;
 
-  try {
-    response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/matches/run`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(normalizedPayload),
+  const response = await fetchBackend(
+    `${API_BASE_URL}/api/matches/run`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      'Job matching timed out. The backend may still be starting up — please try generating the report again.',
-      MATCHING_TIMEOUT_MS,
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw await backendConnectionError(error);
-  }
+      body: JSON.stringify(normalizedPayload),
+    },
+    'Job matching timed out. The backend may still be starting up — please try generating the report again.',
+    MATCHING_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
@@ -631,26 +655,20 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     }),
   );
 
-  let response: Response;
   const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
   const accessToken = sessionData.session?.access_token;
   const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
 
-  try {
-    response = await fetchWithTimeout(
-      `${API_BASE_URL}/api/matches/from-resume`,
-      {
-        method: 'POST',
-        headers,
-        body: formData,
-      },
-      'Analyzing resume and generating job matches timed out. The backend may still be starting up — please try again.',
-      MATCHING_TIMEOUT_MS,
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw await backendConnectionError(error);
-  }
+  const response = await fetchBackend(
+    `${API_BASE_URL}/api/matches/from-resume`,
+    {
+      method: 'POST',
+      headers,
+      body: formData,
+    },
+    'Analyzing resume and generating job matches timed out. The backend may still be starting up — please try again.',
+    MATCHING_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
