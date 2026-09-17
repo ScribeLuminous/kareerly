@@ -25,6 +25,7 @@ import {
   faGraduationCap,
   faLaptop,
   faLayerGroup,
+  faFileLines,
   faLightbulb,
   faList,
   faLocationDot,
@@ -43,6 +44,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import DOMPurify from 'dompurify';
+import { formatFileSize } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
@@ -5406,9 +5408,22 @@ function ResumeUpdateModal({
 
             {file && (
               <div className="cand-upload-file">
-                <span className="flex-1 text-sm font-semibold">{file.name}</span>
-                <button className="text-sm font-bold" type="button" onClick={() => onPickFile(null)}>
-                  Remove
+                <span className="text-2xl flex-shrink-0">
+                  <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  {/* Long unbroken file names must wrap inside the modal instead of overflowing it. */}
+                  <div className="text-sm font-bold [overflow-wrap:anywhere]">{file.name}</div>
+                  <div className="text-xs mt-0.5">{formatFileSize(file.size)} · Ready for analysis</div>
+                </div>
+                <button
+                  className="text-soft hover:text-red transition-colors text-xl px-1 flex-shrink-0"
+                  type="button"
+                  onClick={() => onPickFile(null)}
+                  title="Remove"
+                  aria-label="Remove resume"
+                >
+                  <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
                 </button>
               </div>
             )}
