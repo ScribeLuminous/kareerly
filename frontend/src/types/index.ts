@@ -237,6 +237,16 @@ export interface MatchResultItem {
   preferred_skills?: string;
   skill_gap_reliability?: string;
   text_similarity?: number | string;
+  semantic_score?: number | string;
+  semantic_score_raw?: number | string;
+  retrieval_rank?: number;
+  pipeline_rank?: number;
+  reranker_score_raw?: number | string | null;
+  semantic_scoring_method?: string;
+  reranking_method?: string;
+  coverage_method?: string;
+  optional_skill_coverage?: number | string;
+  category_alignment?: number | string;
   skill_coverage?: number | string;
   matched_skill_ids?: string[];
   missing_skill_ids?: string[];
@@ -389,6 +399,7 @@ export interface JobMatchRunResults {
       final_score?: number | string;
       match_type?: string;
     }>;
+    pipeline_state?: Record<string, unknown>;
   };
   resume_text_preview?: string;
   model_used?: string;
@@ -398,6 +409,16 @@ export interface JobMatchRunResults {
     method?: string;
     jobs_source?: string;
     learning_resources_source?: string;
+    retrieval_method?: string;
+    retrieval_fallback?: boolean;
+    retrieval_top_k_requested?: number;
+    retrieval_top_k_effective?: number;
+    retrieved_jobs?: number;
+    reranking_method?: string;
+    reranked_jobs?: number;
+    reranking_top_k?: number;
+    score_interpretation?: string;
+    model_training_state?: string;
   };
 }
 

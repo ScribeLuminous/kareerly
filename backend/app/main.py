@@ -1322,7 +1322,13 @@ async def validate_certificate_file(
     if not is_valid:
         raise HTTPException(status_code=400, detail=message)
 
-    return {"status": "valid", "message": message}
+    # File screening is not issuer authentication or proof of completion.
+    return {
+        "status": "valid",
+        "verification_status": "pending_verification",
+        "authenticity_verified": False,
+        "message": "File checks passed. Evidence remains pending verification; certificate authenticity and completion have not been verified.",
+    }
 
 
 @app.post("/api/matches/run")
@@ -1348,8 +1354,7 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
             resume_text_for_matching=resume_text_for_matching,
             candidate_skill_ids=candidate_skill_ids,
             preferences=preferences,
-            top_n_retrieval=150,
-            top_n_output=10,
+            filename="normalized-resume-text",
         )
     except MatchingModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
