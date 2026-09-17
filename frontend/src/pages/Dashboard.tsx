@@ -3646,6 +3646,8 @@ function SkillGapsPage({
   courses,
   evidenceRecords,
   skillProgressRecords,
+  onUpdateSkillProgress,
+  onUploadSkillEvidence,
   onOpenUpskilling,
   onOpenResume,
 }: {
