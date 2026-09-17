@@ -1,0 +1,16 @@
+{
+  "keywords": [
+    "administrative assistant", "accounting", "customer service", "sales",
+    "software developer", "data analyst", "IT support", "digital marketing",
+    "graphic designer", "content writer", "teacher", "tutor",
+    "nurse", "caregiver", "medical assistant", "pharmacy assistant",
+    "electrician", "welder", "construction", "technician",
+    "warehouse", "logistics", "delivery driver", "production operator",
+    "housekeeping", "hotel staff", "cook", "barista", "food service",
+    "farm worker", "agriculture", "fishery",
+    "security guard", "government", "legal assistant",
+    "human resources", "virtual assistant", "call center", "bookkeeper"
+  ],
+  "locations": ["Philippines"],
+  "max_pages_per_query": 3
+}
