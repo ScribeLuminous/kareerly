@@ -174,6 +174,28 @@ curl -s https://kareerly-yvze.onrender.com/api/health/config
 It checks the checkpoint by path only and never loads it, so it stays
 responsive while matching is running.
 
+### "Job matching timed out" on the deployed website
+
+The encoder and the job embeddings are built the first time a request needs them.
+Paid inside a request on a small instance, that alone can outlast the client's
+timeout, so the service looks broken while it is merely starting.
+
+Startup now warms both on a daemon thread. The port opens immediately, so health
+checks answer while the warmup runs, and matching requests that arrive afterwards
+skip the load entirely. Watch it finish with the `model.loaded` flag:
+
+```bash
+curl -s https://kareerly-yvze.onrender.com/api/health/config
+```
+
+A warmup that fails is logged and does not stop the service: matching still
+raises its own readable errors per request. Set `KAREERLY_WARM_ON_STARTUP=0` to
+turn it off (useful locally, where paying the load lazily is cheaper than
+warming on every reload).
+
+A host that sleeps when idle pays a container boot on top of this, so the client
+allows matching requests 240s.
+
 ### "Cannot reach the job matching backend" on the deployed website
 
 The website distinguishes the two causes for you. Before reporting the error it
