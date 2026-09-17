@@ -14,6 +14,8 @@ from backend.app.services import bi_encoder_service as encoder
 
 class MatchingRegressionTests(unittest.TestCase):
     def setUp(self):
+        matching.clear_reference_jobs_cache()
+        self.addCleanup(matching.clear_reference_jobs_cache)
         self.jobs = pd.DataFrame([
             dict(job_id="developer", category_id="K01", job_category="Technology", job_title="Developer",
                 job_description="Build Python backend applications and database queries.",
@@ -90,6 +92,25 @@ class MatchingRegressionTests(unittest.TestCase):
             text_result = matching.match_jobs(text, candidate_skill_ids=["SK001"])
         self.assertEqual(file_result["all_fit_now_matches"], text_result["all_fit_now_matches"])
         self.assertEqual(file_result["all_aspiration_matches"], text_result["all_aspiration_matches"])
+
+    def test_job_list_is_reused_until_the_cache_expires(self):
+        with patch.object(matching, "load_internal_jobs_dataframe", return_value=self.jobs) as load:
+            first = matching.load_reference_jobs()
+            first["added_by_caller"] = 1
+            second = matching.load_reference_jobs()
+            self.assertEqual(load.call_count, 1)
+            self.assertNotIn("added_by_caller", second.columns)
+            with patch.object(matching, "JOBS_CACHE_SECONDS", 0):
+                matching.load_reference_jobs()
+            self.assertEqual(load.call_count, 2)
+        self.assertEqual(matching.get_jobs_source(), "supabase_internal_and_employer_jobs")
+
+    def test_repeat_resume_upload_skips_parsing(self):
+        with patch.object(matching, "extract_text_from_pdf", return_value="Python developer " * 10) as parse:
+            first = matching.extract_resume_text_cached(b"%PDF same file", "resume.pdf")
+            second = matching.extract_resume_text_cached(b"%PDF same file", "copy.PDF")
+        self.assertEqual(first, second)
+        self.assertEqual(parse.call_count, 1)
 
 
 class EncoderRegressionTests(unittest.TestCase):

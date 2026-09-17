@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import base64
+import copy
 import hashlib
 import os
 import re
@@ -16,7 +17,7 @@ from typing import Annotated, Optional
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -547,6 +548,15 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
     query = urllib.parse.urlencode({"on_conflict": "user_id"})
     _supabase_request(f"/rest/v1/candidate_profiles?{query}", method="POST", service_role=True, body=candidate_body, prefer="resolution=merge-duplicates")
     return _require_candidate_settings(user_id)
+
+
+def _sync_match_results_in_background(**kwargs) -> None:
+    try:
+        _sync_match_results_to_supabase(**kwargs)
+    except HTTPException as exc:
+        logger.warning("Supabase match sync skipped: %s", exc.detail)
+    except Exception:
+        logger.exception("Supabase match sync failed")
 
 
 def _sync_match_results_to_supabase(
@@ -1327,7 +1337,7 @@ async def validate_certificate_file(
         "status": "valid",
         "verification_status": "pending_verification",
         "authenticity_verified": False,
-        "message": "File checks passed. Evidence remains pending verification; certificate authenticity and completion have not been verified.",
+        "message": "File checks passed. Pending Verification: certificate authenticity and completion have not been verified.",
     }
 
 
@@ -1354,7 +1364,8 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
             resume_text_for_matching=resume_text_for_matching,
             candidate_skill_ids=candidate_skill_ids,
             preferences=preferences,
-            filename="normalized-resume-text",
+            top_n_retrieval=150,
+            top_n_output=10,
         )
     except MatchingModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -1370,6 +1381,7 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
 @app.post("/api/matches/from-resume")
 async def match_from_resume(
     file: Annotated[UploadFile, File()],
+    background_tasks: BackgroundTasks,
     authorization: Annotated[Optional[str], Header()] = None,
     preferences: str = Form("{}"),
     confirmed_skills: str = Form("[]"),
@@ -1418,16 +1430,15 @@ async def match_from_resume(
             confirmed_skills=confirmed_skill_records,
         )
         if user_mode in {"registered", "logged_in"}:
-            try:
-                await run_in_threadpool(
-                    _sync_match_results_to_supabase,
-                    authorization=authorization,
-                    result=result,
-                    filename=file.filename,
-                    preferences=preferences_payload,
-                )
-            except HTTPException as exc:
-                print(f"Supabase match sync skipped: {exc.detail}")
+            # Saving to Supabase takes several round trips; do it after the report is
+            # sent. Access control trims the result in place, so sync a full copy.
+            background_tasks.add_task(
+                _sync_match_results_in_background,
+                authorization=authorization,
+                result=copy.deepcopy(result),
+                filename=file.filename,
+                preferences=preferences_payload,
+            )
         normalized_user_mode = user_mode if user_mode in {"guest", "registered", "logged_in"} else "guest"
         normalized_view_mode = view_mode if view_mode in {"initial", "full"} else "initial"
         return _apply_report_access_control(result, normalized_user_mode, normalized_view_mode)
