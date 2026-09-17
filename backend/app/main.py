@@ -24,6 +24,8 @@ from pydantic import BaseModel
 
 from .models.schemas import RunMatchesRequest
 from .services.job_matcher import list_available_jobs
+from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
+from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.matching_service import MatchingModelUnavailable, match_resume_to_jobs, match_jobs
 from .services.resume_analyzer import analyze_resume_file
 from .services.skill_extractor import SkillExtractor
@@ -949,6 +951,31 @@ def root() -> dict[str, str]:
 @app.get("/api/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/health/config")
+def health_config() -> dict:
+    """Deployment diagnostics: tells a browser CORS rejection apart from a broken service.
+
+    Reaching this at all proves the service is up, so a failed request from the
+    website is a CORS problem when the website origin is missing from
+    ``allowed_origins``. Checkpoint files are probed by path only, never loaded,
+    so this stays cheap enough to call while matching is running.
+    """
+    checkpoint = bi_encoder_model_path()
+    required = ("model.safetensors", "modules.json", "input_features.json")
+    missing = [name for name in required if not (checkpoint / name).is_file()]
+    return {
+        "status": "ok",
+        "allowed_origins": allowed_origins,
+        "model": {
+            "id": MODEL_ID,
+            "path": str(checkpoint),
+            "files_present": not missing,
+            "missing_files": missing,
+            "loaded": get_bi_encoder.cache_info().currsize > 0,
+        },
+    }
 
 
 @app.get("/api/admin/overview")

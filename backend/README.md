@@ -163,6 +163,47 @@ website. `400 Disallowed CORS origin` indicates Render's `FRONTEND_URLS` needs
 that origin. Matching runs in a worker thread so inference does not block the
 API event loop, and failures appear in backend logs.
 
+`/api/health/config` reports the origins the running service actually accepts
+and whether the checkpoint files are in place, which is the fastest way to tell
+a stale `FRONTEND_URLS` apart from a bad deploy:
+
+```bash
+curl -s https://kareerly-yvze.onrender.com/api/health/config
+```
+
+It checks the checkpoint by path only and never loads it, so it stays
+responsive while matching is running.
+
+### "Cannot reach the job matching backend" on the deployed website
+
+The website distinguishes the two causes for you. Before reporting the error it
+sends an opaque `no-cors` probe to `/api/health`:
+
+- *"running but refused a request from this website"* — the service is up and
+  the origin is missing from `FRONTEND_URLS`. Add the exact website origin
+  (scheme and host, no trailing slash, no path) in Render and redeploy.
+- *"not responding"* — the service is down, asleep, or failing to boot. Check
+  Render's logs. A boot that is killed without a Python traceback is usually the
+  instance running out of memory.
+
+`requirements.txt` carries an `--extra-index-url` for the CPU-only torch index.
+The default PyPI wheel bundles the CUDA runtime, which a CPU instance cannot use
+and which pulls in gigabytes of NVIDIA packages — enough to fail the build or get
+the process killed at startup. Keep that line when editing the file.
+
+`--extra-index-url` only *prefers* the CPU build (a `+cpu` version sorts above the
+plain one). To make it certain, install torch from the CPU index explicitly in
+Render's build command:
+
+```bash
+pip install --index-url https://download.pytorch.org/whl/cpu torch && pip install -r requirements.txt
+```
+
+The second command then sees torch as already satisfied. `backend/Dockerfile`
+already builds this way. To confirm which build a deploy got, run
+`pip show torch` — a `+cpu` version, or the absence of `nvidia-*` packages in
+`pip list`, means the CPU wheel was used.
+
 ## Production matching algorithm
 
 Both `/api/matches/run` and `/api/matches/from-resume` use the same fine-tuned

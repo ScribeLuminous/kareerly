@@ -13,6 +13,15 @@ class ApiRegressionTests(unittest.TestCase):
     def test_health(self):
         self.assertEqual(self.client.get('/api/health').json(), {'status': 'ok'})
 
+    def test_health_config_reports_origins_and_model(self):
+        payload = self.client.get('/api/health/config').json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertIn('http://localhost:5173', payload['allowed_origins'])
+        # Probing by path must not pull the checkpoint into memory.
+        self.assertEqual(payload['model']['missing_files'], [])
+        self.assertTrue(payload['model']['files_present'])
+        self.assertIn('loaded', payload['model'])
+
     def test_cors(self):
         for origin in ['http://localhost:5173', 'http://127.0.0.1:5173']:
             for path in ['/api/matches/run', '/api/matches/from-resume']:
