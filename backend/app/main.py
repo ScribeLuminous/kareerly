@@ -6,6 +6,7 @@ import base64
 import hashlib
 import os
 import re
+import threading
 from datetime import datetime, timezone
 import urllib.error
 import urllib.parse
@@ -26,7 +27,7 @@ from .models.schemas import RunMatchesRequest
 from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
-from .services.matching_service import MatchingModelUnavailable, match_resume_to_jobs, match_jobs
+from .services.matching_service import MatchingModelUnavailable, match_resume_to_jobs, match_jobs, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_file
 from .services.skill_extractor import SkillExtractor
 
@@ -941,6 +942,27 @@ def search_skills(q: str = "", limit: int = 20) -> dict:
 
     results = [item for _, item in sorted(scored_results, key=lambda result: result[0], reverse=True)[:safe_limit]]
     return {"results": results}
+
+
+WARMUP_ENABLED = os.getenv("KAREERLY_WARM_ON_STARTUP", "1").strip().lower() not in {"0", "false", "no"}
+
+
+def _warm_matching_caches_in_background() -> None:
+    try:
+        warm_matching_caches()
+        logger.info("Matching model and job vectors are warm")
+    except Exception:
+        # Matching raises its own readable errors per request, so a failed warmup
+        # costs latency, not correctness, and must not take the service down.
+        logger.exception("Matching warmup failed; the first match request will load the model itself")
+
+
+@app.on_event("startup")
+def start_matching_warmup() -> None:
+    """Warm on a daemon thread so the port opens immediately for health checks."""
+    if not WARMUP_ENABLED:
+        return
+    threading.Thread(target=_warm_matching_caches_in_background, name="matching-warmup", daemon=True).start()
 
 
 @app.get("/")

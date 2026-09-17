@@ -22,6 +22,33 @@ class ApiRegressionTests(unittest.TestCase):
         self.assertTrue(payload['model']['files_present'])
         self.assertIn('loaded', payload['model'])
 
+    def test_startup_warmup_runs_without_blocking_or_breaking_boot(self):
+        with patch('backend.app.main.warm_matching_caches') as warm:
+            with TestClient(app) as client:
+                self._join_warmup()
+                self.assertEqual(client.get('/api/health').status_code, 200)
+            warm.assert_called_once()
+
+        # A warmup that raises costs latency, not availability.
+        with patch('backend.app.main.warm_matching_caches', side_effect=RuntimeError('checkpoint missing')):
+            with TestClient(app) as client:
+                self._join_warmup()
+                self.assertEqual(client.get('/api/health').status_code, 200)
+                self.assertEqual(client.get('/api/health/config').status_code, 200)
+
+    def test_warmup_can_be_disabled(self):
+        with patch('backend.app.main.WARMUP_ENABLED', False), patch('backend.app.main.warm_matching_caches') as warm:
+            with TestClient(app) as client:
+                self._join_warmup()
+                self.assertEqual(client.get('/api/health').status_code, 200)
+            warm.assert_not_called()
+
+    @staticmethod
+    def _join_warmup():
+        for thread in threading.enumerate():
+            if thread.name == 'matching-warmup':
+                thread.join(60)
+
     def test_cors(self):
         for origin in ['http://localhost:5173', 'http://127.0.0.1:5173']:
             for path in ['/api/matches/run', '/api/matches/from-resume']:
