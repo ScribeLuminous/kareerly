@@ -6,12 +6,40 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0
 const REQUEST_TIMEOUT_MS = 90_000;
 export const CONFIRMED_SKILL_LIMIT = 20;
 
-function backendConnectionError(error: unknown): Error {
+const REACHABILITY_PROBE_TIMEOUT_MS = 10_000;
+
+/** Opaque probe: it resolves whenever the host answers, even when CORS hides the body. */
+async function backendIsReachable(): Promise<boolean> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REACHABILITY_PROBE_TIMEOUT_MS);
+  try {
+    await fetch(`${API_BASE_URL}/api/health`, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function backendConnectionError(error: unknown): Promise<Error> {
   console.error('Job matching backend request failed', { apiBaseUrl: API_BASE_URL, error });
   const localBackend = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(API_BASE_URL);
-  return new Error(localBackend
-    ? `Cannot reach the job matching backend at ${API_BASE_URL}. For local development, run npm run dev. For a deployed website, configure VITE_API_BASE_URL with the public backend URL and redeploy the frontend.`
-    : `Cannot reach the job matching backend at ${API_BASE_URL}. Check the backend service and ensure FRONTEND_URLS allows this website (${window.location?.origin || 'your website origin'}).`);
+  if (localBackend) {
+    return new Error(`Cannot reach the job matching backend at ${API_BASE_URL}. For local development, run npm run dev. For a deployed website, configure VITE_API_BASE_URL with the public backend URL and redeploy the frontend.`);
+  }
+
+  const websiteOrigin = window.location?.origin || 'your website origin';
+  // The probe separates the two failures that look identical to fetch().
+  const reachable = await backendIsReachable();
+  return new Error(reachable
+    ? `The job matching backend at ${API_BASE_URL} is running but refused a request from this website. Add ${websiteOrigin} to the backend's FRONTEND_URLS environment variable (comma-separated, no trailing slash) and redeploy the backend.`
+    : `The job matching backend at ${API_BASE_URL} is not responding. It may be asleep, still starting up, or failing to boot — check its service logs, then try again. If the URL is wrong, update VITE_API_BASE_URL and redeploy this website.`);
 }
 
 export type PersistedApplicationMessage = {
@@ -492,7 +520,7 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw backendConnectionError(error);
+    throw await backendConnectionError(error);
   }
 
   if (!response.ok) {
@@ -614,7 +642,7 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw backendConnectionError(error);
+    throw await backendConnectionError(error);
   }
 
   if (!response.ok) {
