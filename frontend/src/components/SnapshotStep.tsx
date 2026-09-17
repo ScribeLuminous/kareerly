@@ -394,7 +394,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
 
       <button
         onClick={() => goToStep(3)}
-        className="w-full mt-8 px-5 py-3 border-1.5 border-bdr rounded-lg bg-white text-mid font-semibold hover:border-rust hover:text-rust transition-all duration-150"
+        className="min-h-11 mt-8 px-5 py-2.5 text-sm border-1.5 border-bdr rounded-lg bg-white text-mid font-semibold hover:border-rust hover:text-rust transition-all duration-150"
       >
         Go Back
       </button>

@@ -268,7 +268,7 @@ export default function UploadZone() {
           <button
             onClick={handleContinue}
             disabled={state.isLoading}
-            className="w-full bg-forest text-white font-bold py-4 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="min-h-11 bg-forest text-white text-sm font-semibold py-2.5 px-5 rounded-lg hover:opacity-90 transition-opacity duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
             <span>Analyze Resume</span>

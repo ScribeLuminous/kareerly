@@ -200,6 +200,9 @@ create table if not exists public.learning_resources (
   provider_type text,
   provider_trust_score_auto numeric,
   resource_type text,
+  credential_type text not null default 'course'
+    check (credential_type in ('exam_review', 'professional_certificate',
+                               'industry_certification', 'certificate_course', 'course')),
   language text,
   delivery_mode text,
   cost_type text,

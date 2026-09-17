@@ -27,3 +27,9 @@ cd frontend
 npm ci
 npm run dev
 ```
+
+### Start frontend and backend together
+
+After installing the dependencies above, run `npm run dev:full` from `frontend/`. This starts FastAPI, waits for `/api/health`, then starts Vite. It reuses a healthy backend that is already running. Ctrl+C stops only processes started by this command. `npm run dev` still starts the frontend alone.
+
+A connection error means the browser could not reach the API; it is separate from having no reviewed learning resources. For a hosted frontend, configure `VITE_API_BASE_URL` to the deployed HTTPS backend before building, and allow the frontend origin in the backend's `FRONTEND_URLS`. A hosted site must not use `127.0.0.1` as its backend address.
