@@ -105,3 +105,14 @@ backups/
 *.key
 *.p12
 *.pfx
+# Large trained-model artifacts and generated research corpus (multi-GB;
+# regenerable from backend/pipeline + backend/models, must never be committed)
+backend/trained_models/
+backend/data/corpus/
+
+# Local tool state and scratch output, not part of the product
+.codex/
+.tmp/
+output/
+outputs/
+*.bak
