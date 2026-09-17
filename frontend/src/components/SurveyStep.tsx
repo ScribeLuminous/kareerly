@@ -6,7 +6,7 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useOnboarding } from '../hooks/useOnboarding';
 import type { SelectedSkill, SurveyAnswers } from '../types';
-import { buildResumeAnalysisFromMatchResults, CONFIRMED_SKILL_LIMIT, runMatchesFromResume, searchSkills } from '../lib/api';
+import { CONFIRMED_SKILL_LIMIT, runMatchesFromResume, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
 import StepArrowButton from './StepArrowButton';
@@ -48,7 +48,6 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
     state,
     setSurveyAnswers,
     setSelectedSkills,
-    setResumeAnalysis,
     setMatchResults,
     setLimitedReport,
     setLoading,
@@ -195,7 +194,8 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         resumeFile: state.resumeFile,
         userMode: isLoggedIn ? 'registered' : 'guest',
         viewMode: 'initial',
-        confirmedSkills: isLoggedIn ? selectedSkills : [],
+        // Guests cannot edit skills, but must still be matched on the ones shown in Step 2.
+        confirmedSkills: selectedSkills,
         preferences: {
           industry: answers.industry,
           target_role: answers.role,
@@ -206,7 +206,6 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         },
       });
 
-      setResumeAnalysis(buildResumeAnalysisFromMatchResults(results));
       setMatchResults(results);
       setLimitedReport(results.limited_report);
       const user = await getCurrentKareerlyUser().catch(() => null);
