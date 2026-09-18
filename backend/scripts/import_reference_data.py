@@ -127,13 +127,14 @@ def upsert_dataset(out_dir: Path, dataset: dict[str, Any]) -> None:
 
 
 def _psoc_token() -> str:
-    try:
-        from dotenv import load_dotenv
-
-        load_dotenv(BACKEND_DIR / ".env")
-    except ImportError:
-        pass
     token = os.getenv("PSA_API_TOKEN", "").strip()
+    env_path = BACKEND_DIR / ".env"
+    if not token and env_path.exists():
+        # Read .env directly so this step also runs on a Python without python-dotenv.
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            key, _, value = line.partition("=")
+            if key.strip() == "PSA_API_TOKEN":
+                token = value.strip().strip("'\"")
     if not token:
         raise SystemExit("! Set PSA_API_TOKEN in backend/.env (never commit it).")
     return token
