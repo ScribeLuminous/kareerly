@@ -540,11 +540,31 @@ def compute_skill_coverage(candidate_skills: List[str], required_skills: List[st
     missing = [key for key in required if key not in candidates]
     return {
         "skill_coverage": round(len(matched) / len(required), 4) if required else 0.0,
-        "matched_skills": sorted(labels.get(key, required[key]) for key in matched),
-        "missing_skills": sorted(labels.get(key, required[key]) for key in missing),
+        "matched_skills": sorted(filter(None, (display_skill_name(key, labels, required[key]) for key in matched))),
+        "missing_skills": sorted(filter(None, (display_skill_name(key, labels, required[key]) for key in missing))),
         "matched_skill_ids": sorted(key for key in matched if key in labels),
         "missing_skill_ids": sorted(key for key in missing if key in labels),
     }
+
+
+def display_skill_name(skill_id: str, labels: Dict[str, str], fallback: str = "") -> str:
+    """A name a candidate can read, never an identifier.
+
+    Job postings still carry legacy IDs such as SK_CRM that have no taxonomy
+    entry yet; those read as "CRM" rather than leaking the code. A canonical ID
+    with no label resolves to nothing and is dropped by the caller.
+    """
+    label = clean_text(labels.get(skill_id, ""))
+    if label:
+        return label
+    fallback = clean_text(fallback)
+    if fallback and not re.fullmatch(r"(?:SK[_-]?[A-Z0-9_-]+|K\d{1,2})", fallback.upper()):
+        return fallback
+    legacy = re.fullmatch(r"SK[_-]([A-Za-z0-9_-]+)", clean_text(skill_id))
+    if legacy:
+        words = [word for word in re.split(r"[_-]+", legacy.group(1)) if word]
+        return " ".join(word.upper() if len(word) <= 3 else word.capitalize() for word in words)
+    return ""
 
 
 def split_skill_ids(value: Any) -> List[str]:
@@ -609,8 +629,8 @@ def compute_taxonomy_skill_coverage(
         held = set(candidate_ids)
         matched_ids = [skill_id for skill_id in essential_ids if skill_id in held]
         missing_ids = [skill_id for skill_id in essential_ids if skill_id not in held]
-        matched_skills = [labels.get(skill_id, skill_id) for skill_id in matched_ids]
-        missing_skills = [labels.get(skill_id, skill_id) for skill_id in missing_ids]
+        matched_skills = [name for skill_id in matched_ids if (name := display_skill_name(skill_id, labels))]
+        missing_skills = [name for skill_id in missing_ids if (name := display_skill_name(skill_id, labels))]
         optional_matched = [skill_id for skill_id in optional_ids if skill_id in held]
         return {
             "skill_coverage": round(len(matched_ids) / len(essential_ids), 4),

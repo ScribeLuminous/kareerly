@@ -1,4 +1,5 @@
 import { useOnboarding } from '../hooks/useOnboarding';
+import { cleanSkillLabel, toDisplayLabels, toSkillLabels } from '../lib/skillLabels';
 import StepArrowButton from './StepArrowButton';
 import {
   faBookOpen,
@@ -19,25 +20,6 @@ type SnapshotStepProps = {
   onSignUp: () => void;
   onViewDashboard: () => void;
 };
-
-const PRESERVED_ACRONYMS = new Set(['SQL', 'HTML', 'CSS', 'CRM', 'API', 'UI', 'UX', 'HR', 'QA', 'SEO', 'AWS', 'PHP', 'BI', 'ETL']);
-
-function cleanSkillLabel(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  const withoutPrefix = trimmed.replace(/^SK[_-]?/i, '');
-  return withoutPrefix
-    .replace(/_/g, ' ')
-    .split(/(\s+|\/|-|\(|\))/)
-    .map((part) => {
-      if (!part.trim()) return part;
-      const upper = part.toUpperCase();
-      if (PRESERVED_ACRONYMS.has(upper)) return upper;
-      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
-    })
-    .join('')
-    .trim();
-}
 
 function buildSkillNameLookup(
   resumeAnalysis: ResumeAnalysisResult | undefined,
@@ -70,17 +52,12 @@ function buildSkillNameLookup(
   return lookup;
 }
 
-function toSkillLabels(skillIds: string[] | undefined, skillNameLookup: Map<string, string>): string[] {
-  if (!Array.isArray(skillIds)) return [];
-  return skillIds.map((skillId) => cleanSkillLabel(skillNameLookup.get(skillId) || skillId)).filter(Boolean);
-}
-
 function getMatchedSkillText(match: MatchResultItem, skillNameLookup: Map<string, string>): string {
   if (Array.isArray(match.matched_skill_ids) && match.matched_skill_ids.length > 0) {
     return toSkillLabels(match.matched_skill_ids, skillNameLookup).slice(0, 6).join(', ');
   }
   if (Array.isArray(match.matched_skills) && match.matched_skills.length > 0) {
-    return match.matched_skills.map(cleanSkillLabel).slice(0, 6).join(', ');
+    return toDisplayLabels(match.matched_skills).slice(0, 6).join(', ');
   }
   return '';
 }
@@ -90,7 +67,7 @@ function getMissingSkillText(match: MatchResultItem, skillNameLookup: Map<string
     return toSkillLabels(match.missing_skill_ids, skillNameLookup).slice(0, 6).join(', ');
   }
   if (Array.isArray(match.missing_skills) && match.missing_skills.length > 0) {
-    return match.missing_skills.map(cleanSkillLabel).slice(0, 6).join(', ');
+    return toDisplayLabels(match.missing_skills).slice(0, 6).join(', ');
   }
   return '';
 }
@@ -293,7 +270,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
           <div className="text-sm font-bold text-dark mb-2">Skill Gaps Identified</div>
           <div className="text-4xl font-bold text-rust mb-1">{String(skillGapSnapshotCount)}</div>
           <div className="text-xs text-soft leading-relaxed">
-            Most important: {skillGaps[0]?.skill_name || 'Not available yet'}.
+            Most important: {cleanSkillLabel(skillGaps[0]?.skill_name || '') || 'Not available yet'}.
           </div>
         </div>
 
