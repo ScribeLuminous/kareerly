@@ -50,6 +50,7 @@ import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, loadCandidateAccountSettings, runJobMatches, runMatchesFromResume, saveCandidateAccountSettings, searchSkills, sendApplicationMessage, validateCertificateFile } from '../lib/api';
 import type { AvailableJobItem } from '../lib/api';
+import { cleanSkillLabel } from '../lib/skillLabels';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
@@ -571,11 +572,11 @@ function formatDateLabel(value: string): string {
 }
 
 function getSkillLabel(skill: unknown): string {
-  if (typeof skill === 'string') return skill.trim();
+  if (typeof skill === 'string') return cleanSkillLabel(skill);
   if (skill && typeof skill === 'object') {
     const record = skill as Record<string, unknown>;
     const label = record.name || record.skill_name || record.title || record.message;
-    if (typeof label === 'string') return label.trim();
+    if (typeof label === 'string') return cleanSkillLabel(label);
   }
   return '';
 }

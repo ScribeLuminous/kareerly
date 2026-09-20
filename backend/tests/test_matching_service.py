@@ -93,6 +93,31 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertEqual(file_result["all_fit_now_matches"], text_result["all_fit_now_matches"])
         self.assertEqual(file_result["all_aspiration_matches"], text_result["all_aspiration_matches"])
 
+    def test_results_never_show_skill_or_category_identifiers(self):
+        import re
+        jobs = self.jobs.copy()
+        # Jobs still carry legacy IDs with no taxonomy entry.
+        jobs.loc[0, "required_skill_ids"] = "SK001;SK_CRM"
+        jobs.loc[0, "must_have_skill_ids"] = "SK001;SK_CRM"
+        with patch.object(matching, "load_internal_jobs_dataframe", return_value=jobs), \
+             patch.object(matching, "score_jobs", return_value=np.asarray([0.9, 0.7])), \
+             patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
+             patch.object(matching, "recommend_learning_resources", return_value=[]):
+            result = matching.match_text_to_jobs("Python developer with CRM experience.",
+                confirmed_skills=[{"skill_id": "SK001", "skill_name": "Python Programming"}])
+        shown = [name
+                 for match in result["all_fit_now_matches"] + result["all_aspiration_matches"]
+                 for name in match["matched_skills"] + match["missing_skills"]]
+        shown += [gap["skill_name"] for gap in result["skill_gaps"]]
+        self.assertTrue(shown)
+        for name in shown:
+            self.assertIsNone(re.fullmatch(r"SK[_-]?[A-Za-z0-9_-]*|K\d{1,2}", name), f"identifier shown to the user: {name}")
+        labels = {"SK029": "Customer Service"}
+        # A legacy job ID with no taxonomy entry reads as words rather than being hidden.
+        self.assertEqual(matching.display_skill_name("SK_GOOGLE_WORKSPACE", labels), "Google Workspace")
+        self.assertEqual(matching.display_skill_name("SK029", labels), "Customer Service")
+        self.assertEqual(matching.display_skill_name("SK404", labels), "")
+
     def test_job_list_is_reused_until_the_cache_expires(self):
         with patch.object(matching, "load_internal_jobs_dataframe", return_value=self.jobs) as load:
             first = matching.load_reference_jobs()
