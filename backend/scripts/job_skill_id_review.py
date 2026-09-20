@@ -42,6 +42,8 @@ from app.services.skill_extractor import SKILLS_REFERENCE_PATH, SkillExtractor, 
 
 REVIEW_DIR = BACKEND_DIR / "data" / "skill_id_review"
 ESCO_SKILLS_CSV = BACKEND_DIR / "data" / "corpus" / "reference" / "import" / "esco_skills.csv"
+# Reviewer corrections, applied on every re-run so a fix is not lost when the workbook is rebuilt.
+ESCO_OVERRIDES_CSV = REVIEW_DIR / "esco_overrides.csv"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 JOB_TABLES = ("internal_jobs", "employer_job_posts")
 
@@ -150,7 +152,7 @@ class EscoIndex:
         self.model = model
         self.vectors = model.encode([text for text, _, _ in self.labels], batch_size=256, normalize_embeddings=True, show_progress_bar=False)
 
-    def best(self, queries: list[str], top_k: int = 2) -> list[tuple[str, float, str]]:
+    def best(self, queries: list[str], top_k: int = 3) -> list[tuple[str, float, str]]:
         """(uri, similarity, matched label); an exact label wins outright."""
         for query in queries:
             for uri in self.by_text.get(_normalize_alias(query), []):
@@ -222,6 +224,13 @@ def category_crosswalk(jobs: dict[str, list[dict[str, Any]]], index: TaxonomyInd
     return result
 
 
+def _read_esco_overrides() -> dict[str, dict[str, str]]:
+    if not ESCO_OVERRIDES_CSV.exists():
+        return {}
+    with ESCO_OVERRIDES_CSV.open(encoding="utf-8-sig", newline="") as handle:
+        return {row["legacy_skill_id"].strip().upper(): row for row in csv.DictReader(handle) if row.get("legacy_skill_id")}
+
+
 def _read_reference_rows() -> list[dict[str, str]]:
     with Path(SKILLS_REFERENCE_PATH).open(encoding="utf-8-sig", newline="") as handle:
         return list(csv.DictReader(handle))
@@ -241,6 +250,9 @@ def propose(args: argparse.Namespace) -> int:
     taxonomy_category_by_job_category = {row["job_category_name"]: row for row in crosswalk}
     code_aliases = supabase_jobs.SKILL_ID_ALIASES
     reference_ids = {row["skill_id"]: row for row in _read_reference_rows()}
+    esco_overrides = _read_esco_overrides()
+    if esco_overrides:
+        print(f"reviewer ESCO overrides: {len(esco_overrides)}")
     taxonomy_skill_by_esco_uri = {
         row["esco_skill_uri"].strip(): row for row in reference_ids.values() if row.get("esco_skill_uri", "").strip()
     }
@@ -317,7 +329,11 @@ def propose(args: argparse.Namespace) -> int:
             # Keep the closest skills visible so a near miss is not added twice.
             row["alt_2_skill_id"], row["alt_2_skill_name"], row["alt_2_similarity"] = top["skill_id"], top["skill_name"], round(score, 3)
         if esco:
+            override = esco_overrides.get(legacy_id)
             matches = esco.best(queries)
+            if override and override["esco_skill_uri"] in esco.skills:
+                # Keep the other candidates below the corrected one.
+                matches = [(override["esco_skill_uri"], "", f"reviewer override: {override['note']}")] + [m for m in matches if m[0] != override["esco_skill_uri"]][:2]
             for position, (uri, esco_score, matched_label) in enumerate(matches, start=1):
                 skill = esco.skills[uri]
                 suffix = "" if position == 1 else f"_alt_{position}"
@@ -337,7 +353,8 @@ def propose(args: argparse.Namespace) -> int:
         if row["confidence"] not in {"no match", "low"}:
             continue
         crosswalk_row = taxonomy_category_by_job_category.get(row["job_category"], {})
-        esco_score = float(row.get("esco_similarity", 0) or 0)
+        overridden = row["legacy_skill_id"] in esco_overrides
+        esco_score = 1.0 if overridden else float(row.get("esco_similarity", 0) or 0)
         # Below ESCO_LOW the nearest label is a coincidence, so keep the skill Kareerly-local.
         esco_uri = row.get("esco_skill_uri", "") if esco_score >= ESCO_LOW else ""
         # A close ESCO label is a better skill name than the job's own shorthand.
@@ -407,6 +424,7 @@ INSTRUCTIONS = [
     ("confidence", "high: exact skill name, or embedding similarity >= 0.85 to a skill name. check: exact ESCO synonym, or similarity >= 0.75 to a name (>= 0.90 to a synonym). low: down to 0.62. no match: below 0.62, so a new taxonomy skill is proposed."),
     ("decision (Skill ID mapping)", "approve = use proposed_skill_id | use_alt_2 / use_alt_3 = use that alternative | use_id = put the ID in final_skill_id | new_skill = use the ID from the New skills sheet | drop = remove this skill from the jobs."),
     ("decision (New skills)", "approve = add this skill to the taxonomy (edit skill_name / category first if needed) | skip = do not add. Rows appear for every weak or missing taxonomy match, so a 'low' row can be mapped on the first sheet or added as a new skill here, not both."),
+    ("esco_matched_on", "Says 'reviewer override' when the ESCO skill comes from data/skill_id_review/esco_overrides.csv rather than similarity. Add a row there to correct a match permanently."),
     ("duplicate_check", "Warns when the proposed ESCO skill is already in the taxonomy (map to that skill on the first sheet instead of adding a duplicate), or when ESCO has no equivalent, which is normal for tools such as Canva, Figma or Power BI."),
     ("ESCO columns", "The closest skill in ESCO v1.2.1 (13,939 skills), which is where new Kareerly skills should come from. A new skill approved with an ESCO URI keeps that link, so its ESCO synonyms and description come along."),
     ("category_check", "The proposed skill sits in a different taxonomy category than the job. Often fine for cross-cutting skills (e.g. Communication); check anything surprising."),
@@ -506,6 +524,18 @@ def build(args: argparse.Namespace) -> int:
     reference = {row["skill_id"]: row for row in _read_reference_rows()}
 
     approved_new = {row["legacy_skill_id"]: row for row in new_skill_rows if row.get("decision") == "approve"}
+    # Two legacy IDs approved against the same ESCO skill are one skill, not two.
+    canonical_by_uri: dict[str, dict] = {}
+    merged: list[str] = []
+    for row in approved_new.values():
+        uri = row.get("esco_skill_uri", "")
+        if not uri:
+            continue
+        first = canonical_by_uri.setdefault(uri, row)
+        if first is not row:
+            merged.append(f"{row['legacy_skill_id']} -> {first['proposed_new_skill_id']} {first['skill_name']}")
+            row["proposed_new_skill_id"] = first["proposed_new_skill_id"]
+    new_taxonomy_rows = [row for row in approved_new.values() if row is canonical_by_uri.get(row.get("esco_skill_uri", ""), row)]
     problems: list[str] = []
     resolved: dict[str, str | None] = {}  # legacy -> taxonomy ID, or None to drop
     for row in mapping_rows:
@@ -583,7 +613,7 @@ def build(args: argparse.Namespace) -> int:
     with taxonomy_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=reference_columns)
         writer.writeheader()
-        for row in approved_new.values():
+        for row in new_taxonomy_rows:
             esco_uri = row.get("esco_skill_uri", "")
             writer.writerow({
                 "skill_id": row["proposed_new_skill_id"],
@@ -602,7 +632,7 @@ def build(args: argparse.Namespace) -> int:
             })
 
     # Links for the new skills, in the shape scripts/load_reference_data.py loads.
-    link_rows = [row for row in approved_new.values() if row.get("esco_skill_uri")]
+    link_rows = [row for row in new_taxonomy_rows if row.get("esco_skill_uri")]
     links_path = out_dir / f"{dt.date.today().isoformat()}_kareerly_skill_esco_links.csv"
     with links_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=["skill_id", "skill_uri", "method", "evidence", "confidence", "review_status"])
@@ -617,8 +647,10 @@ def build(args: argparse.Namespace) -> int:
                 "review_status": "reviewed",
             })
 
-    print(f"jobs to update: {changed} | legacy IDs resolved: {len(resolved)} | new taxonomy skills: {len(approved_new)} "
+    print(f"jobs to update: {changed} | legacy IDs resolved: {len(resolved)} | new taxonomy skills: {len(new_taxonomy_rows)} "
           f"({len(link_rows)} linked to ESCO)")
+    if merged:
+        print("merged onto one skill (same ESCO concept): " + "; ".join(merged))
     print(f"wrote {sql_path}\nwrote {taxonomy_path}\nwrote {links_path}")
     return 0
 
