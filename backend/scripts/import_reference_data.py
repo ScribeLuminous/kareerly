@@ -237,6 +237,19 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _latest_by_uri(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """ESCO publishes a few concepts twice, differing only in modifiedDate."""
+    newest: dict[str, dict[str, str]] = {}
+    for row in rows:
+        uri = (row.get("conceptUri") or "").strip()
+        if not uri:
+            continue
+        previous = newest.get(uri)
+        if previous is None or (row.get("modifiedDate") or "") >= (previous.get("modifiedDate") or ""):
+            newest[uri] = row
+    return list(newest.values())
+
+
 def parse_esco(directory: Path, dataset_id: str) -> tuple[list[dict], list[dict], list[dict], dict[str, int]]:
     skills = [
         {
@@ -248,7 +261,7 @@ def parse_esco(directory: Path, dataset_id: str) -> tuple[list[dict], list[dict]
             "description": clean(row.get("description") or row.get("definition")),
             "dataset_id": dataset_id,
         }
-        for row in _read_csv(_esco_file(directory, "skills"))
+        for row in _latest_by_uri(_read_csv(_esco_file(directory, "skills")))
         if row.get("conceptUri") and row.get("preferredLabel")
     ]
     occupations = [
@@ -261,7 +274,7 @@ def parse_esco(directory: Path, dataset_id: str) -> tuple[list[dict], list[dict]
             "description": clean(row.get("description") or row.get("definition")),
             "dataset_id": dataset_id,
         }
-        for row in _read_csv(_esco_file(directory, "occupations"))
+        for row in _latest_by_uri(_read_csv(_esco_file(directory, "occupations")))
         if row.get("conceptUri") and row.get("preferredLabel")
     ]
     skill_uris = {row["concept_uri"] for row in skills}

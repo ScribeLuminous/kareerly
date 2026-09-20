@@ -80,6 +80,16 @@ class ReferenceImportTests(unittest.TestCase):
         self.assertEqual(len(relations), 2)
         self.assertEqual(skipped, {"unknown occupation or skill": 1})
 
+    def test_repeated_esco_concepts_keep_the_newest_row(self):
+        path = self.esco_dir / "skills_en.csv"
+        rows = list(csv.DictReader(path.open(encoding="utf-8")))
+        rows.append({**rows[0], "preferredLabel": "Python (newer)", "modifiedDate": "2025-11-26T10:07:57Z"})
+        rows[0]["modifiedDate"] = "2025-07-31T09:41:33Z"
+        write_csv(path, rows)
+        skills, _, _, _ = ref.parse_esco(self.esco_dir, "esco-test")
+        self.assertEqual(len(skills), 2)
+        self.assertEqual({s["preferred_label"] for s in skills} & {"Python (newer)", "Python (computer programming)"}, {"Python (newer)"})
+
     def test_occupation_links_join_on_isco_code_and_start_proposed(self):
         _, occupations, _, _ = ref.parse_esco(self.esco_dir, "esco-test")
         links = ref.propose_occupation_links(ref.parse_psoc(PSOC_RAW), occupations, with_similarity=False)
