@@ -1,0 +1,73 @@
+skill_id,skill_uri,method,evidence,confidence,review_status
+SK001,http://data.europa.eu/esco/skill/ccd0a1d9-afda-43d9-b901-96344886e14d,manual,skill_esco_link_review: 'Python Programming' reviewed against ESCO 'Python (computer programming)',0.959,reviewed
+SK003,http://data.europa.eu/esco/skill/69bbd53f-fbb0-4476-b4b2-ef7844464e28,manual,skill_esco_link_review: 'Web Development' reviewed against ESCO 'web programming',0.826,reviewed
+SK004,http://data.europa.eu/esco/skill/598de5b0-5b58-4ea7-8058-a4bc4d18c742,manual,skill_esco_link_review: 'SQL' reviewed against ESCO 'SQL',1,reviewed
+SK005,http://data.europa.eu/esco/skill/2b92a5b2-6758-4ee3-9fb4-b6387a55cc8f,manual,skill_esco_link_review: 'Data Analysis' reviewed against ESCO 'perform data analysis',0.838,reviewed
+SK007,http://data.europa.eu/esco/skill/c2296e2e-5fef-4f24-a24f-e5b3792268be,manual,skill_esco_link_review: 'Technical Support' reviewed against ESCO 'provide ICT support',0.682,reviewed
+SK009,http://data.europa.eu/esco/skill/0868eef3-2213-4572-9343-74931345a7d3,manual,skill_esco_link_review: 'Network Administration' reviewed against ESCO 'administer ICT system',0.805,reviewed
+SK010,http://data.europa.eu/esco/skill/8088750d-8388-4170-a76f-48354c469c44,manual,skill_esco_link_review: 'Cybersecurity Awareness' reviewed against ESCO 'cyber security',0.648,reviewed
+SK011,http://data.europa.eu/esco/skill/bd14968e-e409-45af-b362-3495ed7b10e0,manual,skill_esco_link_review: 'Cloud Computing' reviewed against ESCO 'cloud technologies',0.825,reviewed
+SK012,http://data.europa.eu/esco/skill/faf8943c-72ff-4736-a587-25508695d6f0,manual,skill_esco_link_review: 'Bookkeeping' reviewed against ESCO 'maintain financial records',0.817,reviewed
+SK013,http://data.europa.eu/esco/skill/dd7c9dfd-6e2c-46fd-aefc-369402d0200c,manual,skill_esco_link_review: 'Financial Reporting' reviewed against ESCO 'create a financial report',0.874,reviewed
+SK014,http://data.europa.eu/esco/skill/9d916d7c-89b3-4084-a6d9-e2b0b3091404,manual,skill_esco_link_review: 'Payroll Processing' reviewed against ESCO 'manage payroll',0.771,reviewed
+SK016,http://data.europa.eu/esco/skill/ea1bf5e5-e7f0-4d2c-a415-1c39c00512b1,manual,skill_esco_link_review: 'Document Management' reviewed against ESCO 'document management',1,reviewed
+SK018,http://data.europa.eu/esco/skill/e437eba1-3e22-41f2-8703-741e94785cba,manual,skill_esco_link_review: 'Human Resource Support' reviewed against ESCO 'human resource management',0.783,reviewed
+SK019,http://data.europa.eu/esco/skill/496932f1-0b6b-4f73-9432-d95c7ddcd43b,manual,skill_esco_link_review: 'Recruitment Coordination' reviewed against ESCO 'recruit employees',0.703,reviewed
+SK021,http://data.europa.eu/esco/skill/7111b95d-0ce3-441a-9d92-4c75d05c4388,manual,skill_esco_link_review: 'Project Coordination' reviewed against ESCO 'project management',0.742,reviewed
+SK023,http://data.europa.eu/esco/skill/756ae350-9e1f-4cb9-9c27-6bd99806dadc,manual,skill_esco_link_review: 'Sales Techniques' reviewed against ESCO 'sales promotion techniques',0.822,reviewed
+SK025,http://data.europa.eu/esco/skill/d6d3fee7-47e2-47f4-a0ec-6c75f28c6abd,manual,skill_esco_link_review: 'Product Knowledge' reviewed against ESCO 'product comprehension',0.699,reviewed
+SK027,http://data.europa.eu/esco/skill/5303169c-75d6-4751-9136-a4b88343388c,manual,skill_esco_link_review: 'Social Media Management' reviewed against ESCO 'social media management',1,reviewed
+SK030,http://data.europa.eu/esco/skill/0da516ee-e70e-4384-be13-f5ff80be8127,manual,skill_esco_link_review: 'Client Handling' reviewed against ESCO 'communicate with customers',0.78,reviewed
+SK031,http://data.europa.eu/esco/skill/0ee9e985-0ee5-4a73-8a12-78b53b261bb2,manual,skill_esco_link_review: 'English Communication' reviewed against ESCO 'interact verbally in English',0.727,reviewed
+SK034,http://data.europa.eu/esco/skill/be40c4c3-a855-4d67-9ca5-6f4428c34b0d,manual,skill_esco_link_review: 'Content Writing' reviewed against ESCO 'provide written content',0.798,reviewed
+SK037,http://data.europa.eu/esco/skill/8c4c49d4-9708-433f-8ca7-bf2c5211ee49,manual,skill_esco_link_review: 'Creative Concept Development' reviewed against ESCO 'develop creative ideas',0.805,reviewed
+SK039,http://data.europa.eu/esco/skill/5ce80f97-b385-4a41-9339-a6593d0709c1,manual,skill_esco_link_review: 'Video Editing' reviewed against ESCO 'perform video editing',0.926,reviewed
+SK042,http://data.europa.eu/esco/skill/fd33c66c-70c4-40e6-b87c-5495bd3bf26e,manual,skill_esco_link_review: 'UI Design' reviewed against ESCO 'design user interface',0.802,reviewed
+SK043,http://data.europa.eu/esco/skill/c2218533-3e2a-4f50-b4fd-afde71dcf442,manual,skill_esco_link_review: 'Audio Editing' reviewed against ESCO 'edit recorded sound',0.845,reviewed
+SK045,http://data.europa.eu/esco/skill/20f57a7f-b90e-4403-8c77-5ddd89b5835b,manual,skill_esco_link_review: 'Lesson Planning' reviewed against ESCO 'prepare lesson content',0.741,reviewed
+SK046,http://data.europa.eu/esco/skill/cedd0710-62ae-4ff4-89ae-ac52375f86ec,manual,skill_esco_link_review: 'Classroom Management' reviewed against ESCO 'perform classroom management',0.943,reviewed
+SK048,http://data.europa.eu/esco/skill/90e8f54b-064f-4721-8ccc-b5f61968b227,manual,skill_esco_link_review: 'Training Facilitation' reviewed against ESCO 'organise training',0.764,reviewed
+SK050,http://data.europa.eu/esco/skill/728ad40d-4a79-4b4d-b77b-a48d094d73fa,manual,skill_esco_link_review: 'Learning Evaluation' reviewed against ESCO 'evaluate training',0.755,reviewed
+SK053,http://data.europa.eu/esco/skill/ac6ff889-328b-46ea-a8ee-e196443b2447,manual,skill_esco_link_review: 'Counselling Support' reviewed against ESCO 'counsel clients',0.882,reviewed
+SK054,http://data.europa.eu/esco/skill/12428071-1ec8-4d52-a0ce-3eee78e1e1be,manual,skill_esco_link_review: 'Records Organization' reviewed against ESCO 'perform records management',0.822,reviewed
+SK055,http://data.europa.eu/esco/skill/87b3e2f5-ff05-489a-a13b-9e5b3aff5fee,manual,skill_esco_link_review: 'Library Assistance' reviewed against ESCO 'provide library information',0.779,reviewed
+SK056,http://data.europa.eu/esco/skill/721419a7-f1b6-454c-80f4-2a84ad90dd33,manual,skill_esco_link_review: 'Patient Assessment Support' reviewed against ESCO 'undertake healthcare examination',0.781,reviewed
+SK058,http://data.europa.eu/esco/skill/5d7890d5-d229-4b79-a5da-6819e38a52b6,manual,skill_esco_link_review: 'Clinical Documentation' reviewed against ESCO 'health records management',0.495,reviewed
+SK060,http://data.europa.eu/esco/skill/261e740b-d32d-4356-94a8-3ea29128b70b,manual,skill_esco_link_review: 'Elderly Care' reviewed against ESCO 'tend to elderly people',0.881,reviewed
+SK062,http://data.europa.eu/esco/skill/d2f78372-c23b-41ef-bce3-2874f587579c,manual,skill_esco_link_review: 'Medication Assistance' reviewed against ESCO 'assist in the administration of medication to elderly',0.761,reviewed
+SK063,http://data.europa.eu/esco/skill/6f571969-3640-4774-a9bc-fd2ef583fdec,manual,skill_esco_link_review: 'Laboratory Safety' reviewed against ESCO 'apply safety procedures in laboratory',0.874,reviewed
+SK067,http://data.europa.eu/esco/skill/59ea80e1-463a-4dba-82c6-d0b6d577d532,manual,skill_esco_link_review: 'Technical Drafting' reviewed against ESCO 'technical drawings',0.695,reviewed
+SK068,http://data.europa.eu/esco/skill/b34e2ba1-9080-48c9-9b42-ee9192a4d3f1,manual,skill_esco_link_review: 'CAD Operation' reviewed against ESCO 'use CAD software',0.798,reviewed
+SK070,http://data.europa.eu/esco/skill/c643e59b-d74c-4f44-b76e-6e1d96c05ec4,manual,skill_esco_link_review: 'Construction Safety' reviewed against ESCO 'use safety equipment in construction',0.851,reviewed
+SK073,http://data.europa.eu/esco/skill/52797dce-911c-4e6d-b0cb-491f6469014f,manual,skill_esco_link_review: 'Electrical Installation' reviewed against ESCO 'install electrical and electronic equipment',0.797,reviewed
+SK074,http://data.europa.eu/esco/skill/8efb6150-2c43-4109-b3cd-41c3451698ea,manual,skill_esco_link_review: 'Mechanical Maintenance' reviewed against ESCO 'maintain mechanical equipment',0.819,reviewed
+SK075,http://data.europa.eu/esco/skill/e487f6f8-854d-4210-9658-4196f07cc209,manual,skill_esco_link_review: 'Electronics Repair' reviewed against ESCO 'repair electronic components',0.858,reviewed
+SK077,http://data.europa.eu/esco/skill/1cca610d-2afc-44a7-97fc-f2262fb5fc75,manual,skill_esco_link_review: 'Surveying Support' reviewed against ESCO 'surveying',0.843,reviewed
+SK079,http://data.europa.eu/esco/skill/7bb01a18-4637-4535-ba18-258f48f705b8,manual,skill_esco_link_review: 'Housekeeping' reviewed against ESCO 'clean rooms',0.588,reviewed
+SK082,http://data.europa.eu/esco/skill/2111dff8-f830-46ad-80ce-7885893b3134,manual,skill_esco_link_review: 'Event Coordination' reviewed against ESCO 'coordinate events',0.596,reviewed
+SK083,http://data.europa.eu/esco/skill/936a42f0-a586-4595-9e47-ca93210761fd,manual,skill_esco_link_review: 'Reservation Management' reviewed against ESCO 'process reservations',0.883,reviewed
+SK084,http://data.europa.eu/esco/skill/bcd2698e-7862-4f08-a3d1-7b3d5c4de999,manual,skill_esco_link_review: 'Food Service' reviewed against ESCO 'food service operations',1,reviewed
+SK085,http://data.europa.eu/esco/skill/4b15a965-9bb4-42f1-8e44-1024aeb0b08c,manual,skill_esco_link_review: 'Food Preparation' reviewed against ESCO 'use food preparation techniques',0.918,reviewed
+SK088,http://data.europa.eu/esco/skill/10411953-14de-40b2-b959-809605113a75,manual,skill_esco_link_review: 'Laundry Services' reviewed against ESCO 'oversee guest laundry service',0.821,reviewed
+SK090,http://data.europa.eu/esco/skill/a022bb4b-6ee0-470a-829d-10ca30284edb,manual,skill_esco_link_review: 'Production Monitoring' reviewed against ESCO 'monitor the production line',0.882,reviewed
+SK091,http://data.europa.eu/esco/skill/198b614d-a9af-46f5-b3fd-2672b401dd8e,manual,skill_esco_link_review: 'Workplace Safety' reviewed against ESCO 'health and safety in the workplace',0.913,reviewed
+SK092,http://data.europa.eu/esco/skill/165d3ca5-ca47-40d2-a450-cd2ae18deb05,manual,skill_esco_link_review: 'Assembly Work' reviewed against ESCO 'apply assembly techniques',0.71,reviewed
+SK093,http://data.europa.eu/esco/skill/667cbbaf-f377-46d8-8f2d-1f6d8a55d74a,manual,skill_esco_link_review: 'Packaging' reviewed against ESCO 'pack goods',0.599,reviewed
+SK094,http://data.europa.eu/esco/skill/41a3240f-58ba-44e2-a688-edeb21ea5c16,manual,skill_esco_link_review: 'Quality Inspection' reviewed against ESCO 'conduct quality control analysis',0.889,reviewed
+SK096,http://data.europa.eu/esco/skill/20a7df5e-f388-4073-b3e2-4bf7a4c46f28,manual,skill_esco_link_review: 'Driving Safety' reviewed against ESCO 'ensure implementation of safe driving practices',0.766,reviewed
+SK097,http://data.europa.eu/esco/skill/de857fbb-91a6-4a3f-8a47-93a9c1a616c8,manual,skill_esco_link_review: 'Route Planning' reviewed against ESCO 'plan transport operations',0.625,reviewed
+SK102,http://data.europa.eu/esco/skill/dbe63ddf-76f8-4177-a482-fee995a57b77,manual,skill_esco_link_review: 'Pest Management' reviewed against ESCO 'integrated pest management',0.834,reviewed
+SK103,http://data.europa.eu/esco/skill/4e6cfb60-9579-4822-8a5e-424bc0c8835c,manual,skill_esco_link_review: 'Animal Care' reviewed against ESCO 'animal welfare',0.768,reviewed
+SK107,http://data.europa.eu/esco/skill/a281365c-a432-4e82-97ce-2dcc4907685f,manual,skill_esco_link_review: 'Tree Planting' reviewed against ESCO 'plant trees',0.753,reviewed
+SK110,http://data.europa.eu/esco/skill/d14570e5-da58-4d27-8866-a54d92889ef2,manual,skill_esco_link_review: 'Fish Handling' reviewed against ESCO 'handle harvested fish',0.84,reviewed
+SK111,http://data.europa.eu/esco/skill/d39022ab-d102-4720-b689-540d6f056b17,manual,skill_esco_link_review: 'Government Service Support' reviewed against ESCO 'public administration',0.504,reviewed
+SK112,http://data.europa.eu/esco/skill/b618584f-6bdf-4d8f-89a7-f28c2c95afc2,manual,skill_esco_link_review: 'Regulatory Compliance' reviewed against ESCO 'comply with regulations',0.809,reviewed
+SK113,http://data.europa.eu/esco/skill/d4f9906e-3b22-4c27-9b32-1c1f457ced44,manual,skill_esco_link_review: 'Public Records Management' reviewed against ESCO 'oversee record management',0.604,reviewed
+SK114,http://data.europa.eu/esco/skill/1d7234e4-1c76-4d67-9487-71d8c529cdc9,manual,skill_esco_link_review: 'Legal Documentation' reviewed against ESCO 'compile legal documents',0.768,reviewed
+SK115,http://data.europa.eu/esco/skill/a8585efe-4011-47b2-9aed-cd01bd3652c0,manual,skill_esco_link_review: 'Legal Research Support' reviewed against ESCO 'legal research',0.842,reviewed
+SK116,http://data.europa.eu/esco/skill/ed008ded-ce2a-449c-89cc-c559cf66ed1f,manual,skill_esco_link_review: 'Contract Review Support' reviewed against ESCO 'review completed contracts',0.795,reviewed
+SK117,http://data.europa.eu/esco/skill/f6100198-9398-4c31-9003-d976c37d5022,manual,skill_esco_link_review: 'Security Monitoring' reviewed against ESCO 'monitor security measures',0.883,reviewed
+SK118,http://data.europa.eu/esco/skill/445b65c5-5b16-4f66-94ce-f2a7f49f9ee7,manual,skill_esco_link_review: 'Emergency Response' reviewed against ESCO 'manage emergency procedures',1,reviewed
+SK119,http://data.europa.eu/esco/skill/bd832a82-b079-4001-80d1-f59efed33688,manual,skill_esco_link_review: 'Risk Reporting' reviewed against ESCO 'create risk reports',0.93,reviewed
+SK120,http://data.europa.eu/esco/skill/c5449667-9b40-4114-8d74-f51177669984,manual,skill_esco_link_review: 'Policy Support' reviewed against ESCO 'policy analysis',0.767,reviewed
+SK121,http://data.europa.eu/esco/skill/4bd6e2ad-bf69-4198-b3ac-3baabd9da46e,manual,skill_esco_link_review: 'Leadership Support' reviewed against ESCO 'support managers',0.723,reviewed

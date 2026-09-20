@@ -152,6 +152,10 @@ class EscoIndex:
         self.model = model
         self.vectors = model.encode([text for text, _, _ in self.labels], batch_size=256, normalize_embeddings=True, show_progress_bar=False)
 
+    def similarity(self, left: str, right: str) -> float:
+        vectors = self.model.encode([left, right], normalize_embeddings=True, show_progress_bar=False)
+        return float(vectors[0] @ vectors[1])
+
     def best(self, queries: list[str], top_k: int = 3) -> list[tuple[str, float, str]]:
         """(uri, similarity, matched label); an exact label wins outright."""
         for query in queries:
