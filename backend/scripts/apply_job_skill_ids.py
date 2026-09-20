@@ -95,7 +95,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {update['table']} {update['job_id']}: {update['old']} -> {update['new']}")
         return 0
 
-    backup_path = args.sql.with_name(args.sql.stem + "_backup.csv")
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    backup_path = args.sql.with_name(f"{args.sql.stem}_backup_{stamp}.csv")
     with backup_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=["table", "job_id", "must_have_skill_ids", "backed_up_at"])
         writer.writeheader()
