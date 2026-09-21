@@ -8,6 +8,7 @@ import hashlib
 import os
 import re
 import threading
+import time
 from datetime import datetime, timezone
 import urllib.error
 import urllib.parse
@@ -28,7 +29,7 @@ from .models.schemas import RunMatchesRequest
 from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
-from .services.matching_service import MatchingModelUnavailable, match_resume_to_jobs, match_jobs, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, match_resume_to_jobs, match_text_to_jobs, match_jobs, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_file
 from .services.skill_extractor import SkillExtractor
 
@@ -1293,13 +1294,26 @@ async def analyze_resume(
     suffix_with_dot = f".{suffix}"
     file_path = UPLOADS_DIR / f"{uuid4().hex}{suffix_with_dot}"
 
+    analysis_started_at = time.perf_counter()
     try:
         with open(file_path, "wb") as buffer:
             buffer.write(file_bytes)
 
-        result = analyze_resume_file(
+        result = await run_in_threadpool(
+            analyze_resume_file,
             file_path=str(file_path),
             skill_extractor=skill_extractor,
+        )
+
+        logger.info(
+            "Resume analysis completed",
+            extra={
+                "filename": resume.filename,
+                "file_bytes": len(file_bytes),
+                "raw_text_length": result.get("raw_text_length", 0),
+                "skill_count": len(result.get("candidate_profile", {}).get("skills", [])),
+                "elapsed_ms": round((time.perf_counter() - analysis_started_at) * 1000, 1),
+            },
         )
 
         return result
@@ -1307,6 +1321,14 @@ async def analyze_resume(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception(
+            "Resume analysis failed",
+            extra={
+                "filename": resume.filename,
+                "file_bytes": len(file_bytes),
+                "elapsed_ms": round((time.perf_counter() - analysis_started_at) * 1000, 1),
+            },
+        )
         raise HTTPException(status_code=500, detail=f"Resume analysis failed: {exc}") from exc
 
     finally:
@@ -1385,6 +1407,7 @@ async def match_from_resume(
     authorization: Annotated[Optional[str], Header()] = None,
     preferences: str = Form("{}"),
     confirmed_skills: str = Form("[]"),
+    resume_text_for_matching: str = Form(""),
     user_mode: str = Form("guest"),
     view_mode: str = Form("initial"),
 ) -> dict:
@@ -1418,18 +1441,31 @@ async def match_from_resume(
     confirmed_skill_records = _normalize_confirmed_skills_payload(confirmed_skills_payload)
 
     try:
-        file_bytes = await file.read()
-        if not file_bytes:
-            raise HTTPException(status_code=400, detail="Uploaded resume file is empty.")
+        normalized_resume_text = resume_text_for_matching.strip()
+        if normalized_resume_text:
+            # The UI already analyzed this file before the skills-review step.
+            # Reuse that normalized text instead of parsing the same PDF/DOCX a
+            # second time when the report is generated.
+            result = await run_in_threadpool(
+                match_text_to_jobs,
+                resume_text=normalized_resume_text,
+                filename=file.filename,
+                preferences=preferences_payload,
+                confirmed_skills=confirmed_skill_records or None,
+            )
+        else:
+            file_bytes = await file.read()
+            if not file_bytes:
+                raise HTTPException(status_code=400, detail="Uploaded resume file is empty.")
 
-        result = await run_in_threadpool(
-            match_resume_to_jobs,
-            file_bytes=file_bytes,
-            filename=file.filename,
-            preferences=preferences_payload,
-            # An empty list means none were sent, not that the user has no skills.
-            confirmed_skills=confirmed_skill_records or None,
-        )
+            result = await run_in_threadpool(
+                match_resume_to_jobs,
+                file_bytes=file_bytes,
+                filename=file.filename,
+                preferences=preferences_payload,
+                # An empty list means none were sent, not that the user has no skills.
+                confirmed_skills=confirmed_skill_records or None,
+            )
         if user_mode in {"registered", "logged_in"}:
             # Saving to Supabase takes several round trips; do it after the report is
             # sent. Access control trims the result in place, so sync a full copy.

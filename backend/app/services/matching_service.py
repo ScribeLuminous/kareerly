@@ -59,6 +59,68 @@ FIT_MIN_SKILL_COVERAGE = 0.50
 ASPIRATION_MIN_COSINE = 0.25
 ASPIRATION_MIN_SKILL_COVERAGE = 0.20
 
+# Frontend career-area values are stable slugs. These mappings keep the
+# taxonomy/category references on the backend while supporting the expanded
+# K01-K24 job catalogue category labels.
+CAREER_AREA_JOB_CATEGORIES = {
+    "technology-data": {
+        "software and web development",
+        "data, analytics, and artificial intelligence",
+        "it infrastructure and cybersecurity",
+    },
+    "business-office": {
+        "finance and accounting",
+        "office administration and records",
+        "human resources and project management",
+    },
+    "sales-marketing-customer-service": {
+        "sales and purchasing",
+        "marketing and public relations",
+        "customer service and retail",
+    },
+    "communications-creative-media": {
+        "writing, language, and communications",
+        "design, media, and performing arts",
+    },
+    "education-health-community": {
+        "education and training",
+        "social and community services",
+        "healthcare and clinical services",
+        "caregiving and wellness",
+    },
+    "engineering-trades-operations": {
+        "engineering and architecture",
+        "construction and skilled trades",
+        "hospitality and tourism",
+        "food service and personal care",
+        "logistics, transport, and warehousing",
+        "manufacturing and quality operations",
+        "agriculture, forestry, fishery, and environment",
+    },
+    "government-legal-security": {
+        "public administration and government",
+        "legal, security, and protective services",
+    },
+}
+
+CAREER_AREA_ALIASES = {
+    "technology data": "technology-data",
+    "technology data business finance": "technology-data",
+    "tech business finance": "technology-data",
+    "business office": "business-office",
+    "business finance and office administration": "business-office",
+    "sales marketing customer service": "sales-marketing-customer-service",
+    "sales marketing customer relations": "sales-marketing-customer-service",
+    "creative media and communications": "communications-creative-media",
+    "communications creative media": "communications-creative-media",
+    "education health and community": "education-health-community",
+    "education healthcare hospitality and community services": "education-health-community",
+    "engineering trades and operations": "engineering-trades-operations",
+    "engineering manufacturing agriculture logistics and field operations": "engineering-trades-operations",
+    "government legal and security": "government-legal-security",
+    "public service legal protective services and other": "government-legal-security",
+}
+
 
 # ============================================================
 # BASIC TEXT HELPERS
@@ -119,15 +181,22 @@ def normalize_category_id(value: Any) -> str:
     match = re.search(r"K\s*0?(\d{1,2})", value)
     if match:
         number = int(match.group(1))
-        if 1 <= number <= 11:
+        if 1 <= number <= 24:
             return f"K{number:02d}"
 
     if value.isdigit():
         number = int(value)
-        if 1 <= number <= 11:
+        if 1 <= number <= 24:
             return f"K{number:02d}"
 
     return value
+
+
+def normalize_career_area(value: Any) -> str:
+    normalized = normalize_for_match(value)
+    if normalized in CAREER_AREA_JOB_CATEGORIES:
+        return normalized
+    return CAREER_AREA_ALIASES.get(normalized, "")
 
 
 # ============================================================
@@ -730,6 +799,7 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
     job_corpus = " ".join([job_category, job_subcategory, job_title, job_description, work_type, experience, salary])
 
     preferred_industry = normalize_for_match(preferences.get("industry", ""))
+    preferred_career_area = normalize_career_area(preferred_industry)
     role_level = normalize_for_match(preferences.get("role_level", ""))
     target_role = normalize_for_match(preferences.get("target_role", ""))
     work_setup = normalize_for_match(preferences.get("work_setup", ""))
@@ -741,7 +811,12 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
 
     if specified(preferred_industry):
         total += 0.25
-        if preferred_industry in job_corpus:
+        normalized_job_category = normalize_for_match(job_category)
+        category_matches = (
+            bool(preferred_career_area)
+            and normalized_job_category in CAREER_AREA_JOB_CATEGORIES[preferred_career_area]
+        )
+        if category_matches or preferred_industry in job_corpus:
             score += 0.25
         else:
             score += 0.25 * token_overlap(preferred_industry, job_corpus)
@@ -873,6 +948,7 @@ def match_text_to_jobs(
     preferences: Optional[Dict[str, Any]] = None,
     confirmed_skills: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
+    started_at = time.perf_counter()
     preferences = preferences or {}
     provided_confirmed_skills = confirmed_skills is not None
     confirmed_skills = confirmed_skills or []
@@ -1112,6 +1188,7 @@ def match_text_to_jobs(
             "total_jobs_scored": int(len(scored_jobs)),
             "fit_now_count": len(all_fit_now_matches),
             "aspiration_count": len(all_aspiration_matches),
+            "elapsed_ms": round((time.perf_counter() - started_at) * 1000, 1),
             "top_10_scores": top_10_scores,
         },
         "metadata": {
@@ -1138,6 +1215,21 @@ def match_jobs(
     ids = list(dict.fromkeys(clean_text(value).upper() for value in (candidate_skill_ids or []) if clean_text(value)))
     if any(value not in labels for value in ids):
         raise ValueError("Unknown confirmed skill IDs were supplied.")
+
+    # An empty list means the caller did not provide usable confirmed skills.
+    # Preserve the normal resume-extraction path instead of treating the
+    # candidate as explicitly skill-less. Without this fallback the text route
+    # can never produce Fit-Now matches and often produces no matches at all.
+    if not ids:
+        result = match_text_to_jobs(
+            resume_text_for_matching,
+            preferences=preferences,
+            confirmed_skills=None,
+        )
+        result["fit_now_matches"] = result["all_fit_now_matches"][:max(0, top_n_output)]
+        result["aspiration_matches"] = result["all_aspiration_matches"][:max(0, top_n_output)]
+        return result
+
     records = [{"skill_id": value, "skill_name": labels[value], "source": "confirmed_skill"} for value in ids]
     result = match_text_to_jobs(resume_text_for_matching, preferences=preferences, confirmed_skills=records)
     result["fit_now_matches"] = result["all_fit_now_matches"][:max(0, top_n_output)]

@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Any, Optional
 from datetime import date
 from urllib.parse import urlsplit
+import os
+import threading
+import time
 
 import pandas as pd
 
@@ -17,6 +20,9 @@ DATA_DIR = BACKEND_DIR / "data"
 LEARNING_RESOURCES_PATH = DATA_DIR / "learning_resources.csv"
 SKILLS_REFERENCE_PATH = DATA_DIR / "skills_reference.csv"
 LEARNING_RESOURCES_SOURCE = "csv"
+LEARNING_RESOURCES_CACHE_SECONDS = float(os.getenv("KAREERLY_LEARNING_RESOURCES_CACHE_SECONDS", "300"))
+_learning_resources_cache_lock = threading.Lock()
+_learning_resources_cache: dict[str, Any] = {"data": None, "loaded_at": 0.0}
 
 
 def get_learning_resources_source() -> str:
@@ -26,20 +32,32 @@ def get_learning_resources_source() -> str:
 def load_learning_resources() -> pd.DataFrame:
     global LEARNING_RESOURCES_SOURCE
 
-    supabase_df = load_learning_resources_dataframe()
-    if not supabase_df.empty:
-        LEARNING_RESOURCES_SOURCE = "supabase_learning_resources"
-        return supabase_df
+    with _learning_resources_cache_lock:
+        cached = _learning_resources_cache["data"]
+        if cached is not None and time.monotonic() - _learning_resources_cache["loaded_at"] < LEARNING_RESOURCES_CACHE_SECONDS:
+            return cached.copy()
 
-    if not LEARNING_RESOURCES_PATH.exists():
-        raise FileNotFoundError(
-            f"Missing learning resources file: {LEARNING_RESOURCES_PATH}"
-        )
+        supabase_df = load_learning_resources_dataframe()
+        if not supabase_df.empty:
+            LEARNING_RESOURCES_SOURCE = "supabase_learning_resources"
+            df = supabase_df
+        else:
+            if not LEARNING_RESOURCES_PATH.exists():
+                raise FileNotFoundError(
+                    f"Missing learning resources file: {LEARNING_RESOURCES_PATH}"
+                )
 
-    df = pd.read_csv(LEARNING_RESOURCES_PATH, dtype=str, keep_default_na=False)
-    df.columns = [column.strip() for column in df.columns]
-    LEARNING_RESOURCES_SOURCE = "csv"
-    return df
+            df = pd.read_csv(LEARNING_RESOURCES_PATH, dtype=str, keep_default_na=False)
+            df.columns = [column.strip() for column in df.columns]
+            LEARNING_RESOURCES_SOURCE = "csv"
+
+        _learning_resources_cache.update(data=df.copy(), loaded_at=time.monotonic())
+        return df.copy()
+
+
+def clear_learning_resources_cache() -> None:
+    with _learning_resources_cache_lock:
+        _learning_resources_cache.update(data=None, loaded_at=0.0)
 
 
 def load_skills_reference() -> pd.DataFrame:

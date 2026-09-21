@@ -390,6 +390,7 @@ export interface JobMatchRunResults {
     total_jobs_scored?: number;
     fit_now_count?: number;
     aspiration_count?: number;
+    elapsed_ms?: number;
     top_10_scores?: Array<{
       job_title?: string;
       semantic_score?: number | string;
