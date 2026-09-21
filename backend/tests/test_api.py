@@ -71,6 +71,18 @@ class ApiRegressionTests(unittest.TestCase):
             self.assertEqual(result.status_code, 200)
             match.assert_called_once()
 
+        with patch('backend.app.main.match_text_to_jobs', return_value={}) as match, \
+             patch('backend.app.main.match_resume_to_jobs') as parse, \
+             patch('backend.app.main._apply_report_access_control', return_value={'fit_now_matches': []}):
+            result = self.client.post(
+                '/api/matches/from-resume',
+                files={'file': ('resume.pdf', b'not needed when normalized text is supplied')},
+                data={'resume_text_for_matching': 'Python developer with SQL experience'},
+            )
+            self.assertEqual(result.status_code, 200)
+            match.assert_called_once()
+            parse.assert_not_called()
+
         with patch('backend.app.main.match_resume_to_jobs', return_value={}) as match, patch('backend.app.main._apply_report_access_control', return_value={'fit_now_matches': []}):
             result = self.client.post('/api/matches/from-resume', files={'file': ('resume.pdf', b'%PDF sample')})
             self.assertEqual(result.status_code, 200)

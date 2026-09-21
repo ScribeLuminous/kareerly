@@ -124,7 +124,11 @@ def score_jobs(candidate_input: str, job_inputs: Sequence[str]) -> np.ndarray:
             model = get_bi_encoder()
             vectors = _job_vectors.get(key)
             if vectors is None:
-                vectors = np.asarray(model.encode(list(job_inputs), batch_size=16, normalize_embeddings=True, show_progress_bar=False), dtype=np.float32)
+                # The catalogue is small enough to encode in moderately large
+                # batches. This reduces warmup and cold-cache report latency
+                # without changing the model or ranking behavior.
+                batch_size = max(1, int(os.getenv('KAREERLY_ENCODER_BATCH_SIZE', '32')))
+                vectors = np.asarray(model.encode(list(job_inputs), batch_size=batch_size, normalize_embeddings=True, show_progress_bar=False), dtype=np.float32)
                 _job_vectors[key] = vectors
                 while len(_job_vectors) > 2:
                     _job_vectors.popitem(last=False)

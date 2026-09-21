@@ -9,6 +9,7 @@ import type { SelectedSkill, SurveyAnswers } from '../types';
 import { CONFIRMED_SKILL_LIMIT, runMatchesFromResume, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
+import { careerAreaOptions, normalizeCareerAreaValue } from '../lib/careerAreas';
 import StepArrowButton from './StepArrowButton';
 
 type SurveyStepProps = {
@@ -55,7 +56,9 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
     goToStep,
   } = useOnboarding();
 
-  const [answers, setAnswers] = useState<SurveyAnswers>(state.surveyAnswers || defaultAnswers);
+  const [answers, setAnswers] = useState<SurveyAnswers>(state.surveyAnswers
+    ? { ...state.surveyAnswers, industry: normalizeCareerAreaValue(state.surveyAnswers.industry) }
+    : defaultAnswers);
   const [skillQuery, setSkillQuery] = useState('');
   const [isSearchingSkills, setIsSearchingSkills] = useState(false);
   const [skillSearchResults, setSkillSearchResults] = useState<SelectedSkill[]>([]);
@@ -63,7 +66,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
 
   useEffect(() => {
     if (state.surveyAnswers) {
-      setAnswers(state.surveyAnswers);
+      setAnswers({ ...state.surveyAnswers, industry: normalizeCareerAreaValue(state.surveyAnswers.industry) });
     }
   }, [state.surveyAnswers]);
 
@@ -192,6 +195,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
     try {
       const results = await runMatchesFromResume({
         resumeFile: state.resumeFile,
+        resumeTextForMatching: state.resumeAnalysis.normalized_for_matching.resume_text_for_matching,
         userMode: isLoggedIn ? 'registered' : 'guest',
         viewMode: 'initial',
         // Guests cannot edit skills, but must still be matched on the ones shown in Step 2.
@@ -208,16 +212,21 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
 
       setMatchResults(results);
       setLimitedReport(results.limited_report);
-      const user = await getCurrentKareerlyUser().catch(() => null);
-      if (user?.role === 'candidate') {
-        await saveMatchHistory({
-          userId: user.id,
-          resumeId: state.savedResumeId,
-          preferences: answers,
-          results,
-        });
-      }
       goToStep(4);
+
+      // The report is ready for the user now. Persisting history is ancillary
+      // work and must not keep the result screen behind an extra auth/database
+      // round trip.
+      void getCurrentKareerlyUser()
+        .then((user) => user?.role === 'candidate'
+          ? saveMatchHistory({
+              userId: user.id,
+              resumeId: state.savedResumeId,
+              preferences: answers,
+              results,
+            })
+          : undefined)
+        .catch((error) => console.warn('Unable to save match history:', error));
     } catch (error) {
       setError(error instanceof Error ? `Job matching failed: ${error.message}` : 'Job matching failed.');
     } finally {
@@ -498,13 +507,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           name="industry"
           value={answers.industry}
           onChange={(value) => handleChange('industry', value)}
-          options={[
-            { value: 'tech-business-finance', label: 'Technology, Data, Business & Finance' },
-            { value: 'sales-marketing-service-creative', label: 'Sales, Marketing, Customer Service & Creative Media' },
-            { value: 'education-healthcare-hospitality-community', label: 'Education, Healthcare, Hospitality & Community Services' },
-            { value: 'engineering-manufacturing-agriculture-logistics', label: 'Engineering, Manufacturing, Agriculture, Logistics & Field Operations' },
-            { value: 'public-service-legal-protective-other', label: 'Public Service, Legal, Protective Services & Other' },
-          ]}
+          options={careerAreaOptions.map((option) => ({ value: option.value, label: option.label }))}
         />
         <Question
           label="What job level are you targeting?"
