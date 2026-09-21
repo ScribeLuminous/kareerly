@@ -51,7 +51,7 @@ import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, loadCandidateAccountSettings, runJobMatches, runMatchesFromResume, saveCandidateAccountSettings, searchSkills, sendApplicationMessage, validateCertificateFile } from '../lib/api';
 import type { AvailableJobItem } from '../lib/api';
 import { cleanSkillLabel } from '../lib/skillLabels';
-import { careerAreaLabels, careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
+import { careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
@@ -319,20 +319,6 @@ const defaultSurveyAnswers: SurveyAnswers = {
   setup: '',
   salary: '',
   skill: '',
-};
-
-const industryLabels: Record<string, string> = {
-  ...careerAreaLabels,
-  tech: 'Technology & Data',
-  finance: 'Business & Office',
-  bpo: 'Sales, Marketing & Customer Service',
-  healthcare: 'Education, Health & Community',
-  'tech-business-finance': 'Technology & Data',
-  'sales-marketing-service-creative': 'Sales, Marketing & Customer Service',
-  'education-healthcare-hospitality-community': 'Education, Health & Community',
-  'engineering-manufacturing-agriculture-logistics': 'Engineering, Trades & Operations',
-  'public-service-legal-protective-other': 'Government, Legal & Security',
-  other: 'Other',
 };
 
 const setupLabels: Record<string, string> = {
