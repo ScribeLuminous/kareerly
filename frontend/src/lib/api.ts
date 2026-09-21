@@ -428,6 +428,7 @@ export type RunJobMatchesPayload = {
 
 type MatchFromResumePayload = {
   resumeFile: File;
+  resumeTextForMatching?: string;
   userMode?: UserMode;
   viewMode?: ViewMode;
   confirmedSkills?: SelectedSkill[];
@@ -640,6 +641,9 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     throw new Error(`You can confirm up to ${CONFIRMED_SKILL_LIMIT} skills.`);
   }
   formData.append('file', payload.resumeFile);
+  if (payload.resumeTextForMatching?.trim()) {
+    formData.append('resume_text_for_matching', payload.resumeTextForMatching.trim());
+  }
   formData.append('confirmed_skills', JSON.stringify(confirmedSkills));
   formData.append('user_mode', payload.userMode || 'guest');
   formData.append('view_mode', payload.viewMode || 'initial');

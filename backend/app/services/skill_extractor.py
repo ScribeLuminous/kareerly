@@ -109,6 +109,9 @@ class SkillExtractor:
         self.rows: list[dict[str, Any]] = []
         self.alias_map: dict[str, list[int]] = {}
         self.ordered_aliases: list[str] = []
+        self._alias_pattern: re.Pattern[str] | None = None
+        self._compact_alias_map: dict[str, list[str]] = {}
+        self._compact_alias_pattern: re.Pattern[str] | None = None
         self.job_market_relevance: dict[str, float] = {}
 
         self._load_skills_reference()
@@ -214,6 +217,24 @@ class SkillExtractor:
             key=len,
             reverse=True,
         )
+        if self.ordered_aliases:
+            self._alias_pattern = re.compile(
+                r"(?<!\w)(?:" + "|".join(re.escape(alias) for alias in self.ordered_aliases) + r")(?!\w)",
+                flags=re.IGNORECASE,
+            )
+
+        for alias in self.ordered_aliases:
+            compact_alias = _compact_alias(alias)
+            if len(compact_alias) >= 5 or compact_alias in SHORT_ALIAS_ALLOWLIST:
+                self._compact_alias_map.setdefault(compact_alias, []).append(alias)
+        compact_aliases = sorted(self._compact_alias_map, key=len, reverse=True)
+        if compact_aliases:
+            # Lookahead preserves overlapping compact matches from letter-spaced
+            # PDF extraction while scanning the text only once.
+            self._compact_alias_pattern = re.compile(
+                r"(?=(" + "|".join(re.escape(alias) for alias in compact_aliases) + r"))",
+                flags=re.IGNORECASE,
+            )
 
     def _build_job_market_relevance(self) -> dict[str, float]:
         counts: dict[str, int] = {}
@@ -329,18 +350,11 @@ class SkillExtractor:
         if not normalized_text:
             return matches
 
-        padded_text = f" {normalized_text} "
-
-        # 1. Normal exact phrase matching.
-        # Handles:
-        # customer support
-        # customer-support
-        # customer_support
-        # customer    support
-        for alias in self.ordered_aliases:
-            pattern = r"(?<!\w)" + re.escape(alias) + r"(?!\w)"
-
-            for match in re.finditer(pattern, padded_text, flags=re.IGNORECASE):
+        # 1. Normal exact phrase matching. A single alternation avoids scanning
+        # the full resume once for every alias in the 600+ skill reference.
+        if self._alias_pattern:
+            for match in self._alias_pattern.finditer(normalized_text):
+                alias = _normalize_alias(match.group(0))
                 matched_text = match.group(0).strip()
 
                 for row_index in self.alias_map.get(alias, []):
@@ -367,25 +381,18 @@ class SkillExtractor:
         if not compact_text:
             return matches
 
-        for alias in self.ordered_aliases:
-            compact_alias = _compact_alias(alias)
+        if self._compact_alias_pattern:
+            for match in self._compact_alias_pattern.finditer(compact_text):
+                compact_alias = match.group(1).lower()
+                for alias in self._compact_alias_map.get(compact_alias, []):
+                    for row_index in self.alias_map.get(alias, []):
+                        key = (row_index, alias, compact_alias)
 
-            if not compact_alias:
-                continue
+                        if key in seen:
+                            continue
 
-            if len(compact_alias) < 5:
-                if compact_alias not in SHORT_ALIAS_ALLOWLIST:
-                    continue
-
-            if compact_alias in compact_text:
-                for row_index in self.alias_map.get(alias, []):
-                    key = (row_index, alias, compact_alias)
-
-                    if key in seen:
-                        continue
-
-                    seen.add(key)
-                    matches.append((row_index, alias, alias))
+                        seen.add(key)
+                        matches.append((row_index, alias, alias))
 
         return matches
 
