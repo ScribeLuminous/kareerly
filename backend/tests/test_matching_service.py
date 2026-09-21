@@ -52,6 +52,23 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertEqual(empty["fit_now_matches"], [])
         self.assertEqual(len(empty["aspiration_matches"]), 2)
 
+    def test_text_route_extracts_resume_skills_when_ids_are_missing(self):
+        with patch.object(matching, "extract_skills_from_text", return_value=[{
+            "skill_id": "SK001",
+            "skill_name": "Python Programming",
+        }]), \
+            patch.object(matching, "load_internal_jobs_dataframe", return_value=self.jobs), \
+            patch.object(matching, "score_jobs", return_value=np.asarray([0.7, 0.9])), \
+            patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
+            patch.object(matching, "recommend_learning_resources", return_value=[]):
+            result = matching.match_jobs(
+                "Python developer builds backend applications and reports.",
+                candidate_skill_ids=[],
+            )
+
+        self.assertEqual(result["confirmed_skills"], ["Python Programming"])
+        self.assertEqual([item["job_id"] for item in result["fit_now_matches"]], ["developer"])
+
     def test_cosine_is_not_catalog_rescaled_and_preferences_do_not_replace_ranking(self):
         result = self.run_match([], preferences={"target_role": "Developer"})
         self.assertEqual([item["job_id"] for item in result["aspiration_matches"]], ["analyst", "developer"])
@@ -59,6 +76,25 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertEqual(result["aspiration_matches"][1]["match_percentage"], 70)
         self.assertEqual(result["metadata"]["model_version"], encoder.MODEL_ID)
         self.assertIn("bi-encoder", result["model_used"])
+
+    def test_career_area_slug_aligns_with_backend_job_category(self):
+        job = {
+            "job_category": "Technology, Data, and Digital Systems",
+            "job_title": "Data Analyst",
+            "job_description": "Analyze business data.",
+            "experience_level_required": "Entry level",
+            "work_type": "Remote",
+            "salary_range_monthly_php": "",
+        }
+        self.assertEqual(
+            matching.compute_preference_alignment(job, {"industry": "technology-data"}),
+            1.0,
+        )
+
+    def test_expanded_category_ids_are_normalized_through_k24(self):
+        self.assertEqual(matching.normalize_category_id("K24"), "K24")
+        self.assertEqual(matching.normalize_category_id("24"), "K24")
+        self.assertEqual(matching.normalize_category_id("K25"), "K25")
 
     def test_skill_ids_are_authoritative_and_unknown_ids_rejected(self):
         result = self.run_match([{"skill_id": "SK001", "skill_name": "SQL"}])

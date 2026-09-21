@@ -51,6 +51,7 @@ import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, loadCandidateAccountSettings, runJobMatches, runMatchesFromResume, saveCandidateAccountSettings, searchSkills, sendApplicationMessage, validateCertificateFile } from '../lib/api';
 import type { AvailableJobItem } from '../lib/api';
 import { cleanSkillLabel } from '../lib/skillLabels';
+import { careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
@@ -319,27 +320,6 @@ const defaultSurveyAnswers: SurveyAnswers = {
   salary: '',
   skill: '',
 };
-
-const industryLabels: Record<string, string> = {
-  tech: 'Technology, Data, Business & Finance',
-  finance: 'Technology, Data, Business & Finance',
-  bpo: 'Sales, Marketing, Customer Service & Creative Media',
-  healthcare: 'Education, Healthcare, Hospitality & Community Services',
-  'tech-business-finance': 'Technology, Data, Business & Finance',
-  'sales-marketing-service-creative': 'Sales, Marketing, Customer Service & Creative Media',
-  'education-healthcare-hospitality-community': 'Education, Healthcare, Hospitality & Community Services',
-  'engineering-manufacturing-agriculture-logistics': 'Engineering, Manufacturing, Agriculture, Logistics & Field Operations',
-  'public-service-legal-protective-other': 'Public Service, Legal, Protective Services & Other',
-  other: 'Other',
-};
-
-const careerAreaOptions = [
-  { value: 'tech-business-finance', label: 'Technology, Data, Business & Finance' },
-  { value: 'sales-marketing-service-creative', label: 'Sales, Marketing, Customer Service & Creative Media' },
-  { value: 'education-healthcare-hospitality-community', label: 'Education, Healthcare, Hospitality & Community Services' },
-  { value: 'engineering-manufacturing-agriculture-logistics', label: 'Engineering, Manufacturing, Agriculture, Logistics & Field Operations' },
-  { value: 'public-service-legal-protective-other', label: 'Public Service, Legal, Protective Services & Other' },
-] as const;
 
 const setupLabels: Record<string, string> = {
   remote: '100% Work from Home',
@@ -1992,7 +1972,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     if (finalCandidateSkillIds.length === 0) return null;
 
     const preferencePayload = {
-      industry: getPreferenceLabel(industryLabels, answers.industry),
+      // Send the stable career-area value to the backend; display labels are
+      // resolved separately so taxonomy identifiers never reach the UI.
+      industry: normalizeCareerAreaValue(answers.industry),
       target_role: answers.role,
       role_level: answers.role,
       work_setup: getPreferenceLabel(setupLabels, answers.setup),
@@ -2028,6 +2010,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       try {
         result = await runMatchesFromResume({
           resumeFile: activeResumeFile,
+          resumeTextForMatching: resumeText,
           userMode: 'logged_in',
           viewMode: 'full',
           confirmedSkills: confirmedSkillRecords,
@@ -2072,7 +2055,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     if (currentUser?.id) {
       await updateCandidateProfile({
         userId: currentUser.id,
-        preferredIndustry: getPreferenceLabel(industryLabels, answers.industry),
+        preferredIndustry: getCareerAreaLabel(answers.industry),
         targetRole: answers.role,
         preferredWorkSetup: getPreferenceLabel(setupLabels, answers.setup),
         expectedSalary: getPreferenceLabel(salaryLabels, answers.salary),
