@@ -1732,6 +1732,313 @@
   gap: 10px;
 }
 
+/* Learning Recommendations keeps the same visual language as Skill Gaps without
+   turning every control into a separate white card. */
+.cand-learning-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.cand-inline-link {
+  border: 0;
+  background: transparent;
+  color: var(--rust);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+
+.cand-inline-link:hover,
+.cand-inline-link:focus-visible {
+  color: var(--dark);
+  text-decoration: underline;
+}
+
+.cand-inline-link:focus-visible,
+.cand-learning-skill-chip:focus-visible,
+.cand-learning-filter:focus-visible,
+.cand-learning-focus select:focus-visible {
+  outline: 3px solid var(--rust-l);
+  outline-offset: 2px;
+}
+
+.cand-learning-focus {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.65fr) minmax(260px, 2fr);
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.cand-learning-focus-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cand-learning-focus-label label {
+  color: var(--dark);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.cand-learning-focus-label span,
+.cand-learning-section-heading span {
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cand-learning-focus select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--bdr);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--dark);
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.cand-learning-focus select:disabled {
+  color: var(--soft);
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.cand-learning-skills,
+.cand-learning-results {
+  margin-bottom: 26px;
+}
+
+.cand-learning-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.cand-learning-section-heading h2 {
+  color: var(--dark);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.cand-learning-skill-list,
+.cand-learning-filter-row,
+.cand-course-skill-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.cand-learning-skill-chip,
+.cand-learning-filter {
+  border: 1px solid var(--bdr);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--mid);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 7px 11px;
+}
+
+.cand-learning-skill-chip:hover,
+.cand-learning-filter:hover {
+  border-color: var(--rust);
+  color: var(--rust);
+}
+
+.cand-learning-skill-chip.active,
+.cand-learning-filter.active {
+  border-color: var(--rust);
+  background: var(--rust-l);
+  color: var(--rust);
+}
+
+.cand-learning-filter-row {
+  margin-top: 10px;
+  color: var(--soft);
+  font-size: 11px;
+}
+
+.cand-learning-filter {
+  padding: 5px 9px;
+  font-weight: 600;
+}
+
+.cand-learning-tabs {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.cand-course-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.cand-course-grid .cand-course-card {
+  height: 100%;
+  margin-bottom: 0;
+}
+
+.cand-course-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.cand-course-top {
+  margin-bottom: 0;
+}
+
+.cand-course-top h3 {
+  line-height: 1.35;
+}
+
+.cand-course-skill-block,
+.cand-course-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cand-course-label {
+  color: var(--soft);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.cand-course-gap-tag {
+  padding: 5px 9px;
+}
+
+.cand-course-reason {
+  border-left: 2px solid var(--rust);
+  padding-left: 10px;
+}
+
+.cand-course-meta {
+  gap: 7px 12px;
+  margin: 0;
+  font-size: 11px;
+}
+
+.cand-learning-status {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: var(--green-l);
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 9px;
+}
+
+.cand-course-actions {
+  justify-content: flex-start;
+  margin-top: auto;
+  padding-top: 2px;
+}
+
+.cand-learning-gap-groups {
+  display: flex;
+  flex-direction: column;
+}
+
+.cand-learning-gap-group {
+  padding: 18px 0 22px;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.cand-learning-gap-group:first-child {
+  padding-top: 0;
+}
+
+.cand-learning-gap-group:last-child {
+  border-bottom: 0;
+}
+
+.cand-learning-gap-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cand-learning-gap-heading h3 {
+  color: var(--dark);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.cand-learning-gap-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+  color: var(--soft);
+  font-size: 11px;
+}
+
+.cand-learning-no-resource {
+  color: var(--soft);
+  font-size: 12px;
+}
+
+.cand-learning-provider-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 18px 0 0;
+  color: var(--soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.cand-learning-provider-note .cand-mini-icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.cand-learning-empty {
+  border: 1px dashed var(--bdr);
+  border-radius: 12px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.cand-learning-empty h2 {
+  color: var(--dark);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.cand-learning-empty p {
+  max-width: 620px;
+  margin-top: 6px;
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.cand-learning-empty-actions {
+  margin-top: 14px;
+}
+
 .cand-progress-bar {
   height: 5px;
   background: var(--cream-d);
@@ -3192,4 +3499,42 @@
 
 .cand-credential-no {
   color: var(--soft, #94a3b8);
+}
+
+@media (max-width: 1100px) {
+  .cand-course-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .cand-learning-header-row,
+  .cand-learning-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cand-learning-focus {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .cand-course-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cand-learning-tabs .cand-tab-btn {
+    flex-basis: 50%;
+  }
+
+  .cand-learning-provider-note {
+    margin-top: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cand-learning-tabs .cand-tab-btn {
+    flex-basis: 100%;
+  }
 }

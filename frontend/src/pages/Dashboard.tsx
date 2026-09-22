@@ -92,7 +92,7 @@ const FILIPINO_UI: Record<string, string> = {
   'My Career': 'Aking Karera', Dashboard: 'Dashboard', 'Job Matches': 'Mga Tugmang Trabaho',
   'Skill Gaps': 'Mga Kasanayang Kailangang Linangin', Applications: 'Mga Aplikasyon',
   Preferences: 'Mga Kagustuhan', 'Account Settings': 'Mga Setting ng Account', Explore: 'Tuklasin',
-  Kareers: 'Mga Karera', 'Learning Paths': 'Landas sa Paglinang ng Kasanayan', Messages: 'Mga Mensahe',
+  Kareers: 'Mga Karera', 'Learning Recommendations': 'Mga Rekomendasyon sa Pagkatuto', Messages: 'Mga Mensahe',
   Language: 'Wika', English: 'Ingles', Filipino: 'Filipino', Logout: 'Mag-logout',
   'Location not set': 'Hindi pa nakatakda ang lokasyon', 'No notifications yet.': 'Wala pang abiso.',
   'Language Preference': 'Piniling Wika',
@@ -234,6 +234,7 @@ type DashboardCourse = {
   verifiedAt?: string;
   url?: string;
   urlLabel: string;
+  deliveryMode?: string;
   source: 'backend';
 };
 
@@ -490,10 +491,10 @@ function buildJobExplanation(job: DashboardJob): string {
   }
 
   if (job.matchCategory === 'aspiration') {
-    return `This role aligns with your career interests, although additional skills are still needed. ${firstMissing ? `Start by building ${firstMissing} to prepare for similar opportunities.` : 'The recommended learning pathways can help you prepare for similar opportunities.'}`;
+    return `This role aligns with your career interests, although additional skills are still needed. ${firstMissing ? `Start by building ${firstMissing} to prepare for similar opportunities.` : 'The recommended learning resources can help you prepare for similar opportunities.'}`;
   }
 
-  return `This role has some connection to your current profile, but several key skills are still missing. ${firstMissing ? `Completing learning steps for ${firstMissing} can improve your compatibility with similar roles.` : 'Completing the recommended learning steps can improve your compatibility with similar roles.'}`;
+  return `This role has some connection to your current profile, but several key skills are still missing. ${firstMissing ? `Exploring resources for ${firstMissing} can improve your compatibility with similar roles.` : 'Exploring the recommended learning resources can improve your compatibility with similar roles.'}`;
 }
 
 function buildKareerGuidanceHeading(job: DashboardJob): 'Why this job matches you' | 'Current Alignment' {
@@ -519,14 +520,14 @@ function getRecommendedNextStep(job: DashboardJob): string {
   const firstMissing = cleanSkillDisplayName(job.missingSkills[0] || '');
   if (firstMissing) return `Start with ${firstMissing} because it is one of the clearest skills to improve for this role.`;
   if (job.matchedSkills.length > 0) return `Build on your current strengths and keep your resume updated as you gain more related experience.`;
-  return 'Review the recommended learning pathways to build stronger alignment with similar roles.';
+  return 'Review the recommended learning resources to build stronger alignment with similar roles.';
 }
 
 function getCareerGuidance(job: DashboardJob): string {
   if (!job.hasMatchScore) return 'Run matching with your current profile to generate career guidance for this role.';
   if (job.matchScore >= 80 && job.missingSkills.length <= 2) return 'You are already a strong candidate for this role.';
   if (job.missingSkills.length > 0 && job.missingSkills.length <= 3) return `This role is achievable after improving ${job.missingSkills.length === 1 ? 'one key skill' : `${job.missingSkills.length} key skills`}.`;
-  if (job.missingSkills.length > 0) return `Consider completing the recommended ${cleanSkillDisplayName(job.missingSkills[0])} learning pathway before applying.`;
+  if (job.missingSkills.length > 0) return `Consider exploring resources for ${cleanSkillDisplayName(job.missingSkills[0])} before applying.`;
   return 'You can apply now while continuing to strengthen your profile over time.';
 }
 
@@ -536,6 +537,20 @@ function getLearningForJob(job: DashboardJob, courses: DashboardCourse[]): Dashb
       ? course.mappedSkillIds.some((id) => job.missingSkillIds!.includes(id))
       : course.mappedSkills.some((skill) => job.missingSkills.some((gap) => cleanSkillDisplayName(gap).toLowerCase() === cleanSkillDisplayName(skill).toLowerCase()))
   ));
+}
+
+function getCourseSkillLabels(course: DashboardCourse): string[] {
+  const rawSkills = course.mappedSkills.length > 0
+    ? course.mappedSkills
+    : course.gapTag.split(',').map((skill) => skill.trim()).filter(Boolean);
+  return Array.from(new Set(rawSkills.map(cleanSkillDisplayName).filter(Boolean)));
+}
+
+function getProgressStatusLabel(status: SkillProgressStatus): string {
+  if (status === 'started' || status === 'in_progress') return 'In Progress';
+  if (status === 'completed' || status === 'covered') return 'Completed / Covered';
+  if (status === 'evidenced') return 'Evidence Uploaded';
+  return 'Not Started';
 }
 
 function formatGapMissingCount(gap: DashboardGap): string {
@@ -1057,6 +1072,7 @@ function mapCourse(rec: CourseRecommendation): DashboardCourse {
     mappedSkills: [], mappedSkillIds: [], reviewed: false, fees: 'Unknown', certificateCost: 'Unknown', prerequisites: 'Unknown', credentialConditions: 'Unknown',
     url: rec.course?.url,
     urlLabel: 'Open Resource',
+    deliveryMode: undefined,
     source: 'backend',
   };
 }
@@ -1080,6 +1096,7 @@ function mapRunLearningRecommendation(rec: RunLearningRecommendation): Dashboard
     verifiedAt: rec.last_verified_at,
     url: rec.url || undefined,
     urlLabel: ['Start learning', 'View preparation course', 'View certification'].includes(rec.url_label || '') ? rec.url_label! : 'Start learning',
+    deliveryMode: rec.delivery_mode || undefined,
     source: 'backend',
   };
 }
@@ -2737,7 +2754,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               <div className="cand-sidebar-section border-t border-bdr pt-5">
                 <div className="cand-sidebar-title">{tr(uiLanguage, 'Explore')}</div>
                 <NavItem icon="compass" active={activePage === 'kareers'} onClick={() => setActivePage('kareers')}>{tr(uiLanguage, 'Kareers')}</NavItem>
-                <NavItem icon="graduation" active={activePage === 'upskilling'} onClick={() => setActivePage('upskilling')}>{tr(uiLanguage, 'Learning Paths')}</NavItem>
+                <NavItem icon="graduation" active={activePage === 'upskilling'} onClick={() => setActivePage('upskilling')}>{tr(uiLanguage, 'Learning Recommendations')}</NavItem>
                 <button className={`cand-nav-item ${activePage === 'messages' ? 'active' : ''}`} type="button" onClick={() => setActivePage('messages')}>
                   <UIIcon name="message" className="cand-nav-icon" />
                   {tr(uiLanguage, 'Messages')}
@@ -2940,7 +2957,11 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               tab={upskillTab}
               courses={courses}
               jobs={jobs}
+              gaps={gaps}
+              skillProgressRecords={skillProgressRecords}
               onTab={setUpskillTab}
+              onOpenSkillGaps={() => setActivePage('skillgaps')}
+              onOpenJobMatches={() => setActivePage('jobmatches')}
             />
           )}
 
@@ -3350,7 +3371,7 @@ function DashboardOverview({
 
       {activeSummaryTab === 'upskilling' && (
         <div className="cand-card mb-6">
-          <h2 className="cand-card-title"><UIIcon name="book" className="cand-title-icon" />Recommended Learning Pathways</h2>
+          <h2 className="cand-card-title"><UIIcon name="book" className="cand-title-icon" />Recommended Learning Resources</h2>
           {courseRecommendations.length > 0 ? (
             <>
               {courseRecommendations.map((course) => (
@@ -3738,8 +3759,13 @@ function SkillGapsPage({
   return (
     <div>
       <div className="cand-page-header">
-        <h1 className="cand-page-title">Skill Gaps & Development Progress</h1>
-        <p className="cand-page-subtitle">Missing skills identified from your job matches with guided development tracking</p>
+        <div className="cand-learning-header-row">
+          <div>
+            <h1 className="cand-page-title">Skill Gaps & Development Progress</h1>
+            <p className="cand-page-subtitle">Missing skills identified from your job matches with guided development tracking</p>
+          </div>
+          <button className="cand-inline-link" type="button" onClick={onOpenUpskilling}>Explore Learning Recommendations →</button>
+        </div>
       </div>
 
       <div className="cand-gap-toolbar">
@@ -3929,7 +3955,7 @@ function SkillGapsPage({
                   </div>
                   <div className="cand-sdp-action-row">
                     <button className="cand-btn-primary cand-btn-sm" type="button" onClick={onOpenUpskilling}>
-                      <UIIcon name="graduation" className="cand-btn-icon" />Open Upskilling Path
+                      <UIIcon name="graduation" className="cand-btn-icon" />Open Learning Recommendations
                     </button>
                     <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenResume}>
                       <UIIcon name="upload" className="cand-btn-icon" />Update Resume
@@ -4696,7 +4722,7 @@ function KareersPage({
                       <>
                         <div className="cand-kareer-apply-line">Matched Skills: {activeSelected.matchedSkills.length > 0 ? activeSelected.matchedSkills.slice(0, 3).map(cleanSkillDisplayName).join(', ') : 'Matched skills not detected yet.'}</div>
                         <div className="cand-kareer-apply-line">Missing Skills: {activeSelected.missingSkills.length > 0 ? activeSelected.missingSkills.slice(0, 3).map(cleanSkillDisplayName).join(', ') : 'No major missing skills identified yet.'}</div>
-                        <div className="cand-kareer-apply-line">Recommended Learning Resources: {activeSelected.missingSkills.length > 0 ? `Start with ${cleanSkillDisplayName(activeSelected.missingSkills[0])} and related Kareerly learning pathways.` : 'Continue strengthening your profile through Kareerly learning pathways.'}</div>
+                        <div className="cand-kareer-apply-line">Recommended Learning Resources: {activeSelected.missingSkills.length > 0 ? `Start with ${cleanSkillDisplayName(activeSelected.missingSkills[0])} and related Kareerly learning resources.` : 'Continue strengthening your profile through Kareerly learning resources.'}</div>
                       </>
                     ) : (
                       <>
@@ -4818,16 +4844,16 @@ function KareersPage({
                 {getRecommendedNextStep(activeSelected)}
               </div>
 
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Recommended Learning Pathway</div>
+              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Recommended Learning Resources</div>
               <div className="cand-kareer-detail-box">
                 {activeSelected.missingSkills.length > 0
-                  ? `Focus on ${cleanSkillDisplayName(activeSelected.missingSkills[0])} first, then continue with related learning pathways in Kareerly.`
-                  : 'Use the recommended learning pathway to strengthen your readiness for similar roles over time.'}
+                  ? `Focus on ${cleanSkillDisplayName(activeSelected.missingSkills[0])} first, then explore related learning resources in Kareerly.`
+                  : 'Use the recommended learning resources to strengthen your readiness for similar roles over time.'}
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <button className="cand-btn-secondary" type="button" onClick={onOpenUpskilling}>
-                  <UIIcon name="graduation" className="cand-btn-icon" />Start Learning Path
+                  <UIIcon name="graduation" className="cand-btn-icon" />Explore Learning Recommendations
                 </button>
                 {activeSelected.sourceType === 'internal' && activeApplication ? (
                   <button className="cand-btn-secondary" type="button" onClick={onOpenApplications}>
@@ -4888,63 +4914,207 @@ function learningResourceUrl(course: DashboardCourse): string | undefined {
   }
 }
 
-function UpskillingPage({ tab, courses, jobs, onTab }: {
+function LearningEmptyState({
+  title,
+  description,
+  primaryAction,
+  secondaryAction,
+}: {
+  title: string;
+  description: string;
+  primaryAction?: { label: string; onClick: () => void };
+  secondaryAction?: { label: string; onClick: () => void };
+}) {
+  return (
+    <section className="cand-learning-empty" aria-live="polite">
+      <h2>{title}</h2>
+      <p>{description}</p>
+      {(primaryAction || secondaryAction) && (
+        <div className="cand-actions cand-learning-empty-actions">
+          {primaryAction && <button className="cand-btn-primary cand-btn-sm" type="button" onClick={primaryAction.onClick}>{primaryAction.label}</button>}
+          {secondaryAction && <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={secondaryAction.onClick}>{secondaryAction.label}</button>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab, onOpenSkillGaps, onOpenJobMatches }: {
   tab: UpskillTab;
   courses: DashboardCourse[];
   jobs: DashboardJob[];
+  gaps: DashboardGap[];
+  skillProgressRecords: Record<string, SkillProgressRecord>;
   onTab: (tab: UpskillTab) => void;
+  onOpenSkillGaps: () => void;
+  onOpenJobMatches: () => void;
 }) {
   const [selectedJobId, setSelectedJobId] = useState(jobs[0]?.id || '');
+  const [selectedSkill, setSelectedSkill] = useState('all');
+  const jobSelectRef = useRef<HTMLSelectElement>(null);
   const selectedJob = jobs.find((job) => job.id === selectedJobId) || jobs[0];
   const visibleCourses = selectedJob ? getLearningForJob(selectedJob, courses) : [];
-  const groups = new Map<string, DashboardCourse[]>();
-  (selectedJob?.missingSkills || []).forEach((skill) => {
-    groups.set(skill, visibleCourses.filter((course) => course.mappedSkills.some((mapped) => cleanSkillDisplayName(mapped).toLowerCase() === cleanSkillDisplayName(skill).toLowerCase())));
-  });
-  const uncovered = Array.from(groups).filter(([, resources]) => resources.length === 0).map(([skill]) => cleanSkillDisplayName(skill));
+  const skillsToDevelop = Array.from(new Set((selectedJob?.missingSkills || []).map(cleanSkillDisplayName).filter(Boolean)));
+  const selectedSkillGap = (skill: string) => gaps.find((gap) => normalizeSkill(gap.skill) === normalizeSkill(skill));
+  const filteredCourses = selectedSkill === 'all'
+    ? visibleCourses
+    : visibleCourses.filter((course) => getCourseSkillLabels(course).some((skill) => normalizeSkill(skill) === normalizeSkill(selectedSkill)));
+  const groups = skillsToDevelop.map((skill) => ({
+    skill,
+    gap: selectedSkillGap(skill),
+    resources: filteredCourses.filter((course) => getCourseSkillLabels(course).some((mapped) => normalizeSkill(mapped) === normalizeSkill(skill))),
+  })).filter((group) => selectedSkill === 'all' || normalizeSkill(group.skill) === normalizeSkill(selectedSkill));
+
+  const focusAnotherJob = () => jobSelectRef.current?.focus();
+  const selectedJobHasGaps = Boolean(selectedJob && skillsToDevelop.length > 0);
+  const noResourceForSelection = selectedJobHasGaps && filteredCourses.length === 0;
 
   return (
     <div>
       <div className="cand-page-header">
-        <h1 className="cand-page-title">Learning Paths</h1>
-        <p className="cand-page-subtitle">Explore learning resources for the skills connected to your job matches.</p>
+        <div className="cand-learning-header-row">
+          <div>
+            <h1 className="cand-page-title">Learning Recommendations</h1>
+            <p className="cand-page-subtitle">Explore recommended resources for the skills you want to develop.</p>
+          </div>
+          <button className="cand-inline-link" type="button" onClick={onOpenSkillGaps}>← View Skill Gaps</button>
+        </div>
       </div>
-      <div className="cand-card mb-6">
-        <h2 className="cand-card-title"><UIIcon name="external" className="cand-title-icon" />Learn on the provider’s platform</h2>
-        <p className="text-sm text-mid">Choose a resource below to visit its provider. Enrollment, learning, assessments, and certificate issuance happen on their platform.</p>
-        <p className="mt-3 text-xs text-soft">Kareerly does not verify course completion or authenticate earned certificates. Opening a resource does not mark it completed, confirm a new skill, or change your job-match score.</p>
-      </div>
-      <div className="cand-card mb-6">
-        <label htmlFor="learning-target-job" className="block text-sm font-bold text-dark">Choose a job to focus on</label>
-        <select id="learning-target-job" value={selectedJob?.id || ''} onChange={(event) => setSelectedJobId(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-dark">
+
+      <section className="cand-learning-focus" aria-labelledby="learning-focus-heading">
+        <div className="cand-learning-focus-label">
+          <label id="learning-focus-heading" htmlFor="learning-target-job">Focus job</label>
+          <span>Choose a matched job to focus recommendations on its identified skill gaps.</span>
+        </div>
+        <select
+          ref={jobSelectRef}
+          id="learning-target-job"
+          value={selectedJob?.id || ''}
+          disabled={jobs.length === 0}
+          onChange={(event) => { setSelectedJobId(event.target.value); setSelectedSkill('all'); }}
+        >
           {jobs.length === 0 && <option value="">No matched jobs available</option>}
           {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} — {job.company}</option>)}
         </select>
-        <p className="mt-2 text-xs text-soft">{selectedJob ? `Resources related to skills not identified in your profile for ${selectedJob.title}.` : 'Select a job to narrow these resources to its identified skill gaps.'} These are suggested resources, not an assessed learning sequence.</p>
+      </section>
+
+      {selectedJobHasGaps && (
+        <section className="cand-learning-skills" aria-labelledby="skills-to-develop-heading">
+          <div className="cand-learning-section-heading">
+            <h2 id="skills-to-develop-heading">Skills to Develop</h2>
+            <span>Areas to work on for this job match.</span>
+          </div>
+          <div className="cand-learning-skill-list">
+            {skillsToDevelop.map((skill) => {
+              const gap = selectedSkillGap(skill);
+              return (
+                <button
+                  key={skill}
+                  className={`cand-learning-skill-chip ${selectedSkill === skill ? 'active' : ''}`}
+                  type="button"
+                  onClick={() => setSelectedSkill((current) => current === skill ? 'all' : skill)}
+                  aria-pressed={selectedSkill === skill}
+                >
+                  {gap && <span>{gap.severity} · </span>}{skill}
+                </button>
+              );
+            })}
+          </div>
+          <div className="cand-learning-filter-row" aria-label="Filter resources by skill">
+            <span>Filter resources:</span>
+            <button className={`cand-learning-filter ${selectedSkill === 'all' ? 'active' : ''}`} type="button" onClick={() => setSelectedSkill('all')} aria-pressed={selectedSkill === 'all'}>All</button>
+            {skillsToDevelop.map((skill) => <button key={`filter-${skill}`} className={`cand-learning-filter ${selectedSkill === skill ? 'active' : ''}`} type="button" onClick={() => setSelectedSkill(skill)} aria-pressed={selectedSkill === skill}>{skill}</button>)}
+          </div>
+        </section>
+      )}
+
+      <div className="cand-tab-row cand-gap-view-tabs cand-learning-tabs" role="tablist" aria-label="Learning recommendation views">
+        <button className={`cand-tab-btn ${tab === 'recommended' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'recommended'} onClick={() => onTab('recommended')}>
+          <UIIcon name="book" className="cand-tab-icon" />What to Learn Next
+        </button>
+        <button className={`cand-tab-btn ${tab === 'by-gap' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'by-gap'} onClick={() => onTab('by-gap')}>
+          <UIIcon name="list" className="cand-tab-icon" />By Skill Gap
+        </button>
       </div>
-      <div className="cand-upskill-tabs" aria-label="Learning resource views">
-        <button className={`cand-upskill-tab ${tab === 'recommended' ? 'active' : ''}`} type="button" aria-pressed={tab === 'recommended'} onClick={() => onTab('recommended')}>Recommended resources</button>
-        <button className={`cand-upskill-tab ${tab === 'by-gap' ? 'active' : ''}`} type="button" aria-pressed={tab === 'by-gap'} onClick={() => onTab('by-gap')}>By skill gap</button>
-      </div>
-      {uncovered.length > 0 && <p className="cand-empty mb-4">No reviewed resources mapped to: {uncovered.join(', ')}. Check another matched job or return as the catalog grows.</p>}
-      {visibleCourses.length === 0 ? (
-        <div className="cand-empty">{selectedJob ? 'No reviewed resources are available for this job’s identified skill gaps. Choose another matched job or check back as the catalog grows.' : 'Match your profile to jobs first to explore resources for their identified skill gaps.'}</div>
+
+      {jobs.length === 0 ? (
+        <LearningEmptyState
+          title="No learning recommendations yet"
+          description="Generate job matches first so Kareerly can identify skill gaps and recommend relevant learning resources."
+          primaryAction={{ label: 'View Job Matches', onClick: onOpenJobMatches }}
+        />
+      ) : !selectedJobHasGaps ? (
+        <LearningEmptyState
+          title="No skills to develop identified"
+          description="This job does not currently have prioritized missing skills for your profile."
+          primaryAction={{ label: 'Choose Another Job', onClick: focusAnotherJob }}
+          secondaryAction={{ label: 'View Skill Gaps', onClick: onOpenSkillGaps }}
+        />
+      ) : noResourceForSelection ? (
+        <LearningEmptyState
+          title="No learning resources found for this skill yet"
+          description="Try another skill or check again when the learning catalog is updated."
+          primaryAction={{ label: 'Show All Skills', onClick: () => setSelectedSkill('all') }}
+        />
       ) : tab === 'recommended' ? (
-        visibleCourses.map((course) => <CourseCard key={course.id} course={course} />)
+        <section className="cand-learning-results" aria-labelledby="what-to-learn-heading">
+          <div className="cand-learning-section-heading">
+            <h2 id="what-to-learn-heading">What to Learn Next</h2>
+            <span>Suggested resources for your current skill gaps.</span>
+          </div>
+          <div className="cand-course-grid">
+            {filteredCourses.map((course) => <CourseCard key={course.id} course={course} selectedJob={selectedJob} gaps={gaps} skillProgressRecords={skillProgressRecords} />)}
+          </div>
+          <LearningProviderNote />
+        </section>
       ) : (
-        Array.from(groups.entries()).map(([gap, resources]) => (
-          <section key={gap} className="mb-6" aria-label={cleanSkillDisplayName(gap)}>
-            <h2 className="mb-3 text-sm font-bold text-dark">{cleanSkillDisplayName(gap)} · {resources.length} resource{resources.length === 1 ? '' : 's'}</h2>
-            {resources.length ? resources.map((course) => <CourseCard key={course.id} course={course} />) : <p className="text-sm text-soft">No reviewed resource available for this skill.</p>}
-          </section>
-        ))
+        <section className="cand-learning-results" aria-labelledby="by-skill-gap-heading">
+          <div className="cand-learning-section-heading">
+            <h2 id="by-skill-gap-heading">By Skill Gap</h2>
+            <span>Suggested options organized around the skills you want to develop.</span>
+          </div>
+          <div className="cand-learning-gap-groups">
+            {groups.map(({ skill, gap, resources }) => (
+              <section key={skill} className="cand-learning-gap-group" aria-labelledby={`learning-gap-${normalizeSkill(skill).replace(/[^a-z0-9]+/g, '-')}`}>
+                <div className="cand-learning-gap-heading">
+                  <div>
+                    <h3 id={`learning-gap-${normalizeSkill(skill).replace(/[^a-z0-9]+/g, '-')}`}>{skill}</h3>
+                    <div className="cand-learning-gap-meta">
+                      {gap && <span className={`cand-gap-priority ${severityClass(gap.severity)}`}>{gap.severity} Priority</span>}
+                      <span>{resources.length} recommended resource{resources.length === 1 ? '' : 's'}</span>
+                    </div>
+                  </div>
+                </div>
+                {resources.length > 0 ? (
+                  <div className="cand-course-grid">{resources.map((course) => <CourseCard key={course.id} course={course} selectedJob={selectedJob} gaps={gaps} skillProgressRecords={skillProgressRecords} />)}</div>
+                ) : <p className="cand-learning-no-resource">No learning resources found for this skill yet.</p>}
+              </section>
+            ))}
+          </div>
+          <LearningProviderNote />
+        </section>
       )}
     </div>
   );
 }
 
-function CourseCard({ course }: { course: DashboardCourse }) {
+function LearningProviderNote() {
+  return <p className="cand-learning-provider-note"><UIIcon name="external" className="cand-mini-icon" />Resources open on their providers’ websites. Kareerly recommends resources based on identified skill gaps but does not verify enrollment, course completion, assessments, or certificates.</p>;
+}
+
+function CourseCard({ course, selectedJob, gaps, skillProgressRecords }: { course: DashboardCourse; selectedJob?: DashboardJob; gaps: DashboardGap[]; skillProgressRecords: Record<string, SkillProgressRecord> }) {
   const url = learningResourceUrl(course);
+  const mappedSkills = getCourseSkillLabels(course);
+  const primarySkill = mappedSkills[0] || cleanSkillDisplayName(course.gapTag) || 'This skill gap';
+  const primaryGap = gaps.find((gap) => mappedSkills.some((skill) => normalizeSkill(skill) === normalizeSkill(gap.skill)));
+  const progressRecord = mappedSkills.map((skill) => Object.values(skillProgressRecords).find((record) => normalizeSkill(record.skillName) === normalizeSkill(skill))).find(Boolean);
+  const isKnown = (value: string | undefined): value is string => Boolean(value && !/unknown|not stated|not specified/i.test(value));
+  const metadata = [course.level, course.deliveryMode, course.duration, course.isFree ? 'Free' : course.fees].filter(isKnown);
+  const recommendationReason = primaryGap && selectedJob
+    ? `${primarySkill} is a ${primaryGap.severity} gap for your ${selectedJob.title} match.`
+    : selectedJob
+      ? `${primarySkill} is an identified skill gap for your ${selectedJob.title} match.`
+      : `This resource addresses your ${primarySkill} skill gap.`;
 
   return (
     <div className="cand-course-card">
@@ -4955,25 +5125,17 @@ function CourseCard({ course }: { course: DashboardCourse }) {
           <div className="text-xs text-soft">{course.provider}</div>
         </div>
       </div>
-      <div className="cand-course-meta">
-        {course.verifiedAt && <span>Catalog checked: {course.verifiedAt}</span>}
-        <span>{course.duration || 'Duration not stated'}</span>
-        <span>{course.level || 'Level not stated'}</span>
-        <span className="cand-course-gap-tag">{cleanSkillDisplayName(course.gapTag) || 'General career development'}</span>
+      <div className="cand-course-skill-block">
+        <div className="cand-course-label">Helps address</div>
+        <div className="cand-course-skill-list">{mappedSkills.length > 0 ? mappedSkills.map((skill) => <span key={skill} className="cand-course-gap-tag">{skill}</span>) : <span className="text-xs text-soft">Skill mapping unavailable</span>}</div>
       </div>
-      <div className="cand-job-section">
-        <div className="cand-job-section-label">Why this resource is suggested</div>
-        <div className="text-xs text-mid">{course.gapTag ? `Listed for ${cleanSkillDisplayName(course.gapTag)}, a skill associated with your job matches. Check the provider’s learning outcomes and prerequisites to decide whether it fits your needs.` : 'A general career-development resource. Check its learning outcomes to see whether it fits your goal.'}</div>
-      </div>
-      <div className="cand-job-section">
-        <div className="cand-job-section-label">Check with the provider</div>
-        <div className="text-xs text-mid">Course fees: {course.fees}. Certificate or exam fees: {course.certificateCost}. Prerequisites: {course.prerequisites}. Credential conditions: {course.credentialConditions}. Confirm current requirements with the provider.</div>
-      </div>
-      <div className="cand-course-actions flex-wrap gap-3">
-        <span className="text-xs text-soft">Opens the provider’s site in a new tab</span>
+      <div className="cand-course-reason"><span className="cand-course-label">Recommended because</span><span className="text-xs text-mid">{recommendationReason}</span></div>
+      {metadata.length > 0 && <div className="cand-course-meta">{metadata.map((item) => <span key={item}>{item}</span>)}</div>}
+      {progressRecord && <span className="cand-learning-status">{getProgressStatusLabel(progressRecord.status)}</span>}
+      <div className="cand-course-actions">
         {url ? (
           <a className="cand-btn-primary cand-btn-sm" href={url} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel}: ${course.title} (opens in a new tab)`}>
-            {course.urlLabel}<UIIcon name="external" className="cand-btn-icon" />
+            View Resource<UIIcon name="external" className="cand-btn-icon" />
           </a>
         ) : <span className="text-xs text-soft">Provider link unavailable</span>}
       </div>
