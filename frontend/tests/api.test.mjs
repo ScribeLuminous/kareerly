@@ -29,7 +29,7 @@ test('matching distinguishes network failure and timeout', async () => {
  } finally { globalThis.fetch = original; console.error = originalConsoleError; }
 });
 
-test('hosted matching connection errors identify backend and CORS origin', async () => {
+test('hosted matching connection errors do not mislabel gateway failures as CORS', async () => {
  const hostedSource = source.replace('http://127.0.0.1:8000/ ', 'https://backend.example.org/ ');
  const hostedApi = await import(moduleUrl(hostedSource));
  const original = globalThis.fetch;
@@ -43,7 +43,7 @@ test('hosted matching connection errors identify backend and CORS origin', async
   globalThis.location = { origin: 'https://frontend.example.org' };
   console.error = () => {};
 
-  // Health answers the opaque probe, so the matching call was refused, not unreachable.
+  // An opaque health answer can be a Cloudflare challenge, not a CORS diagnosis.
   globalThis.fetch = async (url, options) => {
    if (String(url).endsWith('/api/health') && options.mode === 'no-cors') {
     // A real no-cors reply is opaque; only "it answered" matters to the probe.
@@ -54,8 +54,8 @@ test('hosted matching connection errors identify backend and CORS origin', async
   for (const request of hostedRequests) {
    await assert.rejects(request(), error => {
     assert.match(error.message, /https:\/\/backend.example.org/);
-    assert.match(error.message, /FRONTEND_URLS/);
-    assert.match(error.message, /https:\/\/frontend.example.org/);
+    assert.match(error.message, /hosting protection or a network interruption/);
+    assert.doesNotMatch(error.message, /FRONTEND_URLS/);
     assert.doesNotMatch(error.message, /npm run dev/);
     return true;
    });
@@ -77,6 +77,27 @@ test('hosted matching connection errors identify backend and CORS origin', async
   globalThis.location = originalLocation;
   console.error = originalConsoleError;
  }
+});
+
+test('text matching sends a multipart simple request without custom headers', async () => {
+ const original = globalThis.fetch;
+ try {
+  globalThis.fetch = async (url, options) => {
+   assert.match(String(url), /\/api\/matches\/run-form$/);
+   assert.equal(options.method, 'POST');
+   assert.equal(options.headers, undefined);
+   assert.ok(options.body instanceof FormData);
+   const payload = JSON.parse(options.body.get('payload'));
+   assert.equal(payload.resume_text_for_matching, 'SQL developer');
+   assert.equal(payload.confirmed_skills[0].skill_name, 'SQL');
+   return new Response(JSON.stringify({ fit_now_matches: [], aspiration_matches: [] }), { status: 200 });
+  };
+  await api.runJobMatches({
+   resume_text_for_matching: 'SQL developer',
+   confirmed_skills: [{ skill_id: 'SK004', skill_name: 'SQL' }],
+   preferences: {},
+  });
+ } finally { globalThis.fetch = original; }
 });
 
 test('hosted requests wait for a sleeping backend and retry once', async () => {
