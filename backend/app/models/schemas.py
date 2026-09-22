@@ -49,6 +49,7 @@ class RunMatchesRequest(BaseModel):
     view_mode: Literal["initial", "full"] = "initial"
     resume_text_for_matching: str = Field(min_length=1)
     candidate_skill_ids: List[str] = []
+    confirmed_skills: List[dict] = Field(default_factory=list)
     preferences: MatchPreferences = Field(default_factory=MatchPreferences)
 
 

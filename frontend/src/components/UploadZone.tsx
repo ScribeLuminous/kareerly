@@ -127,17 +127,20 @@ export default function UploadZone() {
         throw new Error('No skills were extracted from your resume. Please upload a clearer PDF or DOCX file.');
       }
 
-      setResumeAnalysis(analysis);
       const user = await getCurrentKareerlyUser().catch(() => null);
+      let resumeId: string | null = null;
       if (user?.role === 'candidate') {
-        const resumeId = await saveResumeAnalysis({
+        resumeId = await saveResumeAnalysis({
           userId: user.id,
           fileName: state.resumeFile.name,
           file: state.resumeFile,
           analysis,
         });
-        setSavedResumeId(resumeId);
       }
+      // Commit analysis state only after a signed-in candidate's file and row
+      // are durable. A retry after a failed save must retry persistence too.
+      setResumeAnalysis(analysis);
+      setSavedResumeId(resumeId);
       setSelectedSkills(extractedSkills.slice(0, CONFIRMED_SKILL_LIMIT));
       goToStep(2);
     } catch (error) {

@@ -6,7 +6,7 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useOnboarding } from '../hooks/useOnboarding';
 import type { SelectedSkill, SurveyAnswers } from '../types';
-import { CONFIRMED_SKILL_LIMIT, runMatchesFromResume, searchSkills } from '../lib/api';
+import { CONFIRMED_SKILL_LIMIT, runJobMatches, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
 import { careerAreaOptions, normalizeCareerAreaValue } from '../lib/careerAreas';
@@ -193,17 +193,18 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
     setError(null);
 
     try {
-      const results = await runMatchesFromResume({
-        resumeFile: state.resumeFile,
-        resumeTextForMatching: state.resumeAnalysis.normalized_for_matching.resume_text_for_matching,
-        userMode: isLoggedIn ? 'registered' : 'guest',
-        viewMode: 'initial',
+      const results = await runJobMatches({
+        resume_text_for_matching: state.resumeAnalysis.normalized_for_matching.resume_text_for_matching,
+        user_mode: isLoggedIn ? 'registered' : 'guest',
+        view_mode: 'initial',
+        candidate_skill_ids: finalCandidateSkillIds,
         // Guests cannot edit skills, but must still be matched on the ones shown in Step 2.
-        confirmedSkills: selectedSkills,
+        confirmed_skills: selectedSkills,
         preferences: {
           industry: answers.industry,
           target_role: answers.role,
           role_level: answers.role,
+          role: answers.role,
           work_setup: answers.setup,
           salary_expectation: answers.salary,
           skill_to_develop: answers.skill,
