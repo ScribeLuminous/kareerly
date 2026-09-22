@@ -1369,16 +1369,11 @@ def prioritize_skill_gaps(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
 
 def warm_matching_caches() -> None:
-    """Load the encoder and prime the job vectors before the first request needs them.
+    """Load only the encoder during startup.
 
-    Both costs are paid lazily inside whichever request arrives first, which on a
-    small instance is slow enough to exceed the client's timeout. Doing the work at
-    startup moves it out of the request path. Failures are the caller's to log:
-    matching still raises its own readable errors, so a failed warmup must not stop
-    the service from booting and serving health checks.
+    Encoding the complete internal and employer catalogue can take several minutes
+    on a small deployment and holds the scoring lock while it runs. External-job
+    analysis only needs one pasted role, so catalogue-vector warmup stays lazy and
+    cannot block that request until the frontend times out.
     """
     get_bi_encoder()
-    jobs = load_reference_jobs()
-    if not jobs.empty:
-        # Same inputs the real request builds, so this populates the vector cache.
-        bi_encoder_score_jobs(build_model_input("warmup"), jobs)
