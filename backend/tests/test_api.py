@@ -71,6 +71,16 @@ class ApiRegressionTests(unittest.TestCase):
             self.assertEqual(result.status_code, 200)
             match.assert_called_once()
 
+        with patch('backend.app.main.match_jobs', return_value={}) as match, \
+             patch('backend.app.main._apply_report_access_control', return_value={'fit_now_matches': []}):
+            result = self.client.post('/api/matches/run-form',
+                files={'payload': (None, '{"resume_text_for_matching":"SQL developer"}')},
+                headers={'Origin': 'http://localhost:5173'},
+            )
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.headers['access-control-allow-origin'], 'http://localhost:5173')
+            match.assert_called_once()
+
         with patch('backend.app.main.match_text_to_jobs', return_value={}) as match, \
              patch('backend.app.main.match_resume_to_jobs') as parse, \
              patch('backend.app.main._apply_report_access_control', return_value={'fit_now_matches': []}):
@@ -117,6 +127,19 @@ class ApiRegressionTests(unittest.TestCase):
         self.assertEqual(records[0]['skill_id'], 'SK004')
         self.assertEqual(records[1]['skill_id'], '')
         self.assertEqual(records[1]['skill_name'], 'Stakeholder facilitation')
+
+    def test_form_matching_preserves_confirmed_skills_and_rejects_bad_payload(self):
+        import json
+        with patch('backend.app.main.match_text_to_jobs', return_value={}) as match, \
+             patch('backend.app.main._apply_report_access_control', return_value={}):
+            result = self.client.post('/api/matches/run-form', data={'payload': json.dumps({
+                'resume_text_for_matching': 'SQL developer',
+                'confirmed_skills': [{'skill_id': 'SK004', 'skill_name': 'SQL'}],
+            })})
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(match.call_args.kwargs['confirmed_skills'][0]['skill_id'], 'SK004')
+        for invalid in ('not json', '[]', '{}'):
+            self.assertEqual(self.client.post('/api/matches/run-form', data={'payload': invalid}).status_code, 422)
 
     def test_empty_confirmed_skills_fall_back_to_resume_extraction(self):
         with patch('backend.app.main.match_resume_to_jobs', return_value={}) as match, \
