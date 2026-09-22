@@ -60,6 +60,7 @@ import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPer
 import { formatJobDescription } from '../lib/jobDescription';
 import type { CredentialType, CourseRecommendation, JobMatch, MatchResultItem, ParsedResume, PrioritizedSkillGap, SelectedSkill, SkillGap, SurveyAnswers } from '../types';
 import './candidate-dashboard-v5.css';
+import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
 
 type DashboardProps = {
   currentUser: { id?: string; name: string; email: string } | null;
@@ -73,6 +74,7 @@ type DashboardProps = {
 type DashboardPage =
   | 'dashboard'
   | 'jobmatches'
+  | 'external-job'
   | 'skillgaps'
   | 'applications'
   | 'preferences'
@@ -2745,6 +2747,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
                 <div className="cand-sidebar-title">{tr(uiLanguage, 'My Career')}</div>
                 <NavItem icon="dashboard" active={activePage === 'dashboard'} onClick={() => setActivePage('dashboard')}>{tr(uiLanguage, 'Dashboard')}</NavItem>
                 <NavItem icon="briefcase" active={activePage === 'jobmatches'} onClick={() => setActivePage('jobmatches')}>{tr(uiLanguage, 'Job Matches')}</NavItem>
+                <NavItem icon="clipboard" active={activePage === 'external-job'} onClick={() => setActivePage('external-job')}>Analyze External Job</NavItem>
                 <NavItem icon="puzzle" active={activePage === 'skillgaps'} onClick={() => setActivePage('skillgaps')}>{tr(uiLanguage, 'Skill Gaps')}</NavItem>
                 <NavItem icon="layers" active={activePage === 'applications'} onClick={() => setActivePage('applications')}>{tr(uiLanguage, 'Applications')}</NavItem>
               </div>
@@ -2832,6 +2835,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
                 showToast('Opening external opportunity in a new tab.', 'success');
               }}
             />
+          )}
+
+          {activePage === 'external-job' && (
+            <ExternalJobAnalysisPage onOpenLearning={() => setActivePage('upskilling')} />
           )}
 
           {activePage === 'skillgaps' && (
