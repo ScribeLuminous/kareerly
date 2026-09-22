@@ -12,6 +12,44 @@ type Props = { onOpenLearning: () => void };
 
 const loadingSteps = ['Analyzing job requirements…', 'Comparing with your profile…', 'Identifying skill gaps…'];
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function downloadExternalJobReport(analysis: ExternalJobAnalysisResponse) {
+  const safeUrl = (value: unknown) => typeof value === 'string' && /^https?:\/\//i.test(value) ? value : '';
+  const list = (items: unknown[], emptyLabel: string) => items.length > 0
+    ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    : `<p class="muted">${escapeHtml(emptyLabel)}</p>`;
+  const recommendations = analysis.learning_recommendations || [];
+  const recommendationMarkup = recommendations.length > 0
+    ? `<ul>${recommendations.slice(0, 5).map((resource) => {
+      const title = resource.title || resource.course_or_certification_title || 'Learning resource';
+      const provider = resource.provider || resource.offered_by_provider || 'Kareerly catalog';
+      const url = safeUrl(resource.url || resource.external_course_or_certification_link);
+      return `<li><strong>${escapeHtml(title)}</strong> <span class="muted">(${escapeHtml(provider)})</span>${url ? ` — <a href="${escapeHtml(url)}">Open resource</a>` : ''}</li>`;
+    }).join('')}</ul>`
+    : '<p class="muted">No current curated resource is available.</p>';
+  const title = analysis.job.title || 'External job match';
+  const filename = `${title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 80) || 'external-job-match'}-report.html`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)} — Kareerly Match Report</title><style>
+    body{font-family:Arial,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#28251f;line-height:1.55}h1{margin-bottom:4px}h2{margin-top:28px;border-bottom:1px solid #ddd4c8;padding-bottom:6px}.muted{color:#766f65}.score{font-size:42px;font-weight:700;color:#a54d2d;margin:18px 0 0}ul{padding-left:22px}li{margin:6px 0}a{color:#a54d2d}
+  </style></head><body><p class="muted">Kareerly External Job Match Report</p><h1>${escapeHtml(title)}</h1><p class="muted">${escapeHtml(analysis.job.company_name || 'Company not provided')}</p><div class="score">${Math.round(Number(analysis.match.match_percentage) || 0)}% match</div><p>${escapeHtml(analysis.match.match_type || '')}</p><h2>Why this matches</h2><p>${escapeHtml(analysis.match.explanation)}</p><h2>Matched skills</h2>${list(analysis.matched_skills || [], 'No confirmed matches detected yet.')}<h2>Skills to develop</h2>${list(analysis.missing_skills || [], 'No canonical required skill gaps were identified.')}<h2>What to learn next</h2>${recommendationMarkup}<p class="muted">Generated ${escapeHtml(new Date().toLocaleString())}</p></body></html>`;
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
   const [jobTitle, setJobTitle] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -144,6 +182,7 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => openSavedMatch(saved)}>View</button>
+                  <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => downloadExternalJobReport(saved.analysis)}>Download</button>
                   <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => removeSavedMatch(saved)}>Delete</button>
                 </div>
               </div>
@@ -254,6 +293,7 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
             <button className="cand-btn-primary" type="button" onClick={saveCurrentResult} disabled={isSaving || Boolean(savedCurrentId)}>
               {savedCurrentId ? 'Saved to Profile' : isSaving ? 'Saving…' : 'Save Match to Profile'}
             </button>
+            <button className="cand-btn-secondary" type="button" onClick={() => downloadExternalJobReport(result)}>Download Match Report</button>
             <button className="cand-btn-primary" type="button" onClick={reset}>Analyze Another Job</button>
             <button className="cand-btn-secondary" type="button" onClick={onOpenLearning}>View Learning Recommendations</button>
           </div>
