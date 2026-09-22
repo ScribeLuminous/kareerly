@@ -724,22 +724,25 @@
   border-radius: 14px;
   background: #ded8cf;
   gap: 6px;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
 }
 
 .cand-gap-view-tabs .cand-tab-btn {
-  flex: 1 1 220px;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  min-height: 42px;
+  padding: 8px 18px;
   border: 0;
   border-radius: 10px;
   background: transparent;
   color: #8a735d;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .cand-gap-view-tabs .cand-tab-btn:hover {
@@ -1746,9 +1749,9 @@
   background: transparent;
   color: var(--rust);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 2px 0;
   white-space: nowrap;
 }
 
@@ -1876,7 +1879,8 @@
 }
 
 .cand-learning-tabs {
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   margin-bottom: 24px;
 }
 
@@ -3446,7 +3450,7 @@
   }
 
   .cand-gap-view-tabs .cand-tab-btn {
-    flex-basis: 100%;
+    flex-basis: auto;
   }
 
   .cand-gap-covered-toggle {
@@ -3525,7 +3529,7 @@
   }
 
   .cand-learning-tabs .cand-tab-btn {
-    flex-basis: 50%;
+    flex-basis: auto;
   }
 
   .cand-learning-provider-note {
@@ -3534,7 +3538,12 @@
 }
 
 @media (max-width: 480px) {
-  .cand-learning-tabs .cand-tab-btn {
-    flex-basis: 100%;
+  .cand-gap-view-tabs {
+    width: 100%;
+  }
+
+  .cand-gap-view-tabs .cand-tab-btn {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
