@@ -902,6 +902,159 @@ def bi_encoder_score_jobs(candidate_input: str, jobs_df: pd.DataFrame) -> pd.Dat
     return scored
 
 
+def _prepare_candidate_context(
+    resume_text: str,
+    confirmed_skills: Optional[List[Any]] = None,
+) -> tuple[str, List[Dict[str, Any]], List[str], List[str]]:
+    """Prepare the same candidate evidence for internal and external jobs."""
+    resume_text = clean_text(resume_text)
+    if not resume_text:
+        raise ValueError("No readable resume text was provided for matching.")
+    provided_confirmed_skills = confirmed_skills is not None
+    confirmed_skills = confirmed_skills or []
+    if len(confirmed_skills) > MAX_CONFIRMED_SKILLS:
+        raise ValueError(f"You can confirm up to {MAX_CONFIRMED_SKILLS} skills.")
+
+    extracted_skills = extract_skills_from_text(resume_text, max_skills=30)
+    confirmed_skill_records: List[Dict[str, Any]] = []
+    for item in confirmed_skills:
+        if isinstance(item, str):
+            skill_name = clean_text(item)
+            if skill_name:
+                confirmed_skill_records.append({"skill_id": "", "skill_name": skill_name, "source": "confirmed_legacy_name"})
+            continue
+        if isinstance(item, dict):
+            skill_id = clean_text(item.get("skill_id", "")).upper()
+            skill_name = clean_text(item.get("skill_name", "")) or get_skill_labels_by_id().get(skill_id, "")
+            if not skill_name:
+                continue
+            confirmed_skill_records.append({
+                "skill_id": skill_id,
+                "skill_name": skill_name,
+                "custom_skill_name": clean_text(item.get("custom_skill_name", "")),
+                "source": clean_text(item.get("source", "")) or "confirmed_skill",
+                "is_standardized": bool(item.get("is_standardized", bool(skill_id))),
+                "source_metadata": item.get("source_metadata", {}) if isinstance(item.get("source_metadata"), dict) else {},
+            })
+
+    if provided_confirmed_skills:
+        final_skill_records = confirmed_skill_records[:MAX_CONFIRMED_SKILLS]
+    else:
+        final_skill_records = [
+            {
+                "skill_id": clean_text(skill.get("skill_id", "")).upper(),
+                "skill_name": clean_text(skill.get("skill_name", "")),
+                "custom_skill_name": "",
+                "source": "resume_extracted",
+                "is_standardized": True,
+                "source_metadata": skill.get("source_metadata", {}) if isinstance(skill.get("source_metadata"), dict) else {},
+            }
+            for skill in extracted_skills
+            if clean_text(skill.get("skill_name", ""))
+        ][:MAX_CONFIRMED_SKILLS]
+
+    labels, _ = canonical_skill_lookup()
+    for skill in final_skill_records:
+        skill_id = clean_text(skill.get("skill_id", "")).upper()
+        if skill_id:
+            if skill_id not in labels:
+                raise ValueError(f"Unknown confirmed skill ID: {skill_id}")
+            skill["skill_name"] = labels[skill_id]
+    candidate_skill_names = list(dict.fromkeys(skill["skill_name"] for skill in final_skill_records))
+    candidate_keys = [skill.get("skill_id") or skill["skill_name"] for skill in final_skill_records]
+    return resume_text, final_skill_records, candidate_skill_names, candidate_keys
+
+
+def _score_single_normalized_job(
+    *,
+    resume_text: str,
+    job: Dict[str, Any],
+    candidate_keys: List[str],
+    preferences: Dict[str, Any],
+    available_learning_skills: set,
+) -> Dict[str, Any]:
+    """Score one normalized job using the production matching rules."""
+    required_ids = split_ids(job.get("required_skill_ids", ""))
+    required_skills = required_ids or split_skill_list(job.get("required_skills_for_eval", ""))
+    skill_result = compute_skill_coverage(candidate_skills=candidate_keys, required_skills=required_skills)
+    preference_alignment = compute_preference_alignment(job, preferences)
+    evidence_strength = compute_evidence_strength(resume_text=resume_text, matched_skills=skill_result["matched_skills"])
+    learning_readiness = compute_learning_readiness(skill_result["missing_skills"], available_learning_skills)
+    semantic_score = float(job.get("semantic_score", 0.0))
+    skill_coverage = float(skill_result["skill_coverage"])
+    fit_now_score = semantic_score
+    aspiration_score = semantic_score
+    critical_ids = set(split_ids(job.get("must_have_skill_ids", "")))
+    critical_missing = sorted(critical_ids - set(skill_result["matched_skill_ids"]))
+    min_cosine = float(os.getenv("KAREERLY_FIT_NOW_MIN_COSINE", "0.45"))
+    min_coverage = float(os.getenv("KAREERLY_FIT_NOW_MIN_COVERAGE", "0.50"))
+    is_fit_now = bool(required_skills) and semantic_score >= min_cosine and skill_coverage >= min_coverage and not critical_missing
+    match_type = "Fit-Now" if is_fit_now else "Aspiration"
+    return {
+        "job_id": job.get("job_id", ""), "job_title": job.get("job_title", ""),
+        "company": job.get("company_name", ""), "company_name": job.get("company_name", ""),
+        "job_source": job.get("job_source", "internal"), "job_category": job.get("job_category", ""),
+        "job_subcategory": job.get("job_subcategory", ""), "category_id": job.get("category_id_norm", ""),
+        "location": job.get("location", ""), "work_type": job.get("work_type", ""),
+        "employment_type": job.get("employment_type", ""), "experience_level_required": job.get("experience_level_required", ""),
+        "salary_range_monthly_php": job.get("salary_range_monthly_php", ""), "job_description": job.get("job_description", ""),
+        "external_job_link_optional": job.get("external_job_link_optional", ""), "source_dataset": job.get("source_dataset", ""),
+        "match_type": match_type, "final_score": round(float(semantic_score), 4), "match_percentage": round(float(semantic_score) * 100, 2),
+        "semantic_score": round(float(semantic_score), 4), "skill_coverage": round(skill_coverage, 4),
+        "preference_alignment": round(float(preference_alignment), 4), "evidence_strength": round(float(evidence_strength), 4),
+        "learning_readiness": round(float(learning_readiness), 4),
+        "semantic_scoring_method": job.get("semantic_scoring_method", "fine_tuned_bi_encoder_cosine"),
+        "semantic_score_raw": float(job.get("semantic_score_raw", 0.0)), "text_similarity": float(job.get("semantic_score_raw", 0.0)),
+        "fit_now_score": round(fit_now_score, 4), "fit_now_percentage": round(fit_now_score * 100, 2),
+        "aspiration_score": round(aspiration_score, 4), "aspiration_percentage": round(aspiration_score * 100, 2),
+        "matched_skill_ids": skill_result["matched_skill_ids"], "missing_skill_ids": skill_result["missing_skill_ids"],
+        "critical_missing_skill_ids": critical_missing, "required_skill_ids": ";".join(required_ids),
+        "matched_skills": skill_result["matched_skills"], "missing_skills": skill_result["missing_skills"],
+        "explanation": generate_match_explanation(job.get("job_title", ""), match_type, skill_result["matched_skills"], skill_result["missing_skills"], skill_coverage, preference_alignment),
+    }
+
+
+def analyze_candidate_job_match(
+    resume_text: str,
+    job: Dict[str, Any],
+    *,
+    preferences: Optional[Dict[str, Any]] = None,
+    confirmed_skills: Optional[List[Any]] = None,
+) -> Dict[str, Any]:
+    """Run one internal or pasted job through the shared production matcher."""
+    resume_text, skill_records, candidate_skill_names, candidate_keys = _prepare_candidate_context(resume_text, confirmed_skills)
+    normalized_job = dict(job)
+    normalized_job.setdefault("job_description", "")
+    normalized_job.setdefault("job_title", "")
+    normalized_job.setdefault("required_skills_for_eval", "")
+    candidate_input = build_model_input(resume_text, skill_names=candidate_skill_names)
+    scored = bi_encoder_score_jobs(candidate_input, pd.DataFrame([normalized_job])).iloc[0].to_dict()
+    scored_match = _score_single_normalized_job(
+        resume_text=resume_text,
+        job=scored,
+        candidate_keys=candidate_keys,
+        preferences=preferences or {},
+        available_learning_skills=reviewed_learning_skill_ids(),
+    )
+    labels, _ = canonical_skill_lookup()
+    gaps = prioritize_skill_gaps([scored_match])
+    for gap in gaps:
+        key = _skill_key(gap["skill_name"])
+        gap["skill_id"] = key if key in labels else ""
+    return {
+        "match": {
+            "match_percentage": scored_match["match_percentage"], "semantic_similarity": scored_match["semantic_score"],
+            "skill_coverage": scored_match["skill_coverage"], "match_type": scored_match["match_type"],
+            "preference_alignment": scored_match["preference_alignment"], "matched_skills": scored_match["matched_skills"],
+            "missing_skills": scored_match["missing_skills"], "matched_skill_ids": scored_match["matched_skill_ids"],
+            "missing_skill_ids": scored_match["missing_skill_ids"],
+        },
+        "learning_recommendations": recommend_learning_resources(skill_gaps=gaps, preferences=preferences or {}, max_recommendations=5),
+        "candidate_skill_records": skill_records,
+        "metadata": {"model_version": MODEL_ID, "matching_source": "shared_kareerly_matching_service"},
+    }
+
+
 # ============================================================
 # JOB MATCHING MAIN FUNCTION
 # ============================================================
@@ -1020,94 +1173,16 @@ def match_text_to_jobs(
     if not 0 <= min_cosine <= 1 or not 0 <= min_coverage <= 1:
         raise RuntimeError("Fit-Now thresholds must be between zero and one.")
 
-    results = []
-
-    for _, row in scored_jobs.iterrows():
-        job = row.to_dict()
-
-        required_ids = split_ids(job.get("required_skill_ids", ""))
-        required_skills = required_ids or split_skill_list(job.get("required_skills_for_eval", ""))
-
-        skill_result = compute_skill_coverage(
-            candidate_skills=candidate_keys,
-            required_skills=required_skills,
-        )
-
-        preference_alignment = compute_preference_alignment(job, preferences)
-
-        evidence_strength = compute_evidence_strength(
+    results = [
+        _score_single_normalized_job(
             resume_text=resume_text,
-            matched_skills=skill_result["matched_skills"],
+            job=row.to_dict(),
+            candidate_keys=candidate_keys,
+            preferences=preferences,
+            available_learning_skills=available_learning_skills,
         )
-
-        learning_readiness = compute_learning_readiness(skill_result["missing_skills"], available_learning_skills)
-
-        semantic_score = float(job.get("semantic_score", 0.0))
-        skill_coverage = float(skill_result["skill_coverage"])
-
-        # Cosine is the ranking signal; rules organize and explain, without an invented weighted ML score.
-        fit_now_score = semantic_score
-        aspiration_score = semantic_score
-        critical_ids = set(split_ids(job.get("must_have_skill_ids", "")))
-        critical_missing = sorted(critical_ids - set(skill_result["matched_skill_ids"]))
-        is_fit_now = bool(required_skills) and semantic_score >= min_cosine and skill_coverage >= min_coverage and not critical_missing
-
-        if is_fit_now:
-            match_type = "Fit-Now"
-            final_score = fit_now_score
-        else:
-            match_type = "Aspiration"
-            final_score = aspiration_score
-
-        explanation = generate_match_explanation(
-            job_title=job.get("job_title", ""),
-            match_type=match_type,
-            matched_skills=skill_result["matched_skills"],
-            missing_skills=skill_result["missing_skills"],
-            skill_coverage=skill_coverage,
-            preference_alignment=preference_alignment,
-        )
-
-        results.append({
-            "job_id": job.get("job_id", ""),
-            "job_title": job.get("job_title", ""),
-            "company": job.get("company_name", ""),
-            "company_name": job.get("company_name", ""),
-            "job_source": job.get("job_source", "internal"),
-            "job_category": job.get("job_category", ""),
-            "job_subcategory": job.get("job_subcategory", ""),
-            "category_id": job.get("category_id_norm", ""),
-            "location": job.get("location", ""),
-            "work_type": job.get("work_type", ""),
-            "employment_type": job.get("employment_type", ""),
-            "experience_level_required": job.get("experience_level_required", ""),
-            "salary_range_monthly_php": job.get("salary_range_monthly_php", ""),
-            "job_description": job.get("job_description", ""),
-            "external_job_link_optional": job.get("external_job_link_optional", ""),
-            "source_dataset": job.get("source_dataset", ""),
-            "match_type": match_type,
-            "final_score": round(float(final_score), 4),
-            "match_percentage": round(float(final_score) * 100, 2),
-            "semantic_score": round(float(semantic_score), 4),
-            "skill_coverage": round(float(skill_coverage), 4),
-            "preference_alignment": round(float(preference_alignment), 4),
-            "evidence_strength": round(float(evidence_strength), 4),
-            "learning_readiness": round(float(learning_readiness), 4),
-            "semantic_scoring_method": job.get("semantic_scoring_method", "fine_tuned_bi_encoder_cosine"),
-            "semantic_score_raw": float(job.get("semantic_score_raw", 0.0)),
-            "text_similarity": float(job.get("semantic_score_raw", 0.0)),
-            "fit_now_score": round(fit_now_score, 4),
-            "fit_now_percentage": round(fit_now_score * 100, 2),
-            "aspiration_score": round(aspiration_score, 4),
-            "aspiration_percentage": round(aspiration_score * 100, 2),
-            "matched_skill_ids": skill_result["matched_skill_ids"],
-            "missing_skill_ids": skill_result["missing_skill_ids"],
-            "critical_missing_skill_ids": critical_missing,
-            "required_skill_ids": ";".join(required_ids),
-            "matched_skills": skill_result["matched_skills"],
-            "missing_skills": skill_result["missing_skills"],
-            "explanation": explanation,
-        })
+        for _, row in scored_jobs.iterrows()
+    ]
 
     results_df = pd.DataFrame(results)
 

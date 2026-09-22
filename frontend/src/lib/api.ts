@@ -265,6 +265,70 @@ export type AvailableJobItem = {
   salary_max_php?: string;
 };
 
+export type ExternalJobAnalysisRequest = {
+  job_title?: string;
+  company_name?: string;
+  job_description: string;
+};
+
+export type ExternalJobAnalysisResponse = {
+  job: { title: string; company_name: string; source: 'external_paste' };
+  extracted_requirements: {
+    summary: string;
+    responsibilities: string[];
+    required_skills: string[];
+    preferred_skills: string[];
+    normalized_required_skills: string[];
+    normalized_preferred_skills: string[];
+    experience_requirements: string[];
+    education_requirements: string[];
+    certifications: string[];
+    job_level: string;
+    industry: string;
+    work_setup: string;
+  };
+  match: {
+    match_percentage: number;
+    semantic_similarity: number;
+    skill_coverage: number;
+    match_type: string;
+    explanation: string;
+    matched_skills: string[];
+    missing_skills: string[];
+    matched_skill_ids: string[];
+    missing_skill_ids: string[];
+    preference_alignment: number;
+  };
+  matched_skills: string[];
+  missing_skills: string[];
+  preference_alignment: number;
+  learning_recommendations: Array<Record<string, unknown>>;
+  warnings?: string[];
+  metadata: { extraction_source: string; explanation_source: string; matching_source: string; model_used: string; external_job_is_persisted: boolean };
+};
+
+export async function analyzeExternalJob(payload: ExternalJobAnalysisRequest): Promise<ExternalJobAnalysisResponse> {
+  const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Your session has expired. Please log in again.');
+
+  const response = await fetchBackend(
+    `${API_BASE_URL}/api/candidate/external-jobs/analyze`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    },
+    'External job analysis timed out. Please try again.',
+    MATCHING_TIMEOUT_MS,
+  );
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(getReadableMessage(errorBody?.detail || errorBody) || 'External job analysis failed.');
+  }
+  return response.json() as Promise<ExternalJobAnalysisResponse>;
+}
+
 export type JobDetailResponse = {
   job?: AvailableJobItem;
   match_analysis?: {

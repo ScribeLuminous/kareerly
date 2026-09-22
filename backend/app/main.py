@@ -25,10 +25,11 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from .models.schemas import RunMatchesRequest
+from .models.schemas import ExternalJobAnalysisRequest, RunMatchesRequest
 from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
+from .services.external_job_analysis import analyze_external_job
 from .services.matching_service import MatchingModelUnavailable, match_resume_to_jobs, match_text_to_jobs, match_jobs, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_file
 from .services.skill_extractor import SkillExtractor
@@ -1398,6 +1399,89 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
         raise HTTPException(status_code=500, detail=f"Job matching failed: {exc}") from exc
 
     return _apply_report_access_control(result, user_mode, view_mode)
+
+
+def _load_external_job_candidate(user_id: str) -> tuple[str, list[dict], dict, dict]:
+    resume_query = urllib.parse.urlencode({
+        "user_id": f"eq.{user_id}",
+        "select": "parsed_text,extracted_profile_json,created_at",
+        "order": "created_at.desc",
+        "limit": "1",
+    })
+    resumes = _supabase_request(f"/rest/v1/resumes?{resume_query}", service_role=True)
+    resume = resumes[0] if isinstance(resumes, list) and resumes and isinstance(resumes[0], dict) else None
+    resume_text = str(resume.get("parsed_text") or "").strip() if resume else ""
+    if not resume_text:
+        raise HTTPException(status_code=409, detail={
+            "code": "PROFILE_REQUIRED",
+            "message": "Upload or complete your resume before analyzing an external job.",
+        })
+
+    profile_json = resume.get("extracted_profile_json") if isinstance(resume, dict) else {}
+    profile_json = profile_json if isinstance(profile_json, dict) else {}
+    profile = profile_json.get("candidate_profile") if isinstance(profile_json.get("candidate_profile"), dict) else {}
+    skill_records = profile.get("skills") if isinstance(profile.get("skills"), list) else []
+    if not skill_records:
+        skill_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "skill_id,skill_name,confidence", "order": "created_at.desc"})
+        skill_rows = _supabase_request(f"/rest/v1/user_skills?{skill_query}", service_role=True)
+        skill_records = skill_rows if isinstance(skill_rows, list) else []
+
+    preference_query = urllib.parse.urlencode({
+        "user_id": f"eq.{user_id}",
+        "select": "preferred_industry,preferred_work_setup,expected_salary,target_role,skill_to_develop",
+        "limit": "1",
+    })
+    preference_rows = _supabase_request(f"/rest/v1/candidate_profiles?{preference_query}", service_role=True)
+    profile_preferences = preference_rows[0] if isinstance(preference_rows, list) and preference_rows and isinstance(preference_rows[0], dict) else {}
+    preferences = {
+        "industry": str(profile_preferences.get("preferred_industry") or ""),
+        "work_setup": str(profile_preferences.get("preferred_work_setup") or ""),
+        "salary_expectation": str(profile_preferences.get("expected_salary") or ""),
+        "target_role": str(profile_preferences.get("target_role") or ""),
+        "skill_to_develop": str(profile_preferences.get("skill_to_develop") or ""),
+    }
+    context = {
+        "education": profile.get("education") or [],
+        "certifications": profile.get("certifications") or [],
+        "experience": profile.get("experience_indicators") or [],
+    }
+    return resume_text, [item for item in skill_records if isinstance(item, dict)], preferences, context
+
+
+@app.post("/api/candidate/external-jobs/analyze")
+async def analyze_candidate_external_job(
+    payload: ExternalJobAnalysisRequest,
+    authorization: Annotated[Optional[str], Header()] = None,
+) -> dict:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+
+    try:
+        resume_text, skill_records, preferences, profile_context = _load_external_job_candidate(user_id)
+        result = await run_in_threadpool(
+            analyze_external_job,
+            job_description=payload.job_description,
+            job_title=payload.job_title or "",
+            company_name=payload.company_name or "",
+            resume_text=resume_text,
+            confirmed_skills=skill_records,
+            preferences=preferences,
+            profile_context=profile_context,
+        )
+        logger.info("External job analysis completed", extra={"description_length": len(payload.job_description), "extraction_source": result.get("metadata", {}).get("extraction_source")})
+        return result
+    except HTTPException:
+        raise
+    except MatchingModelUnavailable as exc:
+        raise HTTPException(status_code=503, detail="The matching model is temporarily unavailable. Please try again.") from exc
+    except ValueError as exc:
+        if str(exc) == "PROFILE_REQUIRED":
+            raise HTTPException(status_code=409, detail={"code": "PROFILE_REQUIRED", "message": "Upload or complete your resume before analyzing an external job."}) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("External job analysis failed without logging candidate content")
+        raise HTTPException(status_code=500, detail="External job analysis failed. Please try again.") from exc
 
 
 @app.post("/api/matches/from-resume")
