@@ -50,3 +50,13 @@ class RunMatchesRequest(BaseModel):
     resume_text_for_matching: str = Field(min_length=1)
     candidate_skill_ids: List[str] = []
     preferences: MatchPreferences = Field(default_factory=MatchPreferences)
+
+
+class ExternalJobAnalysisRequest(BaseModel):
+    job_title: Optional[str] = Field(default="", max_length=200)
+    company_name: Optional[str] = Field(default="", max_length=200)
+    job_description: str = Field(min_length=1, max_length=30000)
+
+
+class ExternalJobSaveRequest(BaseModel):
+    analysis: dict
