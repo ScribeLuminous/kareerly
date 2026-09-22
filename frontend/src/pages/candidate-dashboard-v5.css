@@ -125,19 +125,23 @@
 }
 
 .cand-btn-update {
+  width: 42px;
+  height: 42px;
   background: var(--rust);
   color: #fff;
   border: none;
-  padding: 9px 18px;
+  padding: 0;
   border-radius: 8px;
-  font-size: 13px;
-  font-weight: 700;
   cursor: pointer;
   transition: opacity 0.2s;
-  white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+}
+
+.cand-btn-update .cand-btn-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .cand-btn-update:hover {
@@ -1858,27 +1862,28 @@
   outline-offset: 2px;
 }
 
-.cand-learning-focus {
-  display: grid;
-  grid-template-columns: minmax(170px, 0.65fr) minmax(260px, 2fr);
-  align-items: center;
-  gap: 18px;
+.cand-learning-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(32px, 4vw, 48px);
   margin-bottom: 24px;
+  border-bottom: 1px solid var(--bdr);
 }
 
-.cand-learning-focus-label {
+.cand-learning-focus {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  flex: 0 1 420px;
+  width: min(420px, 100%);
+  gap: 6px;
 }
 
-.cand-learning-focus-label label {
+.cand-learning-focus label {
   color: var(--dark);
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.cand-learning-focus-label span,
 .cand-learning-section-heading span {
   color: var(--soft);
   font-size: 12px;
@@ -1887,7 +1892,7 @@
 
 .cand-learning-focus select {
   width: 100%;
-  min-height: 44px;
+  min-height: 46px;
   border: 1px solid var(--bdr);
   border-radius: 10px;
   background: var(--card);
@@ -1967,10 +1972,13 @@
   font-weight: 600;
 }
 
-.cand-learning-tabs {
-  width: fit-content;
-  max-width: 100%;
-  margin-bottom: 24px;
+.cand-learning-tabs.cand-skill-gap-tabs {
+  align-self: flex-end;
+  flex: 0 1 auto;
+  width: auto;
+  margin: 0;
+  border-bottom: 0;
+  overflow-x: visible;
 }
 
 .cand-course-grid {
@@ -2108,10 +2116,10 @@
 }
 
 .cand-learning-empty {
-  border: 1px dashed var(--bdr);
-  border-radius: 12px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--bdr);
+  border-radius: 14px;
+  padding: 22px;
+  background: var(--card);
 }
 
 .cand-learning-empty h2 {
@@ -3863,6 +3871,25 @@
   }
 }
 
+@media (max-width: 900px) {
+  .cand-learning-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .cand-learning-focus {
+    flex-basis: auto;
+    width: min(480px, 100%);
+  }
+
+  .cand-learning-tabs.cand-skill-gap-tabs {
+    align-self: stretch;
+    width: 100%;
+    overflow-x: auto;
+  }
+}
+
 @media (max-width: 768px) {
   .cand-learning-header-row,
   .cand-learning-section-heading {
@@ -3872,7 +3899,6 @@
   }
 
   .cand-learning-focus {
-    grid-template-columns: 1fr;
     gap: 8px;
   }
 
