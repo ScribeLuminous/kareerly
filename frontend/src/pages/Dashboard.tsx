@@ -2607,9 +2607,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           <div className="cand-greeting">
             Good day, <span>{displayName}</span>
           </div>
-          <button className="cand-btn-update" type="button" onClick={openResumeModal}>
+          <button className="cand-btn-update" type="button" onClick={openResumeModal} aria-label="Update resume" title="Update resume">
             <UIIcon name="upload" className="cand-btn-icon" />
-            Resume Update
           </button>
           <div className="cand-notif-wrap">
             <button
@@ -5073,6 +5072,20 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
   const visibleCourses = selectedJob ? getLearningForJob(selectedJob, courses) : [];
   const skillsToDevelop = Array.from(new Set((selectedJob?.missingSkills || []).map(cleanSkillDisplayName).filter(Boolean)));
   const selectedSkillGap = (skill: string) => gaps.find((gap) => normalizeSkill(gap.skill) === normalizeSkill(skill));
+  const learningTabOrder: UpskillTab[] = ['recommended', 'by-gap'];
+  const handleLearningTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = learningTabOrder.indexOf(tab);
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? learningTabOrder.length - 1
+        : (currentIndex + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + learningTabOrder.length) % learningTabOrder.length;
+    const nextTab = learningTabOrder[nextIndex];
+    onTab(nextTab);
+    window.setTimeout(() => document.getElementById(`learning-tab-${nextTab}`)?.focus(), 0);
+  };
   const filteredCourses = selectedSkill === 'all'
     ? visibleCourses
     : visibleCourses.filter((course) => getCourseSkillLabels(course).some((skill) => normalizeSkill(skill) === normalizeSkill(selectedSkill)));
@@ -5098,21 +5111,49 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
         </div>
       </div>
 
-      <section className="cand-learning-focus" aria-labelledby="learning-focus-heading">
-        <div className="cand-learning-focus-label">
+      <section className="cand-learning-toolbar" aria-label="Learning recommendation controls">
+        <div className="cand-learning-focus">
           <label id="learning-focus-heading" htmlFor="learning-target-job">Focus job</label>
-          <span>Choose a matched job to focus recommendations on its identified skill gaps.</span>
+          <select
+            ref={jobSelectRef}
+            id="learning-target-job"
+            value={selectedJob?.id || ''}
+            disabled={jobs.length === 0}
+            onChange={(event) => { setSelectedJobId(event.target.value); setSelectedSkill('all'); }}
+          >
+            {jobs.length === 0 && <option value="">No matched jobs available</option>}
+            {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} — {job.company}</option>)}
+          </select>
         </div>
-        <select
-          ref={jobSelectRef}
-          id="learning-target-job"
-          value={selectedJob?.id || ''}
-          disabled={jobs.length === 0}
-          onChange={(event) => { setSelectedJobId(event.target.value); setSelectedSkill('all'); }}
-        >
-          {jobs.length === 0 && <option value="">No matched jobs available</option>}
-          {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} — {job.company}</option>)}
-        </select>
+
+        <div className="cand-tab-row cand-gap-view-tabs cand-skill-gap-tabs cand-learning-tabs" role="tablist" aria-label="Learning recommendation views">
+          <button
+            id="learning-tab-recommended"
+            className={`cand-tab-btn ${tab === 'recommended' ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === 'recommended'}
+            aria-controls="learning-panel-recommended"
+            tabIndex={tab === 'recommended' ? 0 : -1}
+            onClick={() => onTab('recommended')}
+            onKeyDown={handleLearningTabKeyDown}
+          >
+            <UIIcon name="book" className="cand-tab-icon" />What to Learn Next
+          </button>
+          <button
+            id="learning-tab-by-gap"
+            className={`cand-tab-btn ${tab === 'by-gap' ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === 'by-gap'}
+            aria-controls="learning-panel-by-gap"
+            tabIndex={tab === 'by-gap' ? 0 : -1}
+            onClick={() => onTab('by-gap')}
+            onKeyDown={handleLearningTabKeyDown}
+          >
+            <UIIcon name="list" className="cand-tab-icon" />By Skill Gap
+          </button>
+        </div>
       </section>
 
       {selectedJobHasGaps && (
@@ -5145,15 +5186,7 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
         </section>
       )}
 
-      <div className="cand-tab-row cand-gap-view-tabs cand-learning-tabs" role="tablist" aria-label="Learning recommendation views">
-        <button className={`cand-tab-btn ${tab === 'recommended' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'recommended'} onClick={() => onTab('recommended')}>
-          <UIIcon name="book" className="cand-tab-icon" />What to Learn Next
-        </button>
-        <button className={`cand-tab-btn ${tab === 'by-gap' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'by-gap'} onClick={() => onTab('by-gap')}>
-          <UIIcon name="list" className="cand-tab-icon" />By Skill Gap
-        </button>
-      </div>
-
+      <div id={tab === 'recommended' ? 'learning-panel-recommended' : 'learning-panel-by-gap'} role="tabpanel" aria-labelledby={`learning-tab-${tab}`} tabIndex={0}>
       {jobs.length === 0 ? (
         <LearningEmptyState
           title="No learning recommendations yet"
@@ -5211,6 +5244,7 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
           <LearningProviderNote />
         </section>
       )}
+      </div>
     </div>
   );
 }
