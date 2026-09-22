@@ -32,6 +32,11 @@
   color: var(--dark);
 }
 
+.cand-dashboard :is(button, input, select, textarea):focus-visible {
+  outline: 3px solid rgba(196, 83, 26, 0.32);
+  outline-offset: 2px;
+}
+
 .cand-inline-icon {
   width: 18px;
   height: 18px;
@@ -786,6 +791,67 @@
   border-color: var(--rust);
 }
 
+.cand-summary-tabs {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.cand-skill-gap-tabs {
+  align-items: stretch;
+  gap: 28px;
+  width: 100%;
+  max-width: 100%;
+  min-height: 44px;
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--bdr);
+  border-radius: 0;
+  background: transparent;
+  overflow-x: auto;
+}
+
+.cand-skill-gap-tabs .cand-tab-btn {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 2px 9px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--mid);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cand-skill-gap-tabs .cand-tab-btn:hover,
+.cand-skill-gap-tabs .cand-tab-btn.active {
+  border: 0;
+  background: transparent;
+  color: var(--rust);
+}
+
+.cand-skill-gap-tabs .cand-tab-btn.active {
+  font-weight: 700;
+}
+
+.cand-skill-gap-tabs .cand-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--rust);
+}
+
+.cand-skill-gap-tabs .cand-tab-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+}
+
 .cand-match-groups {
   display: grid;
   gap: 16px;
@@ -1095,7 +1161,7 @@
   justify-content: flex-start;
   align-items: stretch;
   gap: 10px;
-  margin-bottom: 0;
+  margin-bottom: 24px;
   flex: 1 1 100%;
   flex-wrap: wrap;
 }
@@ -1184,11 +1250,34 @@
   background: var(--card);
   border: 1px solid var(--bdr);
   border-radius: 14px;
-  padding: 20px 18px;
+  padding: 22px 20px;
+  color: var(--mid);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cand-gap-empty-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--soft);
+  flex: 0 0 auto;
+}
+
+.cand-gap-empty-title {
+  margin: 0;
+  color: var(--dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cand-gap-empty-description {
+  margin: 5px 0 0;
   color: var(--soft);
   font-size: 13px;
-  line-height: 1.6;
-  margin-bottom: 14px;
+  line-height: 1.55;
 }
 
 .cand-gap-covered-toggle {
@@ -2676,6 +2765,243 @@
   border-bottom: 1px solid var(--bdr);
 }
 
+.cand-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cand-kareers-toolbar .cand-kareers-search,
+.cand-app-toolbar .cand-app-search {
+  flex: 1 1 auto;
+  min-width: 220px;
+  margin-bottom: 0;
+}
+
+.cand-filter-control,
+.cand-sort-control {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.cand-filter-button,
+.cand-toolbar-select {
+  min-height: 40px;
+  border: 1px solid var(--bdr);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--mid);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cand-filter-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 13px;
+  cursor: pointer;
+}
+
+.cand-filter-button:hover,
+.cand-filter-button.active {
+  border-color: var(--rust);
+  color: var(--rust);
+}
+
+.cand-toolbar-select {
+  min-width: 126px;
+  padding: 8px 30px 8px 12px;
+  cursor: pointer;
+}
+
+.cand-filter-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 290;
+  border: 0;
+  background: rgba(42, 31, 20, 0.16);
+}
+
+.cand-filter-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 300;
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(72vh, 620px);
+  overflow-y: auto;
+  border: 1px solid var(--bdr);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 16px 36px rgba(42, 31, 20, 0.16);
+}
+
+.cand-filter-panel:focus-visible {
+  outline: 3px solid rgba(196, 83, 26, 0.32);
+  outline-offset: 3px;
+}
+
+.cand-filter-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px 13px;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.cand-filter-panel-title {
+  color: var(--dark);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.cand-filter-panel-subtitle {
+  margin-top: 3px;
+  color: var(--soft);
+  font-size: 11px;
+}
+
+.cand-filter-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--soft);
+  cursor: pointer;
+}
+
+.cand-filter-close:hover {
+  background: var(--rust-l);
+  color: var(--rust);
+}
+
+.cand-filter-panel-body {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+}
+
+.cand-filter-section {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cand-filter-section + .cand-filter-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--bdr);
+}
+
+.cand-filter-section-title {
+  display: block;
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--mid);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.55px;
+  text-transform: uppercase;
+}
+
+.cand-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.cand-filter-field label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--mid);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cand-filter-field .cand-form-select {
+  min-height: 40px;
+}
+
+.cand-filter-radio {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  color: var(--mid);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cand-filter-radio input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--rust);
+}
+
+.cand-filter-panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 13px 18px 16px;
+  border-top: 1px solid var(--bdr);
+}
+
+.cand-filter-clear,
+.cand-filter-reset-link {
+  border: 0;
+  background: transparent;
+  color: var(--mid);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cand-filter-clear:hover,
+.cand-filter-reset-link:hover {
+  color: var(--rust);
+}
+
+.cand-active-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+
+.cand-active-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 9px 5px 11px;
+  border: 1px solid var(--cream-d);
+  border-radius: 8px;
+  background: var(--cream);
+  color: var(--mid);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cand-active-filter-chip:hover {
+  border-color: var(--rust);
+  color: var(--rust);
+}
+
+.cand-active-filter-chip-icon {
+  width: 11px;
+  height: 11px;
+}
+
 .cand-page-header-inline {
   margin-bottom: 0;
 }
@@ -3415,6 +3741,17 @@
 }
 
 @media (max-width: 900px) {
+  .cand-toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .cand-kareers-toolbar .cand-kareers-search,
+  .cand-app-toolbar .cand-app-search {
+    flex-basis: 100%;
+    min-width: 100%;
+  }
+
   .cand-gap-kanban {
     grid-template-columns: 1fr;
   }
@@ -3437,6 +3774,21 @@
   }
 
   .cand-kareers-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .cand-filter-panel {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    max-height: min(78vh, 620px);
+    border-radius: 16px 16px 0 0;
+  }
+
+  .cand-filter-grid {
     grid-template-columns: 1fr;
   }
 
@@ -3545,5 +3897,10 @@
   .cand-gap-view-tabs .cand-tab-btn {
     flex: 1 1 0;
     min-width: 0;
+  }
+
+  .cand-skill-gap-tabs .cand-tab-btn {
+    flex: 0 0 auto;
+    min-width: max-content;
   }
 }

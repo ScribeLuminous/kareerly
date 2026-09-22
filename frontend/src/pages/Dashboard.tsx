@@ -302,7 +302,6 @@ type JobApplicationRow = {
 };
 
 
-const PROGRESS_EMPTY_TEXT = 'No skill progress recorded yet. Opening a learning resource does not record progress. Review your resume to keep your profile information current.';
 const SKILL_PROGRESS_PERCENT: Record<SkillProgressStatus, number> = {
   missing: 0,
   started: 10,
@@ -1095,6 +1094,15 @@ function getPreferenceLabel(table: Record<string, string>, key: string): string 
 function statusKey(status: ApplicationStatus): 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn' {
   return status.toLowerCase() as 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn';
 }
+
+const APPLICATION_STATUS_FILTERS = [
+  ['pending', 'Pending'],
+  ['shortlisted', 'Shortlisted'],
+  ['interviewing', 'Interviewing'],
+  ['hired', 'Hired'],
+  ['rejected', 'Rejected'],
+  ['withdrawn', 'Withdrawn'],
+] as const;
 
 export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUpdateResume, onLogout }: DashboardProps) {
   void onLogin;
@@ -2781,16 +2789,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           {activePage === 'dashboard' && (
             <DashboardOverview
               hasData={hasData}
-              isLoading={state.isLoading}
               metrics={metricCards}
-              categoryProgress={categoryProgress}
               topJobHighlights={topJobHighlights}
               recentApplications={recentApplications}
               topMissingSkills={topMissingSkills}
               recommendedSteps={recommendedSteps}
               courseRecommendations={courseRecommendations}
               onOpenMatches={() => setActivePage('jobmatches')}
-              onOpenApplications={() => setActivePage('applications')}
               onOpenGaps={() => setActivePage('skillgaps')}
               onOpenUpskilling={() => setActivePage('upskilling')}
               onOpenMessages={() => setActivePage('messages')}
@@ -3113,43 +3118,117 @@ function NavItem({ active, onClick, icon, children }: { active: boolean; onClick
   );
 }
 
+function FilterPanel({
+  open,
+  panelId,
+  title,
+  labelledBy,
+  onClose,
+  onApply,
+  onClear,
+  children,
+}: {
+  open: boolean;
+  panelId: string;
+  title: string;
+  labelledBy: string;
+  onClose: () => void;
+  onApply: () => void;
+  onClear: () => void;
+  children: ReactNode;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) panelRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      <button className="cand-filter-backdrop" type="button" aria-label="Close filters" onClick={onClose} />
+      <div id={panelId} ref={panelRef} className="cand-filter-panel" role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}>
+        <div className="cand-filter-panel-header">
+          <div>
+            <div id={labelledBy} className="cand-filter-panel-title">{title}</div>
+            <div className="cand-filter-panel-subtitle">Refine results with the filters below.</div>
+          </div>
+          <button className="cand-filter-close" type="button" aria-label={`Close ${title}`} onClick={onClose}>
+            <UIIcon name="close" />
+          </button>
+        </div>
+        <form onSubmit={(event) => { event.preventDefault(); onApply(); }}>
+          <div className="cand-filter-panel-body">{children}</div>
+          <div className="cand-filter-panel-actions">
+            <button className="cand-filter-clear" type="button" onClick={onClear}>Clear all</button>
+            <button className="cand-btn-primary cand-btn-sm" type="submit">Apply filters</button>
+          </div>
+        </form>
+      </div>
+    </>
+  );
+}
+
+function ActiveFilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button className="cand-active-filter-chip" type="button" onClick={onRemove} aria-label={`Remove ${label} filter`}>
+      <span>{label}</span>
+      <UIIcon name="close" className="cand-active-filter-chip-icon" />
+    </button>
+  );
+}
+
+function SkillGapEmptyState() {
+  return (
+    <div className="cand-gap-empty-state">
+      <UIIcon name="puzzle" className="cand-gap-empty-icon" />
+      <div>
+        <h3 className="cand-gap-empty-title">No skills to develop yet</h3>
+        <p className="cand-gap-empty-description">Your skill gaps will appear here after Kareerly identifies missing skills from your job matches.</p>
+      </div>
+    </div>
+  );
+}
+
 function DashboardOverview({
   hasData,
-  isLoading,
   metrics,
-  categoryProgress,
   topJobHighlights,
   recentApplications,
   topMissingSkills,
   recommendedSteps,
   courseRecommendations,
   onOpenMatches,
-  onOpenApplications,
   onOpenGaps,
   onOpenUpskilling,
   onOpenMessages,
 }: {
   hasData: boolean;
-  isLoading: boolean;
   metrics: Array<{ label: string; value: string; detail: string; iconClass: string; valueColor: string; icon: IconName }>;
-  categoryProgress: CategoryProgressRow[];
   topJobHighlights: DashboardJob[];
   recentApplications: DashboardApplication[];
   topMissingSkills: DashboardGap[];
   recommendedSteps: string[];
   courseRecommendations: DashboardCourse[];
   onOpenMatches: () => void;
-  onOpenApplications: () => void;
   onOpenGaps: () => void;
   onOpenUpskilling: () => void;
   onOpenMessages: () => void;
 }) {
   const summaryTabs = [
     { id: 'steps', label: 'Next Steps', icon: 'list' },
-    { id: 'progress', label: 'Progress', icon: 'chart' },
     { id: 'matches', label: 'Job Highlights', icon: 'briefcase' },
-    { id: 'gaps', label: 'Priority Skills', icon: 'lightbulb' },
-    { id: 'applications', label: 'Applications', icon: 'clock' },
+    { id: 'gaps', label: 'Skills to Develop', icon: 'lightbulb' },
     { id: 'upskilling', label: 'Upskilling', icon: 'book' },
   ] as const;
   type SummaryTab = (typeof summaryTabs)[number]['id'];
@@ -3183,7 +3262,7 @@ function DashboardOverview({
         </div>
       )}
 
-      <div className="cand-tab-row">
+      <div className="cand-tab-row cand-summary-tabs">
         {summaryTabs.map((tab) => (
           <button
             key={tab.id}
@@ -3198,47 +3277,6 @@ function DashboardOverview({
           </button>
         ))}
       </div>
-
-      {activeSummaryTab === 'progress' && (
-        <div className="cand-card mb-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="cand-card-title mb-0"><UIIcon name="chart" className="cand-title-icon" />Skill Development Progress</h2>
-            <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenGaps}>
-              View Full Progress
-            </button>
-          </div>
-          {categoryProgress.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {categoryProgress.map((row) => {
-                const status = categoryStatus(row.percent);
-                return (
-                  <div key={row.category}>
-                    <div className="cand-sdp-row">
-                      <span className="cand-sdp-label">{row.category}</span>
-                      <div className="cand-sdp-bar-wrap">
-                        <div className="cand-sdp-bar-fill" style={{ width: `${row.percent}%`, background: categoryBarColor(row.category) }} />
-                      </div>
-                      <span className="cand-sdp-pct">{row.percent}%</span>
-                      <span className={status.className}>{status.label}</span>
-                    </div>
-                    <div className="mt-1 text-[11px] text-soft">
-                      {row.relatedSkillRecords.length} related skill{row.relatedSkillRecords.length === 1 ? '' : 's'} · {row.completed} completed learning · {row.evidenceUploaded} evidence uploaded
-                      {row.recentActivity ? ` · ${row.recentActivity}` : ''}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : isLoading ? (
-            <div className="cand-empty">Loading your skill development progress...</div>
-          ) : (
-            <div className="cand-gap-empty-state">{PROGRESS_EMPTY_TEXT}</div>
-          )}
-          <div className="cand-sdp-disclaimer">
-            Skill Development Progress is a career-guidance indicator only, not formal skill verification, credential authentication, or a job-readiness guarantee.
-          </div>
-        </div>
-      )}
 
       {activeSummaryTab === 'matches' && (
         <div className="cand-card mb-6">
@@ -3281,35 +3319,9 @@ function DashboardOverview({
         </div>
       )}
 
-      {activeSummaryTab === 'applications' && (
-        <div className="cand-card mb-6">
-          <h2 className="cand-card-title"><UIIcon name="clock" className="cand-title-icon" />Recent Application Updates</h2>
-          {recentApplications.length > 0 ? (
-            <>
-              {recentApplications.map((app) => (
-                <div key={app.id} className="flex items-center justify-between border-b border-bdr py-3 last:border-b-0">
-                  <div>
-                    <div className="text-sm font-bold text-dark">{app.jobTitle}</div>
-                    <div className="text-xs text-soft">
-                      {app.company} · Applied {formatDateLabel(app.dateApplied)}
-                    </div>
-                  </div>
-                  <StatusBadge status={app.status} />
-                </div>
-              ))}
-              <button className="cand-btn-secondary mt-4 w-full justify-center" type="button" onClick={onOpenApplications}>
-                Track All Applications
-              </button>
-            </>
-          ) : (
-            <div className="cand-empty">No applications yet. Apply to internal matches to start tracking.</div>
-          )}
-        </div>
-      )}
-
       {activeSummaryTab === 'gaps' && (
         <div className="cand-card mb-6">
-          <h2 className="cand-card-title"><UIIcon name="lightbulb" className="cand-title-icon" />Priority Skills to Develop</h2>
+          <h2 className="cand-card-title"><UIIcon name="lightbulb" className="cand-title-icon" />Skills to Develop</h2>
           {topMissingSkills.length > 0 ? (
             <>
               {topMissingSkills.map((gap) => (
@@ -3322,7 +3334,7 @@ function DashboardOverview({
                 </div>
               ))}
               <button className="cand-btn-secondary mt-4 w-full justify-center" type="button" onClick={onOpenGaps}>
-                View All Priority Skills
+                View All Skills to Develop
               </button>
             </>
           ) : (
@@ -3675,6 +3687,21 @@ function SkillGapsPage({
   );
   const [activeSkillGapView, setActiveSkillGapView] = useState<'board' | 'progress'>('board');
   const [selectedCategory, setSelectedCategory] = useState<SkillCategory>(sortedCategories[0]?.category || 'Other');
+  const skillGapTabOrder = ['board', 'progress'] as const;
+  const selectSkillGapView = (view: 'board' | 'progress') => setActiveSkillGapView(view);
+  const handleSkillGapTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = skillGapTabOrder.indexOf(activeSkillGapView);
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? skillGapTabOrder.length - 1
+        : (currentIndex + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + skillGapTabOrder.length) % skillGapTabOrder.length;
+    const nextView = skillGapTabOrder[nextIndex];
+    selectSkillGapView(nextView);
+    window.setTimeout(() => document.getElementById(`skill-gap-tab-${nextView}`)?.focus(), 0);
+  };
 
   useEffect(() => {
     if (sortedCategories.length === 0) return;
@@ -3737,8 +3764,6 @@ function SkillGapsPage({
     { label: 'Completed / Covered', value: Math.max(totalCoveredSkills, completedCount), tone: 'progress', icon: 'check-circle' as IconName, subtitle: 'Covered by skills or learning' },
     { label: 'Evidence Uploaded', value: evidenceUploadedCount, tone: 'evidence', icon: 'upload' as IconName, subtitle: 'Supporting documents on file' },
   ] as const;
-  const emptyProgressText = PROGRESS_EMPTY_TEXT;
-
   return (
     <div>
       <div className="cand-page-header">
@@ -3751,44 +3776,50 @@ function SkillGapsPage({
         </div>
       </div>
 
-      <div className="cand-gap-toolbar">
-        <div className="cand-gap-insights-bar">
-          {summaryCards.map((card) => (
-            <div key={card.label} className={`cand-gap-insight ${card.tone}`}>
-              <div className="cand-gap-insight-label"><UIIcon name={card.icon} className="cand-mini-icon" />{card.label}</div>
-              <div className="cand-gap-insight-value">{card.value}</div>
-              <div className="cand-gap-insight-subtitle">{card.subtitle}</div>
-            </div>
-          ))}
-        </div>
+      <div className="cand-gap-insights-bar">
+        {summaryCards.map((card) => (
+          <div key={card.label} className={`cand-gap-insight ${card.tone}`}>
+            <div className="cand-gap-insight-label"><UIIcon name={card.icon} className="cand-mini-icon" />{card.label}</div>
+            <div className="cand-gap-insight-value">{card.value}</div>
+            <div className="cand-gap-insight-subtitle">{card.subtitle}</div>
+          </div>
+        ))}
+      </div>
 
-        <div className="cand-tab-row cand-gap-view-tabs" role="tablist" aria-label="Skill gaps views">
+      <div className="cand-tab-row cand-gap-view-tabs cand-skill-gap-tabs" role="tablist" aria-label="Skill gaps views">
           <button
+            id="skill-gap-tab-board"
             className={`cand-tab-btn ${activeSkillGapView === 'board' ? 'active' : ''}`}
             type="button"
             role="tab"
             aria-selected={activeSkillGapView === 'board'}
-            onClick={() => setActiveSkillGapView('board')}
+            aria-controls="skill-gap-board-panel"
+            tabIndex={activeSkillGapView === 'board' ? 0 : -1}
+            onClick={() => selectSkillGapView('board')}
+            onKeyDown={handleSkillGapTabKeyDown}
           >
             <UIIcon name="columns" className="cand-tab-icon" />Skill Gap Board
           </button>
           <button
+            id="skill-gap-tab-progress"
             className={`cand-tab-btn ${activeSkillGapView === 'progress' ? 'active' : ''}`}
             type="button"
             role="tab"
             aria-selected={activeSkillGapView === 'progress'}
-            onClick={() => setActiveSkillGapView('progress')}
+            aria-controls="skill-gap-progress-panel"
+            tabIndex={activeSkillGapView === 'progress' ? 0 : -1}
+            onClick={() => selectSkillGapView('progress')}
+            onKeyDown={handleSkillGapTabKeyDown}
           >
             <UIIcon name="chart" className="cand-tab-icon" />Development Progress
           </button>
-        </div>
       </div>
 
       {activeSkillGapView === 'board' ? (
-        <>
-          <h2 className="cand-card-title mb-3"><UIIcon name="columns" className="cand-title-icon" />Skill Gap Board</h2>
+        <div id="skill-gap-board-panel" role="tabpanel" aria-labelledby="skill-gap-tab-board" tabIndex={0}>
+          <h2 className="cand-card-title cand-gap-content-title mb-3"><UIIcon name="columns" className="cand-title-icon" />Skills to Develop</h2>
           {!hasAnyProgressData ? (
-            <div className="cand-gap-empty-state">{emptyProgressText}</div>
+            <SkillGapEmptyState />
           ) : (
           <div className="cand-gap-kanban">
             {[
@@ -3861,16 +3892,16 @@ function SkillGapsPage({
             ))}
           </div>
           )}
-        </>
+        </div>
       ) : (
-        <>
-          <h2 className="cand-card-title mb-2"><UIIcon name="chart" className="cand-title-icon" />Skill Development Progress by Category</h2>
+        <div id="skill-gap-progress-panel" role="tabpanel" aria-labelledby="skill-gap-tab-progress" tabIndex={0}>
+          <h2 className="cand-card-title cand-gap-content-title mb-2"><UIIcon name="chart" className="cand-title-icon" />Your Development Progress</h2>
           <p className="mb-3 text-xs text-soft">
             Progress is an explainable career-guidance indicator, not a mastery-verification score.
           </p>
 
           {!hasAnyProgressData ? (
-            <div className="cand-gap-empty-state">{emptyProgressText}</div>
+            <SkillGapEmptyState />
           ) : (
           <div className="cand-sdp-dual">
             <div className="cand-sdp-list">
@@ -3894,7 +3925,7 @@ function SkillGapsPage({
                     </div>
                   </button>
                 );
-              }) : <div className="cand-gap-empty-state">{emptyProgressText}</div>}
+              }) : <SkillGapEmptyState />}
             </div>
 
             <div className="cand-sdp-detail">
@@ -3946,7 +3977,7 @@ function SkillGapsPage({
                   </div>
                 </>
               ) : (
-                <div className="cand-gap-empty-state">{emptyProgressText}</div>
+                <SkillGapEmptyState />
               )}
             </div>
           </div>
@@ -3955,7 +3986,7 @@ function SkillGapsPage({
           <div className="cand-sdp-disclaimer">
             Skill Development Progress remains an explainable indicator for guidance and does not certify verified competency or guarantee employment.
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -3980,7 +4011,9 @@ function ApplicationsPage({
 }) {
   const [searchValue, setSearchValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn'>('all');
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const hasInterviewing = applications.some((app) => app.status === 'Interviewing');
+  const activeFilterCount = statusFilter === 'all' ? 0 : 1;
   const filteredApplications = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
     return applications.filter((application) => {
@@ -3999,35 +4032,58 @@ function ApplicationsPage({
           <h1 className="cand-page-title">My Applications</h1>
           <p className="cand-page-subtitle">Track your internal Kareerly job applications and their current statuses</p>
         </div>
-        <div className="cand-app-search">
-          <UIIcon name="search" className="cand-search-icon" />
-          <input
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
-            placeholder="Search by job title, company, status, or match %..."
-          />
-        </div>
-        <div className="cand-app-tabs">
-          {[
-            ['all', 'All'],
-            ['pending', 'Pending'],
-            ['shortlisted', 'Shortlisted'],
-            ['interviewing', 'Interviewing'],
-            ['hired', 'Hired'],
-            ['rejected', 'Rejected'],
-            ['withdrawn', 'Withdrawn'],
-          ].map(([value, label]) => (
+        <div className="cand-toolbar cand-app-toolbar">
+          <div className="cand-app-search">
+            <UIIcon name="search" className="cand-search-icon" />
+            <input
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder="Search by job title, company, status, or match %..."
+            />
+          </div>
+          <div className="cand-filter-control">
             <button
-              key={value}
-              className={`cand-app-tab ${statusFilter === value ? 'active' : ''}`}
+              className={`cand-filter-button ${activeFilterCount > 0 ? 'active' : ''}`}
               type="button"
-              onClick={() => setStatusFilter(value as 'all' | 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn')}
+              aria-expanded={filterPanelOpen}
+              aria-controls="applications-filter-panel"
+              onClick={() => setFilterPanelOpen((current) => !current)}
             >
-              {label}
+              <UIIcon name="filter" className="cand-btn-icon" />
+              Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             </button>
-          ))}
+            <FilterPanel
+              open={filterPanelOpen}
+              panelId="applications-filter-panel"
+              title="Application filters"
+              labelledBy="applications-filter-panel-title"
+              onClose={() => setFilterPanelOpen(false)}
+              onApply={() => setFilterPanelOpen(false)}
+              onClear={() => { setStatusFilter('all'); setFilterPanelOpen(false); }}
+            >
+              <fieldset className="cand-filter-section">
+                <legend className="cand-filter-section-title">Status</legend>
+                <label className="cand-filter-radio">
+                  <input type="radio" name="application-status" checked={statusFilter === 'all'} onChange={() => setStatusFilter('all')} />
+                  <span>All statuses</span>
+                </label>
+                {APPLICATION_STATUS_FILTERS.map(([value, label]) => (
+                  <label key={value} className="cand-filter-radio">
+                    <input type="radio" name="application-status" checked={statusFilter === value} onChange={() => setStatusFilter(value)} />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </fieldset>
+            </FilterPanel>
+          </div>
         </div>
-      </div>
+        {activeFilterCount > 0 && (
+          <div className="cand-active-filter-chips" aria-label="Active application filters">
+            <ActiveFilterChip label={APPLICATION_STATUS_FILTERS.find(([value]) => value === statusFilter)?.[1] || statusFilter} onRemove={() => setStatusFilter('all')} />
+            <button className="cand-filter-reset-link" type="button" onClick={() => setStatusFilter('all')}>Clear all</button>
+          </div>
+        )}
+        </div>
 
       <div className="cand-notice info">
         <span>
@@ -4534,6 +4590,7 @@ function KareersPage({
   const [locationFilter, setLocationFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'salary-high' | 'salary-low' | 'az' | 'za'>('newest');
   const [alignFilter, setAlignFilter] = useState('');
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [pendingApplyJob, setPendingApplyJob] = useState<DashboardJob | null>(null);
   const [submittedApplyJob, setSubmittedApplyJob] = useState<DashboardJob | null>(null);
@@ -4565,6 +4622,23 @@ function KareersPage({
   const locations = useMemo(() => Array.from(new Set(kareers.map((job) => job.location).filter(Boolean))).sort(), [kareers]);
   const pageCount = Math.max(1, Math.ceil(filteredKareers.length / 20));
   const pagedKareers = filteredKareers.slice((page - 1) * 20, page * 20);
+  const activeCareerFilters = [
+    categoryFilter ? { label: categoryFilter, onRemove: () => setCategoryFilter('') } : null,
+    employmentFilter ? { label: `Employment: ${employmentFilter}`, onRemove: () => setEmploymentFilter('') } : null,
+    levelFilter ? { label: `Experience: ${levelFilter}`, onRemove: () => setLevelFilter('') } : null,
+    setupFilter ? { label: `Work setup: ${setupFilter}`, onRemove: () => setSetupFilter('') } : null,
+    locationFilter ? { label: `Location: ${locationFilter}`, onRemove: () => setLocationFilter('') } : null,
+    alignFilter ? { label: `Alignment: ${alignFilter === 'fit-now' ? 'Fit-Now' : 'Aspiration'}`, onRemove: () => setAlignFilter('') } : null,
+  ].filter((filter): filter is { label: string; onRemove: () => void } => Boolean(filter));
+  const clearCareerFilters = () => {
+    setCategoryFilter('');
+    setEmploymentFilter('');
+    setLevelFilter('');
+    setSetupFilter('');
+    setLocationFilter('');
+    setAlignFilter('');
+    setFilterPanelOpen(false);
+  };
 
   useEffect(() => { setPage(1); }, [alignFilter, categoryFilter, employmentFilter, levelFilter, locationFilter, searchValue, setupFilter, sortOrder]);
 
@@ -4589,46 +4663,106 @@ function KareersPage({
         </div>
       </div>
 
-      <div className="cand-kareers-search-row">
-        <div className="cand-search-box">
+      <div className="cand-toolbar cand-kareers-toolbar">
+        <div className="cand-search-box cand-kareers-search">
           <UIIcon name="search" className="cand-search-icon" />
           <input value={searchValue} onChange={(event) => setSearchValue(event.target.value)} placeholder="Search by role, skill, category, or location..." />
         </div>
-        <select className="cand-form-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-          <option value="">All Categories</option>
-          {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-        </select>
-        <select className="cand-form-select" value={employmentFilter} onChange={(event) => setEmploymentFilter(event.target.value)}>
-          <option value="">All Employment Types</option>
-          {['Full Time', 'Part Time', 'Contract', 'Internship', 'Freelance'].map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
-        <select className="cand-form-select" value={locationFilter} onChange={(event) => setLocationFilter(event.target.value)}>
-          <option value="">All Locations</option>
-          {locations.map((location) => <option key={location} value={location}>{location}</option>)}
-        </select>
-        <select className="cand-form-select" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}>
+        <div className="cand-filter-control">
+          <button
+            className={`cand-filter-button ${activeCareerFilters.length > 0 ? 'active' : ''}`}
+            type="button"
+            aria-expanded={filterPanelOpen}
+            aria-controls="career-filter-panel"
+            onClick={() => setFilterPanelOpen((current) => !current)}
+          >
+            <UIIcon name="filter" className="cand-btn-icon" />
+            Filters{activeCareerFilters.length > 0 ? ` (${activeCareerFilters.length})` : ''}
+          </button>
+          <FilterPanel
+            open={filterPanelOpen}
+            panelId="career-filter-panel"
+            title="Career filters"
+            labelledBy="career-filter-panel-title"
+            onClose={() => setFilterPanelOpen(false)}
+            onApply={() => setFilterPanelOpen(false)}
+            onClear={clearCareerFilters}
+          >
+            <div className="cand-filter-section">
+              <div className="cand-filter-section-title">Job details</div>
+              <div className="cand-filter-grid">
+                <div className="cand-filter-field">
+                  <label htmlFor="career-category-filter">Category</label>
+                  <select id="career-category-filter" className="cand-form-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                    <option value="">All categories</option>
+                    {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                </div>
+                <div className="cand-filter-field">
+                  <label htmlFor="career-employment-filter">Employment type</label>
+                  <select id="career-employment-filter" className="cand-form-select" value={employmentFilter} onChange={(event) => setEmploymentFilter(event.target.value)}>
+                    <option value="">All employment types</option>
+                    {['Full Time', 'Part Time', 'Contract', 'Internship', 'Freelance'].map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </div>
+                <div className="cand-filter-field">
+                  <label htmlFor="career-level-filter">Experience level</label>
+                  <select id="career-level-filter" className="cand-form-select" value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+                    <option value="">All levels</option>
+                    <option value="Entry">Entry level</option>
+                    <option value="Junior">Junior</option>
+                    <option value="Mid">Mid-level</option>
+                    <option value="Senior">Senior</option>
+                    <option value="Trainee">Trainee</option>
+                  </select>
+                </div>
+                <div className="cand-filter-field">
+                  <label htmlFor="career-setup-filter">Work setup</label>
+                  <select id="career-setup-filter" className="cand-form-select" value={setupFilter} onChange={(event) => setSetupFilter(event.target.value)}>
+                    <option value="">All work setups</option>
+                    <option value="Remote">Remote</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="Onsite">Onsite</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="cand-filter-section">
+              <div className="cand-filter-section-title">Location</div>
+              <div className="cand-filter-field">
+                <label htmlFor="career-location-filter">Location</label>
+                <select id="career-location-filter" className="cand-form-select" value={locationFilter} onChange={(event) => setLocationFilter(event.target.value)}>
+                  <option value="">All locations</option>
+                  {locations.map((location) => <option key={location} value={location}>{location}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="cand-filter-section">
+              <div className="cand-filter-section-title">Match</div>
+              <div className="cand-filter-field">
+                <label htmlFor="career-alignment-filter">Alignment</label>
+                <select id="career-alignment-filter" className="cand-form-select" value={alignFilter} onChange={(event) => setAlignFilter(event.target.value)}>
+                  <option value="">All alignments</option>
+                  <option value="fit-now">Fit-Now</option>
+                  <option value="aspiration">Aspiration</option>
+                </select>
+              </div>
+            </div>
+          </FilterPanel>
+        </div>
+        <label className="cand-sort-control">
+          <span className="sr-only">Sort jobs</span>
+          <select className="cand-toolbar-select" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}>
           <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="salary-high">Salary High–Low</option><option value="salary-low">Salary Low–High</option><option value="az">A–Z</option><option value="za">Z–A</option>
-        </select>
-        <select className="cand-form-select" value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-          <option value="">All Levels</option>
-          <option value="Entry">Entry Level</option>
-          <option value="Junior">Junior</option>
-          <option value="Mid">Mid-Level</option>
-          <option value="Senior">Senior</option>
-          <option value="Trainee">Trainee</option>
-        </select>
-        <select className="cand-form-select" value={setupFilter} onChange={(event) => setSetupFilter(event.target.value)}>
-          <option value="">All Work Setups</option>
-          <option value="Remote">Remote</option>
-          <option value="Hybrid">Hybrid</option>
-          <option value="Onsite">Onsite</option>
-        </select>
-        <select className="cand-form-select" value={alignFilter} onChange={(event) => setAlignFilter(event.target.value)}>
-          <option value="">All Alignments</option>
-          <option value="fit-now">Fit-Now</option>
-          <option value="aspiration">Aspiration</option>
-        </select>
+          </select>
+        </label>
       </div>
+      {activeCareerFilters.length > 0 && (
+        <div className="cand-active-filter-chips" aria-label="Active career filters">
+          {activeCareerFilters.map((filter) => <ActiveFilterChip key={filter.label} label={filter.label} onRemove={filter.onRemove} />)}
+          <button className="cand-filter-reset-link" type="button" onClick={clearCareerFilters}>Clear all</button>
+        </div>
+      )}
 
       <div className="cand-two-panel">
         <div className="cand-two-panel-left">
