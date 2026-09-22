@@ -41,7 +41,7 @@ export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProp
       subtitle="Join thousands of job seekers"
       panelTitle="Join as a Job Seeker"
       panelSubtitle="Create your account and upload your resume to get started"
-      panelItems={['Find jobs matched to your skills', 'See skill gaps & learning paths', 'Apply with one click', 'Track your applications']}
+      panelItems={['Find jobs matched to your skills', 'See skill gaps & learning recommendations', 'Apply with one click', 'Track your applications']}
       onHome={onHome}
     >
       <form onSubmit={handleSubmit}>
