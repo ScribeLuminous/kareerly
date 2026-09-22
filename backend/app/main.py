@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from .models.schemas import ExternalJobAnalysisRequest, RunMatchesRequest
+from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, RunMatchesRequest
 from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
@@ -66,6 +66,8 @@ app.add_middleware(
 
 skill_extractor = SkillExtractor()
 MAX_CONFIRMED_SKILLS = 20
+MAX_SAVED_EXTERNAL_JOB_MATCHES = 5
+MAX_SAVED_EXTERNAL_JOB_RESULT_BYTES = 120_000
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.getenv(
     "SUPABASE_ANON_KEY",
@@ -1448,6 +1450,76 @@ def _load_external_job_candidate(user_id: str) -> tuple[str, list[dict], dict, d
     return resume_text, [item for item in skill_records if isinstance(item, dict)], preferences, context
 
 
+def _compact_external_job_analysis(analysis: dict) -> dict:
+    """Keep saved external results useful without retaining the pasted job text."""
+    if not isinstance(analysis, dict):
+        raise HTTPException(status_code=400, detail="A valid external job analysis is required.")
+
+    job = analysis.get("job") if isinstance(analysis.get("job"), dict) else {}
+    extracted = analysis.get("extracted_requirements") if isinstance(analysis.get("extracted_requirements"), dict) else {}
+    match = analysis.get("match") if isinstance(analysis.get("match"), dict) else {}
+    metadata = analysis.get("metadata") if isinstance(analysis.get("metadata"), dict) else {}
+
+    def bounded_items(value: object, limit: int) -> list[str]:
+        return [str(item)[:120] for item in value[:limit]] if isinstance(value, list) else []
+
+    title = str(job.get("title") or "External job").strip()[:200]
+    company_name = str(job.get("company_name") or "").strip()[:200]
+    if not title:
+        raise HTTPException(status_code=400, detail="The external job title is required to save this result.")
+
+    compact_match = {
+        "match_percentage": match.get("match_percentage", 0),
+        "semantic_similarity": match.get("semantic_similarity", 0),
+        "skill_coverage": match.get("skill_coverage", 0),
+        "match_type": str(match.get("match_type") or "")[:80],
+        "explanation": str(match.get("explanation") or "")[:4000],
+        "matched_skills": bounded_items(match.get("matched_skills"), 20),
+        "missing_skills": bounded_items(match.get("missing_skills"), 20),
+        "matched_skill_ids": bounded_items(match.get("matched_skill_ids"), 20),
+        "missing_skill_ids": bounded_items(match.get("missing_skill_ids"), 20),
+        "preference_alignment": match.get("preference_alignment", analysis.get("preference_alignment", 0)),
+    }
+    compact = {
+        "job": {"title": title, "company_name": company_name, "source": "external_paste"},
+        "extracted_requirements": {
+            key: value
+            for key, value in extracted.items()
+            if key in {
+                "summary", "responsibilities", "required_skills", "preferred_skills",
+                "normalized_required_skills", "normalized_preferred_skills", "experience_requirements",
+                "education_requirements", "certifications", "job_level", "industry", "work_setup",
+            }
+        },
+        "match": compact_match,
+        "matched_skills": compact_match["matched_skills"],
+        "missing_skills": compact_match["missing_skills"],
+        "preference_alignment": compact_match["preference_alignment"],
+        "learning_recommendations": analysis.get("learning_recommendations", [])[:5] if isinstance(analysis.get("learning_recommendations"), list) else [],
+        "warnings": [str(item)[:500] for item in analysis.get("warnings", [])[:10]] if isinstance(analysis.get("warnings"), list) else [],
+        "metadata": {
+            key: str(metadata.get(key) or "")[:120]
+            for key in ("extraction_source", "explanation_source", "matching_source")
+        },
+    }
+    if len(json.dumps(compact, ensure_ascii=False).encode("utf-8")) > MAX_SAVED_EXTERNAL_JOB_RESULT_BYTES:
+        raise HTTPException(status_code=413, detail="This external job result is too large to save.")
+    return compact
+
+
+def _saved_external_job_response(row: dict) -> dict:
+    result_json = row.get("result_json") if isinstance(row.get("result_json"), dict) else {}
+    saved_job = result_json.get("job") if isinstance(result_json.get("job"), dict) else {}
+    return {
+        "id": row.get("id"),
+        "job_title": row.get("job_title") or saved_job.get("title", "External job"),
+        "company_name": row.get("company_name") or saved_job.get("company_name", ""),
+        "match_percentage": row.get("match_percentage", 0),
+        "analysis": result_json,
+        "created_at": row.get("created_at"),
+    }
+
+
 @app.post("/api/candidate/external-jobs/analyze")
 async def analyze_candidate_external_job(
     payload: ExternalJobAnalysisRequest,
@@ -1482,6 +1554,101 @@ async def analyze_candidate_external_job(
     except Exception as exc:
         logger.exception("External job analysis failed without logging candidate content")
         raise HTTPException(status_code=500, detail="External job analysis failed. Please try again.") from exc
+
+
+@app.get("/api/candidate/external-jobs/saved")
+def list_saved_external_jobs(authorization: Annotated[Optional[str], Header()] = None) -> list[dict]:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    query = urllib.parse.urlencode({
+        "user_id": f"eq.{user_id}",
+        "select": "id,job_title,company_name,match_percentage,result_json,created_at",
+        "order": "created_at.desc",
+        "limit": str(MAX_SAVED_EXTERNAL_JOB_MATCHES),
+    })
+    rows = _supabase_request(f"/rest/v1/candidate_external_job_matches?{query}", service_role=True)
+    return [_saved_external_job_response(row) for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+@app.post("/api/candidate/external-jobs/saved")
+def save_external_job(
+    payload: ExternalJobSaveRequest,
+    authorization: Annotated[Optional[str], Header()] = None,
+) -> dict:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+
+    compact = _compact_external_job_analysis(payload.analysis)
+    job = compact["job"]
+    match_percentage = compact["match"].get("match_percentage", 0)
+    try:
+        match_percentage = max(0, min(100, float(match_percentage)))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="The external job match percentage is invalid.") from exc
+
+    count_query = urllib.parse.urlencode({
+        "user_id": f"eq.{user_id}",
+        "select": "id",
+        "limit": str(MAX_SAVED_EXTERNAL_JOB_MATCHES),
+    })
+    existing = _supabase_request(f"/rest/v1/candidate_external_job_matches?{count_query}", service_role=True)
+    if isinstance(existing, list) and len(existing) >= MAX_SAVED_EXTERNAL_JOB_MATCHES:
+        raise HTTPException(status_code=409, detail={
+            "code": "EXTERNAL_JOB_MATCH_LIMIT_REACHED",
+            "message": "You can save up to 5 external job match results. Delete one before saving another.",
+            "limit": MAX_SAVED_EXTERNAL_JOB_MATCHES,
+        })
+
+    body = {
+        "user_id": user_id,
+        "job_title": job["title"],
+        "company_name": job["company_name"] or None,
+        "match_percentage": round(match_percentage, 2),
+        "result_json": compact,
+    }
+    try:
+        rows = _supabase_request(
+            "/rest/v1/candidate_external_job_matches",
+            method="POST",
+            service_role=True,
+            body=body,
+            prefer="return=representation",
+        )
+    except HTTPException as exc:
+        if "MAX_EXTERNAL_JOB_MATCHES_REACHED" in str(exc.detail):
+            raise HTTPException(status_code=409, detail={
+                "code": "EXTERNAL_JOB_MATCH_LIMIT_REACHED",
+                "message": "You can save up to 5 external job match results. Delete one before saving another.",
+                "limit": MAX_SAVED_EXTERNAL_JOB_MATCHES,
+            }) from exc
+        raise
+    row = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], dict) else None
+    if not row:
+        raise HTTPException(status_code=502, detail="Supabase did not return the saved external job match.")
+    return _saved_external_job_response(row)
+
+
+@app.delete("/api/candidate/external-jobs/saved/{saved_match_id}")
+def delete_saved_external_job(saved_match_id: str, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    query = urllib.parse.urlencode({
+        "id": f"eq.{saved_match_id}",
+        "user_id": f"eq.{user_id}",
+        "select": "id",
+    })
+    rows = _supabase_request(
+        f"/rest/v1/candidate_external_job_matches?{query}",
+        method="DELETE",
+        service_role=True,
+        prefer="return=representation",
+    )
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=404, detail="Saved external job match was not found.")
+    return {"deleted": True, "id": saved_match_id}
 
 
 @app.post("/api/matches/from-resume")
