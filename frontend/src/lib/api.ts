@@ -412,6 +412,7 @@ export type RunJobMatchesPayload = {
   view_mode?: ViewMode;
   resume_text_for_matching: string;
   candidate_skill_ids?: string[];
+  confirmed_skills?: SelectedSkill[];
   skill_names?: string[];
   preferences: {
     industry: string;
@@ -513,13 +514,14 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     .map((skillId) => String(skillId || '').trim().toUpperCase())
     .filter(Boolean);
   const uniqueCandidateSkillIds = Array.from(new Set(candidateSkillIds));
+  const confirmedSkills = (payload.confirmed_skills || []).slice(0, CONFIRMED_SKILL_LIMIT);
   const resumeText = (payload.resume_text_for_matching || '').trim();
 
   if (!resumeText) {
     throw new Error('No resume text available for matching.');
   }
 
-  if (uniqueCandidateSkillIds.length > CONFIRMED_SKILL_LIMIT) {
+  if ((payload.confirmed_skills || []).length > CONFIRMED_SKILL_LIMIT || uniqueCandidateSkillIds.length > CONFIRMED_SKILL_LIMIT) {
     throw new Error(`You can confirm up to ${CONFIRMED_SKILL_LIMIT} skills.`);
   }
 
@@ -528,6 +530,7 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     view_mode: payload.view_mode || 'initial',
     resume_text_for_matching: resumeText,
     candidate_skill_ids: uniqueCandidateSkillIds,
+    confirmed_skills: confirmedSkills,
     preferences: {
       industry: payload.preferences.industry || '',
       target_role: payload.preferences.target_role || payload.preferences.role || payload.preferences.job_level || '',

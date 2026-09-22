@@ -21,7 +21,7 @@ export async function saveResumeAnalysis(input: {
   fileName?: string;
   file?: File | null;
   analysis: ResumeAnalysisResult;
-}): Promise<string | null> {
+}): Promise<string> {
   const parsedText = input.analysis.normalized_for_matching?.resume_text_for_matching || '';
   let storagePath = '';
   let storageBucket = '';
@@ -75,7 +75,17 @@ export async function saveResumeAnalysis(input: {
 
   if (error) {
     console.warn('Unable to save resume analysis:', error.message);
-    return null;
+    // Do not leave an orphaned file behind when the database row fails. More
+    // importantly, do not report the resume as saved to the UI when it is not.
+    if (storageBucket && storagePath) {
+      const { error: cleanupError } = await supabase.storage
+        .from(storageBucket)
+        .remove([storagePath]);
+      if (cleanupError) {
+        console.warn('Unable to remove orphaned resume file:', cleanupError.message);
+      }
+    }
+    throw new Error(`Unable to save the resume to your profile: ${error.message}`);
   }
 
   const skills = input.analysis.candidate_profile?.skills || [];
@@ -95,7 +105,14 @@ export async function saveResumeAnalysis(input: {
     }
   }
 
-  return data?.id || null;
+  if (!data?.id) {
+    if (storageBucket && storagePath) {
+      await supabase.storage.from(storageBucket).remove([storagePath]);
+    }
+    throw new Error('Unable to save the resume to your profile: no resume record was returned.');
+  }
+
+  return data.id;
 }
 
 export async function loadLatestResume(input: { userId: string }): Promise<SavedResumeRecord | null> {

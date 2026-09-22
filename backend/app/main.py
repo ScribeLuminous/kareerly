@@ -1378,17 +1378,26 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
         raise HTTPException(status_code=400, detail="resume_text_for_matching is required.")
 
     candidate_skill_ids = _normalize_candidate_skill_ids(payload.candidate_skill_ids)
+    confirmed_skill_records = _normalize_confirmed_skills_payload(payload.confirmed_skills)
 
     try:
         # Always compute enough results for the logged-in full dashboard.
-        result = await run_in_threadpool(
-            match_jobs,
-            resume_text_for_matching=resume_text_for_matching,
-            candidate_skill_ids=candidate_skill_ids,
-            preferences=preferences,
-            top_n_retrieval=150,
-            top_n_output=10,
-        )
+        if confirmed_skill_records:
+            result = await run_in_threadpool(
+                match_text_to_jobs,
+                resume_text=resume_text_for_matching,
+                preferences=preferences,
+                confirmed_skills=confirmed_skill_records,
+            )
+        else:
+            result = await run_in_threadpool(
+                match_jobs,
+                resume_text_for_matching=resume_text_for_matching,
+                candidate_skill_ids=candidate_skill_ids,
+                preferences=preferences,
+                top_n_retrieval=150,
+                top_n_output=10,
+            )
     except MatchingModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
