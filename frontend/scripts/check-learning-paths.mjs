@@ -7,10 +7,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 // Exercise actual dashboard functions and components without authenticating or writing user data.
 const source = fs.readFileSync(new URL('../src/pages/Dashboard.tsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('Dashboard.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const names = ['cleanSkillDisplayName', 'titleCase', 'getLearningForJob', 'learningResourceUrl', 'UpskillingPage', 'CourseCard'];
+const names = ['cleanSkillDisplayName', 'titleCase', 'normalizeSkill', 'severityClass', 'getLearningForJob', 'getCourseSkillLabels', 'getProgressStatusLabel', 'learningResourceUrl', 'LearningEmptyState', 'LearningProviderNote', 'UpskillingPage', 'CourseCard'];
 const parts = ast.statements.filter(node => ts.isFunctionDeclaration(node) && names.includes(node.name?.text)).map(node => node.getText(ast));
 const code = ts.transpileModule(parts.join('\n'), { compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 } }).outputText;
-const context = vm.createContext({ React, URL, PRESERVED_ACRONYMS: new Set(['SQL']), useState: initial => [initial, () => {}], UIIcon: () => null });
+const context = vm.createContext({ React, URL, PRESERVED_ACRONYMS: new Set(['SQL']), useState: initial => [initial, () => {}], useRef: initial => ({ current: initial }), UIIcon: () => null });
 vm.runInContext(code, context);
 const sql = { id: 'sql', title: 'SQL resource', provider: 'Example', gapTag: 'SQL', mappedSkills: ['SQL', 'Python'], mappedSkillIds: ['S1', 'S2'], reviewed: true, url: 'https://example.org/course', urlLabel: 'Start learning', fees: 'Unknown', prerequisites: 'Unknown', credentialConditions: 'Unknown' };
 const job = { id: 'j1', title: 'Analyst', company: 'Example', missingSkills: ['SQL', 'Writing'], missingSkillIds: ['S1', 'S3'] };
@@ -20,21 +20,22 @@ assert.equal(context.getLearningForJob({ ...job, missingSkills: [], missingSkill
 assert.equal(context.getLearningForJob(job, [{ ...sql, reviewed: false }]).length, 0);
 for (const url of ['javascript:alert(1)', '//example.org', 'https://', 'https://user:pass@example.org']) assert.equal(context.learningResourceUrl({url}), undefined);
 const before = JSON.stringify({job, sql});
-const html = renderToStaticMarkup(React.createElement(context.UpskillingPage, {tab: 'by-gap', courses: [sql], jobs: [job], onTab: () => {}}));
-assert.match(html, /SQL · 1 resource/);
-assert.match(html, /Writing · 0 resources/);
-assert.match(html, /No reviewed resource available/);
+const html = renderToStaticMarkup(React.createElement(context.UpskillingPage, {tab: 'by-gap', courses: [sql], jobs: [job], gaps: [{ skill: 'SQL', severity: 'High' }], skillProgressRecords: {}, onTab: () => {}, onOpenSkillGaps: () => {}, onOpenJobMatches: () => {}}));
+assert.match(html, /SQL/);
+assert.match(html, /1 recommended resource/);
+assert.match(html, /Writing/);
+assert.match(html, /No learning resources found for this skill yet/);
 assert.match(html, /target="_blank" rel="noopener noreferrer"/);
-assert.match(html, /does not mark it completed/);
+assert.match(html, /does not verify enrollment/);
 assert.doesNotMatch(html, /Mark Completed|Upload Evidence|type="file"/);
 assert.equal(JSON.stringify({job, sql}), before);
 for (const label of ['Start learning', 'View preparation course', 'View certification']) {
- const card = renderToStaticMarkup(React.createElement(context.CourseCard, {course: {...sql, urlLabel: label}}));
- assert.ok(card.includes(label));
+ const card = renderToStaticMarkup(React.createElement(context.CourseCard, {course: {...sql, urlLabel: label}, gaps: [], skillProgressRecords: {}}));
+ assert.match(card, /View Resource/);
 }
-const empty = renderToStaticMarkup(React.createElement(context.UpskillingPage, {tab: 'recommended', courses: [], jobs: [], onTab: () => {}}));
-assert.match(empty, /Match your profile to jobs first/);
-const invalid = renderToStaticMarkup(React.createElement(context.CourseCard, {course: {...sql, url: 'javascript:bad'}}));
+const empty = renderToStaticMarkup(React.createElement(context.UpskillingPage, {tab: 'recommended', courses: [], jobs: [], gaps: [], skillProgressRecords: {}, onTab: () => {}, onOpenSkillGaps: () => {}, onOpenJobMatches: () => {}}));
+assert.match(empty, /Generate job matches first/);
+const invalid = renderToStaticMarkup(React.createElement(context.CourseCard, {course: {...sql, url: 'javascript:bad'}, gaps: [], skillProgressRecords: {}}));
 assert.match(invalid, /Provider link unavailable/);
 assert.doesNotMatch(invalid, /<a /);
-console.log('Learning Paths: filtering, groups, empty states, actions, safe links, and read-only rendering passed.');
+console.log('Learning Recommendations: filtering, groups, empty states, actions, safe links, and read-only rendering passed.');
