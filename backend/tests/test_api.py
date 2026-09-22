@@ -98,6 +98,26 @@ class ApiRegressionTests(unittest.TestCase):
         self.assertTrue(callable(matching_service.match_resume_to_jobs))
         self.assertIn('file_bytes', inspect.signature(matching_service.match_resume_to_jobs).parameters)
 
+    def test_text_matching_accepts_confirmed_skill_records_without_file_reprocessing(self):
+        confirmed_skills = [
+            {'skill_id': 'SK004', 'skill_name': 'SQL', 'is_standardized': True},
+            {'skill_id': None, 'skill_name': 'Stakeholder facilitation', 'source': 'custom', 'is_standardized': False},
+        ]
+        with patch('backend.app.main.match_text_to_jobs', return_value={}) as match, \
+             patch('backend.app.main.match_jobs') as legacy_match, \
+             patch('backend.app.main._apply_report_access_control', return_value={}):
+            result = self.client.post('/api/matches/run', json={
+                'resume_text_for_matching': 'SQL developer and stakeholder facilitator',
+                'confirmed_skills': confirmed_skills,
+            })
+        self.assertEqual(result.status_code, 200)
+        match.assert_called_once()
+        legacy_match.assert_not_called()
+        records = match.call_args.kwargs['confirmed_skills']
+        self.assertEqual(records[0]['skill_id'], 'SK004')
+        self.assertEqual(records[1]['skill_id'], '')
+        self.assertEqual(records[1]['skill_name'], 'Stakeholder facilitation')
+
     def test_empty_confirmed_skills_fall_back_to_resume_extraction(self):
         with patch('backend.app.main.match_resume_to_jobs', return_value={}) as match, \
              patch('backend.app.main._apply_report_access_control', return_value={}):
