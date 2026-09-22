@@ -44,11 +44,11 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import DOMPurify from 'dompurify';
-import { formatFileSize } from '../lib/fileUtils';
+import { formatFileSize, validateResumeFile } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, buildResumeAnalysisFromMatchResults, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, loadCandidateAccountSettings, runJobMatches, runMatchesFromResume, saveCandidateAccountSettings, searchSkills, sendApplicationMessage, validateCertificateFile } from '../lib/api';
+import { analyzeResume, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, loadCandidateAccountSettings, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, validateCertificateFile } from '../lib/api';
 import type { AvailableJobItem } from '../lib/api';
 import { cleanSkillLabel } from '../lib/skillLabels';
 import { careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
@@ -1959,44 +1959,57 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
-  const runMatchingWithSkills = async (resume: ParsedResume, skills: string[], answers: SurveyAnswers, resumeFileOverride?: File | null) => {
+  const runMatchingWithSkills = async (
+    resume: ParsedResume,
+    skills: string[],
+    answers: SurveyAnswers,
+    options?: { analysis?: ResumeAnalyzeResponse | null; resumeId?: string | null },
+  ) => {
     const resumeText = extractResumeText(resume);
     if (!resumeText) return null;
-    const inputSkillIds = skills
-      .map((skill) => skill.trim().toUpperCase())
-      .filter((skill) => /^SK\d+$/i.test(skill));
-    const selectedSkillIds = (state.selectedSkills || [])
+    const activeAnalysis = options?.analysis || state.resumeAnalysis;
+    const extractedSkillRecords: SelectedSkill[] = (activeAnalysis?.candidate_profile?.skills || []).map((skill) => ({
+      skill_id: skill.skill_id || null,
+      skill_name: skill.skill_name,
+      skill_category: skill.skill_category,
+      skill_subcategory: skill.skill_subcategory,
+      source: skill.source || 'resume_extracted',
+      is_standardized: Boolean(skill.skill_id),
+      source_metadata: skill.source_metadata,
+      skill_priority_score: skill.skill_priority_score,
+    }));
+    const knownSkills = [...(state.selectedSkills || []), ...extractedSkillRecords];
+    const knownSkillsByName = new Map(knownSkills.map((skill) => [normalizeSkill(skill.skill_name), skill]));
+    const confirmedSkillRecords = Array.from(new Map(skills
+      .map((skillName): SelectedSkill | null => {
+        const name = skillName.trim();
+        if (!name) return null;
+        const existing = knownSkillsByName.get(normalizeSkill(name));
+        if (existing) {
+          return {
+            ...existing,
+            skill_id: existing.skill_id?.trim().toUpperCase() || null,
+            skill_name: name,
+            source: 'confirmed_skill',
+            is_standardized: Boolean(existing.skill_id),
+          };
+        }
+        const explicitSkillId = /^SK\d+$/i.test(name) ? name.toUpperCase() : null;
+        return {
+          skill_id: explicitSkillId,
+          skill_name: name,
+          custom_skill_name: explicitSkillId ? undefined : name,
+          source: explicitSkillId ? 'confirmed_skill' : 'custom',
+          is_standardized: Boolean(explicitSkillId),
+        };
+      })
+      .filter((item): item is SelectedSkill => Boolean(item))
+      .map((item) => [`${item.skill_id || 'custom'}:${normalizeSkill(item.skill_name)}`, item])).values()).slice(0, 20);
+    const finalCandidateSkillIds = confirmedSkillRecords
       .map((skill) => skill.skill_id?.trim().toUpperCase() || '')
-      .filter((skillId) => Boolean(skillId));
-    const extractedSkillIds = (state.resumeAnalysis?.normalized_for_matching?.skill_ids || [])
-      .map((skillId) => skillId.trim().toUpperCase())
-      .filter((skillId) => Boolean(skillId));
-    const fallbackSkills = skills
-      .map((skill) => skill.trim().toUpperCase())
-      .filter((skill) => Boolean(skill));
-    const resolvedSkillRecords = (await Promise.all(skills.map(async (skill): Promise<SelectedSkill | null> => {
-      const normalized = normalizeSkill(skill);
-      const existing = (state.selectedSkills || []).find((item) => normalizeSkill(item.skill_name) === normalized && item.skill_id);
-      if (existing) return existing;
-      if (/^SK\d+$/i.test(skill.trim())) return { skill_id: skill.trim().toUpperCase(), skill_name: skill.trim(), source: 'confirmed_skill' };
-      try {
-        const response = await searchSkills(skill, 5);
-        const match = response.results.find((item) => normalizeSkill(item.skill_name) === normalized) || response.results[0];
-        return match?.skill_id ? { skill_id: match.skill_id, skill_name: match.skill_name || skill, skill_category: match.skill_category, skill_subcategory: match.skill_subcategory, source: 'confirmed_skill' } : null;
-      } catch {
-        return null;
-      }
-    }))).filter((item): item is SelectedSkill => Boolean(item?.skill_id));
-    const resolvedSkillIds = resolvedSkillRecords.map((item) => String(item.skill_id).trim().toUpperCase()).filter(Boolean);
-    const finalCandidateSkillIds = Array.from(
-      new Set(
-        [...inputSkillIds, ...selectedSkillIds, ...extractedSkillIds, ...resolvedSkillIds].length > 0
-          ? [...inputSkillIds, ...selectedSkillIds, ...extractedSkillIds, ...resolvedSkillIds]
-          : fallbackSkills,
-      ),
-    );
+      .filter(Boolean);
 
-    if (finalCandidateSkillIds.length === 0) return null;
+    if (confirmedSkillRecords.length === 0) return null;
 
     const preferencePayload = {
       // Send the stable career-area value to the backend; display labels are
@@ -2009,57 +2022,28 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       skill_to_develop: answers.skill,
     };
 
-    const activeResumeFile = resumeFileOverride || state.resumeFile;
-    const confirmedSkillRecords = Array.from(new Map(
-      [...(state.selectedSkills || []), ...resolvedSkillRecords]
-        .filter((skill) => skill.skill_id && finalCandidateSkillIds.includes(skill.skill_id.trim().toUpperCase()))
-        .map((skill) => [skill.skill_id, skill]),
-    ).values()).slice(0, 20);
-    const runTextMatcher = () =>
-      runJobMatches({
-          user_mode: 'logged_in',
-          view_mode: 'full',
-          resume_text_for_matching: resumeText,
-          candidate_skill_ids: finalCandidateSkillIds,
-          preferences: {
-            industry: preferencePayload.industry,
-            target_role: preferencePayload.target_role,
-            role_level: preferencePayload.role_level,
-            role: preferencePayload.target_role,
-            work_setup: preferencePayload.work_setup,
-            salary_expectation: preferencePayload.salary_expectation,
-            skill_to_develop: preferencePayload.skill_to_develop,
-          },
-      });
+    const result = await runJobMatches({
+      user_mode: 'logged_in',
+      view_mode: 'full',
+      resume_text_for_matching: resumeText,
+      candidate_skill_ids: finalCandidateSkillIds,
+      confirmed_skills: confirmedSkillRecords,
+      preferences: {
+        industry: preferencePayload.industry,
+        target_role: preferencePayload.target_role,
+        role_level: preferencePayload.role_level,
+        role: preferencePayload.target_role,
+        work_setup: preferencePayload.work_setup,
+        salary_expectation: preferencePayload.salary_expectation,
+        skill_to_develop: preferencePayload.skill_to_develop,
+      },
+    });
 
-    let result = null;
-    if (activeResumeFile) {
-      try {
-        result = await runMatchesFromResume({
-          resumeFile: activeResumeFile,
-          resumeTextForMatching: resumeText,
-          userMode: 'logged_in',
-          viewMode: 'full',
-          confirmedSkills: confirmedSkillRecords,
-          preferences: preferencePayload,
-        });
-      } catch (error) {
-        console.warn('File-based matching failed; falling back to text matching:', error);
-      }
-    }
-
-    if (!result || (result.fit_now_matches || []).length === 0) {
-      result = await runTextMatcher();
-    }
-
-    if (result.extracted_skills?.length) {
-      applyAnalysisResult(buildResumeAnalysisFromMatchResults(result));
-    }
     setMatchResults(result);
     if (currentUser?.id) {
       await supabase.from('user_skills').delete().eq('user_id', currentUser.id);
-      if (resolvedSkillRecords.length > 0) {
-        await supabase.from('user_skills').insert(resolvedSkillRecords.map((skill) => ({
+      if (confirmedSkillRecords.length > 0) {
+        await supabase.from('user_skills').insert(confirmedSkillRecords.map((skill) => ({
           user_id: currentUser.id,
           skill_id: skill.skill_id,
           skill_name: skill.skill_name,
@@ -2069,7 +2053,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       }
       await saveMatchHistory({
         userId: currentUser.id,
-        resumeId: state.savedResumeId,
+        resumeId: options?.resumeId ?? state.savedResumeId,
         preferences: answers,
         results: result,
       });
@@ -2344,9 +2328,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       setResumeUploadFile(null);
       return;
     }
-    const suffix = file.name.toLowerCase().split('.').pop();
-    if (!suffix || !['pdf', 'docx'].includes(suffix)) {
-      showToast('Please upload a PDF or DOCX file.', 'warn');
+    const validation = validateResumeFile(file);
+    if (!validation.valid) {
+      showToast(validation.error || 'Please upload a PDF or DOCX file.', 'warn');
       return;
     }
     setResumeUploadFile(file);
@@ -2426,21 +2410,22 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setLoading(true);
     setError(null);
     try {
-      setResumeFile(resumeUploadFile);
-      applyAnalysisResult(resumeAnalyzeData);
-      setSkillNames(confirmed);
+      let resumeId = state.savedResumeId ?? null;
       if (currentUser.id) {
-        const resumeId = await saveResumeAnalysis({
+        resumeId = await saveResumeAnalysis({
           userId: currentUser.id,
           fileName: resumeUploadFile.name,
           file: resumeUploadFile,
           analysis: resumeAnalyzeData,
         });
-        setSavedResumeId(resumeId);
         setSavedResumeFileName(resumeUploadFile.name);
       }
+      setResumeFile(resumeUploadFile);
+      applyAnalysisResult(resumeAnalyzeData);
+      setSavedResumeId(resumeId);
+      setSkillNames(confirmed);
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
-      await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, resumeUploadFile);
+      await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, { analysis: resumeAnalyzeData, resumeId });
       setResumeModalOpen(false);
       setResumeStep('upload');
       showInlineNotice('Resume updated. Matches, skill gaps, recommendations, and progress were refreshed.', 'success');
@@ -2474,21 +2459,22 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setLoading(true);
     setError(null);
     try {
-      setResumeFile(resumeUploadFile);
-      applyAnalysisResult(resumeAnalyzeData);
-      setSkillNames(confirmed);
+      let resumeId = state.savedResumeId ?? null;
       if (currentUser.id) {
-        const resumeId = await saveResumeAnalysis({
+        resumeId = await saveResumeAnalysis({
           userId: currentUser.id,
           fileName: resumeUploadFile.name,
           file: resumeUploadFile,
           analysis: resumeAnalyzeData,
         });
-        setSavedResumeId(resumeId);
         setSavedResumeFileName(resumeUploadFile.name);
       }
+      setResumeFile(resumeUploadFile);
+      applyAnalysisResult(resumeAnalyzeData);
+      setSavedResumeId(resumeId);
+      setSkillNames(confirmed);
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
-      await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, resumeUploadFile);
+      await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, { analysis: resumeAnalyzeData, resumeId });
       setResumeModalOpen(false);
       setResumeStep('upload');
       showInlineNotice('Resume updated. Matches, skill gaps, recommendations, and progress were refreshed.', 'success');
@@ -2502,7 +2488,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
-  const goToOnboardingSkillsAndPreferences = () => {
+  const goToOnboardingSkillsAndPreferences = async () => {
     if (!resumeUploadFile || !resumeAnalyzeData) {
       showToast('Please analyze a resume first.', 'warn');
       return;
@@ -2511,13 +2497,34 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     const extracted = extractSkillsFromResume(resumeAnalyzeData.parsedResume);
     const preparedSkills = Array.from(new Set((extracted.length > 0 ? extracted : reviewSkills).map((item) => item.trim()).filter(Boolean)));
 
-    setResumeFile(resumeUploadFile);
-    applyAnalysisResult(resumeAnalyzeData);
-    if (preparedSkills.length > 0) setSkillNames(preparedSkills);
-    setResumeModalOpen(false);
-    setResumeStep('upload');
-    showToast('Opening onboarding so you can review skills and preferences.', 'success');
-    onUpdateResume();
+    setLoading(true);
+    setError(null);
+    try {
+      let resumeId = state.savedResumeId ?? null;
+      if (currentUser.id) {
+        resumeId = await saveResumeAnalysis({
+          userId: currentUser.id,
+          fileName: resumeUploadFile.name,
+          file: resumeUploadFile,
+          analysis: resumeAnalyzeData,
+        });
+        setSavedResumeFileName(resumeUploadFile.name);
+      }
+      setResumeFile(resumeUploadFile);
+      applyAnalysisResult(resumeAnalyzeData);
+      setSavedResumeId(resumeId);
+      if (preparedSkills.length > 0) setSkillNames(preparedSkills);
+      setResumeModalOpen(false);
+      setResumeStep('upload');
+      showToast('Resume saved. Opening skills and preferences for review.', 'success');
+      onUpdateResume();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to save the resume to your profile.';
+      setError(message);
+      showToast(message, 'danger');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEvidenceSave = async (draft: {
@@ -5724,7 +5731,7 @@ function ResumeUpdateModal({
               />
               <UIIcon name="upload" className="cand-upload-icon" />
               <div className="mt-2 text-sm font-bold text-dark">Drag and drop your resume here</div>
-              <div className="text-xs text-soft">PDF or DOCX · max 10MB</div>
+              <div className="text-xs text-soft">PDF or DOCX · max 5MB</div>
             </label>
 
             {file && (
@@ -5773,8 +5780,8 @@ function ResumeUpdateModal({
               <span>Check Skills & Preferences returns you to the onboarding flow (Steps 2 and 3) to review everything.</span>
             </div>
             <div className="cand-modal-actions">
-              <button className="cand-btn-primary" type="button" onClick={onReviewPreferencesPath}>
-                Check Skills & Preferences
+              <button className="cand-btn-primary" type="button" disabled={loading} onClick={onReviewPreferencesPath}>
+                {loading ? 'Saving...' : 'Check Skills & Preferences'}
               </button>
               <button className="cand-btn-secondary" type="button" disabled={loading} onClick={onSkip}>
                 {loading ? 'Applying...' : 'Skip and Apply to Dashboard'}
