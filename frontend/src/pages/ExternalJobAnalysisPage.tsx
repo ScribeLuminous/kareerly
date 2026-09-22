@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { analyzeExternalJob, type ExternalJobAnalysisResponse } from '../lib/api';
+import {
+  analyzeExternalJob,
+  deleteSavedExternalJobMatch,
+  listSavedExternalJobs,
+  saveExternalJobMatch,
+  type ExternalJobAnalysisResponse,
+  type SavedExternalJobMatch,
+} from '../lib/api';
 
 type Props = { onOpenLearning: () => void };
 
@@ -13,6 +20,28 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [savedMatches, setSavedMatches] = useState<SavedExternalJobMatch[]>([]);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [savedError, setSavedError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedCurrentId, setSavedCurrentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    listSavedExternalJobs()
+      .then((matches) => {
+        if (active) setSavedMatches(matches);
+      })
+      .catch((requestError) => {
+        if (active) setSavedError(requestError instanceof Error ? requestError.message : 'Saved analyses could not be loaded.');
+      })
+      .finally(() => {
+        if (active) setSavedLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoading) return undefined;
@@ -35,6 +64,7 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
     }
     setError('');
     setResult(null);
+    setSavedCurrentId(null);
     setLoadingStep(0);
     setIsLoading(true);
     try {
@@ -48,10 +78,42 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
 
   const reset = () => {
     setResult(null);
+    setSavedCurrentId(null);
     setError('');
     setJobTitle('');
     setCompanyName('');
     setJobDescription('');
+  };
+
+  const saveCurrentResult = async () => {
+    if (!result || isSaving || savedCurrentId) return;
+    setError('');
+    setIsSaving(true);
+    try {
+      const saved = await saveExternalJobMatch(result);
+      setSavedMatches((matches) => [saved, ...matches].slice(0, 5));
+      setSavedCurrentId(saved.id);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'This analysis could not be saved.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openSavedMatch = (saved: SavedExternalJobMatch) => {
+    setResult(saved.analysis);
+    setSavedCurrentId(saved.id);
+    setError('');
+  };
+
+  const removeSavedMatch = async (saved: SavedExternalJobMatch) => {
+    try {
+      await deleteSavedExternalJobMatch(saved.id);
+      setSavedMatches((matches) => matches.filter((match) => match.id !== saved.id));
+      if (savedCurrentId === saved.id) setSavedCurrentId(null);
+    } catch (requestError) {
+      setSavedError(requestError instanceof Error ? requestError.message : 'This saved analysis could not be deleted.');
+    }
   };
 
   return (
@@ -60,6 +122,35 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
         <h1 className="cand-page-title">Analyze External Job</h1>
         <p className="cand-page-subtitle">Paste a job description from another website to see how it matches your profile.</p>
       </div>
+
+      <section className="cand-card mb-5 max-w-4xl" aria-labelledby="saved-external-analyses-heading">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="saved-external-analyses-heading" className="cand-card-title">Saved external analyses</h2>
+            <p className="mt-1 text-sm text-soft">Keep up to 5 job matches on your profile.</p>
+          </div>
+          <span className="rounded-full border border-bdr px-3 py-1 text-xs font-bold text-mid">{savedMatches.length} / 5 saved</span>
+        </div>
+        {savedLoading && <p className="mt-4 text-sm text-soft">Loading saved analyses…</p>}
+        {!savedLoading && savedMatches.length === 0 && <p className="mt-4 text-sm text-soft">Saved results will appear here after you analyze an external job.</p>}
+        {savedError && <div className="cand-notice error mt-4" role="alert">{savedError}</div>}
+        {savedMatches.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {savedMatches.map((saved) => (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bdr px-4 py-3" key={saved.id}>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold text-dark">{saved.job_title}</div>
+                  <div className="text-xs text-soft">{saved.company_name || 'Company not provided'} · {Math.round(Number(saved.match_percentage) || 0)}% match · {new Date(saved.created_at).toLocaleDateString()}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => openSavedMatch(saved)}>View</button>
+                  <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => removeSavedMatch(saved)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {!result && (
         <form className="cand-card max-w-4xl" onSubmit={submit} noValidate>
@@ -160,6 +251,9 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
             <span>This job was analyzed from a description you provided. Applications to external jobs are not tracked by Kareerly.</span>
           </section>
           <div className="flex flex-wrap gap-3">
+            <button className="cand-btn-primary" type="button" onClick={saveCurrentResult} disabled={isSaving || Boolean(savedCurrentId)}>
+              {savedCurrentId ? 'Saved to Profile' : isSaving ? 'Saving…' : 'Save Match to Profile'}
+            </button>
             <button className="cand-btn-primary" type="button" onClick={reset}>Analyze Another Job</button>
             <button className="cand-btn-secondary" type="button" onClick={onOpenLearning}>View Learning Recommendations</button>
           </div>

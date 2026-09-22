@@ -120,3 +120,81 @@ def test_external_endpoint_returns_profile_required(monkeypatch):
     )
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "PROFILE_REQUIRED"
+
+
+def _saved_analysis():
+    return {
+        "job": {"title": "Backend Engineer", "company_name": "Acme", "source": "external_paste"},
+        "extracted_requirements": {"summary": "Build backend services", "required_skills": ["Python"]},
+        "match": {
+            "match_percentage": 82,
+            "semantic_similarity": 0.82,
+            "skill_coverage": 0.8,
+            "match_type": "Fit Now",
+            "explanation": "Strong backend match.",
+            "matched_skills": ["Python"],
+            "missing_skills": ["Kubernetes"],
+            "matched_skill_ids": ["sk001"],
+            "missing_skill_ids": ["sk002"],
+            "preference_alignment": 0.7,
+        },
+        "matched_skills": ["Python"],
+        "missing_skills": ["Kubernetes"],
+        "preference_alignment": 0.7,
+        "learning_recommendations": [],
+        "warnings": [],
+        "metadata": {"extraction_source": "gemma", "explanation_source": "gemma", "matching_source": "shared"},
+    }
+
+
+def test_saved_external_job_requires_authentication(monkeypatch):
+    monkeypatch.setattr("app.main._get_authenticated_user_id", lambda _authorization: None)
+    response = TestClient(app).get("/api/candidate/external-jobs/saved")
+    assert response.status_code == 401
+
+
+def test_saved_external_job_crud_and_result_is_compacted(monkeypatch):
+    monkeypatch.setattr("app.main._get_authenticated_user_id", lambda _authorization: "candidate-1")
+    stored = {
+        "id": "saved-1",
+        "job_title": "Backend Engineer",
+        "company_name": "Acme",
+        "match_percentage": 82,
+        "result_json": {"job": {"title": "Backend Engineer", "company_name": "Acme"}},
+        "created_at": "2026-09-22T12:00:00Z",
+    }
+    calls = []
+
+    def fake_supabase(path, **kwargs):
+        calls.append((path, kwargs))
+        if kwargs.get("method") == "POST":
+            assert "job_description" not in kwargs["body"]["result_json"]
+            return [stored]
+        if kwargs.get("method") == "DELETE":
+            return [{"id": "saved-1"}]
+        if "select=id%2Cjob_title" in path:
+            return [stored]
+        return []
+
+    monkeypatch.setattr("app.main._supabase_request", fake_supabase)
+    client = TestClient(app)
+    saved = client.post("/api/candidate/external-jobs/saved", json={"analysis": _saved_analysis()})
+    assert saved.status_code == 200
+    assert saved.json()["id"] == "saved-1"
+
+    listed = client.get("/api/candidate/external-jobs/saved")
+    assert listed.status_code == 200
+    assert listed.json()[0]["job_title"] == "Backend Engineer"
+
+    deleted = client.delete("/api/candidate/external-jobs/saved/saved-1")
+    assert deleted.status_code == 200
+    assert deleted.json() == {"deleted": True, "id": "saved-1"}
+    assert len(calls) == 4
+
+
+def test_saved_external_job_enforces_five_result_limit(monkeypatch):
+    monkeypatch.setattr("app.main._get_authenticated_user_id", lambda _authorization: "candidate-1")
+    monkeypatch.setattr("app.main._supabase_request", lambda _path, **_kwargs: [{"id": str(index)} for index in range(5)])
+    response = TestClient(app).post("/api/candidate/external-jobs/saved", json={"analysis": _saved_analysis()})
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "EXTERNAL_JOB_MATCH_LIMIT_REACHED"

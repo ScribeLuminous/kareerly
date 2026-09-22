@@ -329,6 +329,31 @@ export async function analyzeExternalJob(payload: ExternalJobAnalysisRequest): P
   return response.json() as Promise<ExternalJobAnalysisResponse>;
 }
 
+export type SavedExternalJobMatch = {
+  id: string;
+  job_title: string;
+  company_name: string | null;
+  match_percentage: number;
+  analysis: ExternalJobAnalysisResponse;
+  created_at: string;
+};
+
+export async function listSavedExternalJobs(): Promise<SavedExternalJobMatch[]> {
+  const payload = await authenticatedMessageRequest('/api/candidate/external-jobs/saved');
+  return Array.isArray(payload) ? payload as SavedExternalJobMatch[] : [];
+}
+
+export async function saveExternalJobMatch(analysis: ExternalJobAnalysisResponse): Promise<SavedExternalJobMatch> {
+  return authenticatedMessageRequest('/api/candidate/external-jobs/saved', {
+    method: 'POST',
+    body: JSON.stringify({ analysis }),
+  }) as Promise<SavedExternalJobMatch>;
+}
+
+export async function deleteSavedExternalJobMatch(id: string): Promise<void> {
+  await authenticatedMessageRequest(`/api/candidate/external-jobs/saved/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export type JobDetailResponse = {
   job?: AvailableJobItem;
   match_analysis?: {
