@@ -47,7 +47,7 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
       subtitle={isAdminLogin ? 'Log in to monitor Kareerly operations' : isEmployerLogin ? 'Log in to manage jobs and applicants' : 'Log in to your account to continue'}
       panelTitle=" "
       panelSubtitle="Join thousands of Filipino job seekers and employers"
-      panelItems={['AI-powered job matching', 'Identify skill gaps & learning paths', 'Upskilling recommendations that fits you', 'Fair hiring with skills-first focus']}
+      panelItems={['AI-powered job matching', 'Identify skill gaps & learning recommendations', 'Upskilling recommendations that fit you', 'Fair hiring with skills-first focus']}
       onHome={onHome}
     >
       <form onSubmit={handleSubmit}>
