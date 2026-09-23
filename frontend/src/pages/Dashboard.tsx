@@ -1,4 +1,4 @@
-import { applicationNotices, savedMatchScore, scoreLabel } from '../lib/uiData';
+import { savedMatchScore, scoreLabel } from '../lib/uiData';
 import { prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } from '../lib/evidence';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -48,8 +48,8 @@ import { formatFileSize, validateResumeFile } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, fetchJobDetails, loadApplicationMessages, loadCandidateAccountSettings, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, validateCertificateFile } from '../lib/api';
-import type { AvailableJobItem } from '../lib/api';
+import { analyzeResume, fetchAvailableJobs, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, markAllCandidateNotificationsRead, markCandidateNotificationRead, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, validateCertificateFile } from '../lib/api';
+import type { AvailableJobItem, CandidateNotification } from '../lib/api';
 import { cleanSkillLabel } from '../lib/skillLabels';
 import { careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
@@ -1149,7 +1149,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [savedJobs, setSavedJobs] = useState<Set<string>>(() => new Set());
   const [applications, setApplications] = useState<DashboardApplication[]>([]);
   const [applicationLoadStatus, setApplicationLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [readNotifications, setReadNotifications] = useState<Record<string, boolean>>({});
+  const [notifications, setNotifications] = useState<CandidateNotification[]>([]);
+  const [notificationLoadStatus, setNotificationLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const [inlineNotice, setInlineNotice] = useState<{ message: string; type: ToastType } | null>(null);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(() => {
@@ -1764,22 +1765,34 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   }, [applications, gaps, jobs]);
 
   const courseRecommendations = useMemo(() => courses.slice(0, 3), [courses]);
-  const notificationRows = useMemo(() => buildNotificationRows(applications), [applications]);
-  const unreadNotificationCount = useMemo(
-    () => notificationRows.filter((row) => row.unread && !readNotifications[row.id]).length,
-    [notificationRows, readNotifications],
-  );
+  const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.read_at).length, [notifications]);
+  const loadNotifications = useCallback(async () => {
+    if (!currentUser.id) return;
+    try {
+      const rows = await listCandidateNotifications();
+      setNotifications(rows);
+      setNotificationLoadStatus('ready');
+    } catch (notificationError) {
+      console.warn('Unable to load notifications:', notificationError);
+      setNotificationLoadStatus('error');
+    }
+  }, [currentUser.id]);
 
   useEffect(() => {
-    if (notificationRows.length === 0) return;
-    setReadNotifications((current) => {
-      const next = { ...current };
-      notificationRows.forEach((row) => {
-        if (typeof next[row.id] === 'undefined') next[row.id] = !row.unread;
+    if (!currentUser.id) return undefined;
+    let active = true;
+    listCandidateNotifications()
+      .then((rows) => {
+        if (!active) return;
+        setNotifications(rows);
+        setNotificationLoadStatus('ready');
+      })
+      .catch((notificationError) => {
+        console.warn('Unable to load notifications:', notificationError);
+        if (active) setNotificationLoadStatus('error');
       });
-      return next;
-    });
-  }, [notificationRows]);
+    return () => { active = false; };
+  }, [currentUser.id]);
 
   const fitNowJobs = useMemo(() => jobs.filter((job) => job.matchCategory === 'fit-now'), [jobs]);
   const aspirationJobs = useMemo(() => jobs.filter((job) => job.matchCategory === 'aspiration'), [jobs]);
@@ -1925,16 +1938,32 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setProfileOpen(false);
   };
 
-  const markAllNotificationsRead = () => {
-    if (notificationRows.length === 0) return;
-    setReadNotifications((current) => {
-      const next = { ...current };
-      notificationRows.forEach((row) => {
-        next[row.id] = true;
-      });
-      return next;
-    });
-    showToast('All notifications marked as read.', 'success');
+  const markNotificationRead = async (notification: CandidateNotification) => {
+    if (notification.read_at) return;
+    const readAt = new Date().toISOString();
+    setNotifications((current) => current.map((row) => row.id === notification.id ? { ...row, read_at: readAt } : row));
+    try {
+      await markCandidateNotificationRead(notification.id);
+    } catch (notificationError) {
+      console.warn('Unable to persist notification read state:', notificationError);
+      setNotifications((current) => current.map((row) => row.id === notification.id ? { ...row, read_at: null } : row));
+      showToast('Unable to mark this notification as read.', 'danger');
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    if (notifications.length === 0 || unreadNotificationCount === 0) return;
+    const previous = notifications;
+    const readAt = new Date().toISOString();
+    setNotifications((current) => current.map((row) => row.read_at ? row : { ...row, read_at: readAt }));
+    try {
+      await markAllCandidateNotificationsRead();
+      showToast('All notifications marked as read.', 'success');
+    } catch (notificationError) {
+      console.warn('Unable to persist all notification read states:', notificationError);
+      setNotifications(previous);
+      showToast('Unable to mark all notifications as read.', 'danger');
+    }
   };
 
   const applyAnalysisResult = (data: ResumeAnalyzeResponse) => {
@@ -2623,9 +2652,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
             <button
               className="cand-notif-btn"
               type="button"
+              aria-label="Notifications"
+              title="Notifications"
+              aria-expanded={notifOpen}
               onClick={(event) => {
                 event.stopPropagation();
-                setNotifOpen((value) => !value);
+                setNotifOpen((value) => {
+                  if (!value) void loadNotifications();
+                  return !value;
+                });
                 setProfileOpen(false);
               }}
             >
@@ -2636,31 +2671,42 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               <div className="cand-notif-dropdown" onClick={(event) => event.stopPropagation()}>
                 <div className="cand-notif-header">
                   <strong>Notifications</strong>
-                  <button className="cand-mark-read-btn" type="button" onClick={markAllNotificationsRead}>
+                  <button className="cand-mark-read-btn" type="button" onClick={() => void markAllNotificationsRead()} disabled={unreadNotificationCount === 0}>
                     Mark all read
                   </button>
                 </div>
-                {notificationRows.length > 0 ? (
-                  notificationRows.map((row) => {
-                    const isUnread = row.unread && !readNotifications[row.id];
+                {notificationLoadStatus === 'loading' ? (
+                  <div className="cand-notif-item"><div className="cand-notif-text">Loading notifications…</div></div>
+                ) : notificationLoadStatus === 'error' ? (
+                  <div className="cand-notif-item"><div className="cand-notif-text">Notifications could not be loaded. Try again shortly.</div></div>
+                ) : notifications.length > 0 ? (
+                  notifications.map((row) => {
+                    const isUnread = !row.read_at;
+                    const isMessage = row.event_type === 'message_request';
                     return (
-                    <button
-                      key={row.id}
-                      type="button"
-                      className={`cand-notif-item cand-notif-btn-row ${isUnread ? 'unread' : ''}`}
-                      onClick={() => setReadNotifications((current) => ({ ...current, [row.id]: true }))}
-                    >
-                      <div className={`cand-notif-icon ${row.iconClass}`}>
-                        <UIIcon name={row.iconName} />
+                    <div key={row.id} className={`cand-notif-item ${isUnread ? 'unread' : ''}`}>
+                      <div className={`cand-notif-icon ${isMessage ? 'msg' : 'app'}`}>
+                        <UIIcon name={isMessage ? 'message' : 'layers'} />
                       </div>
-                      <div>
+                      <div className="cand-notif-copy">
                         <div className="cand-notif-text">
                           <strong>{row.title}</strong>
                           {row.message}
                         </div>
-                        <div className="cand-notif-time">{row.time}</div>
+                        <div className="cand-notif-time">{new Date(row.created_at).toLocaleString()}</div>
                       </div>
-                    </button>
+                      {isUnread && (
+                        <button
+                          className="cand-notif-read-one"
+                          type="button"
+                          aria-label="Mark notification as read"
+                          title="Mark as read"
+                          onClick={() => void markNotificationRead(row)}
+                        >
+                          <UIIcon name="check-circle" />
+                        </button>
+                      )}
+                    </div>
                     );
                   })
                 ) : (
@@ -3111,15 +3157,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       )}
     </div>
   );
-}
-
-function buildNotificationRows(applications: DashboardApplication[]) {
-  return applicationNotices(applications).map((notice) => ({
-    ...notice,
-    iconClass: notice.kind === 'message' ? 'msg' : 'app',
-    iconName: (notice.kind === 'message' ? 'message' : 'layers') as IconName,
-    unread: true,
-  }));
 }
 
 function NavItem({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: IconName; children: ReactNode }) {
