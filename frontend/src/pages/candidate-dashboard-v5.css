@@ -2608,6 +2608,29 @@
   flex-wrap: wrap;
 }
 
+.cand-resume-decision-actions {
+  align-items: center;
+}
+
+.cand-resume-back-btn {
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  justify-content: center;
+}
+
+.cand-resume-action-error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--red);
+  border-radius: 10px;
+  color: var(--red);
+  background: var(--red-l);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .cand-toast {
   position: fixed;
   bottom: 28px;
