@@ -10,9 +10,9 @@ type LogoProps = {
 };
 
 const sizeConfig: Record<NonNullable<LogoProps['size']>, { container: number; puzzle: number; wordmark: number }> = {
-  header: { container: 36, puzzle: 36, wordmark: 28 },
+  header: { container: 32, puzzle: 32, wordmark: 24 },
   auth: { container: 52, puzzle: 52, wordmark: 36 },
-  module: { container: 40, puzzle: 40, wordmark: 30 },
+  module: { container: 34, puzzle: 34, wordmark: 24 },
 };
 
 export default function Logo({ className = '', wordmarkClassName = '', layout = 'row', size = 'header', onClick }: LogoProps) {

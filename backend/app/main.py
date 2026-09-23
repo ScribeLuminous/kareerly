@@ -5,6 +5,7 @@ import logging
 import base64
 import copy
 import hashlib
+from io import BytesIO
 import os
 import re
 import threading
@@ -20,8 +21,11 @@ from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from docx import Document
+from docx.shared import Inches, Pt
 from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError
 
@@ -1538,6 +1542,120 @@ def _compact_external_job_analysis(analysis: dict) -> dict:
     return compact
 
 
+def _external_job_analysis_fingerprint(analysis: dict) -> str:
+    """Return a stable identity for idempotent per-candidate saves."""
+    canonical = json.dumps(analysis, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _external_job_report_filename(title: object) -> str:
+    safe_title = re.sub(r"[^A-Za-z0-9]+", "_", str(title or "External_Job")).strip("_")[:70]
+    return f"Kareerly_External_Job_Match_Report_{safe_title or 'External_Job'}.docx"
+
+
+def _build_external_job_report(analysis: dict) -> tuple[BytesIO, str]:
+    """Build a genuine Office Open XML report from a validated compact analysis."""
+    compact = _compact_external_job_analysis(analysis)
+    job = compact["job"]
+    match = compact["match"]
+    document = Document()
+    section = document.sections[0]
+    section.top_margin = Inches(0.65)
+    section.bottom_margin = Inches(0.65)
+    section.left_margin = Inches(0.75)
+    section.right_margin = Inches(0.75)
+
+    styles = document.styles
+    styles["Normal"].font.name = "Aptos"
+    styles["Normal"].font.size = Pt(10.5)
+    styles["Title"].font.name = "Aptos Display"
+    styles["Title"].font.size = Pt(22)
+
+    brand = document.add_paragraph()
+    brand_run = brand.add_run("Kareerly")
+    brand_run.bold = True
+    brand_run.font.size = Pt(12)
+    title = document.add_heading("External Job Match Report", level=0)
+    title.paragraph_format.space_after = Pt(10)
+
+    details = (
+        ("Job Title", job.get("title") or "External Job"),
+        ("Company", job.get("company_name") or "Not provided"),
+        ("Analysis Date", datetime.now(PHILIPPINE_TIMEZONE).strftime("%B %d, %Y")),
+    )
+    table = document.add_table(rows=0, cols=2)
+    table.style = "Light Shading Accent 1"
+    for label, value in details:
+        cells = table.add_row().cells
+        cells[0].text = label
+        cells[0].paragraphs[0].runs[0].bold = True
+        cells[1].text = str(value)
+
+    document.add_heading("Match Summary", level=1)
+    try:
+        percentage = max(0, min(100, round(float(match.get("match_percentage", 0)))))
+    except (TypeError, ValueError):
+        percentage = 0
+    try:
+        raw_coverage = float(match.get("skill_coverage", 0))
+    except (TypeError, ValueError):
+        raw_coverage = 0
+    coverage = round(raw_coverage * 100 if raw_coverage <= 1 else raw_coverage)
+    for label, value in (
+        ("Match Percentage", f"{percentage}%"),
+        ("Match Classification", match.get("match_type") or "Not classified"),
+        ("Skill Coverage", f"{max(0, min(100, coverage))}%"),
+    ):
+        paragraph = document.add_paragraph(style="List Bullet")
+        run = paragraph.add_run(f"{label}: ")
+        run.bold = True
+        paragraph.add_run(str(value))
+
+    document.add_heading("Why This Matches", level=1)
+    document.add_paragraph(str(match.get("explanation") or "No explanation is available."))
+
+    def add_skill_section(heading: str, values: object, empty_message: str) -> None:
+        document.add_heading(heading, level=1)
+        items = values if isinstance(values, list) else []
+        if not items:
+            document.add_paragraph(empty_message)
+            return
+        for item in items:
+            document.add_paragraph(str(item), style="List Bullet")
+
+    add_skill_section("Matched Skills", compact.get("matched_skills"), "No confirmed matched skills were identified.")
+    add_skill_section("Skills to Develop", compact.get("missing_skills"), "No canonical skill gaps were identified.")
+
+    document.add_heading("What to Learn Next", level=1)
+    resources = compact.get("learning_recommendations")
+    if isinstance(resources, list) and resources:
+        for resource in resources:
+            if not isinstance(resource, dict):
+                continue
+            resource_title = resource.get("title") or resource.get("course_or_certification_title") or "Learning resource"
+            provider = resource.get("provider") or resource.get("offered_by_provider") or "Kareerly catalog"
+            url = resource.get("url") or resource.get("external_course_or_certification_link")
+            paragraph = document.add_paragraph(style="List Bullet")
+            paragraph.add_run(str(resource_title)).bold = True
+            paragraph.add_run(f" — {provider}")
+            if isinstance(url, str) and re.match(r"^https?://", url, re.IGNORECASE):
+                document.add_paragraph(url)
+    else:
+        document.add_paragraph("No curated learning resource is available for these skills yet.")
+
+    document.add_paragraph()
+    notice = document.add_paragraph(
+        "This job was analyzed from a description provided by the candidate. "
+        "Applications to external jobs are not tracked by Kareerly."
+    )
+    notice.runs[0].italic = True
+
+    output = BytesIO()
+    document.save(output)
+    output.seek(0)
+    return output, _external_job_report_filename(job.get("title"))
+
+
 def _saved_external_job_response(row: dict) -> dict:
     result_json = row.get("result_json") if isinstance(row.get("result_json"), dict) else {}
     saved_job = result_json.get("job") if isinstance(result_json.get("job"), dict) else {}
@@ -1612,12 +1730,23 @@ def save_external_job(
         raise HTTPException(status_code=401, detail="Authentication is required.")
 
     compact = _compact_external_job_analysis(payload.analysis)
+    fingerprint = _external_job_analysis_fingerprint(compact)
     job = compact["job"]
     match_percentage = compact["match"].get("match_percentage", 0)
     try:
         match_percentage = max(0, min(100, float(match_percentage)))
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail="The external job match percentage is invalid.") from exc
+
+    duplicate_query = urllib.parse.urlencode({
+        "user_id": f"eq.{user_id}",
+        "analysis_fingerprint": f"eq.{fingerprint}",
+        "select": "id,job_title,company_name,match_percentage,result_json,created_at",
+        "limit": "1",
+    })
+    duplicate_rows = _supabase_request(f"/rest/v1/candidate_external_job_matches?{duplicate_query}", service_role=True)
+    if isinstance(duplicate_rows, list) and duplicate_rows and isinstance(duplicate_rows[0], dict):
+        return _saved_external_job_response(duplicate_rows[0])
 
     count_query = urllib.parse.urlencode({
         "user_id": f"eq.{user_id}",
@@ -1638,6 +1767,7 @@ def save_external_job(
         "company_name": job["company_name"] or None,
         "match_percentage": round(match_percentage, 2),
         "result_json": compact,
+        "analysis_fingerprint": fingerprint,
     }
     try:
         rows = _supabase_request(
@@ -1661,6 +1791,22 @@ def save_external_job(
     return _saved_external_job_response(row)
 
 
+@app.post("/api/candidate/external-jobs/report")
+def download_external_job_report(
+    payload: ExternalJobSaveRequest,
+    authorization: Annotated[Optional[str], Header()] = None,
+):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    report, filename = _build_external_job_report(payload.analysis)
+    return StreamingResponse(
+        report,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.delete("/api/candidate/external-jobs/saved/{saved_match_id}")
 def delete_saved_external_job(saved_match_id: str, authorization: Annotated[Optional[str], Header()] = None) -> dict:
     user_id = _get_authenticated_user_id(authorization)
@@ -1680,6 +1826,62 @@ def delete_saved_external_job(saved_match_id: str, authorization: Annotated[Opti
     if not isinstance(rows, list) or not rows:
         raise HTTPException(status_code=404, detail="Saved external job match was not found.")
     return {"deleted": True, "id": saved_match_id}
+
+
+@app.get("/api/candidate/notifications")
+def list_candidate_notifications(authorization: Annotated[Optional[str], Header()] = None) -> list[dict]:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    query = urllib.parse.urlencode({
+        "recipient_user_id": f"eq.{user_id}",
+        "select": "id,event_type,application_id,title,message,created_at,read_at",
+        "order": "created_at.desc",
+        "limit": "30",
+    })
+    rows = _supabase_request(f"/rest/v1/candidate_notifications?{query}", service_role=True)
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+@app.patch("/api/candidate/notifications/read-all")
+def mark_all_candidate_notifications_read(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    query = urllib.parse.urlencode({
+        "recipient_user_id": f"eq.{user_id}",
+        "read_at": "is.null",
+    })
+    rows = _supabase_request(
+        f"/rest/v1/candidate_notifications?{query}",
+        method="PATCH",
+        service_role=True,
+        body={"read_at": _safe_timestamp()},
+        prefer="return=representation",
+    )
+    return {"updated": len(rows) if isinstance(rows, list) else 0}
+
+
+@app.patch("/api/candidate/notifications/{notification_id}/read")
+def mark_candidate_notification_read(notification_id: str, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    query = urllib.parse.urlencode({
+        "id": f"eq.{notification_id}",
+        "recipient_user_id": f"eq.{user_id}",
+        "select": "id,read_at",
+    })
+    rows = _supabase_request(
+        f"/rest/v1/candidate_notifications?{query}",
+        method="PATCH",
+        service_role=True,
+        body={"read_at": _safe_timestamp()},
+        prefer="return=representation",
+    )
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=404, detail="Notification was not found.")
+    return rows[0]
 
 
 @app.post("/api/matches/from-resume")

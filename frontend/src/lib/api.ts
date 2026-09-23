@@ -354,6 +354,66 @@ export async function deleteSavedExternalJobMatch(id: string): Promise<void> {
   await authenticatedMessageRequest(`/api/candidate/external-jobs/saved/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+function contentDispositionFilename(value: string | null): string | null {
+  if (!value) return null;
+  const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match) return decodeURIComponent(utf8Match[1].replace(/^"|"$/g, ''));
+  const basicMatch = value.match(/filename="?([^";]+)"?/i);
+  return basicMatch?.[1] || null;
+}
+
+export async function downloadExternalJobMatchReport(analysis: ExternalJobAnalysisResponse): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Your session has expired. Please log in again.');
+  const response = await fetchBackend(
+    `${API_BASE_URL}/api/candidate/external-jobs/report`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ analysis }),
+    },
+    'The match report took too long to generate. Please try again.',
+  );
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(getReadableMessage(errorBody?.detail || errorBody) || 'The match report could not be generated.');
+  }
+  const blob = await response.blob();
+  const filename = contentDispositionFilename(response.headers.get('Content-Disposition')) || 'Kareerly_External_Job_Match_Report.docx';
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export type CandidateNotification = {
+  id: string;
+  event_type: 'application_status' | 'message_request' | string;
+  application_id: string | null;
+  title: string;
+  message: string;
+  created_at: string;
+  read_at: string | null;
+};
+
+export async function listCandidateNotifications(): Promise<CandidateNotification[]> {
+  const payload = await authenticatedMessageRequest('/api/candidate/notifications');
+  return Array.isArray(payload) ? payload as CandidateNotification[] : [];
+}
+
+export async function markCandidateNotificationRead(id: string): Promise<void> {
+  await authenticatedMessageRequest(`/api/candidate/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+}
+
+export async function markAllCandidateNotificationsRead(): Promise<void> {
+  await authenticatedMessageRequest('/api/candidate/notifications/read-all', { method: 'PATCH' });
+}
+
 export type JobDetailResponse = {
   job?: AvailableJobItem;
   match_analysis?: {
