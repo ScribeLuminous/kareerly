@@ -42,11 +42,11 @@ async function backendConnectionError(error: unknown): Promise<Error> {
     return new Error(`Cannot reach the job matching backend at ${API_BASE_URL}. For local development, run npm run dev. For a deployed website, configure VITE_API_BASE_URL with the public backend URL and redeploy the frontend.`);
   }
 
-  const websiteOrigin = window.location?.origin || 'your website origin';
-  // The probe separates the two failures that look identical to fetch().
+  // An opaque response also includes gateway errors and challenge pages. It
+  // cannot prove that FastAPI rejected this website's CORS origin.
   const reachable = await backendIsReachable();
   return new Error(reachable
-    ? `The job matching backend at ${API_BASE_URL} is running but refused a request from this website. Add ${websiteOrigin} to the backend's FRONTEND_URLS environment variable (comma-separated, no trailing slash) and redeploy the backend.`
+    ? `The job matching service at ${API_BASE_URL} answered, but the request could not complete. Its hosting protection or a network interruption may be blocking it. Please try again shortly; if it continues, report the time of the failure to the site administrator.`
     : `The job matching backend at ${API_BASE_URL} is not responding. It may be asleep, still starting up, or failing to boot — check its service logs, then try again. If the URL is wrong, update VITE_API_BASE_URL and redeploy this website.`);
 }
 
@@ -633,14 +633,15 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
   };
 
 
+  // Multipart without custom headers is a CORS simple request. It avoids an
+  // OPTIONS preflight that an upstream challenge can block before FastAPI.
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(normalizedPayload));
   const response = await fetchBackend(
-    `${API_BASE_URL}/api/matches/run`,
+    `${API_BASE_URL}/api/matches/run-form`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(normalizedPayload),
+      body: formData,
     },
     'Job matching timed out. The backend may still be starting up — please try generating the report again.',
     MATCHING_TIMEOUT_MS,

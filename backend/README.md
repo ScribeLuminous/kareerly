@@ -198,15 +198,25 @@ allows matching requests 240s.
 
 ### "Cannot reach the job matching backend" on the deployed website
 
-The website distinguishes the two causes for you. Before reporting the error it
-sends an opaque `no-cors` probe to `/api/health`:
+Before reporting the error, the website sends an opaque `no-cors` probe to
+`/api/health`:
 
-- *"running but refused a request from this website"* — the service is up and
-  the origin is missing from `FRONTEND_URLS`. Add the exact website origin
-  (scheme and host, no trailing slash, no path) in Render and redeploy.
+- *"answered, but the request could not complete"* — something responded at
+  the backend origin, but an opaque response does not reveal whether it was
+  FastAPI, Render, or Cloudflare. Check the actual response and preflight
+  headers before changing `FRONTEND_URLS`.
 - *"not responding"* — the service is down, asleep, or failing to boot. Check
   Render's logs. A boot that is killed without a Python traceback is usually the
   instance running out of memory.
+
+If `OPTIONS /api/matches/run` or `/api/health` returns HTTP 429 with
+`cf-mitigated: challenge`, Cloudflare is responding before the request reaches
+FastAPI. It will not include FastAPI's CORS headers, even if `FRONTEND_URLS` is
+correct. The browser's report request uses `/api/matches/run-form` as a simple
+multipart request to avoid the JSON preflight, while the JSON endpoint remains
+available for other clients. If Cloudflare also challenges the multipart POST,
+check Render's edge/request logs and contact Render support with the `CF-Ray`
+header and timestamp; changing `FRONTEND_URLS` cannot fix an edge challenge.
 
 `requirements.txt` carries an `--extra-index-url` for the CPU-only torch index.
 The default PyPI wheel bundles the CUDA runtime, which a CPU instance cannot use
