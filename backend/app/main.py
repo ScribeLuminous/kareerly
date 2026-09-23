@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, RunMatchesRequest
 from .services.job_matcher import list_available_jobs
@@ -1410,6 +1410,28 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
         raise HTTPException(status_code=500, detail=f"Job matching failed: {exc}") from exc
 
     return _apply_report_access_control(result, user_mode, view_mode)
+
+
+@app.post("/api/matches/run-form")
+async def run_matches_form(payload: str = Form(...)) -> dict:
+    """Accept the same request without a JSON CORS preflight.
+
+    The browser sends a multipart form with no custom headers. This matters for
+    cross-origin clients when an upstream challenge rejects OPTIONS before the
+    request reaches FastAPI. Keep the JSON route for existing API consumers.
+    """
+    try:
+        values = json.loads(payload)
+        if not isinstance(values, dict):
+            raise ValueError("Matching payload must be an object.")
+        request = (
+            RunMatchesRequest.model_validate(values)
+            if hasattr(RunMatchesRequest, "model_validate")
+            else RunMatchesRequest.parse_obj(values)
+        )
+    except (json.JSONDecodeError, ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Invalid matching request payload.") from exc
+    return await run_matches(request)
 
 
 def _load_external_job_candidate(user_id: str) -> tuple[str, list[dict], dict, dict]:
