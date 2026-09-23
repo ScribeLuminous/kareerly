@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
+  faArrowLeft,
   faArrowUpRightFromSquare,
   faBars,
   faBell,
@@ -22,6 +23,7 @@ import {
   faCompass,
   faEye,
   faFilter,
+  faForward,
   faGraduationCap,
   faLaptop,
   faLayerGroup,
@@ -1179,6 +1181,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [resumeDragOver, setResumeDragOver] = useState(false);
   const [resumeUploadFile, setResumeUploadFile] = useState<File | null>(null);
   const [resumeAnalyzeData, setResumeAnalyzeData] = useState<ResumeAnalyzeResponse | null>(null);
+  const [resumeActionError, setResumeActionError] = useState('');
+  const savedResumeUploadId = useRef<string | null>(null);
   const [reviewSkills, setReviewSkills] = useState<string[]>([]);
   const [newSkillInput, setNewSkillInput] = useState('');
   const [resumePostRefreshTarget, setResumePostRefreshTarget] = useState<'dashboard' | 'preferences'>('dashboard');
@@ -2303,6 +2307,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setResumeDragOver(false);
     setResumeUploadFile(null);
     setResumeAnalyzeData(null);
+    setResumeActionError('');
+    savedResumeUploadId.current = null;
     setReviewSkills([]);
     setNewSkillInput('');
     setResumePostRefreshTarget('dashboard');
@@ -2353,6 +2359,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   const handleResumeFilePick = (file: File | null) => {
+    setResumeAnalyzeData(null);
+    setResumeActionError('');
+    savedResumeUploadId.current = null;
     if (!file) {
       setResumeUploadFile(null);
       return;
@@ -2370,6 +2379,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       showToast('Please upload a resume file first.', 'warn');
       return;
     }
+    savedResumeUploadId.current = null;
+    setResumeActionError('');
     setLoading(true);
     setError(null);
     try {
@@ -2429,6 +2440,26 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
+  const savePendingResume = async (): Promise<string | null> => {
+    if (!resumeUploadFile || !resumeAnalyzeData) return null;
+    if (savedResumeUploadId.current) return savedResumeUploadId.current;
+    let resumeId = state.savedResumeId ?? null;
+    if (currentUser.id) {
+      resumeId = await saveResumeAnalysis({
+        userId: currentUser.id,
+        fileName: resumeUploadFile.name,
+        file: resumeUploadFile,
+        analysis: resumeAnalyzeData,
+      });
+      savedResumeUploadId.current = resumeId;
+      setSavedResumeFileName(resumeUploadFile.name);
+    }
+    setResumeFile(resumeUploadFile);
+    applyAnalysisResult(resumeAnalyzeData);
+    setSavedResumeId(resumeId);
+    return resumeId;
+  };
+
   const confirmSkillsAndRefresh = async () => {
     if (!resumeUploadFile || !resumeAnalyzeData) return;
     const confirmed = Array.from(new Set(reviewSkills.map((item) => item.trim()).filter(Boolean)));
@@ -2438,20 +2469,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
     setLoading(true);
     setError(null);
+    setResumeActionError('');
     try {
-      let resumeId = state.savedResumeId ?? null;
-      if (currentUser.id) {
-        resumeId = await saveResumeAnalysis({
-          userId: currentUser.id,
-          fileName: resumeUploadFile.name,
-          file: resumeUploadFile,
-          analysis: resumeAnalyzeData,
-        });
-        setSavedResumeFileName(resumeUploadFile.name);
-      }
-      setResumeFile(resumeUploadFile);
-      applyAnalysisResult(resumeAnalyzeData);
-      setSavedResumeId(resumeId);
+      const resumeId = await savePendingResume();
       setSkillNames(confirmed);
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
       await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, { analysis: resumeAnalyzeData, resumeId });
@@ -2465,9 +2485,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         showToast('Skills confirmed and dashboard refreshed.', 'success');
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to refresh after skill confirmation.';
-      setError(message);
-      showToast(message, 'danger');
+      const detail = error instanceof Error ? error.message : 'Please try again.';
+      setResumeActionError(savedResumeUploadId.current
+        ? 'Resume saved, but matches could not be refreshed. You can retry without uploading it again.'
+        : `Unable to save resume. ${detail}`);
     } finally {
       setLoading(false);
     }
@@ -2487,20 +2508,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
     setLoading(true);
     setError(null);
+    setResumeActionError('');
     try {
-      let resumeId = state.savedResumeId ?? null;
-      if (currentUser.id) {
-        resumeId = await saveResumeAnalysis({
-          userId: currentUser.id,
-          fileName: resumeUploadFile.name,
-          file: resumeUploadFile,
-          analysis: resumeAnalyzeData,
-        });
-        setSavedResumeFileName(resumeUploadFile.name);
-      }
-      setResumeFile(resumeUploadFile);
-      applyAnalysisResult(resumeAnalyzeData);
-      setSavedResumeId(resumeId);
+      const resumeId = await savePendingResume();
       setSkillNames(confirmed);
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
       await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, { analysis: resumeAnalyzeData, resumeId });
@@ -2509,9 +2519,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       showInlineNotice('Resume updated. Matches, skill gaps, recommendations, and progress were refreshed.', 'success');
       showToast('Resume changes applied to your dashboard.', 'success');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to refresh dashboard after resume update.';
-      setError(message);
-      showToast(message, 'danger');
+      const detail = error instanceof Error ? error.message : 'Please try again.';
+      setResumeActionError(savedResumeUploadId.current
+        ? 'Resume saved, but matches could not be refreshed. You can retry without uploading it again.'
+        : `Unable to save resume. ${detail}`);
     } finally {
       setLoading(false);
     }
@@ -2528,20 +2539,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
     setLoading(true);
     setError(null);
+    setResumeActionError('');
     try {
-      let resumeId = state.savedResumeId ?? null;
-      if (currentUser.id) {
-        resumeId = await saveResumeAnalysis({
-          userId: currentUser.id,
-          fileName: resumeUploadFile.name,
-          file: resumeUploadFile,
-          analysis: resumeAnalyzeData,
-        });
-        setSavedResumeFileName(resumeUploadFile.name);
-      }
-      setResumeFile(resumeUploadFile);
-      applyAnalysisResult(resumeAnalyzeData);
-      setSavedResumeId(resumeId);
+      await savePendingResume();
       if (preparedSkills.length > 0) setSkillNames(preparedSkills);
       setResumeModalOpen(false);
       setResumeStep('upload');
@@ -2549,8 +2549,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       onUpdateResume();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to save the resume to your profile.';
-      setError(message);
-      showToast(message, 'danger');
+      setResumeActionError(message);
     } finally {
       setLoading(false);
     }
@@ -3060,6 +3059,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           reviewSkills={reviewSkills}
           skillInput={newSkillInput}
           loading={state.isLoading}
+          actionError={resumeActionError}
           onClose={() => setResumeModalOpen(false)}
           onDragOver={setResumeDragOver}
           onPickFile={handleResumeFilePick}
@@ -5701,6 +5701,7 @@ function ResumeUpdateModal({
   reviewSkills,
   skillInput,
   loading,
+  actionError,
   onClose,
   onDragOver,
   onPickFile,
@@ -5720,6 +5721,7 @@ function ResumeUpdateModal({
   reviewSkills: string[];
   skillInput: string;
   loading: boolean;
+  actionError: string;
   onClose: () => void;
   onDragOver: (value: boolean) => void;
   onPickFile: (file: File | null) => void;
@@ -5740,10 +5742,12 @@ function ResumeUpdateModal({
             <div className="cand-modal-title">Update Resume</div>
             <div className="cand-modal-subtitle">Updating resume refreshes skills, matches, gaps, recommendations, and progress.</div>
           </div>
-          <button className="cand-modal-close" type="button" onClick={onClose}>
-            x
+          <button className="cand-modal-close" type="button" onClick={onClose} aria-label="Close update resume">
+            <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
           </button>
         </div>
+
+        {actionError && <div className="cand-resume-action-error" role="alert">{actionError}</div>}
 
         {step === 'upload' && (
           <div>
@@ -5811,20 +5815,19 @@ function ResumeUpdateModal({
         {step === 'decision' && (
           <div>
             <div className="cand-notice info mb-3">
-              <span>Would you like to review your skills and preferences first, or skip and apply the resume updates now?</span>
+              <span>Review your skills and preferences, or apply the resume to your dashboard now.</span>
             </div>
-            <div className="cand-notice warn mb-3">
-              <span>Check Skills & Preferences returns you to the onboarding flow (Steps 2 and 3) to review everything.</span>
-            </div>
-            <div className="cand-modal-actions">
+            <div className="cand-modal-actions cand-resume-decision-actions">
               <button className="cand-btn-primary" type="button" disabled={loading} onClick={onReviewPreferencesPath}>
-                {loading ? 'Saving...' : 'Check Skills & Preferences'}
+                <FontAwesomeIcon icon={faCircleCheck} aria-hidden="true" />
+                <span>{loading ? 'Saving...' : 'Skills & Preferences'}</span>
               </button>
               <button className="cand-btn-secondary" type="button" disabled={loading} onClick={onSkip}>
-                {loading ? 'Applying...' : 'Skip and Apply to Dashboard'}
+                <FontAwesomeIcon icon={faForward} aria-hidden="true" />
+                <span>{loading ? 'Applying...' : 'Skip & Apply'}</span>
               </button>
-              <button className="cand-btn-secondary" type="button" onClick={onBack}>
-                Back to Upload
+              <button className="cand-btn-secondary cand-resume-back-btn" type="button" disabled={loading} onClick={onBack} aria-label="Back to upload" title="Back to upload">
+                <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
               </button>
             </div>
           </div>

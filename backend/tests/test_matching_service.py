@@ -1,5 +1,6 @@
 """Offline contracts for the thesis bi-encoder and transparent matching rules."""
 import io
+import os
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -189,6 +190,16 @@ class EncoderRegressionTests(unittest.TestCase):
             encoder.score_jobs("query2", ["job1", "job2"])
             encoder.score_jobs("query3", ["changed job1", "job2"])
         self.assertEqual(sum(len(call) == 2 for call in calls), 2)
+
+    def test_catalogue_encoding_uses_low_memory_default_batch(self):
+        batches = []
+        class Model:
+            def encode(self, texts, **kwargs):
+                batches.append(kwargs['batch_size'])
+                return np.asarray([[1, 0]] * len(texts))
+        with patch.dict(os.environ, {}, clear=True), patch.object(encoder, 'get_bi_encoder', return_value=Model()):
+            encoder.score_jobs('query', ['job1', 'job2'])
+        self.assertEqual(batches, [4, 1])
 
     def test_training_input_limits_and_contact_redaction(self):
         value = encoder.build_model_input("Python developer jane@example.org https://example.org +63 912 345 6789 " + "evidence " * 400)
