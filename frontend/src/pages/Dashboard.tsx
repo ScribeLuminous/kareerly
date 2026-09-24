@@ -56,7 +56,7 @@ import { cleanSkillLabel } from '../lib/skillLabels';
 import { careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
-import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
+import { loadLatestMatchHistory, loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
 import type { DevelopmentProgressRecord, LearningRecommendation as RunLearningRecommendation } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
 import { formatJobDescription } from '../lib/jobDescription';
@@ -1387,6 +1387,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       setSavedResumeId(latestResume.id);
       const restoredSkills = extractSkillsFromResume(analysis.parsedResume);
       if (restoredSkills.length > 0) setSkillNames(restoredSkills);
+
+      const savedMatches = await loadLatestMatchHistory({ userId: currentUser.id, resumeId: latestResume.id });
+      if (isMounted && savedMatches) setMatchResults(savedMatches);
     })();
 
     return () => {
@@ -2132,12 +2135,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           source: 'confirmed_skill',
         })));
       }
-      await saveMatchHistory({
+      const saved = await saveMatchHistory({
         userId: currentUser.id,
         resumeId: options?.resumeId ?? state.savedResumeId,
         preferences: answers,
         results: result,
       });
+      if (!saved) showToast('Matches refreshed, but they could not be saved to your profile. They may not appear after you reload.', 'warn');
     }
     return result;
   };
