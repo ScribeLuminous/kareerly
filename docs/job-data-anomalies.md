@@ -2,8 +2,9 @@
 
 This is a manual review of all 184 jobs in `backend/data/reference_jobs.csv`,
 with skill IDs resolved to names through `backend/data/skills_reference.csv`.
-It is the data follow-up from `docs/matching-diagnosis.md`. No data has been
-changed yet; each item below is a proposed fix for review.
+It is the data follow-up from `docs/matching-diagnosis.md`. Sections 1–5 are
+the review as found. The fixes have since been applied; see
+[Applied fixes](#applied-fixes-2026-09-24) at the end.
 
 Odd requirements hurt genuine candidates. A real software developer can never
 hold "Animal Care", so JOB-009's required-skill coverage is capped, and the
@@ -190,3 +191,127 @@ or added to `skills_reference.csv`. Running the same review over the live
 5. Rerun `backend/scripts/diagnose_match_distribution.py`. The Fit-Now
    thresholds were calibrated on the current data, so check that they still
    hold.
+
+## Applied fixes (2026-09-24)
+
+`backend/scripts/fix_reference_job_data.py` applies the fixes and can be re-run;
+a second run changes nothing. It lists every reviewed job's final required and
+nice-to-have skills, so each decision can be read in one place. Each list was
+checked against the posting's own requirement text and the matching ESCO
+v1.2.1 occupation profile (`occupationSkillRelations_en.csv`).
+`backend/tests/test_reference_data_quality.py` keeps these rules from
+regressing.
+
+**Jobs (`reference_jobs.csv`)**
+
+- All skills marked clearly wrong in sections 1 and 2 are removed. Where a
+  posting then lacked a skill it plainly asks for, the ESCO skill named for
+  that work was added. Examples: Use spreadsheets software for "MS Excel", Use
+  customer relationship management software for "Salesforce / HubSpot", Execute
+  ICT audits and Audit techniques for the IS Audit Specialist, Quantity
+  surveying for the Cost Estimator, Social Media Management for the Social
+  Media Manager (it was missing).
+- Questionable skills: kept when the posting asks for them, removed otherwise.
+  Kept: Web Development (JOB-001, tag management and instrumentation), Content
+  Writing for report writing (JOB-021, 026, 029) and Inventory Management as
+  nice-to-have (JOB-011, "maintain IT asset inventory"). Removed: Risk Reporting and ISMS (JOB-001), Implement a firewall
+  (JOB-004), Cyber attack counter-measures (JOB-006, 015), Computer
+  engineering (JOB-011), Python and Training Facilitation (JOB-015),
+  Management systems standards and Manage human resources (JOB-023), SQL
+  where the posting never mentions it (JOB-031, 039, 045, 048), Graphic Design
+  (JOB-038, 043), Payroll and Social Media (JOB-024), Write job descriptions
+  and Develop animations (JOB-058), and the rest of the questionable column.
+- Also removed, though section 1 did not list them: SAS language (JOB-001),
+  Policy Support and Bookkeeping (JOB-024), Product Knowledge (JOB-026),
+  Retail Operations (JOB-033, 041), Graphic Design, Sales Techniques and
+  Content Writing (JOB-034), Content Writing and Sales Techniques (JOB-046),
+  the Writing-category fallback skills on the Video Editor (JOB-049), and
+  Graphic Design and Sales Techniques (JOB-052). None of these appears in its
+  posting.
+- All 22 recategorisations in section 3 are applied. JOB-042 went to K07
+  Sales. JOB-008 went to K03. JOB-014 Systems Administrator also moved to K03;
+  it was the other category-fallback job.
+- Template jobs K11, K17, K20, K21 and K24 now carry skills that fit their
+  title. The Backhoe Operator requires Machine Operation. Elderly Care is gone
+  from the Livestock Farm Assistant.
+- No job lists a skill as both required and nice-to-have. No job requires more
+  than 8 skills; the longest list is now 7.
+- JOB-061–JOB-090 have plain descriptions of the work instead of the "coverage
+  seed" text.
+- Near-duplicates: JOB-085 is now *Reforestation and Nursery Assistant*
+  (Tree Planting, Environmental Conservation, Horticulture). JOB-082 is now
+  *Forklift and Materials Handling Assistant* (Warehouse Operations, Machine
+  Operation). The JobStreet-sourced JOB-148 and JOB-139 are unchanged.
+- On JOB-081, a driver job, the filler nice-to-haves Machine Operation and
+  Production Monitoring are replaced with Workplace Safety.
+- `job_text_for_matching` is rebuilt for all 184 jobs from the title,
+  description, requirement text, mapped skill names and category. The old text
+  still named the removed skills, and repeated the category name up to four
+  times.
+- Jobs whose skills changed have `skill_id_mapping_status=reviewed`.
+
+**Skills (`skills_reference.csv`)**
+
+- The 78 imported ESCO skills that jobs still use are now
+  `mapping_status=reviewed`. Each is named after its ESCO concept, so the link
+  is exact, and each was checked with the job that uses it. No job references
+  an `auto_generated_review` row any more, and the new test keeps it that way.
+  The other 422 imported rows are untouched and still need review before a
+  job uses them.
+- 14 core skills were linked to an ESCO concept picked by wording rather than
+  meaning. Resume parsing uses the linked concept's labels as aliases, so
+  these produced false detections. They are relinked:
+
+  | Skill | Was linked to | Now linked to |
+  |---|---|---|
+  | SK022 Operations Support | ensure lawful business operations | coordinate operational activities |
+  | SK024 Retail Operations | mill operations | supervise sales activities |
+  | SK052 Case Documentation | maintain customer records | maintain records of work with service users |
+  | SK059 Caregiving | provide lawn care | apply person-centred care |
+  | SK061 Basic Life Support | provide ICT support | provide first aid |
+  | SK064 Pharmacy Support | navy operations | ensure the appropriate supply in pharmacy |
+  | SK069 Engineering Measurement | take measurements of performance space | use measurement instruments |
+  | SK071 Masonry | blast masonry | lay bricks |
+  | SK078 Front Desk Support | train reception staff | greet guests |
+  | SK081 Tourism Assistance | tourism market | provide tourism related information |
+  | SK087 Personal Grooming Services | thermal treatment (waste incineration) | style hair |
+  | SK089 Machine Operation | operate router machinery | operate industrial equipment |
+  | SK104 Livestock Production | research livestock production | manage livestock |
+  | SK106 Environmental Conservation | inform customers environmental protection | conserve natural resources |
+
+- 26 core skills had `related_skills` aliases copied from an unrelated ESCO
+  concept. Examples: "oversee casino" on Classroom Management, "train animals"
+  on Training Facilitation, "caring for forest wildlife" on Elderly Care,
+  "handle payments" on Payroll Processing, "developing staff" on Web
+  Development, and nuclear-emergency terms on Emergency Response. These are
+  removed. The full list is `RELATED_DROP` in the script.
+
+**Diagnostic rerun** (`diagnose_match_distribution.py`, 33 mock resumes × 184
+jobs, fine-tuned model, current thresholds; before → after):
+
+| Measure | Before | After |
+|---|---|---|
+| Strong pairs classed Fit-Now | 98 / 179 | 106 / 179 |
+| Strong pairs classed Low Match | 28 | 22 |
+| Strong pairs failing the required-coverage rule | 68 | 55 |
+| Moderate pairs classed Fit-Now | 72 | 64 |
+| Weak pairs classed Aspiration | 138 | 92 |
+| Weak pairs classed Fit-Now | 1 | 4 |
+| Resumes with no Fit-Now job | 2 | 0 |
+| Final-score nDCG@10 / recall@10 | 0.885 / 0.826 | 0.897 / 0.861 |
+| Fine-tuned cosine AUC, strong vs moderate | 0.859 | 0.887 |
+
+The thresholds still hold: Fit-Now rises for strong pairs and falls for
+moderate and weak ones, so there is no reason to recalibrate. The three new
+weak Fit-Now pairs are reasonable matches that the career-area labels count
+as weak: Content Writer → Social Media Manager (now under Marketing), and a
+Legal Assistant and a Government Administrative Officer → Corporate
+Secretary, which is still filed under Finance and Accounting. JOB-030 may
+belong under K05 or K24.
+
+**Not changed**
+
+- JOB-016 Financial Analyst still requires Python Programming, and JOB-057 Web
+  Designer requires Data Visualization. Neither posting mentions them, but
+  section 1 listed both jobs as clean, so they are left for a decision.
+- Section 5 (Supabase jobs) needs the live tables and is not covered here.
