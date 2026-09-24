@@ -167,5 +167,34 @@ export async function saveMatchHistory(input: {
 
   if (error) {
     console.warn('Unable to save match history:', error.message);
+    return false;
   }
+  return true;
+}
+
+// Match results only live in memory, so a reload shows zero matches unless the
+// last saved run is restored. Only use a run made from the given resume: an
+// older resume's matches would be wrong after a failed refresh.
+export async function loadLatestMatchHistory(input: { userId: string; resumeId?: string | null }): Promise<JobMatchRunResults | null> {
+  const latestFor = (resumeId: string | null) => {
+    const query = supabase
+      .from('match_history')
+      .select('results_json')
+      .eq('user_id', input.userId);
+    return (resumeId ? query.eq('resume_id', resumeId) : query.is('resume_id', null))
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+  };
+
+  let { data, error } = await latestFor(input.resumeId || null);
+  if (!error && !data && input.resumeId) {
+    // Rows saved before the resume id was recorded.
+    ({ data, error } = await latestFor(null));
+  }
+  if (error) {
+    console.warn('Unable to load match history:', error.message);
+    return null;
+  }
+  return (data?.results_json as JobMatchRunResults | null) || null;
 }
