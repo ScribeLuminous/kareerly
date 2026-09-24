@@ -46,6 +46,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 
 REFERENCE_JOBS_PATH = os.path.join(DATA_DIR, "reference_jobs.csv")
 SKILLS_REFERENCE_PATH = os.path.join(DATA_DIR, "skills_reference.csv")
+CATEGORY_REFERENCE_PATH = os.path.join(DATA_DIR, "category_reference.csv")
 LEARNING_RESOURCES_PATH = os.path.join(DATA_DIR, "learning_resources.csv")
 
 TOP_FIT_NOW = 10
@@ -193,6 +194,42 @@ def normalize_career_area(value: Any) -> str:
     if normalized in CAREER_AREA_JOB_CATEGORIES:
         return normalized
     return CAREER_AREA_ALIASES.get(normalized, "")
+
+
+@lru_cache(maxsize=1)
+def _career_area_by_category_name() -> Dict[str, str]:
+    # Keyed by the normalized name: normalize_for_match drops the commas that
+    # names such as "Data, Analytics, and Artificial Intelligence" contain.
+    return {
+        normalize_for_match(category): area
+        for area, categories in CAREER_AREA_JOB_CATEGORIES.items()
+        for category in categories
+    }
+
+
+def _area_for_category_name(value: Any) -> str:
+    return _career_area_by_category_name().get(normalize_for_match(value), "")
+
+
+@lru_cache(maxsize=1)
+def career_area_by_category_id() -> Dict[str, str]:
+    """K01-K24 category codes mapped to the seven Step 3 career areas."""
+    areas: Dict[str, str] = {}
+    for _, row in safe_read_csv(CATEGORY_REFERENCE_PATH).iterrows():
+        area = _area_for_category_name(row.get("category_name", ""))
+        if area:
+            areas[normalize_category_id(row.get("category_id", ""))] = area
+    return areas
+
+
+def job_career_area(job: Dict[str, Any]) -> str:
+    """The Step 3 career area a job belongs to, or "" when it cannot be told."""
+    category = job.get("job_category", "")
+    area = _area_for_category_name(category) or normalize_career_area(category)
+    if area:
+        return area
+    category_id = normalize_category_id(job.get("category_id_norm") or job.get("category_id") or "")
+    return career_area_by_category_id().get(category_id, "")
 
 
 # ============================================================
@@ -805,6 +842,44 @@ def compute_taxonomy_skill_coverage(
     }
 
 
+ROLE_LEVEL_TERMS = {
+    "entry": ("entry", "junior", "trainee", "intern", "fresh"),
+    "mid": ("mid",),
+    "senior": ("senior", "lead", "manager", "supervisor", "head"),
+}
+
+
+def _role_level(value: str) -> str:
+    for level, terms in ROLE_LEVEL_TERMS.items():
+        if any(re.search(rf"\b{term}", value) for term in terms):
+            return level
+    return ""
+
+
+def _work_setups(value: str) -> set:
+    """Canonical setups named in a preference answer or a job's work type."""
+    setups = set()
+    if "hybrid" in value:
+        setups.add("hybrid")
+    if "remote" in value or "home" in value:
+        setups.add("remote")
+    if re.search(r"\bon ?-?site\b|\boffice only\b|\bfield", value):
+        setups.add("onsite")
+    # "Hybrid (mix of remote & office)" names remote only to describe hybrid.
+    return {"hybrid"} if "hybrid" in setups and "remote" in setups and "/" not in value else setups
+
+
+def _salary_range(value: str) -> Optional[Tuple[float, float]]:
+    """Monthly PHP range from "30-50", "PHP 80,000+/month" or "₱18,000-₱30,000"."""
+    numbers = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", value.replace(",", ""))]
+    numbers = [n * 1000 if n < 1000 else n for n in numbers]
+    if not numbers:
+        return None
+    if len(numbers) == 1:
+        return (numbers[0], float("inf")) if "+" in value else (numbers[0], numbers[0])
+    return min(numbers[:2]), max(numbers[:2])
+
+
 def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any]) -> float:
     if not preferences:
         return 0.0
@@ -841,15 +916,16 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
     skill_to_develop = normalize_for_match(preferences.get("skill_to_develop", ""))
 
     def specified(value: str) -> bool:
-        return bool(value) and value not in {"any", "flexible"} and "not sure" not in value
+        return (bool(value) and value not in {"any", "flexible", "unsure"}
+            and "not sure" not in value and "no preference" not in value)
+
+    # Step 3 asks for a job level; older clients send it as the target role too.
+    if target_role and _role_level(target_role) and _role_level(target_role) == _role_level(role_level):
+        target_role = ""
 
     if specified(preferred_industry):
         total += 0.25
-        normalized_job_category = normalize_for_match(job_category)
-        category_matches = (
-            bool(preferred_career_area)
-            and normalized_job_category in CAREER_AREA_JOB_CATEGORIES[preferred_career_area]
-        )
+        category_matches = bool(preferred_career_area) and job_career_area(job) == preferred_career_area
         if category_matches or preferred_industry in job_corpus:
             score += 0.25
         else:
@@ -864,17 +940,26 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
 
     if specified(role_level):
         total += 0.15
-        if role_level in experience:
+        wanted_level = _role_level(role_level)
+        # "Entry to Mid Level" suits both entry and mid candidates.
+        job_levels = {level for level, terms in ROLE_LEVEL_TERMS.items() if any(re.search(rf"\b{term}", experience) for term in terms)}
+        if (wanted_level and wanted_level in job_levels) or (not wanted_level and role_level in experience):
             score += 0.15
 
     if specified(work_setup):
         total += 0.20
-        if work_setup in work_type:
+        wanted_setups = _work_setups(work_setup)
+        if (wanted_setups and wanted_setups & _work_setups(work_type)) or (not wanted_setups and work_setup in work_type):
             score += 0.20
 
     if specified(salary_expectation):
         total += 0.10
-        if salary_expectation in salary:
+        wanted_salary = _salary_range(salary_expectation)
+        job_salary = _salary_range(salary)
+        if wanted_salary and job_salary:
+            if wanted_salary[0] <= job_salary[1] and job_salary[0] <= wanted_salary[1]:
+                score += 0.10
+        elif salary_expectation in salary:
             score += 0.10
 
     if specified(skill_to_develop):
@@ -1041,6 +1126,11 @@ def _score_single_normalized_job(
         skill_id for skill_id in _critical_skill_ids(job, required_ids)
         if not compute_skill_coverage(candidate_keys, [skill_id], resume_text)["matched_skills"]
     )
+    # Aspiration follows the career area chosen in Step 3. Unknown on either
+    # side (no preference, uncategorised job) falls back to the resume rule.
+    preferred_area = normalize_career_area(preferences.get("industry", ""))
+    area = job_career_area(job)
+    in_preferred_area = (area == preferred_area) if preferred_area and area else None
 
     breakdown = score_match(
         float(job.get("semantic_score_raw", job.get("semantic_score", 0.0))),
@@ -1048,6 +1138,7 @@ def _score_single_normalized_job(
         SkillEvidence(preferred_matched, preferred_missing),
         critical_missing_count=len(critical_missing),
         thresholds=thresholds,
+        in_preferred_career_area=in_preferred_area,
     )
     match_type = breakdown.match_category
     score = breakdown.match_score
@@ -1061,6 +1152,7 @@ def _score_single_normalized_job(
         "company": job.get("company_name", ""), "company_name": job.get("company_name", ""),
         "job_source": job.get("job_source", "internal"), "job_category": job.get("job_category", ""),
         "job_subcategory": job.get("job_subcategory", ""), "category_id": job.get("category_id_norm", ""),
+        "career_area": area, "in_preferred_career_area": in_preferred_area,
         "location": job.get("location", ""), "work_type": job.get("work_type", ""),
         "employment_type": job.get("employment_type", ""), "experience_level_required": job.get("experience_level_required", ""),
         "salary_range_monthly_php": job.get("salary_range_monthly_php", ""), "job_description": job.get("job_description", ""),
@@ -1080,9 +1172,11 @@ def _score_single_normalized_job(
         "critical_missing_skill_ids": critical_missing, "required_skill_ids": ";".join(required_ids),
         "matched_skills": skill_result["matched_skills"], "missing_skills": skill_result["missing_skills"],
         "matched_preferred_skills": preferred_matched, "missing_preferred_skills": preferred_missing,
-        "match_reason": match_reason(match_type, skill_result["matched_skills"], skill_result["missing_skills"], breakdown.required_skill_count),
+        "match_reason": match_reason(match_type, skill_result["matched_skills"], skill_result["missing_skills"],
+            breakdown.required_skill_count, in_preferred_area),
         "match_breakdown": breakdown.as_dict(),
-        "explanation": generate_match_explanation(job.get("job_title", ""), match_type, skill_result["matched_skills"], skill_result["missing_skills"], skill_coverage, preference_alignment),
+        "explanation": generate_match_explanation(job.get("job_title", ""), match_type, skill_result["matched_skills"],
+            skill_result["missing_skills"], skill_coverage, preference_alignment, in_preferred_area),
     }
 
 
@@ -1142,6 +1236,7 @@ def generate_match_explanation(
     missing_skills: List[str],
     skill_coverage: float,
     preference_alignment: float,
+    in_preferred_career_area: Optional[bool] = None,
 ) -> str:
     matched_text = ", ".join(matched_skills[:5]) if matched_skills else "some related resume evidence"
     missing_text = ", ".join(missing_skills[:5]) if missing_skills else "no major required skills"
@@ -1156,6 +1251,12 @@ def generate_match_explanation(
         return (
             f"This role is showing as a {match_type} because your current skills cover little of what "
             f"{job_title} requires. Its core requirements include {missing_text}."
+        )
+    if in_preferred_career_area:
+        held_text = f"Your resume already shows {matched_text}. " if matched_skills else ""
+        return (
+            f"This role is showing as {match_type} because it is in the career area you chose. "
+            f"{held_text}The skills to build next for {job_title} are {missing_text}."
         )
 
     return (
@@ -1220,9 +1321,12 @@ def match_text_to_jobs(
             .sort_values(ranking, ascending=order, kind="stable")
             .to_dict(orient="records")
         )
+        # Aspiration is chosen by preferences, so the jobs closest to all of
+        # them come first; the resume comparison orders the rest.
+        aspiration_ranking = ["preference_alignment", *ranking]
         all_aspiration_matches = (
             results_df[results_df["match_type"] == ASPIRATION]
-            .sort_values(ranking, ascending=order, kind="stable")
+            .sort_values(aspiration_ranking, ascending=[False, *order], kind="stable")
             .to_dict(orient="records")
         )
         fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
@@ -1259,6 +1363,18 @@ def match_text_to_jobs(
         else []
     )
 
+    # Why jobs missed Fit-Now, counted per rule, so an empty Fit-Now list can be
+    # explained from the response (or the log) without rerunning anything.
+    fit_now_blockers: Dict[str, int] = {}
+    for item in results:
+        for rule in item["match_breakdown"]["failed_fit_now_rules"]:
+            fit_now_blockers[rule] = fit_now_blockers.get(rule, 0) + 1
+    logger.info(
+        "Job matching finished",
+        extra={"jobs_scored": len(results), "fit_now": len(all_fit_now_matches),
+            "aspiration": len(all_aspiration_matches), "fit_now_blockers": fit_now_blockers},
+    )
+
     scoring_methods = sorted(set(scored_jobs["semantic_scoring_method"].tolist()))
     return {
         "filename": filename,
@@ -1286,6 +1402,8 @@ def match_text_to_jobs(
             "fit_now_count": len(all_fit_now_matches),
             "aspiration_count": len(all_aspiration_matches),
             "low_match_count": int((results_df["match_type"] == LOW_MATCH).sum()) if not results_df.empty else 0,
+            "preferred_career_area": normalize_career_area(preferences.get("industry", "")),
+            "fit_now_blockers": fit_now_blockers,
             "elapsed_ms": round((time.perf_counter() - started_at) * 1000, 1),
             "top_10_scores": top_10_scores,
         },
@@ -1300,6 +1418,8 @@ def match_text_to_jobs(
                 "max_critical_missing_skills": 0,
             },
             "aspiration_rules": {
+                "basis": "preferred_career_area" if normalize_career_area(preferences.get("industry", "")) else "resume_relatedness",
+                # Used only when no career area is known for the candidate or the job.
                 "min_cosine": thresholds.aspiration_min_semantic,
                 "min_matched_skills": thresholds.aspiration_min_matched_skills,
             },

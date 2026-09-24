@@ -21,8 +21,8 @@ def evidence(held: int, missing: int) -> scoring.SkillEvidence:
 
 
 class ClassificationTests(unittest.TestCase):
-    def score(self, cosine, required, preferred=NONE, critical=0):
-        return scoring.score_match(cosine, required, preferred, critical, THRESHOLDS)
+    def score(self, cosine, required, preferred=NONE, critical=0, in_area=None):
+        return scoring.score_match(cosine, required, preferred, critical, THRESHOLDS, in_preferred_career_area=in_area)
 
     def test_strong_match_is_fit_now(self):
         result = self.score(0.62, evidence(4, 1))
@@ -82,6 +82,17 @@ class ClassificationTests(unittest.TestCase):
             scoring.MATCH_WEIGHT_SEMANTIC,
         )
 
+    def test_preferred_career_area_decides_aspiration(self):
+        # Chosen area: Aspiration even with no held skill and low similarity.
+        chosen = self.score(0.05, evidence(0, 4), in_area=True)
+        self.assertEqual(chosen.match_category, scoring.ASPIRATION)
+        # Outside the chosen area a related job is not an Aspiration.
+        self.assertEqual(self.score(0.40, evidence(1, 3), in_area=False).match_category, scoring.LOW_MATCH)
+
+    def test_fit_now_ignores_career_preferences(self):
+        self.assertEqual(self.score(0.62, evidence(4, 1), in_area=False).match_category, scoring.FIT_NOW)
+        self.assertEqual(self.score(0.62, evidence(4, 1), in_area=True).match_category, scoring.FIT_NOW)
+
     def test_thresholds_are_validated(self):
         with patch.dict("os.environ", {"KAREERLY_FIT_NOW_MIN_COSINE": "1.5"}):
             with self.assertRaises(RuntimeError):
@@ -129,8 +140,9 @@ class PipelineRegressionTests(unittest.TestCase):
             return matching.match_text_to_jobs(resume, confirmed_skills=skills)
 
     @staticmethod
-    def job(job_id, title, ids, must_have=None, **extra):
-        return dict(job_id=job_id, category_id="K02", job_category="Data, Analytics, and Artificial Intelligence",
+    def job(job_id, title, ids, must_have=None, category_id="K02",
+            job_category="Data, Analytics, and Artificial Intelligence", **extra):
+        return dict(job_id=job_id, category_id=category_id, job_category=job_category,
             job_title=title, job_description=f"{title} role.", required_skills_comma_separated="",
             mapped_required_skill_names="", required_skill_ids=ids,
             must_have_skill_ids=ids if must_have is None else must_have, experience_level_required="Entry level",
@@ -147,10 +159,32 @@ class PipelineRegressionTests(unittest.TestCase):
         self.assertEqual(fit["required_skill_coverage"], 0.75)
         self.assertEqual(fit["critical_missing_skill_ids"], [])
         self.assertEqual(fit["missing_skills"], ["Power BI"])
-        self.assertIn("You already match most", fit["match_reason"])
+        self.assertIn("Your resume already covers most", fit["match_reason"])
         # The unrelated job is scored but recommended in neither list.
         self.assertEqual(result["aspiration_matches"], [])
         self.assertEqual(result["debug_summary"]["low_match_count"], 1)
+
+    def test_aspiration_lists_jobs_from_the_chosen_career_area(self):
+        jobs = [self.job("analyst", "Data Analyst", "SK004;SK006;SK134;SK_POWER_BI"),
+                self.job("nurse", "Staff Nurse", "SK056;SK061", category_id="K14",
+                    job_category="Healthcare and Clinical Services"),
+                self.job("teacher", "Teacher", "SK045", category_id="K12", job_category="Education and Training")]
+        skills = [{"skill_id": "SK004"}, {"skill_id": "SK006"}, {"skill_id": "SK001"}]
+        with patch.object(matching, "load_internal_jobs_dataframe", return_value=pd.DataFrame(jobs)), \
+             patch.object(matching, "score_jobs", return_value=np.asarray([0.58, 0.05, 0.02])), \
+             patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
+             patch.object(matching, "recommend_learning_resources", return_value=[]):
+            result = matching.match_text_to_jobs("Data analyst using SQL and Python dashboards.",
+                confirmed_skills=skills, preferences={"industry": "education-health-community"})
+        # Fit-Now comes from the resume whatever the preference says.
+        self.assertEqual([item["job_id"] for item in result["fit_now_matches"]], ["analyst"])
+        # Aspiration is every non-Fit-Now job in the chosen area, gaps from the resume.
+        self.assertEqual({item["job_id"] for item in result["aspiration_matches"]}, {"nurse", "teacher"})
+        nurse = next(item for item in result["aspiration_matches"] if item["job_id"] == "nurse")
+        self.assertTrue(nurse["in_preferred_career_area"])
+        self.assertIn("career area you chose", nurse["match_reason"])
+        self.assertEqual(result["debug_summary"]["preferred_career_area"], "education-health-community")
+        self.assertEqual(result["debug_summary"]["fit_now_blockers"]["required_skill_coverage"], 2)
 
     def test_education_heading_does_not_add_teaching_skills(self):
         text = ("Junior Software Developer skilled in Python and JavaScript. "
