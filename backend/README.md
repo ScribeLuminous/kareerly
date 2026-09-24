@@ -205,12 +205,15 @@ python -m app.precompute_job_vectors            # backend root directory
 python -m backend.app.precompute_job_vectors    # repository root directory
 ```
 
-It encodes `data/reference_jobs.csv`, plus the Supabase jobs when the build can
-reach Supabase, into `backend/precomputed/job_vectors.npz` (not committed; move
+It encodes `data/reference_jobs.csv` and the active Supabase jobs (read with the
+public anon key, like the service does; no build secrets needed) into `backend/precomputed/job_vectors.npz` (not committed; move
 it with `KAREERLY_JOB_VECTORS_PATH` for both build and service). Vectors are keyed
 by the exact encoder input, so jobs added or edited after the build are encoded
 on demand, and a store built for other model weights is ignored. The service
 logs `Loaded N precomputed job vectors` at startup when the store is in use.
+The build log names the job count from each source; a `Supabase jobs unavailable`
+warning means the build could not reach Supabase and those jobs will be encoded
+on demand instead.
 
 ### "Cannot reach the job matching backend" on the deployed website
 
