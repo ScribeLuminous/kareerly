@@ -198,6 +198,13 @@ ranking and match_percentage: cosine only
 - Saved dashboard reports keep the categories computed when they were saved.
   They update when the candidate reruns matching.
 
+## Frontend
+
+`SnapshotStep.tsx` used to relabel backend Aspiration results under 60% (and
+any 0% result) as "Partial Match", which was a second category rule in the UI.
+It now shows the backend's `match_category`/`match_type`, falling back to the
+list a result came from for older saved reports.
+
 ## Known limitations and follow-ups
 
 - Some reference jobs list implausible required skills. For example, "Software
@@ -205,8 +212,6 @@ ranking and match_percentage: cosine only
   genuine candidates. The job data needs review.
 - 41 legacy `SK_*` IDs remain in Supabase jobs. They are now matched by name,
   but mapping them to taxonomy IDs would be better.
-- `SnapshotStep.tsx` relabels backend Aspiration results under 60% as "Partial
-  Match". The backend category should be shown as-is.
 - Philippine mobile numbers (0917-…) are not redacted from the model input's
   evidence text.
 - The labels here are weak metadata labels. The planned human-judged
