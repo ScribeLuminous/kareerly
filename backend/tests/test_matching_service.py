@@ -2,6 +2,7 @@
 import io
 import os
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -188,17 +189,45 @@ class EncoderRegressionTests(unittest.TestCase):
     def setUp(self):
         encoder._job_vectors.clear()
 
-    def test_cache_reuses_job_vectors_and_invalidates_changed_catalog(self):
+    def test_cache_reuses_job_vectors_and_encodes_only_changed_jobs(self):
         calls = []
         class Model:
             def encode(self, texts, **kwargs):
-                calls.append(texts)
-                return np.asarray([[3, 4]]) if len(texts) == 1 and texts[0].startswith("query") else np.asarray([[1, 0], [0, 1]])
+                calls.append(list(texts))
+                return np.asarray([[3, 4]]) if len(texts) == 1 and texts[0].startswith("query") else np.asarray([[1, 0], [0, 1]])[:len(texts)]
         with patch.object(encoder, "get_bi_encoder", return_value=Model()):
             self.assertTrue(np.allclose(encoder.score_jobs("query1", ["job1", "job2"]), [0.6, 0.8]))
             encoder.score_jobs("query2", ["job1", "job2"])
             encoder.score_jobs("query3", ["changed job1", "job2"])
-        self.assertEqual(sum(len(call) == 2 for call in calls), 2)
+        job_calls = [call for call in calls if not call[0].startswith("query")]
+        self.assertEqual(job_calls, [["job1", "job2"], ["changed job1"]])
+
+    def test_precomputed_store_seeds_cache_and_skips_catalogue_encoding(self):
+        calls = []
+        class Model:
+            def encode(self, texts, **kwargs):
+                calls.append(list(texts))
+                return np.asarray([[3, 4]])
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "job_vectors.npz"
+            encoder.save_job_vectors(store, ["job1", "job2"], np.asarray([[1, 0], [0, 1]]))
+            encoder.load_precomputed_job_vectors.cache_clear()
+            self.addCleanup(encoder.load_precomputed_job_vectors.cache_clear)
+            with patch.dict(os.environ, {"KAREERLY_JOB_VECTORS_PATH": str(store)}), \
+                    patch.object(encoder, "get_bi_encoder", return_value=Model()):
+                self.assertTrue(np.allclose(encoder.score_jobs("query", ["job1", "job2"]), [0.6, 0.8]))
+        self.assertEqual(calls, [["query"]])
+
+    def test_precomputed_store_for_other_weights_is_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "job_vectors.npz"
+            with patch.object(encoder, "_checkpoint_identity", return_value=(encoder.MODEL_ID, "old-weights")):
+                encoder.save_job_vectors(store, ["job1"], np.asarray([[1, 0]]))
+            encoder.load_precomputed_job_vectors.cache_clear()
+            self.addCleanup(encoder.load_precomputed_job_vectors.cache_clear)
+            with patch.dict(os.environ, {"KAREERLY_JOB_VECTORS_PATH": str(store)}):
+                self.assertEqual(encoder.load_precomputed_job_vectors(), 0)
+        self.assertEqual(len(encoder._job_vectors), 0)
 
     def test_catalogue_encoding_uses_low_memory_default_batch(self):
         batches = []
