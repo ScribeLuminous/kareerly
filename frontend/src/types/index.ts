@@ -332,6 +332,7 @@ export interface LearningRecommendation {
   semantic_or_keyword_relevance?: number;
   gap_skill_name?: string;
   why_recommended?: string;
+  relevance_method?: 'reviewed_skill_id_mapping' | 'catalog_skill_id_mapping' | 'skill_name_match' | 'category_match' | string;
 }
 
 export interface DevelopmentProgressRecord {

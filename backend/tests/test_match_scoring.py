@@ -125,7 +125,7 @@ class PipelineRegressionTests(unittest.TestCase):
         with patch.object(matching, "load_internal_jobs_dataframe", return_value=pd.DataFrame(jobs)), \
              patch.object(matching, "score_jobs", return_value=np.asarray(cosines)), \
              patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
-             patch.object(matching, "recommend_learning_resources", return_value=[]):
+             patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
             return matching.match_text_to_jobs(resume, confirmed_skills=skills)
 
     @staticmethod

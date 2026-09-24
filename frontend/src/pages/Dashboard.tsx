@@ -16,6 +16,8 @@ import {
   faChartLine,
   faChevronDown,
   faCircleCheck,
+  faFlag,
+  faBan,
   faClipboard,
   faClock,
   faColumns,
@@ -50,7 +52,8 @@ import { formatFileSize, validateResumeFile } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, markAllCandidateNotificationsRead, markCandidateNotificationRead, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, validateCertificateFile } from '../lib/api';
+import { analyzeResume, fetchAvailableJobs, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
+import type { MessageModerationState, MessageReportReason } from '../lib/api';
 import type { AvailableJobItem, CandidateNotification } from '../lib/api';
 import { cleanSkillLabel } from '../lib/skillLabels';
 import { careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
@@ -167,7 +170,9 @@ type IconName =
   | 'filter'
   | 'check-circle'
   | 'rocket'
-  | 'close';
+  | 'close'
+  | 'flag'
+  | 'ban';
 
 type DashboardJob = {
   id: string;
@@ -231,7 +236,11 @@ type DashboardCourse = {
   gapTag: string;
   mappedSkills: string[];
   mappedSkillIds: string[];
+  /** Listable: has a title and a skill mapping, so it can be shown for a gap. */
   reviewed: boolean;
+  /** Passed the catalog review (reviewer, evidence, verified date). */
+  verified: boolean;
+  recommendationNote?: string;
   fees: string;
   certificateCost: string;
   prerequisites: string;
@@ -242,6 +251,14 @@ type DashboardCourse = {
   deliveryMode?: string;
   source: 'backend';
 };
+
+type CourseCompletion = {
+  status: 'completed' | 'evidenced';
+  markedAt: string;
+  evidenceId?: string;
+};
+
+type EvidencePrefill = Pick<EvidenceUploadRecord, 'title' | 'evidenceType' | 'relatedSkill' | 'category'>;
 
 type CategoryProgressRow = {
   category: SkillCategory;
@@ -381,6 +398,8 @@ const iconMap: Record<IconName, IconDefinition> = {
   'check-circle': faCircleCheck,
   rocket: faRocket,
   close: faXmark,
+  flag: faFlag,
+  ban: faBan,
 };
 
 function UIIcon({ name, className = '' }: { name: IconName; className?: string }) {
@@ -563,11 +582,15 @@ function buildMatchReasons(job: DashboardJob, requiredSkills: string[]): MatchRe
 }
 
 function getLearningForJob(job: DashboardJob, courses: DashboardCourse[]): DashboardCourse[] {
-  return courses.filter((course) => course.reviewed && (
-    job.missingSkillIds?.length
-      ? course.mappedSkillIds.some((id) => job.missingSkillIds!.includes(id))
-      : course.mappedSkills.some((skill) => job.missingSkills.some((gap) => cleanSkillDisplayName(gap).toLowerCase() === cleanSkillDisplayName(skill).toLowerCase()))
-  ));
+  // Custom employer skills have no taxonomy ID, so match by ID or by name.
+  const missingIds = new Set((job.missingSkillIds || []).map((id) => id.toUpperCase()));
+  const missingNames = new Set(job.missingSkills.map(normalizeSkill).filter(Boolean));
+  return courses
+    .filter((course) => course.reviewed && (
+      course.mappedSkillIds.some((id) => missingIds.has(id.toUpperCase()))
+      || course.mappedSkills.some((skill) => missingNames.has(normalizeSkill(skill)))
+    ))
+    .sort((a, b) => Number(b.verified) - Number(a.verified));
 }
 
 function getCourseSkillLabels(course: DashboardCourse): string[] {
@@ -1100,7 +1123,7 @@ function mapCourse(rec: CourseRecommendation): DashboardCourse {
     credentialLabel: rec.course?.credentialType || rec.course?.certificateAvailable !== undefined ? CREDENTIAL_LABELS[resolveCredentialType(rec.course?.credentialType, rec.course?.certificateAvailable)] : 'Credential not specified',
     isFree: Boolean(rec.course?.isFree),
     gapTag: primaryGap,
-    mappedSkills: [], mappedSkillIds: [], reviewed: false, fees: 'Unknown', certificateCost: 'Unknown', prerequisites: 'Unknown', credentialConditions: 'Unknown',
+    mappedSkills: [], mappedSkillIds: [], reviewed: false, verified: false, fees: 'Unknown', certificateCost: 'Unknown', prerequisites: 'Unknown', credentialConditions: 'Unknown',
     url: rec.course?.url,
     urlLabel: 'Open Resource',
     deliveryMode: undefined,
@@ -1121,7 +1144,10 @@ function mapRunLearningRecommendation(rec: RunLearningRecommendation): Dashboard
     credentialLabel: rec.credential_label || (rec.credential_type ? CREDENTIAL_LABELS[resolveCredentialType(rec.credential_type)] : 'Credential not specified'),
     isFree: String(rec.cost_type || '').trim().toLowerCase() === 'free',
     gapTag,
-    mappedSkills, mappedSkillIds: rec.matched_gap_skill_ids || [], reviewed: rec.review_status === 'verified' && mappedSkills.length > 0 && rec.matched_gap_skill_ids?.length > 0,
+    mappedSkills, mappedSkillIds: rec.matched_gap_skill_ids || [],
+    reviewed: Boolean(rec.resource_id || rec.title) && mappedSkills.length > 0,
+    verified: rec.review_status === 'verified',
+    recommendationNote: rec.why_recommended || undefined,
     fees: rec.cost_type || 'Unknown', certificateCost: rec.certificate_cost || 'Unknown',
     prerequisites: rec.prerequisites || 'Unknown', credentialConditions: rec.credential_conditions || 'Unknown',
     verifiedAt: rec.last_verified_at,
@@ -1242,6 +1268,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [selectedThreadJobId, setSelectedThreadJobId] = useState<string>('');
   const [messageRequests, setMessageRequests] = useState<Record<string, string>>({});
   const [messageDraft, setMessageDraft] = useState('');
+  const [messageModeration, setMessageModeration] = useState<Record<string, MessageModerationState>>({});
+  const [reportTarget, setReportTarget] = useState<DashboardApplication | null>(null);
+  const [blockTarget, setBlockTarget] = useState<DashboardApplication | null>(null);
   const [messageReplies, setMessageReplies] = useState<Record<string, Array<{ from: 'employer' | 'candidate'; text: string; time: string }>>>({});
   const [extraPreferences, setExtraPreferences] = useState({ jobLevel: '', preferredLocation: '' });
   const [availableJobs, setAvailableJobs] = useState<AvailableJobItem[]>([]);
@@ -1250,6 +1279,16 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   // Only explicit evidence uploads belong here; resume mentions are not uploaded or verified evidence.
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceUploadRecord[]>([]);
   const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>({});
+  const courseCompletionStorageKey = `kareerly.courseCompletions.${currentUser.id || currentUser.email}`;
+  const [courseCompletions, setCourseCompletions] = useState<Record<string, CourseCompletion>>(() => {
+    try {
+      const saved = window.localStorage.getItem(courseCompletionStorageKey);
+      return saved ? JSON.parse(saved) as Record<string, CourseCompletion> : {};
+    } catch {
+      return {};
+    }
+  });
+  const [evidenceCourseTarget, setEvidenceCourseTarget] = useState<DashboardCourse | null>(null);
   const [profileForm, setProfileForm] = useState({
     contactNumber: '',
     birthday: '',
@@ -1309,6 +1348,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     void renderDocx();
     return () => { cancelled = true; };
   }, [resumePreview]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(courseCompletionStorageKey, JSON.stringify(courseCompletions));
+    } catch {
+      // Storage can be unavailable (private mode); completion still works for this session.
+    }
+  }, [courseCompletionStorageKey, courseCompletions]);
 
   const updateSkillProgressStatus = (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => {
     setSkillProgressRecords((current) => {
@@ -2308,7 +2355,59 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     showToast(`${withdrawTarget.jobTitle} application withdrawn.`, 'warn');
   };
 
-  const acceptedMessageReplyEnabled = selectedMessageState === 'Accepted';
+  const selectedModeration = selectedMessageApp ? messageModeration[selectedMessageApp.id] : undefined;
+  const acceptedMessageReplyEnabled = selectedMessageState === 'Accepted' && !selectedModeration?.blocked;
+
+  useEffect(() => {
+    if (!selectedMessageApp?.id) return;
+    let isMounted = true;
+    const applicationId = selectedMessageApp.id;
+    loadMessageModeration(applicationId)
+      .then((moderation) => {
+        if (isMounted) setMessageModeration((current) => ({ ...current, [applicationId]: moderation }));
+      })
+      .catch((error) => console.warn('Unable to load message moderation state:', error));
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedMessageApp?.id]);
+
+  const applyMessageModeration = async (
+    app: DashboardApplication,
+    input: { action: 'report' | 'block' | 'unblock'; reason?: MessageReportReason; details?: string },
+  ): Promise<boolean> => {
+    try {
+      const moderation = await submitMessageModeration({ applicationId: app.id, ...input });
+      setMessageModeration((current) => ({ ...current, [app.id]: moderation }));
+      return true;
+    } catch (error) {
+      console.warn('Unable to update message moderation:', error);
+      showToast(error instanceof Error ? error.message : 'Unable to complete this action. Please try again.', 'danger');
+      return false;
+    }
+  };
+
+  const submitMessageReport = async (reason: MessageReportReason, details: string, alsoBlock: boolean) => {
+    if (!reportTarget) return;
+    const app = reportTarget;
+    if (!(await applyMessageModeration(app, { action: 'report', reason, details }))) return;
+    if (alsoBlock && !(await applyMessageModeration(app, { action: 'block' }))) return;
+    setReportTarget(null);
+    showToast(alsoBlock ? `${app.company} was reported and blocked.` : `Thanks — ${app.company} was reported for review.`, 'success');
+  };
+
+  const confirmBlockEmployer = async () => {
+    if (!blockTarget) return;
+    const app = blockTarget;
+    if (!(await applyMessageModeration(app, { action: 'block' }))) return;
+    setBlockTarget(null);
+    setMessageDraft('');
+    showToast(`${app.company} is blocked. They can no longer message you here.`, 'warn');
+  };
+
+  const unblockEmployer = async (app: DashboardApplication) => {
+    if (await applyMessageModeration(app, { action: 'unblock' })) showToast(`${app.company} is unblocked.`, 'success');
+  };
 
   const updateMessageRequestState = async (nextState: 'accepted' | 'declined' | 'ignored') => {
     if (!selectedMessageApp) return;
@@ -2627,7 +2726,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       setEvidenceModalOpen(false);
       setEditingEvidence(null);
-      showToast('Evidence saved. Pending Verification; file checks do not verify the credential.', 'success');
+      if (evidenceCourseTarget) {
+        const course = evidenceCourseTarget;
+        setCourseCompletions((current) => ({ ...current, [course.id]: { status: 'evidenced', markedAt: current[course.id]?.markedAt || new Date().toISOString(), evidenceId: nextRecord.id } }));
+        updateCourseSkillProgress(course, 'evidenced', { fileName: nextRecord.fileName, uploadedAt: nextRecord.uploadedAt });
+        setEvidenceCourseTarget(null);
+        showToast('Proof uploaded. Your profile and skill progress were updated (pending verification).', 'success');
+      } else {
+        showToast('Evidence saved. Pending Verification; file checks do not verify the credential.', 'success');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to validate certificate upload.';
       setError(message);
@@ -2638,9 +2745,67 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   const openEvidenceUploadModal = () => {
+    setEvidenceCourseTarget(null);
     setEditingEvidence(null);
     setEvidenceModalOpen(true);
   };
+
+  // Moves the skills a course covers forward (or back) in Skill Development Progress.
+  const updateCourseSkillProgress = (
+    course: DashboardCourse,
+    status: SkillProgressStatus,
+    evidence?: { fileName?: string; uploadedAt?: string },
+  ) => {
+    const courseIds = new Set(course.mappedSkillIds.map((id) => id.toUpperCase()));
+    const courseSkills = new Set(getCourseSkillLabels(course).map(normalizeSkill));
+    setSkillProgressRecords((current) => {
+      const next = { ...current };
+      Object.entries(current).forEach(([key, record]) => {
+        const covers = (record.skillId && courseIds.has(record.skillId.toUpperCase())) || courseSkills.has(normalizeSkill(record.skillName));
+        if (!covers || record.status === 'covered') return;
+        if (status === 'missing' && record.selectedResourceId !== course.id) return;
+        if (status === 'completed' && record.status === 'evidenced') return;
+        next[key] = {
+          ...record,
+          status,
+          progressPercent: SKILL_PROGRESS_PERCENT[status],
+          selectedResourceId: course.id,
+          evidenceFilename: status === 'missing' ? undefined : evidence?.fileName || record.evidenceFilename,
+          evidenceUploadedAt: status === 'missing' ? undefined : evidence?.uploadedAt || record.evidenceUploadedAt,
+        };
+      });
+      return next;
+    });
+  };
+
+  const openCourseEvidenceUpload = (course: DashboardCourse) => {
+    setEvidenceCourseTarget(course);
+    setEditingEvidence(null);
+    setEvidenceModalOpen(true);
+  };
+
+  const markCourseTaken = (course: DashboardCourse) => {
+    setCourseCompletions((current) => ({ ...current, [course.id]: { status: 'completed', markedAt: new Date().toISOString() } }));
+    updateCourseSkillProgress(course, 'completed');
+    openCourseEvidenceUpload(course);
+  };
+
+  const unmarkCourseTaken = (course: DashboardCourse) => {
+    setCourseCompletions((current) => {
+      const next = { ...current };
+      delete next[course.id];
+      return next;
+    });
+    updateCourseSkillProgress(course, 'missing');
+    showToast(`${course.title} marked as not taken.`, 'warn');
+  };
+
+  const evidencePrefill: EvidencePrefill | undefined = evidenceCourseTarget ? {
+    title: evidenceCourseTarget.title,
+    evidenceType: ['industry_certification', 'professional_certificate', 'certificate_course'].includes(evidenceCourseTarget.credentialType) ? 'Certificate' : 'Course Completion',
+    relatedSkill: getCourseSkillLabels(evidenceCourseTarget).join(', '),
+    category: gaps.find((gap) => getCourseSkillLabels(evidenceCourseTarget).some((skill) => normalizeSkill(skill) === normalizeSkill(gap.skill)))?.categoryName || '',
+  } : undefined;
 
   const handleViewEvidence = (record: EvidenceUploadRecord) => {
     if (!record.fileUrl) {
@@ -2673,6 +2838,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setResumeModalOpen(false);
     setEvidenceModalOpen(false);
     setEditingEvidence(null);
+    setEvidenceCourseTarget(null);
     setDeleteEvidenceTarget(null);
     closeResumePreview();
   };
@@ -3053,6 +3219,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               jobs={jobs}
               gaps={gaps}
               skillProgressRecords={skillProgressRecords}
+              courseCompletions={courseCompletions}
+              onMarkCourseTaken={markCourseTaken}
+              onUnmarkCourseTaken={unmarkCourseTaken}
+              onUploadCourseEvidence={openCourseEvidenceUpload}
               onTab={setUpskillTab}
               onOpenSkillGaps={() => setActivePage('skillgaps')}
               onOpenJobMatches={() => setActivePage('jobmatches')}
@@ -3074,6 +3244,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               onDraftChange={setMessageDraft}
               onSend={sendMessageReply}
               canReply={acceptedMessageReplyEnabled}
+              moderation={messageModeration}
+              onReport={setReportTarget}
+              onBlock={setBlockTarget}
+              onUnblock={(app) => void unblockEmployer(app)}
             />
           )}
         </main>
@@ -3126,11 +3300,35 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         <EvidenceFormModal
           loading={state.isLoading}
           record={editingEvidence}
+          prefill={evidencePrefill}
           onClose={() => {
             setEvidenceModalOpen(false);
             setEditingEvidence(null);
+            if (evidenceCourseTarget) showToast('Marked as taken. You can add proof later from the course card.', 'success');
+            setEvidenceCourseTarget(null);
           }}
           onSave={handleEvidenceSave}
+        />
+      )}
+
+      {reportTarget && (
+        <ReportConversationModal
+          company={reportTarget.company}
+          alreadyBlocked={Boolean(messageModeration[reportTarget.id]?.blocked_by_me)}
+          onCancel={() => setReportTarget(null)}
+          onSubmit={submitMessageReport}
+        />
+      )}
+
+      {blockTarget && (
+        <ConfirmModal
+          title={`Block ${blockTarget.company}?`}
+          description={`${blockTarget.company} will no longer be able to message you in this conversation, and you won't be able to reply. Your application is not affected.`}
+          footnote="You can unblock them later from this conversation."
+          danger
+          confirmLabel="Block"
+          onCancel={() => setBlockTarget(null)}
+          onConfirm={() => void confirmBlockEmployer()}
         />
       )}
 
@@ -5154,7 +5352,14 @@ function LearningEmptyState({
   );
 }
 
-function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab, onOpenSkillGaps, onOpenJobMatches }: {
+type CourseCompletionActions = {
+  courseCompletions: Record<string, CourseCompletion>;
+  onMarkCourseTaken: (course: DashboardCourse) => void;
+  onUnmarkCourseTaken: (course: DashboardCourse) => void;
+  onUploadCourseEvidence: (course: DashboardCourse) => void;
+};
+
+function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence, onTab, onOpenSkillGaps, onOpenJobMatches }: CourseCompletionActions & {
   tab: UpskillTab;
   courses: DashboardCourse[];
   jobs: DashboardJob[];
@@ -5195,6 +5400,12 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
   })).filter((group) => selectedSkill === 'all' || normalizeSkill(group.skill) === normalizeSkill(selectedSkill));
 
   const focusAnotherJob = () => jobSelectRef.current?.focus();
+  const completionActions: CourseCompletionActions = { courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence };
+  const renderCourse = (course: DashboardCourse) => (
+    <CourseCard key={course.id} course={course} selectedJob={selectedJob} gaps={gaps} skillProgressRecords={skillProgressRecords} {...completionActions} />
+  );
+  // Resources gathered for the candidate's other matches, shown when this job has none.
+  const otherCourses = visibleCourses.length === 0 ? courses.slice(0, 6) : [];
   const selectedJobHasGaps = Boolean(selectedJob && skillsToDevelop.length > 0);
   const noResourceForSelection = selectedJobHasGaps && filteredCourses.length === 0;
 
@@ -5300,11 +5511,25 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
           secondaryAction={{ label: 'View Skill Gaps', onClick: onOpenSkillGaps }}
         />
       ) : noResourceForSelection ? (
-        <LearningEmptyState
-          title="No learning resources found for this skill yet"
-          description="Try another skill or check again when the learning catalog is updated."
-          primaryAction={{ label: 'Show All Skills', onClick: () => setSelectedSkill('all') }}
-        />
+        <>
+          <LearningEmptyState
+            title={selectedSkill === 'all' ? 'No learning resources found for this job yet' : 'No learning resources found for this skill yet'}
+            description={otherCourses.length > 0
+              ? 'Update your resume or rerun matching to refresh recommendations. Meanwhile, here are resources gathered for your other matches.'
+              : 'Update your resume or rerun matching to refresh recommendations, or check again when the learning catalog is updated.'}
+            primaryAction={selectedSkill === 'all' ? { label: 'Choose Another Job', onClick: focusAnotherJob } : { label: 'Show All Skills', onClick: () => setSelectedSkill('all') }}
+          />
+          {otherCourses.length > 0 && selectedSkill === 'all' && (
+            <section className="cand-learning-results" aria-labelledby="other-learning-heading">
+              <div className="cand-learning-section-heading">
+                <h2 id="other-learning-heading">From Your Other Matches</h2>
+                <span>Certifications and courses gathered for your other skill gaps.</span>
+              </div>
+              <div className="cand-course-grid">{otherCourses.map(renderCourse)}</div>
+              <LearningProviderNote />
+            </section>
+          )}
+        </>
       ) : tab === 'recommended' ? (
         <section className="cand-learning-results" aria-labelledby="what-to-learn-heading">
           <div className="cand-learning-section-heading">
@@ -5312,7 +5537,7 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
             <span>Suggested resources for your current skill gaps.</span>
           </div>
           <div className="cand-course-grid">
-            {filteredCourses.map((course) => <CourseCard key={course.id} course={course} selectedJob={selectedJob} gaps={gaps} skillProgressRecords={skillProgressRecords} />)}
+            {filteredCourses.map(renderCourse)}
           </div>
           <LearningProviderNote />
         </section>
@@ -5335,7 +5560,7 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
                   </div>
                 </div>
                 {resources.length > 0 ? (
-                  <div className="cand-course-grid">{resources.map((course) => <CourseCard key={course.id} course={course} selectedJob={selectedJob} gaps={gaps} skillProgressRecords={skillProgressRecords} />)}</div>
+                  <div className="cand-course-grid">{resources.map(renderCourse)}</div>
                 ) : <p className="cand-learning-no-resource">No learning resources found for this skill yet.</p>}
               </section>
             ))}
@@ -5349,15 +5574,16 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, onTab,
 }
 
 function LearningProviderNote() {
-  return <p className="cand-learning-provider-note"><UIIcon name="external" className="cand-mini-icon" />Resources open on their providers’ websites. Kareerly recommends resources based on identified skill gaps but does not verify enrollment, course completion, assessments, or certificates.</p>;
+  return <p className="cand-learning-provider-note"><UIIcon name="external" className="cand-mini-icon" />Resources open on their providers’ websites. Kareerly recommends resources based on identified skill gaps but does not verify enrollment, course completion, assessments, or certificates. Uploaded proof stays pending verification.</p>;
 }
 
-function CourseCard({ course, selectedJob, gaps, skillProgressRecords }: { course: DashboardCourse; selectedJob?: DashboardJob; gaps: DashboardGap[]; skillProgressRecords: Record<string, SkillProgressRecord> }) {
+function CourseCard({ course, selectedJob, gaps, skillProgressRecords, courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence }: CourseCompletionActions & { course: DashboardCourse; selectedJob?: DashboardJob; gaps: DashboardGap[]; skillProgressRecords: Record<string, SkillProgressRecord> }) {
   const url = learningResourceUrl(course);
   const mappedSkills = getCourseSkillLabels(course);
   const primarySkill = mappedSkills[0] || cleanSkillDisplayName(course.gapTag) || 'This skill gap';
   const primaryGap = gaps.find((gap) => mappedSkills.some((skill) => normalizeSkill(skill) === normalizeSkill(gap.skill)));
   const progressRecord = mappedSkills.map((skill) => Object.values(skillProgressRecords).find((record) => normalizeSkill(record.skillName) === normalizeSkill(skill))).find(Boolean);
+  const completion = courseCompletions[course.id];
   const isKnown = (value: string | undefined): value is string => Boolean(value && !/unknown|not stated|not specified/i.test(value));
   const metadata = [course.level, course.deliveryMode, course.duration, course.isFree ? 'Free' : course.fees].filter(isKnown);
   const recommendationReason = primaryGap && selectedJob
@@ -5365,15 +5591,26 @@ function CourseCard({ course, selectedJob, gaps, skillProgressRecords }: { cours
     : selectedJob
       ? `${primarySkill} is an identified skill gap for your ${selectedJob.title} match.`
       : `This resource addresses your ${primarySkill} skill gap.`;
+  const isCertification = ['industry_certification', 'professional_certificate'].includes(course.credentialType) || course.urlLabel === 'View certification';
 
   return (
-    <div className="cand-course-card">
+    <div className={`cand-course-card ${completion ? 'is-taken' : ''}`}>
       <div className="cand-course-top">
         <div className="cand-provider-badge">{course.provider.slice(0, 2).toUpperCase()}</div>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold text-dark">{course.title}</h3>
-          <div className="text-xs text-soft">{course.provider}</div>
+          <div className="text-xs text-soft">{course.provider}{isCertification ? ' · Certification' : ''}</div>
         </div>
+        <button
+          className={`cand-course-taken-toggle ${completion ? 'active' : ''}`}
+          type="button"
+          aria-pressed={Boolean(completion)}
+          aria-label={completion ? `Mark ${course.title} as not taken` : `I've taken ${course.title}`}
+          title={completion ? 'Taken — click to undo' : "I've taken this"}
+          onClick={() => (completion ? onUnmarkCourseTaken(course) : onMarkCourseTaken(course))}
+        >
+          <UIIcon name="check-circle" />
+        </button>
       </div>
       <div className="cand-course-skill-block">
         <div className="cand-course-label">Helps address</div>
@@ -5381,13 +5618,23 @@ function CourseCard({ course, selectedJob, gaps, skillProgressRecords }: { cours
       </div>
       <div className="cand-course-reason"><span className="cand-course-label">Recommended because</span><span className="text-xs text-mid">{recommendationReason}</span></div>
       {metadata.length > 0 && <div className="cand-course-meta">{metadata.map((item) => <span key={item}>{item}</span>)}</div>}
-      {progressRecord && <span className="cand-learning-status">{getProgressStatusLabel(progressRecord.status)}</span>}
+      {completion ? (
+        <div className="cand-course-completion">
+          <span className="cand-learning-status">{completion.status === 'evidenced' ? 'Proof uploaded · Pending verification' : 'Taken'}</span>
+          {completion.status === 'completed' && (
+            <button className="cand-inline-link" type="button" onClick={() => onUploadCourseEvidence(course)}>
+              <UIIcon name="upload" className="cand-mini-icon" />Add proof
+            </button>
+          )}
+        </div>
+      ) : progressRecord && progressRecord.status !== 'missing' && <span className="cand-learning-status">{getProgressStatusLabel(progressRecord.status)}</span>}
       <div className="cand-course-actions">
         {url ? (
           <a className="cand-btn-primary cand-btn-sm" href={url} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel}: ${course.title} (opens in a new tab)`}>
-            View Resource<UIIcon name="external" className="cand-btn-icon" />
+            {course.urlLabel || 'View Resource'}<UIIcon name="external" className="cand-btn-icon" />
           </a>
         ) : <span className="text-xs text-soft">Provider link unavailable</span>}
+        {!course.verified && <span className="cand-course-unreviewed" title="Listed from Kareerly's gathered catalog; details have not been reviewed yet.">Catalog listing</span>}
       </div>
     </div>
   );
@@ -5407,6 +5654,10 @@ function MessagesPage({
   onDraftChange,
   onSend,
   canReply,
+  moderation,
+  onReport,
+  onBlock,
+  onUnblock,
 }: {
   applications: DashboardApplication[];
   selectedJobId: string;
@@ -5421,8 +5672,13 @@ function MessagesPage({
   onDraftChange: (value: string) => void;
   onSend: () => void;
   canReply: boolean;
+  moderation: Record<string, MessageModerationState>;
+  onReport: (app: DashboardApplication) => void;
+  onBlock: (app: DashboardApplication) => void;
+  onUnblock: (app: DashboardApplication) => void;
 }) {
   const selected = applications.find((app) => app.jobId === selectedJobId) || null;
+  const selectedModeration = selected ? moderation[selected.id] : undefined;
   const state = selected ? requestStates[selected.jobId] || 'Pending' : 'Pending';
   const threadReplies = selected ? replies[selected.jobId] || [] : [];
 
@@ -5458,10 +5714,31 @@ function MessagesPage({
         <div className="cand-msg-panel">
           {selected ? (
             <>
-              <div className="flex items-center justify-between border-b border-bdr px-5 py-4">
-                <div>
+              <div className="cand-msg-thread-header">
+                <div className="min-w-0">
                   <h4 className="text-sm font-bold text-dark">{selected.company}</h4>
                   <p className="text-xs text-soft">{selected.jobTitle} · {selected.status} stage</p>
+                </div>
+                <div className="cand-msg-thread-actions">
+                  <button
+                    className="cand-msg-action"
+                    type="button"
+                    onClick={() => onReport(selected)}
+                    disabled={selectedModeration?.reported_by_me}
+                    title={selectedModeration?.reported_by_me ? 'You already reported this conversation' : `Report ${selected.company}`}
+                    aria-label={`Report ${selected.company}`}
+                  >
+                    <UIIcon name="flag" /><span>{selectedModeration?.reported_by_me ? 'Reported' : 'Report'}</span>
+                  </button>
+                  {selectedModeration?.blocked_by_me ? (
+                    <button className="cand-msg-action" type="button" onClick={() => onUnblock(selected)} aria-label={`Unblock ${selected.company}`} title={`Unblock ${selected.company}`}>
+                      <UIIcon name="ban" /><span>Unblock</span>
+                    </button>
+                  ) : (
+                    <button className="cand-msg-action danger" type="button" onClick={() => onBlock(selected)} aria-label={`Block ${selected.company}`} title={`Block ${selected.company}`}>
+                      <UIIcon name="ban" /><span>Block</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -5488,6 +5765,13 @@ function MessagesPage({
                   </>
                 )}
 
+                {selectedModeration?.blocked && (
+                  <div className="cand-msg-lock">
+                    {selectedModeration.blocked_by_me
+                      ? `You blocked ${selected.company}. Messaging is disabled until you unblock them.`
+                      : 'Messaging is unavailable for this conversation.'}
+                  </div>
+                )}
                 {state === 'Declined' && <div className="cand-msg-lock">Request declined. Reply is disabled.</div>}
                 {state === 'Ignored' && <div className="cand-msg-lock">Request ignored. Reply is disabled.</div>}
                 {state === 'Accepted' && (
@@ -5507,7 +5791,7 @@ function MessagesPage({
               <div className="cand-msg-composer">
                 <textarea
                   className="cand-msg-input"
-                  placeholder={canReply ? 'Type your reply...' : 'Reply is disabled until request is accepted.'}
+                  placeholder={canReply ? 'Type your reply...' : selectedModeration?.blocked ? 'Messaging is blocked for this conversation.' : 'Reply is disabled until request is accepted.'}
                   value={draft}
                   disabled={!canReply}
                   onChange={(event) => onDraftChange(event.target.value)}
@@ -5971,11 +6255,13 @@ function ResumeUpdateModal({
 function EvidenceFormModal({
   loading,
   record,
+  prefill,
   onClose,
   onSave,
 }: {
   loading: boolean;
   record: EvidenceUploadRecord | null;
+  prefill?: EvidencePrefill;
   onClose: () => void;
   onSave: (draft: {
     id?: string;
@@ -5987,10 +6273,10 @@ function EvidenceFormModal({
     file: File | null;
   }) => void;
 }) {
-  const [title, setTitle] = useState(record?.title || '');
-  const [evidenceType, setEvidenceType] = useState<EvidenceType>(record?.evidenceType || 'Certificate');
-  const [relatedSkill, setRelatedSkill] = useState(record?.relatedSkill || '');
-  const [category, setCategory] = useState(record?.category || '');
+  const [title, setTitle] = useState(record?.title || prefill?.title || '');
+  const [evidenceType, setEvidenceType] = useState<EvidenceType>(record?.evidenceType || prefill?.evidenceType || 'Certificate');
+  const [relatedSkill, setRelatedSkill] = useState(record?.relatedSkill || prefill?.relatedSkill || '');
+  const [category, setCategory] = useState(record?.category || prefill?.category || '');
   const [notes, setNotes] = useState(record?.notes || '');
   const [file, setFile] = useState<File | null>(null);
 
@@ -5999,8 +6285,10 @@ function EvidenceFormModal({
       <div className="cand-modal-box lg" onClick={(event) => event.stopPropagation()}>
         <div className="cand-modal-header">
           <div>
-            <div className="cand-modal-title">{record ? 'Replace Evidence' : 'Upload Evidence'}</div>
-            <div className="cand-modal-subtitle">Pending verification is retained for new or replaced uploads.</div>
+            <div className="cand-modal-title">{record ? 'Replace Evidence' : prefill ? 'Upload Proof of Completion' : 'Upload Evidence'}</div>
+            <div className="cand-modal-subtitle">{prefill
+              ? 'Add your certificate or completion proof to strengthen your profile. You can skip this and add it later.'
+              : 'Pending verification is retained for new or replaced uploads.'}</div>
           </div>
           <button className="cand-modal-close" type="button" onClick={onClose}>
             x
@@ -6065,7 +6353,7 @@ function EvidenceFormModal({
             {loading ? 'Saving...' : record ? 'Replace Evidence' : 'Upload Evidence'}
           </button>
           <button className="cand-btn-secondary" type="button" onClick={onClose}>
-            Cancel
+            {prefill ? 'Skip for now' : 'Cancel'}
           </button>
         </div>
       </div>
@@ -6103,6 +6391,80 @@ function ApplicationSubmittedModal({
           </button>
           <button className="cand-btn-secondary" type="button" onClick={onContinue}>
             Continue Browsing Jobs
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const MESSAGE_REPORT_REASONS: Array<{ value: MessageReportReason; label: string }> = [
+  { value: 'spam', label: 'Spam or unsolicited messages' },
+  { value: 'scam', label: 'Scam, fraud, or asks for payment' },
+  { value: 'harassment', label: 'Harassment or abusive language' },
+  { value: 'inappropriate', label: 'Inappropriate content' },
+  { value: 'impersonation', label: 'Fake company or impersonation' },
+  { value: 'other', label: 'Something else' },
+];
+
+function ReportConversationModal({
+  company,
+  alreadyBlocked,
+  onCancel,
+  onSubmit,
+}: {
+  company: string;
+  alreadyBlocked: boolean;
+  onCancel: () => void;
+  onSubmit: (reason: MessageReportReason, details: string, alsoBlock: boolean) => Promise<void>;
+}) {
+  const [reason, setReason] = useState<MessageReportReason | ''>('');
+  const [details, setDetails] = useState('');
+  const [alsoBlock, setAlsoBlock] = useState(!alreadyBlocked);
+  const [submitting, setSubmitting] = useState(false);
+
+  return (
+    <div className="cand-modal-overlay" onClick={onCancel}>
+      <div className="cand-modal-box" role="dialog" aria-modal="true" aria-labelledby="report-conversation-title" onClick={(event) => event.stopPropagation()}>
+        <div className="cand-modal-header">
+          <div>
+            <div id="report-conversation-title" className="cand-modal-title">Report {company}</div>
+            <div className="cand-modal-subtitle">Reports are reviewed by the Kareerly team. {company} is not told who reported them.</div>
+          </div>
+          <button className="cand-modal-close" type="button" onClick={onCancel} aria-label="Close">
+            x
+          </button>
+        </div>
+        <FormField label="Reason">
+          <select className="cand-form-select" value={reason} onChange={(event) => setReason(event.target.value as MessageReportReason)}>
+            <option value="" disabled>Choose a reason</option>
+            {MESSAGE_REPORT_REASONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Details (optional)">
+          <textarea className="cand-form-input" rows={3} maxLength={2000} value={details} onChange={(event) => setDetails(event.target.value)} placeholder="What happened?" />
+        </FormField>
+        {!alreadyBlocked && (
+          <label className="flex items-center gap-2 text-sm text-mid">
+            <input type="checkbox" checked={alsoBlock} onChange={(event) => setAlsoBlock(event.target.checked)} />
+            Also block {company}
+          </label>
+        )}
+        <div className="cand-modal-actions">
+          <button
+            className="cand-btn-danger"
+            type="button"
+            disabled={!reason || submitting}
+            onClick={() => {
+              if (!reason) return;
+              setSubmitting(true);
+              void onSubmit(reason, details.trim(), alsoBlock && !alreadyBlocked).finally(() => setSubmitting(false));
+            }}
+          >
+            {submitting ? 'Submitting...' : 'Submit Report'}
+          </button>
+          <button className="cand-btn-secondary" type="button" onClick={onCancel}>
+            Cancel
           </button>
         </div>
       </div>

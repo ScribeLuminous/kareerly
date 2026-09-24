@@ -18,7 +18,7 @@ from docx import Document
 
 from .learning_recommender import (
     get_learning_resources_source,
-    recommend_learning_resources,
+    recommend_learning_resources_for_matches,
     load_learning_resources as load_reviewed_learning_resources,
     resource_is_reviewed,
     provider_url,
@@ -50,6 +50,8 @@ LEARNING_RESOURCES_PATH = os.path.join(DATA_DIR, "learning_resources.csv")
 
 TOP_FIT_NOW = 10
 TOP_ASPIRATION = 10
+# Matches whose missing skills get learning resources (the dashboard shows up to 10 per type).
+LEARNING_MATCHES_PER_TYPE = 10
 logger = logging.getLogger(__name__)
 MAX_CONFIRMED_SKILLS = 20
 JOBS_SOURCE = "reference_jobs.csv"
@@ -1108,11 +1110,6 @@ def analyze_candidate_job_match(
         preferences=preferences or {},
         available_learning_skills=reviewed_learning_skill_ids(),
     )
-    labels, _ = canonical_skill_lookup()
-    gaps = prioritize_skill_gaps([scored_match])
-    for gap in gaps:
-        key = _skill_key(gap["skill_name"])
-        gap["skill_id"] = key if key in labels else ""
     return {
         "match": {
             "match_percentage": scored_match["match_percentage"], "semantic_similarity": scored_match["semantic_score"],
@@ -1125,7 +1122,7 @@ def analyze_candidate_job_match(
             "preferred_skill_coverage": scored_match["preferred_skill_coverage"],
             "match_reason": scored_match["match_reason"], "match_breakdown": scored_match["match_breakdown"],
         },
-        "learning_recommendations": recommend_learning_resources(skill_gaps=gaps, preferences=preferences or {}, max_recommendations=5),
+        "learning_recommendations": recommend_learning_resources_for_matches([scored_match], preferences=preferences or {}),
         "candidate_skill_records": skill_records,
         "metadata": {"model_version": MODEL_ID, "matching_source": "shared_kareerly_matching_service"},
     }
@@ -1236,10 +1233,11 @@ def match_text_to_jobs(
     for gap in prioritized_gaps:
         key = _skill_key(gap["skill_name"])
         gap["skill_id"] = key if key in labels else ""
-    learning_recommendations = recommend_learning_resources(
-        skill_gaps=prioritized_gaps,
+    # Cover every missing skill of the jobs the dashboard can show, so the
+    # learning page has resources for whichever job the candidate focuses on.
+    learning_recommendations = recommend_learning_resources_for_matches(
+        all_fit_now_matches[:LEARNING_MATCHES_PER_TYPE] + all_aspiration_matches[:LEARNING_MATCHES_PER_TYPE],
         preferences=preferences,
-        max_recommendations=10,
     )
     top_10_scores = (
         results_df.sort_values("final_score", ascending=False)
