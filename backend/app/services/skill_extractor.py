@@ -92,15 +92,25 @@ def _has_fragmented_spacing(text: str) -> bool:
     return re.search(r"(?:\b[A-Za-z0-9]\b\s*){5,}", text) is not None
 
 def _split_alias_terms(value: Any) -> list[str]:
+    """Split a reference list field into its entries.
+
+    The reference lists are ';'-separated. Commas belong to the labels
+    themselves ("Education, Training, and Community Services"), so splitting on
+    them would turn single words such as "education" into aliases.
+    """
     if value is None or pd.isna(value):
         return []
 
     text = str(value)
     text = text.replace("\n", ";")
     text = text.replace("|", ";")
-    text = text.replace(",", ";")
 
     return [part.strip() for part in text.split(";") if part.strip()]
+
+
+def _is_group_label(value: str) -> bool:
+    """Taxonomy group labels such as "Healthcare, Caregiving, and Wellness"."""
+    return bool(re.search(r",\s*(?:and|&)\s+\S", value))
 
 
 class SkillExtractor:
@@ -164,10 +174,13 @@ class SkillExtractor:
         """
         terms: set[str] = set()
         for row in self.rows:
-            for field in ("skill_category", "skill_subcategory"):
-                label = row.get(field, "")
+            labels = [row.get("skill_category", ""), row.get("skill_subcategory", "")]
+            # related_skills also carries the parent group labels, which never
+            # appear in the category columns.
+            labels += [part for part in _split_alias_terms(row.get("related_skills", "")) if _is_group_label(part)]
+            for label in labels:
                 terms.add(_normalize_alias(label))
-                terms.update(_normalize_alias(part) for part in _split_alias_terms(label))
+                terms.update(_normalize_alias(part) for part in re.split(r",|\band\b|&", label))
         terms.discard("")
         return terms
 
