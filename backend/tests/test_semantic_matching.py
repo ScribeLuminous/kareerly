@@ -99,18 +99,16 @@ class SemanticMatchingTests(unittest.TestCase):
         self.assertEqual("canonical_taxonomy_skill_ids", coverage["coverage_method"])
 
     def test_match_tiers_allow_no_result(self):
-        self.assertEqual(
-            "Fit-Now",
-            matching_service.classify_semantic_match(0.6, 0.75, 1.0, 3),
-        )
-        self.assertEqual(
-            "Aspiration",
-            matching_service.classify_semantic_match(0.4, 0.25, 0.0, 1),
-        )
-        self.assertIsNone(
-            matching_service.classify_semantic_match(0.2, 0.0, 0.0, 0)
-        )
+        from app.services import match_scoring as scoring
 
+        thresholds = scoring.MatchThresholds(0.45, 0.5, 0.2)
+        none = scoring.SkillEvidence()
+        self.assertEqual(scoring.FIT_NOW, scoring.classify(
+            0.6, scoring.SkillEvidence(["A", "B", "C"], ["D"]), none, 0, thresholds))
+        self.assertEqual(scoring.ASPIRATION, scoring.classify(
+            0.4, scoring.SkillEvidence(["A"], ["B", "C", "D"]), none, 0, thresholds))
+        self.assertEqual(scoring.LOW_MATCH, scoring.classify(
+            0.1, scoring.SkillEvidence([], ["A"]), none, 0, thresholds))
 
 if __name__ == "__main__":
     unittest.main()

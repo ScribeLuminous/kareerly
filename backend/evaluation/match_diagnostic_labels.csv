@@ -1,0 +1,34 @@
+resume_page,target_role,career_area,strong_title_pattern
+1,Junior Software Developer,technology-data,software|developer|programmer|full ?stack|web designer
+2,IT Support Specialist,technology-data,it support|support engineer|help ?desk|systems administrator|it operation
+3,Data Analyst,technology-data,data analyst|business intelligence|analytics|digital solutions analyst
+4,Accounting Associate,business-office,account|payroll|bookkeep|tax specialist|budget analyst|treasury
+5,Office Administrator,business-office,administrative officer|admin clerk|executive assistant|office|records assistant
+6,HR Coordinator,business-office,human resources|\bhr\b|recruit|talent
+7,Sales Representative,sales-marketing-customer-service,sales|account executive|business development
+8,Digital Marketing Specialist,sales-marketing-customer-service,marketing|social media|seo|brand|influencer
+9,Customer Service Representative,sales-marketing-customer-service,customer service|customer success|call center|csr
+10,Graphic Designer,communications-creative-media,graphic|designer|illustrat|motion graphics|creative director
+11,Content Writer / Copywriter,communications-creative-media,writer|copywriter|content|scriptwriter|communications
+12,Multimedia Producer,communications-creative-media,video|multimedia|photograph|podcast|motion graphics|producer
+13,Elementary School Teacher,education-health-community,teacher|teaching|learning facilitator
+14,Corporate Trainer / Instructional Designer,education-health-community,trainer|training|learning program|instruction
+15,Social Worker,education-health-community,community development|social work|career development advisor
+16,Registered Nurse,education-health-community,nurse|patient care|clinic
+17,Caregiver,education-health-community,caregiv|elderly care|care assistant
+18,Fitness Coach,education-health-community,fitness|wellness|coach
+19,Civil Engineer,engineering-trades-operations,civil engineer|cad|draftsperson|surveying|construction|cost estimator
+20,Electrician,engineering-trades-operations,electric|building maintenance|maintenance technician
+21,Carpenter,engineering-trades-operations,carpenter|construction trades|mason
+22,Hotel Front Office Associate,engineering-trades-operations,front desk|guest relations|reservation|hotel
+23,Tourism Officer / Tour Guide,engineering-trades-operations,touris|travel|event coordinator|guest relations
+24,Food Service / Cook,engineering-trades-operations,kitchen|chef|food service|restaurant|cook
+25,Warehouse Operations Supervisor,engineering-trades-operations,warehouse|inventory|logistics
+26,Production Worker,engineering-trades-operations,production|assembly|packaging|quality inspector|machine operations
+27,Delivery Coordinator / Driver,engineering-trades-operations,driver|delivery|logistics|route
+28,Farmer / Agricultural Worker,engineering-trades-operations,crop|horticulture|agricultur|pest management
+29,Livestock Farm Worker,engineering-trades-operations,livestock|swine|dairy
+30,Aquaculture Worker,engineering-trades-operations,aquaculture|fish
+31,Government Administrative Officer,government-legal-security,government|public administration|records assistant|regulatory compliance|policy support|liaison
+32,Legal Assistant,government-legal-security,legal|contract review
+33,Security Officer,government-legal-security,security|emergency response

@@ -200,6 +200,21 @@ export function formatMatchPercentLabel(percent: number | null, fallback = 'Matc
   return `${Math.round(percent)}%`;
 }
 
+/**
+ * The category the backend assigned. The backend classifies every match from
+ * its skill coverage and semantic similarity, so the UI must not re-derive a
+ * category from the percentage; the list context is only a fallback for older
+ * saved reports that predate the category field.
+ */
+export function matchCategoryLabel(match: unknown, context: 'fit_now' | 'aspiration'): string {
+  const record = toMatchRecord(match);
+  for (const key of ['match_category', 'match_type']) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return context === 'fit_now' ? 'Fit-Now' : 'Aspiration';
+}
+
 export function normalizeMatchItemPercentages(match: MatchResultItem, context: MatchScoreContext): MatchResultItem {
   const record = toMatchRecord(match);
   const normalizedMatch = { ...match } as MatchResultItem;

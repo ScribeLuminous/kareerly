@@ -25,8 +25,8 @@ class MatchingRegressionTests(unittest.TestCase):
                 location="Philippines", work_type="Remote", salary_range_monthly_php="", job_text_for_matching=""),
             dict(job_id="analyst", category_id="K01", job_category="Technology", job_title="Analyst",
                 job_description="Analyze data and build SQL queries for business reports.",
-                required_skills_comma_separated="SQL", mapped_required_skill_names="SQL", required_skill_ids="SK004",
-                must_have_skill_ids="SK004", experience_level_required="Entry level", location="Philippines",
+                required_skills_comma_separated="SQL; Python Programming", mapped_required_skill_names="SQL; Python Programming",
+                required_skill_ids="SK004;SK001", must_have_skill_ids="SK004", experience_level_required="Entry level", location="Philippines",
                 work_type="Remote", salary_range_monthly_php="", job_text_for_matching=""),
         ])
 
@@ -48,10 +48,16 @@ class MatchingRegressionTests(unittest.TestCase):
     def test_no_forced_fit_now_or_critical_skill_override(self):
         result = self.run_match([{"skill_id": "SK001", "skill_name": "Python Programming"}])
         self.assertEqual([item["job_id"] for item in result["fit_now_matches"]], ["developer"])
-        self.assertEqual(result["aspiration_matches"][0]["critical_missing_skill_ids"], ["SK004"])
+        # Half the analyst's skills and a high cosine, but its singled-out must-have is missing.
+        analyst = result["aspiration_matches"][0]
+        self.assertEqual(analyst["critical_missing_skill_ids"], ["SK004"])
+        self.assertIn("critical_skill_missing", analyst["match_breakdown"]["failed_fit_now_rules"])
+        self.assertEqual(analyst["match_breakdown"]["penalty"], 0.1)
         empty = self.run_match([])
         self.assertEqual(empty["fit_now_matches"], [])
-        self.assertEqual(len(empty["aspiration_matches"]), 2)
+        # Without a single held skill there is no learnable path, so nothing is forced into Aspiration.
+        self.assertEqual(empty["aspiration_matches"], [])
+        self.assertEqual(empty["debug_summary"]["low_match_count"], 2)
 
     def test_text_route_extracts_resume_skills_when_ids_are_missing(self):
         with patch.object(matching, "extract_skills_from_text", return_value=[{
@@ -70,11 +76,14 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertEqual(result["confirmed_skills"], ["Python Programming"])
         self.assertEqual([item["job_id"] for item in result["fit_now_matches"]], ["developer"])
 
-    def test_cosine_is_not_catalog_rescaled_and_preferences_do_not_replace_ranking(self):
-        result = self.run_match([], preferences={"target_role": "Developer"})
-        self.assertEqual([item["job_id"] for item in result["aspiration_matches"]], ["analyst", "developer"])
-        self.assertEqual(result["aspiration_matches"][0]["match_percentage"], 90)
-        self.assertEqual(result["aspiration_matches"][1]["match_percentage"], 70)
+    def test_scores_are_not_catalog_rescaled_and_preferences_do_not_replace_ranking(self):
+        result = self.run_match([{"skill_id": "SK004", "skill_name": "SQL"}], preferences={"target_role": "Developer"})
+        matches = result["fit_now_matches"]
+        self.assertEqual([item["job_id"] for item in matches], ["analyst", "developer"])
+        # 0.45 * cosine + 0.45 * coverage over the weights used; no min-max scaling across the catalogue.
+        self.assertEqual(matches[0]["match_percentage"], 70)
+        self.assertEqual(matches[1]["match_percentage"], 60)
+        self.assertEqual(matches[0]["semantic_similarity"], 0.9)
         self.assertEqual(result["metadata"]["model_version"], encoder.MODEL_ID)
         self.assertIn("bi-encoder", result["model_used"])
 
@@ -105,7 +114,7 @@ class MatchingRegressionTests(unittest.TestCase):
             self.run_match([{"skill_id": "UNKNOWN", "skill_name": "SQL"}])
 
     def test_gap_ids_feed_learning_and_unreviewed_keyword_resources_do_not_count(self):
-        result = self.run_match([])
+        result = self.run_match([{"skill_id": "SK001", "skill_name": "Python Programming"}])
         self.assertTrue(any(gap["skill_id"] == "SK004" for gap in result["skill_gaps"]))
         rows = pd.DataFrame([dict(skill_ids="SK004", skills_youll_gain="SQL", status="active")])
         with patch.object(matching, "load_reviewed_learning_resources", return_value=rows):

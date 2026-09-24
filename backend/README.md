@@ -240,7 +240,7 @@ already builds this way. To confirm which build a deploy got, run
 
 Both `/api/matches/run` and `/api/matches/from-resume` use the same fine-tuned
 all-MiniLM-L6-v2 Sentence-Transformer bi-encoder. Candidate and job text are
-encoded separately; raw cosine similarity determines ranking. Job embeddings
+encoded separately; cosine similarity is one component of the composite ranking score. Job embeddings
 are reused until the job inputs change. There is no Cross-Encoder or TF-IDF
 production fallback. Missing or corrupt model artifacts return readable 503
 responses rather than a result labeled as the trained model.
@@ -268,17 +268,40 @@ its existing database IDs are used for deterministic coverage and gap reports.
 Unknown confirmed IDs return 400. Related skill names and shared words do not
 receive exact skill credit.
 
-The thesis describes priorities without numerical Fit-Now cutoffs. Application
-rule defaults are therefore explicit and configurable, rather than represented
-as trained or evaluated thresholds: `KAREERLY_FIT_NOW_MIN_COSINE=0.45`,
-`KAREERLY_FIT_NOW_MIN_COVERAGE=0.50`, and no missing explicitly designated
-must-have skills. Jobs that fail these rules remain Aspiration results; none
-are promoted merely to fill the Fit-Now view. Cosine ranks each view, with skill
-coverage, preference alignment, and reviewed learning-resource coverage serving
-as deterministic tie factors. Learning availability requires a reviewed skill-ID
-mapping and a usable provider URL, with no keyword or semantic learning model.
-Match percentages are nonnegative cosine similarity times 100, not hiring
-probabilities. Raw signed cosine and rule thresholds remain in the response.
+Scoring and classification live in `backend/app/services/match_scoring.py` and
+are shared by the catalogue and pasted-job paths:
+
+- `score = (0.45·cosine + 0.45·required coverage + 0.10·preferred coverage) /
+  (weights of the components present) − 0.10 per missing critical skill (max 0.20)`
+- **Fit-Now**: required skills are listed, at least 50% of them are held,
+  cosine ≥ 0.45, and no critical skill is missing. A critical skill is a
+  must-have singled out from the required list.
+- **Aspiration**: not Fit-Now, cosine ≥ 0.20, and at least one of the job's
+  skills is held.
+- **Low Match**: everything else; scored, but never recommended.
+
+Thresholds were calibrated on the development split of the score-distribution
+diagnostic. `docs/matching-diagnosis.md` records the evidence, and
+`KAREERLY_FIT_NOW_MIN_COSINE`, `KAREERLY_FIT_NOW_MIN_COVERAGE` and
+`KAREERLY_ASPIRATION_MIN_COSINE` override them. None of these values are
+trained parameters, and no job is promoted merely to fill the Fit-Now view.
+
+Each view is ranked by the composite score, with cosine, coverage, preference
+alignment and reviewed learning-resource coverage as deterministic tie-breakers.
+Learning availability requires a reviewed skill-ID mapping and a usable provider
+URL, with no keyword or semantic learning model. Match percentages are the
+composite score times 100, not hiring probabilities.
+
+Every match carries `match_score`, `match_category`, `semantic_similarity`,
+`required_skill_coverage`, `preferred_skill_coverage`, `match_reason` and a
+`match_breakdown` listing the components, the penalty, the failed Fit-Now rules
+and the thresholds in force. To inspect one resume against the catalogue:
+
+```bash
+backend/.venv/bin/python -m backend.scripts.diagnose_match_distribution \
+    --inspect-resume path/to/resume.pdf [--job-id JOB-001]
+```
+
 Guest limits (three per view), registered initial limits (five per view), and
 full dashboard limits (ten per view) are unchanged. TF-IDF remains isolated in
 `job_matcher.JobMatcher` for evaluation.
