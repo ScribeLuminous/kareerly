@@ -3594,7 +3594,7 @@ function JobMatchesPage({
   };
 
   return (
-    <div>
+    <div className={jobFilter !== 'saved' && jobs.length > 0 ? 'cand-job-matches-page' : undefined}>
       <div className="cand-sticky-controls">
         <div className="cand-page-header cand-page-header-inline">
           <h1 className="cand-page-title">Job Matches</h1>
@@ -5875,7 +5875,7 @@ function ResumeUpdateModal({
               <button className="cand-btn-primary" type="button" disabled={loading} onClick={onConfirm}>
                 {loading ? 'Refreshing...' : postRefreshTarget === 'preferences' ? 'Confirm and Open Preferences' : 'Confirm Skills and Refresh'}
               </button>
-              <button className="cand-btn-secondary" type="button" onClick={() => onBack()}>
+              <button className="cand-btn-secondary cand-modal-back" type="button" onClick={() => onBack()}>
                 Back
               </button>
             </div>
