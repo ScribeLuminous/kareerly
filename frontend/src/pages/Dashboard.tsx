@@ -59,7 +59,7 @@ import { cleanSkillLabel } from '../lib/skillLabels';
 import { careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
-import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
+import { loadLatestMatchHistory, loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
 import type { DevelopmentProgressRecord, LearningRecommendation as RunLearningRecommendation } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
 import { formatJobDescription } from '../lib/jobDescription';
@@ -413,6 +413,14 @@ function normalizeSkill(value: string): string {
 
 const PRESERVED_ACRONYMS = new Set(['SQL', 'HTML', 'CSS', 'CRM', 'API', 'UI', 'UX', 'HR', 'QA', 'SEO', 'AWS', 'PHP', 'BI', 'ETL', 'PDF']);
 
+const PLACEHOLDER_VALUE_PATTERN = /^(?:(?:location|work setup|salary|date|credential)\s+)?(?:not specified|not stated|not available|unknown|n\/a|none|—|-)$/i;
+
+// Shows a compact hyphen instead of wordy placeholders like "Not specified".
+function displayOrDash(value?: string | null): string {
+  const trimmed = (value || '').trim();
+  return !trimmed || PLACEHOLDER_VALUE_PATTERN.test(trimmed) ? '-' : trimmed;
+}
+
 function titleCase(value: string): string {
   return value
     .split(/(\s+|\/|-|\(|\))/)
@@ -499,23 +507,21 @@ function buildJobExplanation(job: DashboardJob): string {
   return `This role has some connection to your current profile, but several key skills are still missing. ${firstMissing ? `Exploring resources for ${firstMissing} can improve your compatibility with similar roles.` : 'Exploring the recommended learning resources can improve your compatibility with similar roles.'}`;
 }
 
-function buildKareerGuidanceHeading(job: DashboardJob): 'Why this job matches you' | 'Current Alignment' {
-  if (job.hasMatchScore && (job.matchScore > 0 || job.matchedSkills.length > 0)) return 'Why this job matches you';
-  return 'Current Alignment';
+function hasDisplayValue(value?: string | null): boolean {
+  return displayOrDash(value) !== '-';
 }
 
-function buildKareerGuidanceText(job: DashboardJob): string {
-  if (job.hasMatchScore && (job.matchScore > 0 || job.matchedSkills.length > 0)) {
-    return buildJobExplanation(job);
-  }
-  return 'Match information is not available for this role. Run matching with your current profile to see your alignment.';
-}
-
-function buildKareerScoreSupport(job: DashboardJob): string {
-  if (!job.hasMatchScore) return 'Kareerly provides guidance only. You are still welcome to explore and apply for this opportunity.';
-  if (job.matchScore >= 80) return "You appear to meet many of the employer's requirements.";
-  if (job.matchScore >= 60) return 'You meet several requirements but may benefit from strengthening some skills.';
-  return 'This role may require additional skills, but you are still welcome to apply.';
+function splitSkillList(skills: string[]): string[] {
+  const seen = new Set<string>();
+  return skills
+    .flatMap((skill) => skill.split(/[;|\n]+/))
+    .map(cleanSkillDisplayName)
+    .filter((skill) => {
+      const key = skill.toLowerCase();
+      if (!skill || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 function getRecommendedNextStep(job: DashboardJob): string {
@@ -1434,6 +1440,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       setSavedResumeId(latestResume.id);
       const restoredSkills = extractSkillsFromResume(analysis.parsedResume);
       if (restoredSkills.length > 0) setSkillNames(restoredSkills);
+
+      const savedMatches = await loadLatestMatchHistory({ userId: currentUser.id, resumeId: latestResume.id });
+      if (isMounted && savedMatches) setMatchResults(savedMatches);
     })();
 
     return () => {
@@ -2179,12 +2188,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           source: 'confirmed_skill',
         })));
       }
-      await saveMatchHistory({
+      const saved = await saveMatchHistory({
         userId: currentUser.id,
         resumeId: options?.resumeId ?? state.savedResumeId,
         preferences: answers,
         results: result,
       });
+      if (!saved) showToast('Matches refreshed, but they could not be saved to your profile. They may not appear after you reload.', 'warn');
     }
     return result;
   };
@@ -4555,7 +4565,7 @@ function PreferencesPage({
         </FormField>
 
         <div className="cand-card mt-4 border border-amber bg-amber-l px-4 py-3 text-xs text-amber">
-          Preferences serve as signals to refine Aspiration-Based recommendations. Core matching still depends on resume content and confirmed skills.
+          Your career area decides which jobs appear as Aspiration matches; job level, work setup and salary order them. Fit-Now matches depend only on your resume and confirmed skills.
         </div>
 
         <div className="mt-4">
@@ -4949,6 +4959,22 @@ function KareersPage({
   const activeApplication = activeSelected ? applications.find((app) => app.jobId === activeSelected.id && app.jobSource === activeSelected.jobSource && app.status !== 'Withdrawn') || null : null;
   const activeApplicationStatus = activeSelected ? onGetApplicationStatus(activeSelected.id, activeSelected.jobSource) : null;
   const isApplied = Boolean(activeApplicationStatus);
+  const kareerSubline = activeSelected ? [activeSelected.company, activeSelected.location].filter(hasDisplayValue).join(' · ') : '';
+  const kareerFacts = activeSelected
+    ? [
+        activeSelected.setup,
+        activeSelected.employmentType,
+        activeSelected.jobLevel ? `${displayOrDash(activeSelected.jobLevel)} level` : '',
+        activeSelected.salary,
+        activeSelected.category,
+        activeSelected.createdAt ? `Posted ${formatDateLabel(activeSelected.createdAt)}` : '',
+      ].filter(hasDisplayValue).map((value) => (value || '').trim())
+    : [];
+  const kareerMatchedSkills = activeSelected ? splitSkillList(activeSelected.matchedSkills) : [];
+  const kareerMissingSkills = activeSelected ? splitSkillList(activeSelected.missingSkills) : [];
+  const kareerRequiredSkills = activeSelected ? splitSkillList(activeSelected.requiredSkills) : [];
+  const kareerNiceSkills = activeSelected ? splitSkillList([...activeSelected.preferredSkills, ...(activeSelected.niceToHaveSkills || [])]) : [];
+  const kareerHasSkillMatch = Boolean(activeSelected?.hasMatchScore) && (kareerMatchedSkills.length > 0 || kareerMissingSkills.length > 0);
 
   return (
     <div>
@@ -5073,7 +5099,7 @@ function KareersPage({
                 <div key={job.id} className={`cand-kareer-item ${selectedId === job.id ? 'active' : ''}`}>
                   <button className="cand-kareer-select" type="button" onClick={() => onSelect(job.id)}>
                     <div className="text-sm font-bold text-dark"><UIIcon name="briefcase" className="cand-chip-icon" />{job.title}</div>
-                    <div className="text-xs text-soft">{job.company} · {job.category || 'Not specified'}</div>
+                    <div className="text-xs text-soft">{job.company} · {displayOrDash(job.category)}</div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {job.matchedSkills.slice(0, 3).map((skill) => (
                         <span key={`${job.id}-${skill}`} className="rounded-full bg-cream-d px-2 py-0.5 text-[10px] font-semibold text-mid">
@@ -5082,8 +5108,8 @@ function KareersPage({
                       ))}
                     </div>
                     <div className="cand-kareer-item-badges">
-                      <span className="cand-kareer-mini-badge">{job.setup}</span>
-                      <span className="cand-kareer-mini-badge">{job.jobLevel || 'Not specified'}</span>
+                      <span className="cand-kareer-mini-badge">{displayOrDash(job.setup)}</span>
+                      <span className="cand-kareer-mini-badge">{displayOrDash(job.jobLevel)}</span>
                       <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Match not available'}</span>
                     </div>
                     <div className="cand-kareer-view-link">View Details</div>
@@ -5118,169 +5144,152 @@ function KareersPage({
         <div className="cand-two-panel-right">
           {activeSelected ? (
             <>
-              <div className="mb-2 font-display text-2xl font-extrabold text-dark">{activeSelected.title}</div>
-              <div className="mb-2 text-xs text-soft">
-                {activeSelected.company} · {activeSelected.location} · {activeSelected.setup}
-              </div>
-              <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${activeSelected.hasMatchScore && activeSelected.matchScore >= 60 ? 'bg-green-l text-forest' : 'bg-rust-l text-mid'}`}>
-                {activeSelected.hasMatchScore ? getMatchBadgeLabel(activeSelected) : 'Explorable opportunity'}
-              </div>
-              <div className="mb-4 text-sm text-mid">{buildKareerScoreSupport(activeSelected)}</div>
-
-              {activeSelected.sourceType === 'internal' && (
-                <>
-                  <div className="cand-kareer-apply-guidance">
-                    <div className="cand-kareer-apply-title">Before You Apply</div>
-                    {activeSelected.hasMatchScore ? (
-                      <>
-                        <div className="cand-kareer-apply-line">Matched Skills: {activeSelected.matchedSkills.length > 0 ? activeSelected.matchedSkills.slice(0, 3).map(cleanSkillDisplayName).join(', ') : 'Matched skills not detected yet.'}</div>
-                        <div className="cand-kareer-apply-line">Missing Skills: {activeSelected.missingSkills.length > 0 ? activeSelected.missingSkills.slice(0, 3).map(cleanSkillDisplayName).join(', ') : 'No major missing skills identified yet.'}</div>
-                        <div className="cand-kareer-apply-line">Recommended Learning Resources: {activeSelected.missingSkills.length > 0 ? `Start with ${cleanSkillDisplayName(activeSelected.missingSkills[0])} and related Kareerly learning resources.` : 'Continue strengthening your profile through Kareerly learning resources.'}</div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="cand-kareer-apply-line">Required Skills: {activeSelected.requiredSkills.length > 0 ? activeSelected.requiredSkills.slice(0, 5).map(cleanSkillDisplayName).join(', ') : 'Required skills are not listed yet.'}</div>
-                        <div className="cand-kareer-apply-line">Resume Match: Not calculated yet for this listing.</div>
-                        <div className="cand-kareer-apply-line">You can still apply. The employer will review your application details.</div>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="cand-kareer-primary-actions">
-                    {isApplied ? (
-                      <>
-                        <button className="cand-btn-primary" type="button" disabled>
-                          Applied ✓
-                        </button>
-                        {activeApplication && ['Pending', 'Shortlisted', 'Interviewing'].includes(activeApplication.status) && (
-                          <button className="cand-btn-secondary" type="button" onClick={() => onWithdraw(activeApplication)}>
-                            Withdraw Application
-                          </button>
-                        )}
-                        <button className="cand-btn-secondary" type="button" onClick={onOpenApplications}>
-                          View Application
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="cand-btn-primary" type="button" onClick={() => setPendingApplyJob(activeSelected)}>
-                          Apply Now
-                        </button>
-                        <button className="cand-btn-secondary" type="button" onClick={() => onSave(activeSelected.id)}>
-                          <UIIcon name="bookmark" className="cand-btn-icon" />Save Job
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
-
-              <div className="cand-kareer-info-grid">
-                <div><span className="cand-kareer-info-label">Category</span><span className="cand-kareer-info-value">{activeSelected.category || 'Not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Sub-category</span><span className="cand-kareer-info-value">{activeSelected.subCategory || 'Not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Experience Level</span><span className="cand-kareer-info-value">{activeSelected.jobLevel || 'Not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Posted</span><span className="cand-kareer-info-value">{activeSelected.createdAt ? formatDateLabel(activeSelected.createdAt) : 'Date not available'}</span></div>
-                <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{activeSelected.location}</span></div>
-                <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{activeSelected.setup}</span></div>
-                <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{activeSelected.employmentType || 'Not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Salary</span><span className="cand-kareer-info-value">{activeSelected.salary || 'Salary not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Match Category</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? (activeSelected.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Not available'}</span></div>
-                <div><span className="cand-kareer-info-label">Match Percentage</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? `${Math.round(activeSelected.matchScore)}%` : 'Not available'}</span></div>
-              </div>
-
-              <div className="mb-2 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>
-              <div className="cand-kareer-detail-box whitespace-pre-wrap">
-                {activeSelected.description ? formatJobDescription(activeSelected.description) : 'Full job description is not available yet for this listing, but you can still explore the role details and guidance below.'}
-              </div>
-
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Responsibilities</div>
-              <div className="cand-kareer-detail-box">
-                {activeSelected.responsibilities.length > 0 ? (
-                  <ul className="cand-kareer-detail-list">
-                    {activeSelected.responsibilities.map((item) => (
-                      <li key={`${activeSelected.id}-resp-${item}`}>{item}</li>
-                    ))}
-                  </ul>
-                ) : 'Responsibilities were not separately provided by the employer.'}
-              </div>
-
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">{buildKareerGuidanceHeading(activeSelected)}</div>
-              <div className="cand-kareer-detail-box">
-                {buildKareerGuidanceText(activeSelected)}
-              </div>
-
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Your Matching Skills</div>
-              <div className="cand-skill-row">
-                {activeSelected.matchedSkills.length > 0 ? activeSelected.matchedSkills.map((skill) => (
-                  <span key={`${activeSelected.id}-m-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{cleanSkillDisplayName(skill)}</span>
-                )) : <span className="cand-covered-empty">Matched skills not detected yet.</span>}
-              </div>
-
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Skills to Improve</div>
-              <div className="cand-skill-row">
-                {activeSelected.missingSkills.length > 0 ? activeSelected.missingSkills.map((skill) => (
-                  <span key={`${activeSelected.id}-g-${skill}`} className="cand-skill-miss">{cleanSkillDisplayName(skill)}</span>
-                )) : <span className="cand-covered-empty">No specific improvement skills identified yet.</span>}
-              </div>
-
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Required Skills</div>
-              <div className="cand-skill-row">
-                {activeSelected.requiredSkills.length > 0 ? activeSelected.requiredSkills.map((skill) => (
-                  <span key={`${activeSelected.id}-req-${skill}`} className="cand-skill-match">{cleanSkillDisplayName(skill)}</span>
-                )) : <span className="cand-covered-empty">Required skills are not listed for this role.</span>}
-              </div>
-
-              {activeSelected.preferredSkills.length > 0 && (
-                <>
-                  <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Preferred Skills</div>
-                  <div className="cand-skill-row">
-                    {activeSelected.preferredSkills.map((skill) => (
-                      <span key={`${activeSelected.id}-pref-${skill}`} className="cand-skill-nice">{cleanSkillDisplayName(skill)}</span>
+              <div className="cand-kd-head">
+                <h2 className="cand-kd-title">{activeSelected.title}</h2>
+                {kareerSubline && <div className="cand-kd-sub">{kareerSubline}</div>}
+                {kareerFacts.length > 0 && (
+                  <div className="cand-kd-facts">
+                    {kareerFacts.map((fact) => (
+                      <span key={`${activeSelected.id}-fact-${fact}`} className="cand-kd-fact">{fact}</span>
                     ))}
                   </div>
-                </>
-              )}
-
-              {activeSelected.niceToHaveSkills && activeSelected.niceToHaveSkills.length > 0 && (
-                <>
-                  <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Nice-to-Have Skills</div>
-                  <div className="cand-skill-row">
-                    {activeSelected.niceToHaveSkills.map((skill) => (
-                      <span key={`${activeSelected.id}-nice-${skill}`} className="cand-skill-nice">{cleanSkillDisplayName(skill)}</span>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Recommended Next Step</div>
-              <div className="cand-kareer-detail-box">
-                {getRecommendedNextStep(activeSelected)}
+                )}
               </div>
 
-              <div className="mb-2 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Recommended Learning Resources</div>
-              <div className="cand-kareer-detail-box">
-                {activeSelected.missingSkills.length > 0
-                  ? `Focus on ${cleanSkillDisplayName(activeSelected.missingSkills[0])} first, then explore related learning resources in Kareerly.`
-                  : 'Use the recommended learning resources to strengthen your readiness for similar roles over time.'}
-              </div>
+              {activeSelected.hasMatchScore ? (
+                <div className={`cand-kd-match ${activeSelected.matchScore >= 60 ? 'good' : 'grow'}`}>
+                  <div className="cand-kd-match-score">{getMatchBadgeLabel(activeSelected)}</div>
+                  <p className="cand-kd-match-text">{buildJobExplanation(activeSelected)}</p>
+                </div>
+              ) : (
+                <div className="cand-kd-note">
+                  <span>Your match for this role hasn't been calculated yet. You're still welcome to apply.</span>
+                  <button className="cand-kd-link" type="button" onClick={onOpenMatches}>See my matches</button>
+                </div>
+              )}
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button className="cand-btn-secondary" type="button" onClick={onOpenUpskilling}>
-                  <UIIcon name="graduation" className="cand-btn-icon" />Explore Learning Recommendations
-                </button>
-                {activeSelected.sourceType === 'internal' && activeApplication ? (
-                  <button className="cand-btn-secondary" type="button" onClick={onOpenApplications}>
-                    <UIIcon name="clipboard" className="cand-btn-icon" />View Application
-                  </button>
+              <div className="cand-kareer-primary-actions">
+                {activeSelected.sourceType === 'internal' ? (
+                  isApplied ? (
+                    <>
+                      <button className="cand-btn-primary" type="button" disabled>
+                        Applied ✓
+                      </button>
+                      <button className="cand-btn-secondary" type="button" onClick={onOpenApplications}>
+                        View Application
+                      </button>
+                      {activeApplication && ['Pending', 'Shortlisted', 'Interviewing'].includes(activeApplication.status) && (
+                        <button className="cand-btn-secondary" type="button" onClick={() => onWithdraw(activeApplication)}>
+                          Withdraw
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <button className="cand-btn-primary" type="button" onClick={() => setPendingApplyJob(activeSelected)}>
+                        Apply Now
+                      </button>
+                      <button className="cand-btn-secondary" type="button" onClick={() => onSave(activeSelected.id)}>
+                        <UIIcon name="bookmark" className="cand-btn-icon" />Save Job
+                      </button>
+                    </>
+                  )
                 ) : (
-                  <button className="cand-btn-secondary" type="button" onClick={onOpenMatches}>
-                    <UIIcon name="briefcase" className="cand-btn-icon" />View Job Matches
+                  <button
+                    className="cand-btn-primary"
+                    type="button"
+                    onClick={() => {
+                      const fallbackQuery = encodeURIComponent(`${activeSelected.title} ${activeSelected.company} jobs`);
+                      window.open(activeSelected.externalUrl || `https://www.google.com/search?q=${fallbackQuery}`, '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    <UIIcon name="external" className="cand-btn-icon" />Apply on Employer Site
                   </button>
                 )}
               </div>
 
+              <section className="cand-kd-section">
+                <h3 className="cand-kd-heading">About the role</h3>
+                {activeSelected.description ? (
+                  <div className="cand-kd-body whitespace-pre-wrap">{formatJobDescription(activeSelected.description)}</div>
+                ) : activeSelected.responsibilities.length === 0 ? (
+                  <div className="cand-kd-body cand-kd-muted">The employer hasn't shared a full description yet.</div>
+                ) : null}
+                {activeSelected.responsibilities.length > 0 && (
+                  <>
+                    <h4 className="cand-kd-subheading">What you'll do</h4>
+                    <ul className="cand-kareer-detail-list cand-kd-body">
+                      {activeSelected.responsibilities.map((item) => (
+                        <li key={`${activeSelected.id}-resp-${item}`}>{item}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </section>
+
+              {(kareerHasSkillMatch || kareerRequiredSkills.length > 0 || kareerNiceSkills.length > 0) && (
+                <section className="cand-kd-section">
+                  <h3 className="cand-kd-heading">Skills</h3>
+                  {kareerHasSkillMatch ? (
+                    <>
+                      {kareerMatchedSkills.length > 0 && (
+                        <>
+                          <h4 className="cand-kd-subheading">You already have</h4>
+                          <div className="cand-skill-row">
+                            {kareerMatchedSkills.map((skill) => (
+                              <span key={`${activeSelected.id}-m-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      {kareerMissingSkills.length > 0 && (
+                        <>
+                          <h4 className="cand-kd-subheading">Skills to build</h4>
+                          <div className="cand-skill-row">
+                            {kareerMissingSkills.map((skill) => (
+                              <span key={`${activeSelected.id}-g-${skill}`} className="cand-skill-miss">{skill}</span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : kareerRequiredSkills.length > 0 && (
+                    <>
+                      <h4 className="cand-kd-subheading">Required</h4>
+                      <div className="cand-skill-row">
+                        {kareerRequiredSkills.map((skill) => (
+                          <span key={`${activeSelected.id}-req-${skill}`} className="cand-skill-match">{skill}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {kareerNiceSkills.length > 0 && (
+                    <>
+                      <h4 className="cand-kd-subheading">Nice to have</h4>
+                      <div className="cand-skill-row">
+                        {kareerNiceSkills.map((skill) => (
+                          <span key={`${activeSelected.id}-nice-${skill}`} className="cand-skill-nice">{skill}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
+
+              {kareerMissingSkills.length > 0 && (
+                <div className="cand-kd-next">
+                  <div>
+                    <div className="cand-kd-next-title">Next step</div>
+                    <div className="cand-kd-next-text">Start with {kareerMissingSkills[0]} — it's one of the clearest ways to strengthen your fit.</div>
+                  </div>
+                  <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenUpskilling}>
+                    <UIIcon name="graduation" className="cand-btn-icon" />Find Learning
+                  </button>
+                </div>
+              )}
+
               <div className="cand-kareer-footer-note">
-                Kareerly provides explainable career guidance. Match scores are advisory and do not prevent candidates from applying. Final hiring decisions remain with the employer.
+                Match scores are guidance only and never stop you from applying. The employer makes the final hiring decision.
               </div>
             </>
           ) : (
@@ -5852,7 +5861,7 @@ function JobDetailModal({
     { label: 'Location', value: job.location },
     { label: 'Salary', value: job.salary },
     { label: 'Category', value: job.category },
-  ].filter((item) => item.value && item.value.trim() && item.value !== '—');
+  ].map((item) => ({ ...item, value: displayOrDash(item.value) }));
 
   return (
     <div className="cand-modal-overlay" onClick={onClose}>

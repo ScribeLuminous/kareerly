@@ -21,11 +21,16 @@ nor rejected for missing skill data.
 
 Categories:
 
-* Fit-Now     - required skills are listed, most of them are held, the role is
-                semantically aligned and no explicitly critical skill is missing.
-* Aspiration  - not Fit-Now, but the role is semantically related and the
-                candidate already holds at least one of its skills, so the gap
-                is identifiable and learnable.
+* Fit-Now     - decided by the resume alone: required skills are listed, the
+                candidate's resume skills cover at least half of them, the role
+                is at least related to the resume and no explicitly critical
+                skill is missing. Career preferences never affect it.
+* Aspiration  - decided by the Step 3 career preferences: a job that is not
+                Fit-Now and sits in the career area the candidate chose. The
+                resume is then compared with it for the score and skill gaps.
+                When no career area is known (no preference, or a job without
+                a category) the resume rule applies instead: the role is
+                semantically related and at least one of its skills is held.
 * Low Match   - neither; excluded from the recommendation lists.
 
 Threshold values were calibrated on the development split of the mock-resume
@@ -54,12 +59,14 @@ MATCH_WEIGHT_PREFERRED_SKILLS = 0.10
 CRITICAL_MISSING_PENALTY = 0.10
 MAX_CRITICAL_PENALTY = 0.20
 
-# Fit-Now: "at least half of the required skills" is a product definition of
-# readiness (a 0.34-0.60 sweep changed dev F1 by under 0.02). The 0.45 semantic
-# floor is unchanged from the previous release: on the development split its F1
-# is within 0.03 of the best value (0.40) and it ties on the held-out split.
-FIT_NOW_MIN_REQUIRED_COVERAGE = 0.50
-FIT_NOW_MIN_SEMANTIC = 0.45
+# Fit-Now: "at least 75% of the required skills" is a product definition of
+# readiness. Most jobs list three required skills, so in practice the resume
+# must hold all of them. On the mock-resume diagnostic (floor 0.30) this keeps
+# 81 of 179 strong pairs and 1 of 4,841 weak ones as Fit-Now (50% kept 123 and
+# 8), and 3 of 33 resumes have no Fit-Now job. Skill coverage decides Fit-Now;
+# the semantic floor only rules out unrelated roles.
+FIT_NOW_MIN_REQUIRED_COVERAGE = 0.75
+FIT_NOW_MIN_SEMANTIC = 0.30
 # Aspiration: new floor, the development-split F1 optimum for separating
 # related roles from unrelated ones; about 3% of unrelated pairs pass it.
 ASPIRATION_MIN_SEMANTIC = 0.20
@@ -123,6 +130,7 @@ class MatchBreakdown:
     matched_preferred_count: int
     preferred_skill_count: int
     critical_missing_count: int
+    in_preferred_career_area: Optional[bool]
     raw_weighted_score: float
     penalty: float
     match_score: float
@@ -176,9 +184,12 @@ def classify(
     preferred: SkillEvidence,
     critical_missing_count: int,
     thresholds: MatchThresholds,
+    in_preferred_career_area: Optional[bool] = None,
 ) -> str:
     if not fit_now_failures(semantic, required, critical_missing_count, thresholds):
         return FIT_NOW
+    if in_preferred_career_area is not None:
+        return ASPIRATION if in_preferred_career_area else LOW_MATCH
     held = len(required.matched) + len(preferred.matched)
     # A job with no listed skills cannot show a gap, so relevance alone decides.
     has_skill_bridge = held >= thresholds.aspiration_min_matched_skills or (required.total + preferred.total) == 0
@@ -193,7 +204,13 @@ def score_match(
     preferred: SkillEvidence,
     critical_missing_count: int = 0,
     thresholds: Optional[MatchThresholds] = None,
+    in_preferred_career_area: Optional[bool] = None,
 ) -> MatchBreakdown:
+    """Score one pair.
+
+    ``in_preferred_career_area`` is None when the candidate chose no career area
+    or the job has no known category; Aspiration then falls back to the resume rule.
+    """
     thresholds = thresholds or MatchThresholds.from_env()
     raw_cosine = float(semantic_cosine)
     semantic = min(max(raw_cosine, 0.0), 1.0)
@@ -210,23 +227,33 @@ def score_match(
         matched_preferred_count=len(preferred.matched),
         preferred_skill_count=preferred.total,
         critical_missing_count=critical_missing_count,
+        in_preferred_career_area=in_preferred_career_area,
         raw_weighted_score=round(raw, 4),
         penalty=round(penalty, 4),
         match_score=round(final, 4),
-        match_category=classify(semantic, required, preferred, critical_missing_count, thresholds),
+        match_category=classify(semantic, required, preferred, critical_missing_count, thresholds, in_preferred_career_area),
         failed_fit_now_rules=fit_now_failures(semantic, required, critical_missing_count, thresholds),
         thresholds=thresholds.as_dict(),
     )
 
 
-def match_reason(category: str, matched: Sequence[str], missing: Sequence[str], required_total: int) -> str:
+def match_reason(
+    category: str,
+    matched: Sequence[str],
+    missing: Sequence[str],
+    required_total: int,
+    in_preferred_career_area: Optional[bool] = None,
+) -> str:
     """One plain-language sentence explaining the category."""
     held = f"{len(matched)} of {required_total}" if required_total else "none"
     gaps = ", ".join(list(missing)[:3])
     if category == FIT_NOW:
         tail = f" Remaining gaps: {gaps}." if gaps else ""
-        return f"You already match most of the important requirements ({held} required skills).{tail}"
+        return f"Your resume already covers most of the important requirements ({held} required skills).{tail}"
     if category == ASPIRATION:
         tail = f" The main gaps are {gaps}." if gaps else ""
+        if in_preferred_career_area:
+            coverage = f" Your resume covers {held} of its required skills." if required_total else ""
+            return f"This role is in the career area you chose.{coverage}{tail}"
         return f"You are directionally suited to this role ({held} required skills).{tail}"
     return "This role has little overlap with your current skills and experience."
