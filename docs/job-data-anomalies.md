@@ -310,7 +310,7 @@ as weak: Content Writer → Social Media Manager (now under Marketing), and a
 Legal Assistant and a Government Administrative Officer → Corporate
 Secretary. Moving JOB-030 to Office Administration doesn't change these labels:
 the diagnostic places both resumes in its government, legal and security career
-areas.
+area.
 
 **Not changed**
 
