@@ -871,6 +871,23 @@
 }
 
 @media (min-width: 1200px) {
+  .cand-job-matches-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - 106px);
+    min-height: 420px;
+  }
+
+  .cand-job-matches-page .cand-sticky-controls {
+    flex-shrink: 0;
+  }
+
+  .cand-job-matches-page .cand-match-groups {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
   .cand-match-groups {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
@@ -880,10 +897,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cand-match-groups.dual .cand-match-group-card {
-    min-height: 480px;
-    height: min(calc(100vh - 250px), 780px);
-  }
 }
 
 .cand-match-group-card {
@@ -2613,11 +2626,16 @@
 }
 
 .cand-resume-back-btn {
+  margin-left: auto;
   width: 38px;
   min-width: 38px;
   min-height: 38px;
   padding: 0;
   justify-content: center;
+}
+
+.cand-modal-back {
+  margin-left: auto;
 }
 
 .cand-resume-action-error {
