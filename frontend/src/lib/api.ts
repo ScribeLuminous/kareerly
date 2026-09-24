@@ -83,6 +83,31 @@ export async function sendApplicationMessage(input: { applicationId: string; tex
   }) as Promise<PersistedApplicationMessage>;
 }
 
+export type MessageModerationState = {
+  blocked: boolean;
+  blocked_by_me: boolean;
+  blocked_by_role: 'candidate' | 'employer' | null;
+  reported_by_me: boolean;
+};
+
+export type MessageReportReason = 'spam' | 'harassment' | 'scam' | 'inappropriate' | 'impersonation' | 'other';
+
+export async function loadMessageModeration(applicationId: string): Promise<MessageModerationState> {
+  return authenticatedMessageRequest(`/api/messages/${encodeURIComponent(applicationId)}/moderation`) as Promise<MessageModerationState>;
+}
+
+export async function submitMessageModeration(input: {
+  applicationId: string;
+  action: 'report' | 'block' | 'unblock';
+  reason?: MessageReportReason;
+  details?: string;
+}): Promise<MessageModerationState> {
+  return authenticatedMessageRequest('/api/messages/moderation', {
+    method: 'POST',
+    body: JSON.stringify({ application_id: input.applicationId, action: input.action, reason: input.reason || null, details: input.details || null }),
+  }) as Promise<MessageModerationState>;
+}
+
 export async function updateEmployerApplicationStatus(input: { applicationId: string; status: string; rejectionReason?: string }): Promise<void> {
   await authenticatedMessageRequest('/api/messages/application-status', {
     method: 'POST',
