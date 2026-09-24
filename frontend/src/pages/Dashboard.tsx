@@ -2553,6 +2553,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
           yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
         }));
+        // Saving the extracted education is a convenience; a failure here must not
+        // discard the resume analysis the user is waiting on.
         await saveCandidateAccountSettings({
           full_name: accountIdentity.name,
           email: accountIdentity.email,
@@ -2564,6 +2566,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           degree_program: extractedEducation.degree_program || profileForm.degreeProgram,
           school_university: extractedEducation.school_university || profileForm.schoolUniversity,
           year_graduated: extractedEducation.year_graduated || profileForm.yearGraduated,
+        }).catch((saveError) => {
+          console.warn('Unable to save extracted education to account settings', saveError);
         });
       }
       const extracted = extractSkillsFromResume(data.parsedResume);

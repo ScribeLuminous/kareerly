@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 
+import pytest
 import pandas as pd
 from docx import Document
 from fastapi import HTTPException
@@ -338,3 +339,21 @@ def test_notification_migration_has_rls_and_idempotent_event_identity():
     assert "auth.uid() = recipient_user_id" in sql
     assert "unique(recipient_user_id, event_type, application_id, event_version)" in sql
     assert "on conflict (recipient_user_id, event_type, application_id, event_version) do nothing" in sql
+
+
+def test_rejected_token_is_unauthenticated_but_config_errors_surface(monkeypatch):
+    from app.main import _get_authenticated_user_id
+
+    def rejected(*_args, **_kwargs):
+        raise HTTPException(status_code=401, detail="invalid JWT")
+
+    monkeypatch.setattr("app.main._supabase_request", rejected)
+    assert _get_authenticated_user_id("Bearer expired") is None
+
+    def unconfigured(*_args, **_kwargs):
+        raise HTTPException(status_code=503, detail="Supabase is not configured for account services.")
+
+    monkeypatch.setattr("app.main._supabase_request", unconfigured)
+    with pytest.raises(HTTPException) as exc_info:
+        _get_authenticated_user_id("Bearer token")
+    assert exc_info.value.status_code == 503
