@@ -394,6 +394,14 @@ function normalizeSkill(value: string): string {
 
 const PRESERVED_ACRONYMS = new Set(['SQL', 'HTML', 'CSS', 'CRM', 'API', 'UI', 'UX', 'HR', 'QA', 'SEO', 'AWS', 'PHP', 'BI', 'ETL', 'PDF']);
 
+const PLACEHOLDER_VALUE_PATTERN = /^(?:(?:location|work setup|salary|date|credential)\s+)?(?:not specified|not stated|not available|unknown|n\/a|none|—|-)$/i;
+
+// Shows a compact hyphen instead of wordy placeholders like "Not specified".
+function displayOrDash(value?: string | null): string {
+  const trimmed = (value || '').trim();
+  return !trimmed || PLACEHOLDER_VALUE_PATTERN.test(trimmed) ? '-' : trimmed;
+}
+
 function titleCase(value: string): string {
   return value
     .split(/(\s+|\/|-|\(|\))/)
@@ -4879,7 +4887,7 @@ function KareersPage({
                 <div key={job.id} className={`cand-kareer-item ${selectedId === job.id ? 'active' : ''}`}>
                   <button className="cand-kareer-select" type="button" onClick={() => onSelect(job.id)}>
                     <div className="text-sm font-bold text-dark"><UIIcon name="briefcase" className="cand-chip-icon" />{job.title}</div>
-                    <div className="text-xs text-soft">{job.company} · {job.category || 'Not specified'}</div>
+                    <div className="text-xs text-soft">{job.company} · {displayOrDash(job.category)}</div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {job.matchedSkills.slice(0, 3).map((skill) => (
                         <span key={`${job.id}-${skill}`} className="rounded-full bg-cream-d px-2 py-0.5 text-[10px] font-semibold text-mid">
@@ -4888,8 +4896,8 @@ function KareersPage({
                       ))}
                     </div>
                     <div className="cand-kareer-item-badges">
-                      <span className="cand-kareer-mini-badge">{job.setup}</span>
-                      <span className="cand-kareer-mini-badge">{job.jobLevel || 'Not specified'}</span>
+                      <span className="cand-kareer-mini-badge">{displayOrDash(job.setup)}</span>
+                      <span className="cand-kareer-mini-badge">{displayOrDash(job.jobLevel)}</span>
                       <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Match not available'}</span>
                     </div>
                     <div className="cand-kareer-view-link">View Details</div>
@@ -4926,7 +4934,7 @@ function KareersPage({
             <>
               <div className="mb-2 font-display text-2xl font-extrabold text-dark">{activeSelected.title}</div>
               <div className="mb-2 text-xs text-soft">
-                {activeSelected.company} · {activeSelected.location} · {activeSelected.setup}
+                {displayOrDash(activeSelected.company)} · {displayOrDash(activeSelected.location)} · {displayOrDash(activeSelected.setup)}
               </div>
               <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${activeSelected.hasMatchScore && activeSelected.matchScore >= 60 ? 'bg-green-l text-forest' : 'bg-rust-l text-mid'}`}>
                 {activeSelected.hasMatchScore ? getMatchBadgeLabel(activeSelected) : 'Explorable opportunity'}
@@ -4982,16 +4990,16 @@ function KareersPage({
               )}
 
               <div className="cand-kareer-info-grid">
-                <div><span className="cand-kareer-info-label">Category</span><span className="cand-kareer-info-value">{activeSelected.category || 'Not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Sub-category</span><span className="cand-kareer-info-value">{activeSelected.subCategory || 'Not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Experience Level</span><span className="cand-kareer-info-value">{activeSelected.jobLevel || 'Not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Posted</span><span className="cand-kareer-info-value">{activeSelected.createdAt ? formatDateLabel(activeSelected.createdAt) : 'Date not available'}</span></div>
-                <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{activeSelected.location}</span></div>
-                <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{activeSelected.setup}</span></div>
-                <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{activeSelected.employmentType || 'Not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Salary</span><span className="cand-kareer-info-value">{activeSelected.salary || 'Salary not specified'}</span></div>
-                <div><span className="cand-kareer-info-label">Match Category</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? (activeSelected.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Not available'}</span></div>
-                <div><span className="cand-kareer-info-label">Match Percentage</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? `${Math.round(activeSelected.matchScore)}%` : 'Not available'}</span></div>
+                <div><span className="cand-kareer-info-label">Category</span><span className="cand-kareer-info-value">{displayOrDash(activeSelected.category)}</span></div>
+                <div><span className="cand-kareer-info-label">Sub-category</span><span className="cand-kareer-info-value">{displayOrDash(activeSelected.subCategory)}</span></div>
+                <div><span className="cand-kareer-info-label">Experience Level</span><span className="cand-kareer-info-value">{displayOrDash(activeSelected.jobLevel)}</span></div>
+                <div><span className="cand-kareer-info-label">Posted</span><span className="cand-kareer-info-value">{activeSelected.createdAt ? formatDateLabel(activeSelected.createdAt) : '-'}</span></div>
+                <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{displayOrDash(activeSelected.location)}</span></div>
+                <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{displayOrDash(activeSelected.setup)}</span></div>
+                <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{displayOrDash(activeSelected.employmentType)}</span></div>
+                <div><span className="cand-kareer-info-label">Salary</span><span className="cand-kareer-info-value">{displayOrDash(activeSelected.salary)}</span></div>
+                <div><span className="cand-kareer-info-label">Match Category</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? (activeSelected.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : '-'}</span></div>
+                <div><span className="cand-kareer-info-label">Match Percentage</span><span className="cand-kareer-info-value">{activeSelected.hasMatchScore ? `${Math.round(activeSelected.matchScore)}%` : '-'}</span></div>
               </div>
 
               <div className="mb-2 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>
@@ -5572,7 +5580,7 @@ function JobDetailModal({
     { label: 'Location', value: job.location },
     { label: 'Salary', value: job.salary },
     { label: 'Category', value: job.category },
-  ].filter((item) => item.value && item.value.trim() && item.value !== '—');
+  ].map((item) => ({ ...item, value: displayOrDash(item.value) }));
 
   return (
     <div className="cand-modal-overlay" onClick={onClose}>
