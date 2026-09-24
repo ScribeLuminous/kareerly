@@ -514,6 +514,54 @@ function getCareerGuidance(job: DashboardJob): string {
   return 'You can apply now while continuing to strengthen your profile over time.';
 }
 
+type MatchReason = { tone: 'strength' | 'growth'; text: string };
+
+function formatSkillList(skills: string[]): string {
+  const names = skills.map(cleanSkillDisplayName).filter(Boolean);
+  if (names.length <= 1) return names[0] || '';
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
+function buildMatchReasons(job: DashboardJob, requiredSkills: string[]): MatchReason[] {
+  if (!job.hasMatchScore) return [];
+  const reasons: MatchReason[] = [];
+  const score = Math.max(0, Math.min(100, Math.round(job.matchScore)));
+  const matched = job.matchedSkills.slice(0, 4);
+  const requiredKeys = new Set(requiredSkills.map(normalizeSkill));
+  const directHits = job.matchedSkills.filter((skill) => requiredKeys.has(normalizeSkill(skill)));
+
+  if (matched.length > 0) {
+    reasons.push({
+      tone: 'strength',
+      text: `Your profile already shows ${formatSkillList(matched)}${job.matchedSkills.length > matched.length ? ` and ${job.matchedSkills.length - matched.length} more related skill${job.matchedSkills.length - matched.length === 1 ? '' : 's'}` : ''} — the kind of experience this role relies on day to day.`,
+    });
+  }
+  if (directHits.length > 0 && requiredSkills.length > 0) {
+    reasons.push({
+      tone: 'strength',
+      text: `You meet ${directHits.length} of the ${requiredSkills.length} skills the employer lists as required.`,
+    });
+  }
+  if (job.category && matched.length > 0) {
+    reasons.push({ tone: 'strength', text: `Your background lines up with the ${job.category} field, so the core of this work will feel familiar.` });
+  }
+  if (job.jobLevel && /entry|junior|intern/i.test(job.jobLevel)) {
+    const level = job.jobLevel.toLowerCase();
+    reasons.push({ tone: 'strength', text: `It's ${/^[aeiou]/.test(level) ? 'an' : 'a'} ${level}-level role, built for people who are still growing their experience.` });
+  }
+  if (job.missingSkills.length > 0) {
+    const gaps = job.missingSkills.slice(0, 3);
+    reasons.push({
+      tone: 'growth',
+      text: `Building ${formatSkillList(gaps)}${job.missingSkills.length > gaps.length ? ' and a few other skills' : ''} would close the main gap${job.missingSkills.length === 1 ? '' : 's'} and raise your ${score}% match.`,
+    });
+  } else {
+    reasons.push({ tone: 'strength', text: 'No major skill gaps were detected for this role.' });
+  }
+  return reasons;
+}
+
 function getLearningForJob(job: DashboardJob, courses: DashboardCourse[]): DashboardCourse[] {
   return courses.filter((course) => course.reviewed && (
     job.missingSkillIds?.length
@@ -5509,111 +5557,143 @@ function JobDetailModal({
   const confidence = getConfidenceLabel(job);
   const requiredSkills = job.requiredSkills.length > 0 ? job.requiredSkills : [...job.matchedSkills, ...job.missingSkills];
   const preferredSkills = job.preferredSkills.length > 0 ? job.preferredSkills : job.niceToHaveSkills || [];
+  const matchReasons = buildMatchReasons(job, requiredSkills);
+  const matchedKeys = new Set(job.matchedSkills.map(normalizeSkill));
+  const score = job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : 0;
+  const readinessClass = job.hasMatchScore ? getMatchReadinessClass(job.matchScore) : 'develop';
+  const details = [
+    { label: 'Level', value: job.jobLevel },
+    { label: 'Employment', value: job.employmentType },
+    { label: 'Work Setup', value: job.setup },
+    { label: 'Location', value: job.location },
+    { label: 'Salary', value: job.salary },
+    { label: 'Category', value: job.category },
+  ].filter((item) => item.value && item.value.trim() && item.value !== '—');
 
   return (
     <div className="cand-modal-overlay" onClick={onClose}>
-      <div className="cand-modal-box lg" onClick={(event) => event.stopPropagation()}>
-        <div className="cand-modal-header">
+      <div className="cand-modal-box lg cand-jd" onClick={(event) => event.stopPropagation()}>
+        <div className="cand-modal-header cand-jd-header">
           <div>
             <div className="cand-modal-title">{job.title}</div>
             <div className="cand-modal-subtitle">{job.company}</div>
+            <div className="cand-jd-tags">
+              <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
+                {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}
+              </span>
+              <span className={`cand-type-tag ${job.sourceType === 'internal' ? 'cand-type-internal' : 'cand-type-external'}`}>
+                {job.sourceType === 'internal' ? 'Internal' : 'External'}
+              </span>
+            </div>
           </div>
-          <button className="cand-modal-close" type="button" onClick={onClose}>
-            x
+          <button className="cand-modal-close cand-jd-close" type="button" onClick={onClose} aria-label="Close job details">
+            <UIIcon name="close" />
           </button>
         </div>
 
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-              {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}
-            </span>
-            <span className={`cand-type-tag ${job.sourceType === 'internal' ? 'cand-type-internal' : 'cand-type-external'}`}>
-              {job.sourceType === 'internal' ? 'Internal' : 'External'}
-            </span>
-            {job.category && <span className="cand-job-badge">{job.category}</span>}
-            {job.subCategory && <span className="cand-job-badge tan">{job.subCategory}</span>}
-            {job.jobLevel && <span className="cand-job-badge amber">{job.jobLevel}</span>}
+        <section className={`cand-jd-why ${readinessClass}`} aria-labelledby={`${job.id}-why-title`}>
+          <div className="cand-jd-why-top">
+            <div className="cand-jd-score" style={{ ['--score' as string]: `${score}` }} aria-hidden="true">
+              <span>{job.hasMatchScore ? `${score}%` : '—'}</span>
+            </div>
+            <div className="min-w-0">
+              <h3 id={`${job.id}-why-title`} className="cand-jd-why-title">Why this job matches you</h3>
+              <div className="cand-jd-why-meta">
+                {getMatchBadgeLabel(job)} · Confidence: {confidence}
+              </div>
+            </div>
           </div>
-          <div className="text-right">
-            <div className={`cand-match-badge friendly ${getMatchReadinessClass(job.matchScore)}`}>{getMatchBadgeLabel(job)}</div>
-            <div className="mt-1 text-xs text-soft">Confidence: {confidence}</div>
+          <p className="cand-jd-why-summary">{job.explanation?.trim() || buildJobExplanation(job)}</p>
+          {matchReasons.length > 0 && (
+            <ul className="cand-jd-reasons">
+              {matchReasons.map((reason) => (
+                <li key={`${job.id}-reason-${reason.text}`} className={reason.tone}>
+                  <UIIcon name={reason.tone === 'strength' ? 'check-circle' : 'target'} className="cand-jd-reason-icon" />
+                  <span>{reason.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {details.length > 0 && (
+          <dl className="cand-jd-details">
+            {details.map((item) => (
+              <div key={`${job.id}-detail-${item.label}`}>
+                <dt>{item.label}</dt>
+                <dd>{item.value?.replace(/\//g, '/\u200b')}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        <section className="cand-jd-section">
+          <h4 className="cand-jd-heading">Job Description</h4>
+          <div className="cand-jd-text whitespace-pre-wrap">
+            {job.description?.trim() ? formatJobDescription(job.description) : 'Full job description is not available yet for this listing, but you can still explore the role details and personalized guidance below.'}
           </div>
-        </div>
+        </section>
 
-        <div className="cand-modal-meta-grid">
-          <div><span className="cand-kareer-info-label">Job Category</span><span className="cand-kareer-info-value">{job.category || 'Not specified'}</span></div>
-          <div><span className="cand-kareer-info-label">Job Level</span><span className="cand-kareer-info-value">{job.jobLevel || 'Not specified'}</span></div>
-          <div><span className="cand-kareer-info-label">Employment Type</span><span className="cand-kareer-info-value">{job.employmentType || 'Not specified'}</span></div>
-          <div><span className="cand-kareer-info-label">Location</span><span className="cand-kareer-info-value">{job.location || '—'}</span></div>
-          <div><span className="cand-kareer-info-label">Work Setup</span><span className="cand-kareer-info-value">{job.setup || '—'}</span></div>
-          <div><span className="cand-kareer-info-label">Salary Range</span><span className="cand-kareer-info-value">{job.salary || 'Salary not specified'}</span></div>
-        </div>
-
-        <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Job Description</div>
-        <div className="cand-job-description-box whitespace-pre-wrap">
-          {job.description?.trim() ? formatJobDescription(job.description) : 'Full job description is not available yet for this listing, but you can still explore the role details and personalized guidance below.'}
-        </div>
-
-        <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Responsibilities</div>
-        <div className="cand-job-description-box">
+        <section className="cand-jd-section">
+          <h4 className="cand-jd-heading">Responsibilities</h4>
           {job.responsibilities.length > 0 ? (
-            <ul className="cand-bullet-list">
+            <ul className="cand-bullet-list cand-jd-text">
               {job.responsibilities.map((item) => (
                 <li key={`${job.id}-resp-${item}`}>{item}</li>
               ))}
             </ul>
           ) : (
-            'Responsibilities have not yet been provided by the employer.'
+            <div className="cand-jd-empty">Responsibilities have not yet been provided by the employer.</div>
           )}
-        </div>
+        </section>
 
-        <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Required Skills</div>
-        <div className="cand-skill-row mb-4">
-          {requiredSkills.length > 0 ? requiredSkills.map((skill) => (
-            <span key={`${job.id}-req-${skill}`} className="cand-skill-match">{cleanSkillDisplayName(skill)}</span>
-          )) : <span className="cand-covered-empty">Required skills have not yet been provided by the employer.</span>}
-        </div>
+        <section className="cand-jd-section">
+          <h4 className="cand-jd-heading">Your Matching Strengths</h4>
+          <div className="cand-skill-row">
+            {job.matchedSkills.map((skill) => (
+              <span key={`${job.id}-jd-m-${skill}`} className="cand-skill-match">
+                <UIIcon name="check-circle" className="cand-chip-icon" />
+                {cleanSkillDisplayName(skill)}
+              </span>
+            ))}
+            {job.matchedSkills.length === 0 && <span className="cand-jd-empty">Matched skills not detected yet.</span>}
+          </div>
+        </section>
 
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Preferred Skills</div>
-        <div className="cand-skill-row mb-4">
-          {preferredSkills.length > 0 ? preferredSkills.map((skill) => (
-            <span key={`${job.id}-pref-${skill}`} className="cand-skill-nice">{cleanSkillDisplayName(skill)}</span>
-          )) : <span className="cand-covered-empty">Preferred skills have not yet been provided by the employer.</span>}
-        </div>
+        <section className="cand-jd-section">
+          <h4 className="cand-jd-heading">Skills for This Role</h4>
+          <div className="cand-jd-sublabel">Required</div>
+          <div className="cand-skill-row">
+            {requiredSkills.length > 0 ? requiredSkills.map((skill) => (
+              <span key={`${job.id}-req-${skill}`} className={matchedKeys.has(normalizeSkill(skill)) ? 'cand-skill-match' : 'cand-jd-chip'}>{cleanSkillDisplayName(skill)}</span>
+            )) : <span className="cand-jd-empty">Required skills have not yet been provided by the employer.</span>}
+          </div>
+          <div className="cand-jd-sublabel">Preferred</div>
+          <div className="cand-skill-row">
+            {preferredSkills.length > 0 ? preferredSkills.map((skill) => (
+              <span key={`${job.id}-pref-${skill}`} className="cand-skill-nice">{cleanSkillDisplayName(skill)}</span>
+            )) : <span className="cand-jd-empty">Preferred skills have not yet been provided by the employer.</span>}
+          </div>
+        </section>
 
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Why This Job Matches You</div>
-        <div className="cand-job-description-box">
-          {job.explanation?.trim() || buildJobExplanation(job)}
-        </div>
+        <section className="cand-jd-section">
+          <h4 className="cand-jd-heading">Skills to Improve</h4>
+          <div className="cand-skill-row">
+            {job.missingSkills.slice(0, 8).map((skill, index) => (
+              <span key={`${job.id}-jd-g-${skill}`} className="cand-skill-miss">
+                {index === 0 ? 'Critical: ' : index <= 2 ? 'High: ' : 'Medium: '}
+                {cleanSkillDisplayName(skill)}
+              </span>
+            ))}
+            {job.missingSkills.length === 0 && <span className="cand-jd-empty">No major missing skills detected for this role.</span>}
+          </div>
+        </section>
 
-        <div className="mb-3 mt-4 text-xs font-bold uppercase tracking-[0.5px] text-soft">Your Matching Strengths</div>
-        <div className="cand-skill-row mb-4">
-          {(job.matchedSkills.length > 0 ? job.matchedSkills : []).map((skill) => (
-            <span key={`${job.id}-jd-m-${skill}`} className="cand-skill-match">
-              <UIIcon name="check-circle" className="cand-chip-icon" />
-              {cleanSkillDisplayName(skill)}
-            </span>
-          ))}
-          {job.matchedSkills.length === 0 && <span className="cand-covered-empty">Matched skills not detected yet.</span>}
-        </div>
-
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Skills to Improve</div>
-        <div className="cand-skill-row mb-4">
-          {(job.missingSkills.length > 0 ? job.missingSkills.slice(0, 8) : []).map((skill, index) => (
-            <span key={`${job.id}-jd-g-${skill}`} className="cand-skill-miss">
-              {index === 0 ? 'Critical: ' : index <= 2 ? 'High: ' : 'Medium: '}
-              {cleanSkillDisplayName(skill)}
-            </span>
-          ))}
-          {job.missingSkills.length === 0 && <span className="cand-covered-empty">No major missing skills detected for this role.</span>}
-        </div>
-
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Recommended Learning</div>
-        <div className="cand-job-section mb-4">
+        <section className="cand-jd-section">
+          <h4 className="cand-jd-heading">Recommended Learning</h4>
           {learningResources.length > 0 ? (
             learningResources.map((course) => (
-              <div key={`${job.id}-learn-${course.id}`} className="cand-explain mb-2">
+              <div key={`${job.id}-learn-${course.id}`} className="cand-jd-course">
                 <UIIcon name="graduation" className="cand-inline-info-icon" />
                 <div>
                   <strong>{course.title}</strong>
@@ -5630,15 +5710,17 @@ function JobDetailModal({
               </div>
             ))
           ) : (
-            <div className="cand-covered-empty">No learning resources are available yet for this role's current skill gaps.</div>
+            <div className="cand-jd-empty">No learning resources are available yet for this role's current skill gaps.</div>
           )}
-        </div>
+        </section>
 
-        <div className="mb-3 text-xs font-bold uppercase tracking-[0.5px] text-soft">Career Guidance</div>
-        <div className="cand-explain"><UIIcon name="lightbulb" className="cand-inline-info-icon" />{getCareerGuidance(job)}</div>
+        <section className="cand-jd-section">
+          <h4 className="cand-jd-heading">Career Guidance</h4>
+          <div className="cand-explain cand-jd-guidance"><UIIcon name="lightbulb" className="cand-inline-info-icon" />{getCareerGuidance(job)}</div>
+        </section>
 
         {job.sourceType === 'internal' ? (
-          <div className="cand-modal-actions">
+          <div className="cand-modal-actions cand-jd-actions">
             {application ? (
               <>
                 <button className="cand-btn-primary" type="button" disabled>
@@ -5667,7 +5749,7 @@ function JobDetailModal({
             <div className="cand-notice warn">
               <span>This is an external opportunity. In-platform application tracking, withdrawal, and messaging are not available.</span>
             </div>
-            <div className="cand-modal-actions">
+            <div className="cand-modal-actions cand-jd-actions">
               <button
                 className="cand-btn-primary"
                 type="button"
