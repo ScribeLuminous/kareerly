@@ -196,6 +196,22 @@ warming on every reload).
 A host that sleeps when idle pays a container boot on top of this, so the client
 allows matching requests 240s.
 
+Job embeddings are computed at build time so that cold start does not encode the
+catalogue. `backend/Dockerfile` runs this already; on Render, append it to the
+build command:
+
+```bash
+python -m app.precompute_job_vectors            # backend root directory
+python -m backend.app.precompute_job_vectors    # repository root directory
+```
+
+It encodes `data/reference_jobs.csv`, plus the Supabase jobs when the build can
+reach Supabase, into `backend/precomputed/job_vectors.npz` (not committed; move
+it with `KAREERLY_JOB_VECTORS_PATH` for both build and service). Vectors are keyed
+by the exact encoder input, so jobs added or edited after the build are encoded
+on demand, and a store built for other model weights is ignored. The service
+logs `Loaded N precomputed job vectors` at startup when the store is in use.
+
 ### "Cannot reach the job matching backend" on the deployed website
 
 Before reporting the error, the website sends an opaque `no-cors` probe to
@@ -241,7 +257,7 @@ already builds this way. To confirm which build a deploy got, run
 Both `/api/matches/run` and `/api/matches/from-resume` use the same fine-tuned
 all-MiniLM-L6-v2 Sentence-Transformer bi-encoder. Candidate and job text are
 encoded separately; cosine similarity is one component of the composite ranking score. Job embeddings
-are reused until the job inputs change. There is no Cross-Encoder or TF-IDF
+are precomputed at build time and cached per job input, so only new or edited jobs are re-encoded. There is no Cross-Encoder or TF-IDF
 production fallback. Missing or corrupt model artifacts return readable 503
 responses rather than a result labeled as the trained model.
 

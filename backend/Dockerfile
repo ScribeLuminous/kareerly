@@ -27,6 +27,11 @@ RUN python -m pip install --upgrade pip \
 
 COPY . .
 
+# Encode the job catalogue now so a cold start loads vectors instead of running
+# the encoder over every job. The build machine can afford a larger batch than
+# the service instance. Jobs added after the build are encoded on demand.
+RUN KAREERLY_ENCODER_BATCH_SIZE=32 python -m app.precompute_job_vectors
+
 EXPOSE 8080
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

@@ -24,7 +24,7 @@ from .learning_recommender import (
     provider_url,
     split_ids,
 )
-from .bi_encoder_service import MODEL_ID, MatchingModelUnavailable, build_model_input, get_bi_encoder, score_jobs
+from .bi_encoder_service import MODEL_ID, MatchingModelUnavailable, build_model_input, get_bi_encoder, load_precomputed_job_vectors, score_jobs
 from .match_scoring import (
     ASPIRATION,
     FIT_NOW,
@@ -323,7 +323,11 @@ def _load_reference_jobs_uncached() -> pd.DataFrame:
     else:
         jobs = safe_read_csv(REFERENCE_JOBS_PATH)
         JOBS_SOURCE = "reference_jobs.csv"
+    return prepare_jobs(jobs)
 
+
+def prepare_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
+    """Validate a raw job table and add the columns matching reads."""
     required_cols = [
         "job_id",
         "category_id",
@@ -920,12 +924,16 @@ def compute_learning_readiness(missing_skills: List[str], available_skill_ids: O
     return round(sum(_skill_key(value) in available for value in missing_skills) / len(missing_skills), 4)
 
 
-def bi_encoder_score_jobs(candidate_input: str, jobs_df: pd.DataFrame) -> pd.DataFrame:
-    scored = jobs_df.copy()
-    inputs = [build_model_input(clean_text(row.get("job_description", "")),
+def job_model_inputs(jobs_df: pd.DataFrame) -> List[str]:
+    """Encoder inputs for prepared jobs; the build-time vector store uses the same text."""
+    return [build_model_input(clean_text(row.get("job_description", "")),
         title=clean_text(row.get("job_title", "")),
         skill_names=split_skill_list(row.get("required_skills_for_eval", ""))) for _, row in jobs_df.iterrows()]
-    raw_scores = score_jobs(candidate_input, inputs)
+
+
+def bi_encoder_score_jobs(candidate_input: str, jobs_df: pd.DataFrame) -> pd.DataFrame:
+    scored = jobs_df.copy()
+    raw_scores = score_jobs(candidate_input, job_model_inputs(jobs_df))
     scored["semantic_score_raw"] = raw_scores
     scored["semantic_score"] = np.clip(raw_scores, 0, 1)
     scored["semantic_scoring_method"] = "fine_tuned_bi_encoder_cosine"
@@ -1392,11 +1400,12 @@ def prioritize_skill_gaps(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
 
 def warm_matching_caches() -> None:
-    """Load only the encoder during startup.
+    """Load the encoder and the build-time job vectors during startup.
 
     Encoding the complete internal and employer catalogue can take several minutes
-    on a small deployment and holds the scoring lock while it runs. External-job
-    analysis only needs one pasted role, so catalogue-vector warmup stays lazy and
-    cannot block that request until the frontend times out.
+    on a small deployment and holds the scoring lock while it runs, so startup
+    never encodes jobs. Jobs missing from the build-time store (added or edited
+    since the build) are encoded lazily by the first request that needs them.
     """
     get_bi_encoder()
+    load_precomputed_job_vectors()
