@@ -41,7 +41,7 @@ class MatchingRegressionTests(unittest.TestCase):
         with patch.object(matching, "load_internal_jobs_dataframe", return_value=self.jobs), \
              patch.object(matching, "score_jobs", return_value=np.asarray(scores)), \
              patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
-             patch.object(matching, "recommend_learning_resources", return_value=[]):
+             patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
             return matching.match_text_to_jobs("Python developer builds backend applications and reports.",
                 confirmed_skills=skills, preferences=preferences)
 
@@ -74,7 +74,7 @@ class MatchingRegressionTests(unittest.TestCase):
             patch.object(matching, "load_internal_jobs_dataframe", return_value=self.jobs), \
             patch.object(matching, "score_jobs", return_value=np.asarray([0.7, 0.9])), \
             patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
-            patch.object(matching, "recommend_learning_resources", return_value=[]):
+            patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
             result = matching.match_jobs(
                 "Python developer builds backend applications and reports.",
                 candidate_skill_ids=[],
@@ -163,7 +163,7 @@ class MatchingRegressionTests(unittest.TestCase):
         with patch.object(matching, "load_internal_jobs_dataframe", return_value=self.jobs), \
              patch.object(matching, "score_jobs", return_value=np.asarray([0.7, 0.9])), \
              patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
-             patch.object(matching, "recommend_learning_resources", return_value=[]):
+             patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
             file_result = matching.match_resume_to_jobs(file.getvalue(), "fixture.docx", confirmed_skills=records)
             text_result = matching.match_jobs(text, candidate_skill_ids=["SK001"])
         self.assertEqual(file_result["all_fit_now_matches"], text_result["all_fit_now_matches"])
@@ -178,7 +178,7 @@ class MatchingRegressionTests(unittest.TestCase):
         with patch.object(matching, "load_internal_jobs_dataframe", return_value=jobs), \
              patch.object(matching, "score_jobs", return_value=np.asarray([0.9, 0.7])), \
              patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
-             patch.object(matching, "recommend_learning_resources", return_value=[]):
+             patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
             result = matching.match_text_to_jobs("Python developer with CRM experience.",
                 confirmed_skills=[{"skill_id": "SK001", "skill_name": "Python Programming"}])
         shown = [name

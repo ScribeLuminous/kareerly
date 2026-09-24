@@ -82,7 +82,7 @@ def test_internal_and_external_paths_share_the_same_match_calculation(monkeypatc
 
     monkeypatch.setattr(matching_service, "bi_encoder_score_jobs", fake_bi_encoder)
     monkeypatch.setattr(matching_service, "reviewed_learning_skill_ids", lambda: set())
-    monkeypatch.setattr(matching_service, "recommend_learning_resources", lambda **_kwargs: [])
+    monkeypatch.setattr(matching_service, "recommend_learning_resources_for_matches", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(matching_service, "load_reference_jobs", lambda: pd.DataFrame([job]))
 
     candidate = [{"skill_id": skill_id, "skill_name": skill_name}]
