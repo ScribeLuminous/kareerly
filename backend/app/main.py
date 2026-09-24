@@ -85,6 +85,16 @@ class MessageCreateRequest(BaseModel):
     message_kind: str = "message"
 
 
+class MessageModerationRequest(BaseModel):
+    application_id: str
+    action: str
+    reason: Optional[str] = None
+    details: Optional[str] = None
+
+
+MESSAGE_REPORT_REASONS = {"spam", "harassment", "scam", "inappropriate", "impersonation", "other"}
+
+
 class EmployerApplicationStatusRequest(BaseModel):
     application_id: str
     status: str
@@ -240,6 +250,86 @@ def _create_employer_message_thread(application_id: str, user_id: str) -> dict:
     return {**thread, "participant_role": "employer"}
 
 
+def _message_block_state(application_id: str, user_id: str) -> dict:
+    """Latest block/unblock per participant; a missing table degrades to unblocked."""
+    query = urllib.parse.urlencode({
+        "application_id": f"eq.{application_id}",
+        "action": "in.(block,unblock,report)",
+        "select": "actor_user_id,actor_role,action,created_at",
+        "order": "created_at.desc",
+        "limit": "200",
+    })
+    try:
+        rows = _supabase_request(f"/rest/v1/message_moderation_actions?{query}", service_role=True)
+    except HTTPException:
+        rows = []
+    latest_block_action: dict[str, dict] = {}
+    reported_by_me = False
+    for row in rows if isinstance(rows, list) else []:
+        actor = str(row.get("actor_user_id"))
+        if row.get("action") == "report":
+            reported_by_me = reported_by_me or actor == user_id
+            continue
+        latest_block_action.setdefault(actor, row)
+    blockers = [row for row in latest_block_action.values() if row.get("action") == "block"]
+    return {
+        "blocked": bool(blockers),
+        "blocked_by_me": any(str(row.get("actor_user_id")) == user_id for row in blockers),
+        "blocked_by_role": blockers[0].get("actor_role") if blockers else None,
+        "reported_by_me": reported_by_me,
+    }
+
+
+def _get_message_thread_participant(application_id: str, user_id: str) -> dict:
+    """Like _get_authorized_message_thread, but also allows closed threads so a
+    participant can still report or unblock after a thread stops being active."""
+    query = urllib.parse.urlencode({"application_id": f"eq.{application_id}", "select": "id,application_id,employer_id,candidate_id,status", "limit": "1"})
+    rows = _supabase_request(f"/rest/v1/message_threads?{query}", service_role=True)
+    thread = rows[0] if isinstance(rows, list) and rows else None
+    if not isinstance(thread, dict):
+        raise HTTPException(status_code=404, detail="No message thread was found for this application.")
+    participant_role = _get_message_participant_role(thread, user_id)
+    if not participant_role:
+        raise HTTPException(status_code=403, detail="You do not have access to this message thread.")
+    return {**thread, "participant_role": participant_role}
+
+
+@app.get("/api/messages/{application_id}/moderation")
+def get_message_moderation(application_id: str, authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    _get_message_thread_participant(application_id, user_id)
+    return _message_block_state(application_id, user_id)
+
+
+@app.post("/api/messages/moderation")
+def create_message_moderation(payload: MessageModerationRequest, authorization: Annotated[Optional[str], Header()] = None):
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    action = payload.action.strip().lower()
+    if action not in {"report", "block", "unblock"}:
+        raise HTTPException(status_code=400, detail="Action must be report, block, or unblock.")
+    reason = (payload.reason or "").strip().lower() or None
+    details = (payload.details or "").strip() or None
+    if action == "report" and reason not in MESSAGE_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="Choose a reason for the report.")
+    if details and len(details) > 2000:
+        raise HTTPException(status_code=400, detail="Report details must be 2000 characters or fewer.")
+    thread = _get_message_thread_participant(payload.application_id, user_id)
+    body = {
+        "application_id": payload.application_id,
+        "actor_user_id": user_id,
+        "actor_role": thread["participant_role"],
+        "action": action,
+        "reason": reason if action == "report" else None,
+        "details": details if action == "report" else None,
+    }
+    _supabase_request("/rest/v1/message_moderation_actions", method="POST", service_role=True, body=body, prefer="return=minimal")
+    return _message_block_state(payload.application_id, user_id)
+
+
 @app.get("/api/messages/{application_id}")
 def get_application_messages(application_id: str, authorization: Annotated[Optional[str], Header()] = None):
     user_id = _get_authenticated_user_id(authorization)
@@ -274,6 +364,8 @@ def create_application_message(payload: MessageCreateRequest, authorization: Ann
             raise
         thread = _create_employer_message_thread(payload.application_id, user_id)
     sender_role = str(thread["participant_role"])
+    if _message_block_state(payload.application_id, user_id)["blocked"]:
+        raise HTTPException(status_code=403, detail="Messaging is blocked for this conversation.")
     if payload.message_kind == "request" and sender_role != "employer":
         raise HTTPException(status_code=403, detail="Only the employer can initiate a message request.")
     if payload.message_kind == "message":

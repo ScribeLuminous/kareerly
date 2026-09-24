@@ -3,6 +3,7 @@ import unittest
 import pandas as pd
 from app.services.learning_recommender import (
     recommend_learning_resources, recommend_learning_resources_for_gap,
+    recommend_learning_resources_for_matches,
     resource_is_reviewed, provider_url, LEARNING_RESOURCES_PATH,
 )
 
@@ -19,17 +20,62 @@ class LearningPathsTests(unittest.TestCase):
         return recommend_learning_resources_for_gap(dict(skill_id="SQL", skill_name="SQL"),
             pd.DataFrame([{**self.row, **changes}]), skills_lookup={})
 
-    def test_review_required_and_generated_excluded(self):
+    def test_unreviewed_catalog_rows_are_listed_but_flagged(self):
         for changes in [dict(status="Generated - Review Needed"), dict(status="Active/Review"),
                         dict(review_status=""), dict(skill_id_mapping_status="generated_mapped"),
                         dict(source_evidence=""), dict(reviewer=""), dict(last_verified_at="2099-01-01")]:
-            with self.subTest(changes=changes): self.assertEqual(self.recommend(**changes), [])
-        self.assertEqual(len(self.recommend()), 1)
+            with self.subTest(changes=changes):
+                result = self.recommend(**changes)
+                self.assertEqual(len(result), 1)
+                self.assertEqual(result[0]["review_status"], "unreviewed")
+                self.assertEqual(result[0]["relevance_method"], "catalog_skill_id_mapping")
+        self.assertEqual(self.recommend()[0]["review_status"], "verified")
 
-    def test_no_keyword_or_unrelated_fallback(self):
-        self.assertEqual(self.recommend(skill_ids="JAVA", skills_youll_gain="SQL"), [])
+    def test_inactive_or_linkless_unreviewed_rows_are_excluded(self):
+        self.assertEqual(self.recommend(status="Retired", review_status=""), [])
+        self.assertEqual(self.recommend(review_status="", external_course_or_certification_link=""), [])
+        self.assertEqual(self.recommend(review_status="", course_or_certification_title=""), [])
+
+    def test_verified_resources_rank_first(self):
+        frame = pd.DataFrame([{**self.row, "resource_id": "a-unreviewed", "review_status": "", "course_or_certification_title": "Other course"},
+                              {**self.row, "resource_id": "z-verified"}])
+        result = recommend_learning_resources_for_gap(dict(skill_id="SQL", skill_name="SQL"), frame, skills_lookup={})
+        self.assertEqual([item["resource_id"] for item in result], ["z-verified", "a-unreviewed"])
+
+    def test_duplicate_catalog_rows_are_listed_once(self):
+        frame = pd.DataFrame([{**self.row, "resource_id": "a-copy", "review_status": ""}, {**self.row, "resource_id": "b-verified"}])
+        result = recommend_learning_resources_for_gap(dict(skill_id="SQL", skill_name="SQL"), frame, skills_lookup={})
+        self.assertEqual([item["resource_id"] for item in result], ["b-verified"])
+
+    def test_name_fallback_only_without_id_mapping(self):
+        by_name = self.recommend(skill_ids="JAVA", skills_youll_gain="SQL; Reporting")
+        self.assertEqual(len(by_name), 1)
+        self.assertEqual(by_name[0]["relevance_method"], "skill_name_match")
+        frame = pd.DataFrame([self.row, {**self.row, "resource_id": "test-2", "skill_ids": "JAVA", "skills_youll_gain": "SQL"}])
+        result = recommend_learning_resources_for_gap(dict(skill_id="SQL", skill_name="SQL"), frame, skills_lookup={})
+        self.assertEqual([item["resource_id"] for item in result], ["test-1"])
+
+    def test_category_fallback_for_custom_skill(self):
+        row = {**self.row, "category_id": "K05", "category_name": "Customer Service and Retail"}
+        gap = dict(skill_id="", skill_name="Onboarding", category_ids=["K05"], category_names=[])
+        result = recommend_learning_resources_for_gap(gap, pd.DataFrame([row]), skills_lookup={})
+        self.assertEqual(result[0]["relevance_method"], "category_match")
+        self.assertEqual(result[0]["matched_gap_skill_names"], ["Onboarding"])
+        self.assertEqual(recommend_learning_resources_for_gap({**gap, "category_ids": ["K99"]}, pd.DataFrame([row]), skills_lookup={}), [])
+
+    def test_no_unrelated_fallback(self):
+        self.assertEqual(self.recommend(skill_ids="JAVA", skills_youll_gain="Java"), [])
         self.assertEqual(recommend_learning_resources([], pd.DataFrame([self.row])), [])
         self.assertEqual(recommend_learning_resources([dict(skill_id="JAVA")], pd.DataFrame([self.row])), [])
+
+    def test_matches_cover_every_missing_skill(self):
+        rows = pd.DataFrame([self.row, {**self.row, "resource_id": "test-2", "skill_ids": "X1",
+                                        "skills_youll_gain": "Onboarding", "course_or_certification_title": "Customer onboarding"}])
+        matches = [{"missing_skill_ids": ["SQL"], "missing_skills": ["SQL", "Onboarding"], "category_id": "", "job_category": ""}]
+        result = recommend_learning_resources_for_matches(matches, rows)
+        self.assertEqual({item["resource_id"] for item in result}, {"test-1", "test-2"})
+        onboarding = next(item for item in result if item["resource_id"] == "test-2")
+        self.assertEqual(onboarding["matched_gap_skill_names"], ["Onboarding"])
 
     def test_multiple_gap_mappings_are_preserved_without_mutation(self):
         gaps = [dict(skill_id="SQL", skill_name="SQL"), dict(skill_id="PY", skill_name="Python")]

@@ -77,7 +77,8 @@ def fetch_learning_resources(limit: int = 1000) -> list[dict[str, Any]]:
     query = urlencode(
         {
             "select": "*",
-            "or": "(status.eq.active,status.is.null)",
+            # Status values vary in case and wording ("Active/Review"); the
+            # recommender drops inactive rows itself.
             "limit": str(safe_limit),
         }
     )
