@@ -226,11 +226,13 @@ regressing.
   Retail Operations (JOB-033, 041), Graphic Design, Sales Techniques and
   Content Writing (JOB-034), Content Writing and Sales Techniques (JOB-046),
   the Writing-category fallback skills on the Video Editor (JOB-049), and
-  Graphic Design and Sales Techniques (JOB-052). None of these appears in its
-  posting.
+  Graphic Design and Sales Techniques (JOB-052), Python Programming (JOB-016
+  Financial Analyst) and Data Visualization (JOB-057 Web Designer). None of
+  these appears in its posting.
 - All 22 recategorisations in section 3 are applied. JOB-042 went to K07
   Sales. JOB-008 went to K03. JOB-014 Systems Administrator also moved to K03;
-  it was the other category-fallback job.
+  it was the other category-fallback job. JOB-030 Corporate Secretary moved
+  from Finance to K05 Office Administration and Records.
 - Template jobs K11, K17, K20, K21 and K24 now carry skills that fit their
   title. The Backhoe Operator requires Machine Operation. Elderly Care is gone
   from the Livestock Farm Assistant.
@@ -291,14 +293,14 @@ jobs, fine-tuned model, current thresholds; before → after):
 
 | Measure | Before | After |
 |---|---|---|
-| Strong pairs classed Fit-Now | 98 / 179 | 106 / 179 |
+| Strong pairs classed Fit-Now | 98 / 179 | 107 / 179 |
 | Strong pairs classed Low Match | 28 | 22 |
 | Strong pairs failing the required-coverage rule | 68 | 55 |
 | Moderate pairs classed Fit-Now | 72 | 64 |
-| Weak pairs classed Aspiration | 138 | 92 |
+| Weak pairs classed Aspiration | 138 | 89 |
 | Weak pairs classed Fit-Now | 1 | 4 |
 | Resumes with no Fit-Now job | 2 | 0 |
-| Final-score nDCG@10 / recall@10 | 0.885 / 0.826 | 0.897 / 0.861 |
+| Final-score nDCG@10 / recall@10 | 0.885 / 0.826 | 0.899 / 0.861 |
 | Fine-tuned cosine AUC, strong vs moderate | 0.859 | 0.887 |
 
 The thresholds still hold: Fit-Now rises for strong pairs and falls for
@@ -306,12 +308,10 @@ moderate and weak ones, so there is no reason to recalibrate. The three new
 weak Fit-Now pairs are reasonable matches that the career-area labels count
 as weak: Content Writer → Social Media Manager (now under Marketing), and a
 Legal Assistant and a Government Administrative Officer → Corporate
-Secretary, which is still filed under Finance and Accounting. JOB-030 may
-belong under K05 or K24.
+Secretary. Moving JOB-030 to Office Administration doesn't change these labels:
+the diagnostic places both resumes in its government, legal and security career
+areas.
 
 **Not changed**
 
-- JOB-016 Financial Analyst still requires Python Programming, and JOB-057 Web
-  Designer requires Data Visualization. Neither posting mentions them, but
-  section 1 listed both jobs as clean, so they are left for a decision.
 - Section 5 (Supabase jobs) needs the live tables and is not covered here.
