@@ -13,7 +13,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { JobMatchRunResults, LearningRecommendation, MatchResultItem, PrioritizedSkillGap, ResumeAnalysisResult } from '../types';
-import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, formatMatchPercentLabel, parseNumericValue } from '../lib/matchScoring';
+import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, formatMatchPercentLabel, matchCategoryLabel, parseNumericValue } from '../lib/matchScoring';
 
 type SnapshotStepProps = {
   isLoggedIn: boolean;
@@ -72,14 +72,6 @@ function getMissingSkillText(match: MatchResultItem, skillNameLookup: Map<string
   return '';
 }
 
-function getMatchCategoryLabel(matchType: 'fit_now' | 'aspiration', percent: number | null): string {
-  if (percent === null) return 'Match not available';
-  if (percent <= 0) return 'Partial Match';
-  if (matchType === 'fit_now') return 'Fit-Now';
-  if (percent >= 60) return 'Aspiration';
-  return 'Partial Match';
-}
-
 function buildMatchExplanation(
   matchType: 'fit_now' | 'aspiration',
   matchedText: string,
@@ -110,7 +102,7 @@ function MatchRow({
   const missingText = getMissingSkillText(match, skillNameLookup);
   const matchPercent = extractMatchPercent(match, matchType);
   const matchPercentLabel = formatMatchPercentLabel(matchPercent);
-  const matchCategoryLabel = getMatchCategoryLabel(matchType, matchPercent);
+  const categoryLabel = matchCategoryLabel(match, matchType);
   const explanation = buildMatchExplanation(matchType, matchedText, missingText);
 
   return (
@@ -125,7 +117,7 @@ function MatchRow({
             matchPercent === null ? 'bg-bdr text-soft' : 'bg-rust text-white'
           }`}
         >
-          {matchPercentLabel} {matchPercent !== null ? `• ${matchCategoryLabel}` : ''}
+          {matchPercentLabel} {matchPercent !== null ? `• ${categoryLabel}` : ''}
         </div>
       </div>
       <div className="mt-2 space-y-1 text-xs">

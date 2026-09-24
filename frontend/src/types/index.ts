@@ -267,6 +267,9 @@ export interface MatchResultItem {
   matched_skills?: string[];
   missing_skills?: string[];
   explanation?: string;
+  match_type?: string;
+  match_category?: string;
+  match_reason?: string;
 }
 
 export interface PrioritizedSkillGap {
