@@ -28,6 +28,9 @@ __pycache__/
 .coverage
 htmlcov/
 
+# Build-time job vectors (python -m app.precompute_job_vectors)
+backend/precomputed/
+
 # Runtime files and private uploads
 uploads/
 backend/uploads/
