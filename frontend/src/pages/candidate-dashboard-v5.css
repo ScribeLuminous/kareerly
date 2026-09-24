@@ -5002,3 +5002,143 @@
     padding: 12px 16px 16px;
   }
 }
+
+/* Kareers job detail panel: simplified candidate view */
+.cand-kd-head {
+  margin-bottom: 16px;
+}
+
+.cand-kd-title {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--dark);
+  margin: 0 0 4px;
+}
+
+.cand-kd-sub {
+  font-size: 13px;
+  color: var(--mid);
+  margin-bottom: 10px;
+}
+
+.cand-kd-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cand-kd-fact {
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mid);
+}
+
+.cand-kd-match {
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: var(--rust-l);
+}
+
+.cand-kd-match.good {
+  background: var(--green-l);
+}
+
+.cand-kd-match-score {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--dark);
+  margin-bottom: 4px;
+}
+
+.cand-kd-match-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--mid);
+}
+
+.cand-kd-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 13px;
+  color: var(--soft);
+  margin-bottom: 14px;
+}
+
+.cand-kd-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rust);
+  cursor: pointer;
+}
+
+.cand-kd-link:hover {
+  text-decoration: underline;
+}
+
+.cand-kd-section {
+  border-top: 1px solid var(--bdr);
+  padding-top: 16px;
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.cand-kd-heading {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--dark);
+  margin: 0 0 8px;
+}
+
+.cand-kd-subheading {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--soft);
+  margin: 12px 0 6px;
+}
+
+.cand-kd-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--mid);
+}
+
+.cand-kd-muted {
+  color: var(--soft);
+}
+
+.cand-kd-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.cand-kd-next-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--dark);
+  margin-bottom: 2px;
+}
+
+.cand-kd-next-text {
+  font-size: 13px;
+  color: var(--mid);
+}
