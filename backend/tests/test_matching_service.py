@@ -102,6 +102,29 @@ class MatchingRegressionTests(unittest.TestCase):
             1.0,
         )
 
+    def test_career_area_of_categories_with_commas_and_codes(self):
+        self.assertEqual(matching.job_career_area({"job_category": "Data, Analytics, and Artificial Intelligence"}), "technology-data")
+        self.assertEqual(matching.job_career_area({"job_category": "", "category_id": "K24"}), "government-legal-security")
+        self.assertEqual(matching.job_career_area({"job_category": "Uncategorised"}), "")
+
+    def test_step_three_answers_are_compared_with_job_data(self):
+        job = {"job_category": "Software and Web Development", "job_title": "Developer", "job_description": "",
+            "experience_level_required": "Entry to Mid Level", "work_type": "Hybrid",
+            "salary_range_monthly_php": "₱30000–₱50000/month"}
+        # Values from onboarding and labels from the dashboard mean the same thing.
+        for preferences in (
+            {"industry": "technology-data", "target_role": "entry", "role_level": "entry", "work_setup": "hybrid", "salary_expectation": "30-50"},
+            {"industry": "technology-data", "target_role": "mid", "role_level": "mid",
+             "work_setup": "Hybrid (mix of remote & office)", "salary_expectation": "PHP 30,000 - PHP 50,000/month"},
+        ):
+            self.assertEqual(matching.compute_preference_alignment(job, preferences), 1.0)
+        # "I'm not sure" and "no preference" answers neither reward nor penalise.
+        self.assertEqual(matching.compute_preference_alignment(job, {
+            "industry": "technology-data", "role_level": "unsure", "work_setup": "flexible", "salary_expectation": "unsure"}), 1.0)
+        mismatch = matching.compute_preference_alignment(job, {
+            "industry": "technology-data", "role_level": "senior", "work_setup": "remote", "salary_expectation": "80+"})
+        self.assertLess(mismatch, 1.0)
+
     def test_expanded_category_ids_are_normalized_through_k24(self):
         self.assertEqual(matching.normalize_category_id("K24"), "K24")
         self.assertEqual(matching.normalize_category_id("24"), "K24")

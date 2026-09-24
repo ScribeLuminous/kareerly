@@ -4367,7 +4367,7 @@ function PreferencesPage({
         </FormField>
 
         <div className="cand-card mt-4 border border-amber bg-amber-l px-4 py-3 text-xs text-amber">
-          Preferences serve as signals to refine Aspiration-Based recommendations. Core matching still depends on resume content and confirmed skills.
+          Your career area decides which jobs appear as Aspiration matches; job level, work setup and salary order them. Fit-Now matches depend only on your resume and confirmed skills.
         </div>
 
         <div className="mt-4">
