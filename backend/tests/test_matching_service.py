@@ -18,6 +18,12 @@ class MatchingRegressionTests(unittest.TestCase):
     def setUp(self):
         matching.clear_reference_jobs_cache()
         self.addCleanup(matching.clear_reference_jobs_cache)
+        # These fixtures give each job two required skills and test ranking,
+        # critical skills and skill IDs, not readiness; hold the coverage bar at
+        # one of two. The 75% Fit-Now boundary is tested in test_match_scoring.
+        coverage = patch.dict("os.environ", {"KAREERLY_FIT_NOW_MIN_COVERAGE": "0.5"})
+        coverage.start()
+        self.addCleanup(coverage.stop)
         self.jobs = pd.DataFrame([
             dict(job_id="developer", category_id="K01", job_category="Technology", job_title="Developer",
                 job_description="Build Python backend applications and database queries.",

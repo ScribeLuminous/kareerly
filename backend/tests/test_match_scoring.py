@@ -53,11 +53,12 @@ class ClassificationTests(unittest.TestCase):
 
     def test_fit_now_boundaries(self):
         at = scoring.FIT_NOW_MIN_SEMANTIC
-        self.assertEqual(self.score(at, evidence(1, 1)).match_category, scoring.FIT_NOW)
-        self.assertEqual(self.score(at - 1e-4, evidence(1, 1)).match_category, scoring.ASPIRATION)
-        # 0.50 coverage passes, 0.4 does not.
-        self.assertEqual(self.score(0.6, evidence(2, 2)).match_category, scoring.FIT_NOW)
-        self.assertEqual(self.score(0.6, evidence(2, 3)).match_category, scoring.ASPIRATION)
+        self.assertEqual(self.score(at, evidence(3, 1)).match_category, scoring.FIT_NOW)
+        self.assertEqual(self.score(at - 1e-4, evidence(3, 1)).match_category, scoring.ASPIRATION)
+        # 0.75 coverage passes; 2 of 3 (0.67) and 1 of 2 (0.50) do not.
+        self.assertEqual(self.score(0.6, evidence(3, 1)).match_category, scoring.FIT_NOW)
+        self.assertEqual(self.score(0.6, evidence(2, 1)).match_category, scoring.ASPIRATION)
+        self.assertEqual(self.score(0.6, evidence(1, 1)).match_category, scoring.ASPIRATION)
 
     def test_aspiration_boundaries(self):
         at = scoring.ASPIRATION_MIN_SEMANTIC
