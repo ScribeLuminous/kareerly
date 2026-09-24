@@ -186,6 +186,13 @@ is decided by the Step 3 preferences and then compared with the resume.
   "flexible" and "no preference" are ignored, "entry" matches "Junior" and
   "Entry to Mid Level", dashboard labels such as "Hybrid (mix of remote &
   office)" match "Hybrid", and salary ranges are compared numerically.
+- **Fit-Now coverage raised from 50% to 75%** (product decision: Fit-Now
+  should mean the resume already holds nearly all required skills). Most jobs
+  list three required skills, so 2 of 3 (67%) no longer qualifies. With the
+  0.30 floor, strong Fit-Now pairs go from 123 to 81 of 179, moderate from 92
+  to 27 and weak from 8 to 1. Three resumes (IT Support Specialist, Sales
+  Representative, Multimedia Producer) have no Fit-Now job and see only
+  Aspiration matches.
 - `debug_summary.fit_now_blockers` counts, per rule, how many jobs missed
   Fit-Now, and the same counts are logged, so an empty Fit-Now list in
   production can be explained from the response.
@@ -199,7 +206,7 @@ preferred  = matched preferred skills / preferred skills (excluding skills alrea
 score      = (0.45·semantic + 0.45·required + 0.10·preferred) / (weights of the components present)
              − 0.10 per missing critical skill (maximum 0.20)
 
-Fit-Now    : required skills listed AND required ≥ 0.50 AND semantic ≥ 0.30 AND no critical skill missing
+Fit-Now    : required skills listed AND required ≥ 0.75 AND semantic ≥ 0.30 AND no critical skill missing
 Aspiration : not Fit-Now AND job in the Step 3 career area
              (no area known: semantic ≥ 0.20 AND ≥ 1 skill held, or the job lists no skills)
 Low Match  : otherwise; scored, but excluded from the recommendation lists
