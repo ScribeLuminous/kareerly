@@ -25,6 +25,15 @@ from .learning_recommender import (
     split_ids,
 )
 from .bi_encoder_service import MODEL_ID, MatchingModelUnavailable, build_model_input, get_bi_encoder, score_jobs
+from .match_scoring import (
+    ASPIRATION,
+    FIT_NOW,
+    LOW_MATCH,
+    MatchThresholds,
+    SkillEvidence,
+    match_reason,
+    score_match,
+)
 from .skill_extractor import SkillExtractor
 from .supabase_jobs import load_internal_jobs_dataframe
 
@@ -51,13 +60,7 @@ JOBS_CACHE_SECONDS = float(os.getenv("KAREERLY_JOBS_CACHE_SECONDS", "300"))
 _jobs_cache_lock = threading.Lock()
 _jobs_cache: Dict[str, Any] = {"jobs": None, "source": JOBS_SOURCE, "loaded_at": 0.0}
 
-# These are provisional operating points, not learned probabilities. They must
-# be tuned on the human-labelled Philippine development split and then frozen
-# before the final Chapter 4 test run.
-FIT_MIN_COSINE = 0.35
-FIT_MIN_SKILL_COVERAGE = 0.50
-ASPIRATION_MIN_COSINE = 0.25
-ASPIRATION_MIN_SKILL_COVERAGE = 0.20
+# Fit-Now / Aspiration thresholds and score weights live in match_scoring.py.
 
 # Frontend career-area values are stable slugs. These mappings keep the
 # taxonomy/category references on the backend while supporting the expanded
@@ -166,13 +169,6 @@ def normalize_for_match(value: Any) -> str:
     text = re.sub(r"[^a-z0-9+#.\s/-]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
-
-
-def configured_float(name: str, default: float) -> float:
-    try:
-        return float(os.getenv(name, str(default)))
-    except (TypeError, ValueError):
-        return default
 
 
 def normalize_category_id(value: Any) -> str:
@@ -592,21 +588,86 @@ def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
     return labels, aliases
 
 
+@lru_cache(maxsize=1)
+def skill_id_equivalents() -> Dict[str, str]:
+    """Map auto-generated duplicate skill IDs onto the reviewed skill they copy.
+
+    The ESCO import created rows such as SK134 "Python (computer programming)"
+    for the same ESCO concept as the reviewed SK001 "Python Programming". Two
+    IDs are merged only when they share an ESCO URI and one of them is an
+    auto-generated review row, so a manual mapping error cannot merge two
+    genuinely different skills.
+    """
+    by_uri: Dict[str, List[Tuple[str, str]]] = {}
+    for _, row in load_skills_reference().iterrows():
+        uri = clean_text(row.get("esco_skill_uri", ""))
+        skill_id = clean_text(row.get("skill_id", "")).upper()
+        if uri.startswith("http") and skill_id:
+            by_uri.setdefault(uri, []).append((skill_id, clean_text(row.get("mapping_status", ""))))
+    equivalents: Dict[str, str] = {}
+    for members in by_uri.values():
+        primary = [skill_id for skill_id, status in members if status != "auto_generated_review"]
+        if len(primary) != 1:
+            continue
+        for skill_id, status in members:
+            if status == "auto_generated_review":
+                equivalents[skill_id] = primary[0]
+    return equivalents
+
+
+LEGACY_SKILL_ID = re.compile(r"SK_[A-Z0-9_]+")
+
+
 def _skill_key(value: str) -> str:
     labels, aliases = canonical_skill_lookup()
     text = clean_text(value)
+    if LEGACY_SKILL_ID.fullmatch(text.upper()):
+        # Legacy job IDs such as SK_EXCEL have no taxonomy row; compare them by
+        # their readable name so a candidate's "Excel" can still satisfy them.
+        text = display_skill_name(text.upper(), labels)
     if text.upper() in labels:
-        return text.upper()
-    normalized = normalize_for_match(text)
-    return aliases.get(normalized, "CUSTOM:" + normalized)
+        key = text.upper()
+    else:
+        normalized = normalize_for_match(text)
+        key = aliases.get(normalized, "CUSTOM:" + normalized)
+    return skill_id_equivalents().get(key, key)
 
 
-def compute_skill_coverage(candidate_skills: List[str], required_skills: List[str]) -> Dict[str, Any]:
+def _phrase_in_text(phrase: str, text_norm: str) -> bool:
+    phrase_norm = normalize_for_match(phrase)
+    if len(phrase_norm) < 3 or not text_norm:
+        return False
+    return re.search(r"(?<![a-z0-9+#])" + re.escape(phrase_norm) + r"(?![a-z0-9+#])", text_norm) is not None
+
+
+def compute_skill_coverage(
+    candidate_skills: List[str],
+    required_skills: List[str],
+    resume_text: str = "",
+) -> Dict[str, Any]:
+    """Coverage over canonical skill keys, each requirement counted once.
+
+    Requirements that have no taxonomy ID (custom names or legacy SK_* IDs) can
+    also be met by their exact name appearing in the resume text, because no
+    confirmed skill ID could ever represent them.
+    """
     labels, _ = canonical_skill_lookup()
     candidates = {_skill_key(value) for value in candidate_skills if clean_text(value)}
-    required = {_skill_key(value): clean_text(value) for value in required_skills if clean_text(value)}
-    matched = [key for key in required if key in candidates]
-    missing = [key for key in required if key not in candidates]
+    required: Dict[str, str] = {}
+    for value in required_skills:
+        text = clean_text(value)
+        if text:
+            readable = display_skill_name(text.upper(), labels) if LEGACY_SKILL_ID.fullmatch(text.upper()) else text
+            required.setdefault(_skill_key(text), readable)
+    text_norm = normalize_for_match(resume_text)
+
+    def held(key: str) -> bool:
+        if key in candidates:
+            return True
+        return key not in labels and _phrase_in_text(display_skill_name(key, labels, required[key]), text_norm)
+
+    matched = [key for key in required if held(key)]
+    missing = [key for key in required if key not in matched]
     return {
         "skill_coverage": round(len(matched) / len(required), 4) if required else 0.0,
         "matched_skills": sorted(filter(None, (display_skill_name(key, labels, required[key]) for key in matched))),
@@ -629,6 +690,8 @@ def display_skill_name(skill_id: str, labels: Dict[str, str], fallback: str = ""
     fallback = clean_text(fallback)
     if fallback and not re.fullmatch(r"(?:SK[_-]?[A-Z0-9_-]+|K\d{1,2})", fallback.upper()):
         return fallback
+    if skill_id.startswith("CUSTOM:"):
+        return skill_id.split(":", 1)[1].title()
     legacy = re.fullmatch(r"SK[_-]([A-Za-z0-9_-]+)", clean_text(skill_id))
     if legacy:
         words = [word for word in re.split(r"[_-]+", legacy.group(1)) if word]
@@ -736,39 +799,6 @@ def compute_taxonomy_skill_coverage(
         "category_alignment": category_alignment,
         "coverage_method": "canonical_name_fallback",
     }
-
-
-def classify_semantic_match(
-    semantic_cosine: float,
-    skill_coverage: float,
-    category_alignment: float,
-    matched_skill_count: int,
-) -> Optional[str]:
-    """Assign a defensible tier or return None when no match qualifies."""
-    if (
-        matched_skill_count >= 1
-        and skill_coverage >= configured_float(
-            "KAREERLY_FIT_MIN_SKILL_COVERAGE", FIT_MIN_SKILL_COVERAGE
-        )
-        and semantic_cosine >= configured_float(
-            "KAREERLY_FIT_MIN_COSINE", FIT_MIN_COSINE
-        )
-    ):
-        return "Fit-Now"
-    if (
-        semantic_cosine >= configured_float(
-            "KAREERLY_ASPIRATION_MIN_COSINE", ASPIRATION_MIN_COSINE
-        )
-        and (
-            skill_coverage >= configured_float(
-                "KAREERLY_ASPIRATION_MIN_SKILL_COVERAGE",
-                ASPIRATION_MIN_SKILL_COVERAGE,
-            )
-            or category_alignment >= 1.0
-        )
-    ):
-        return "Aspiration"
-    return None
 
 
 def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any]) -> float:
@@ -965,6 +995,19 @@ def _prepare_candidate_context(
     return resume_text, final_skill_records, candidate_skill_names, candidate_keys
 
 
+def _critical_skill_ids(job: Dict[str, Any], required_ids: List[str]) -> List[str]:
+    """Must-have IDs that an employer singled out from the required list.
+
+    Supabase and pasted jobs store one ID list and copy it into both fields, so
+    a must-have list equal to the required list carries no extra designation;
+    treating it as critical would silently demand 100% coverage.
+    """
+    critical = split_ids(job.get("must_have_skill_ids", ""))
+    if not critical or set(critical) >= set(required_ids):
+        return []
+    return critical
+
+
 def _score_single_normalized_job(
     *,
     resume_text: str,
@@ -972,24 +1015,39 @@ def _score_single_normalized_job(
     candidate_keys: List[str],
     preferences: Dict[str, Any],
     available_learning_skills: set,
+    thresholds: Optional[MatchThresholds] = None,
 ) -> Dict[str, Any]:
     """Score one normalized job using the production matching rules."""
     required_ids = split_ids(job.get("required_skill_ids", ""))
     required_skills = required_ids or split_skill_list(job.get("required_skills_for_eval", ""))
-    skill_result = compute_skill_coverage(candidate_skills=candidate_keys, required_skills=required_skills)
+    skill_result = compute_skill_coverage(candidate_keys, required_skills, resume_text)
+    preferred_ids = split_ids(job.get("nice_to_have_skill_ids", ""))
+    preferred_skills = preferred_ids or split_skill_list(
+        job.get("mapped_nice_to_have_skill_names") or job.get("nice_to_have_skills_optional", "")
+    )
+    preferred_result = compute_skill_coverage(candidate_keys, preferred_skills, resume_text)
+    # Preferred skills that are also required are already counted once.
+    preferred_matched = [name for name in preferred_result["matched_skills"] if name not in skill_result["matched_skills"]]
+    preferred_missing = [name for name in preferred_result["missing_skills"] if name not in skill_result["missing_skills"]]
+    critical_missing = sorted(
+        skill_id for skill_id in _critical_skill_ids(job, required_ids)
+        if not compute_skill_coverage(candidate_keys, [skill_id], resume_text)["matched_skills"]
+    )
+
+    breakdown = score_match(
+        float(job.get("semantic_score_raw", job.get("semantic_score", 0.0))),
+        SkillEvidence(skill_result["matched_skills"], skill_result["missing_skills"]),
+        SkillEvidence(preferred_matched, preferred_missing),
+        critical_missing_count=len(critical_missing),
+        thresholds=thresholds,
+    )
+    match_type = breakdown.match_category
+    score = breakdown.match_score
+    semantic_score = breakdown.semantic_similarity
+    skill_coverage = float(skill_result["skill_coverage"])
     preference_alignment = compute_preference_alignment(job, preferences)
     evidence_strength = compute_evidence_strength(resume_text=resume_text, matched_skills=skill_result["matched_skills"])
     learning_readiness = compute_learning_readiness(skill_result["missing_skills"], available_learning_skills)
-    semantic_score = float(job.get("semantic_score", 0.0))
-    skill_coverage = float(skill_result["skill_coverage"])
-    fit_now_score = semantic_score
-    aspiration_score = semantic_score
-    critical_ids = set(split_ids(job.get("must_have_skill_ids", "")))
-    critical_missing = sorted(critical_ids - set(skill_result["matched_skill_ids"]))
-    min_cosine = float(os.getenv("KAREERLY_FIT_NOW_MIN_COSINE", "0.45"))
-    min_coverage = float(os.getenv("KAREERLY_FIT_NOW_MIN_COVERAGE", "0.50"))
-    is_fit_now = bool(required_skills) and semantic_score >= min_cosine and skill_coverage >= min_coverage and not critical_missing
-    match_type = "Fit-Now" if is_fit_now else "Aspiration"
     return {
         "job_id": job.get("job_id", ""), "job_title": job.get("job_title", ""),
         "company": job.get("company_name", ""), "company_name": job.get("company_name", ""),
@@ -999,17 +1057,23 @@ def _score_single_normalized_job(
         "employment_type": job.get("employment_type", ""), "experience_level_required": job.get("experience_level_required", ""),
         "salary_range_monthly_php": job.get("salary_range_monthly_php", ""), "job_description": job.get("job_description", ""),
         "external_job_link_optional": job.get("external_job_link_optional", ""), "source_dataset": job.get("source_dataset", ""),
-        "match_type": match_type, "final_score": round(float(semantic_score), 4), "match_percentage": round(float(semantic_score) * 100, 2),
-        "semantic_score": round(float(semantic_score), 4), "skill_coverage": round(skill_coverage, 4),
+        "match_type": match_type, "match_category": match_type,
+        "final_score": score, "match_score": score, "match_percentage": round(score * 100, 2),
+        "semantic_score": semantic_score, "semantic_similarity": semantic_score, "skill_coverage": round(skill_coverage, 4),
+        "required_skill_coverage": breakdown.required_skill_coverage,
+        "preferred_skill_coverage": breakdown.preferred_skill_coverage,
         "preference_alignment": round(float(preference_alignment), 4), "evidence_strength": round(float(evidence_strength), 4),
         "learning_readiness": round(float(learning_readiness), 4),
         "semantic_scoring_method": job.get("semantic_scoring_method", "fine_tuned_bi_encoder_cosine"),
         "semantic_score_raw": float(job.get("semantic_score_raw", 0.0)), "text_similarity": float(job.get("semantic_score_raw", 0.0)),
-        "fit_now_score": round(fit_now_score, 4), "fit_now_percentage": round(fit_now_score * 100, 2),
-        "aspiration_score": round(aspiration_score, 4), "aspiration_percentage": round(aspiration_score * 100, 2),
+        "fit_now_score": score, "fit_now_percentage": round(score * 100, 2),
+        "aspiration_score": score, "aspiration_percentage": round(score * 100, 2),
         "matched_skill_ids": skill_result["matched_skill_ids"], "missing_skill_ids": skill_result["missing_skill_ids"],
         "critical_missing_skill_ids": critical_missing, "required_skill_ids": ";".join(required_ids),
         "matched_skills": skill_result["matched_skills"], "missing_skills": skill_result["missing_skills"],
+        "matched_preferred_skills": preferred_matched, "missing_preferred_skills": preferred_missing,
+        "match_reason": match_reason(match_type, skill_result["matched_skills"], skill_result["missing_skills"], breakdown.required_skill_count),
+        "match_breakdown": breakdown.as_dict(),
         "explanation": generate_match_explanation(job.get("job_title", ""), match_type, skill_result["matched_skills"], skill_result["missing_skills"], skill_coverage, preference_alignment),
     }
 
@@ -1048,6 +1112,10 @@ def analyze_candidate_job_match(
             "preference_alignment": scored_match["preference_alignment"], "matched_skills": scored_match["matched_skills"],
             "missing_skills": scored_match["missing_skills"], "matched_skill_ids": scored_match["matched_skill_ids"],
             "missing_skill_ids": scored_match["missing_skill_ids"],
+            "match_score": scored_match["match_score"], "match_category": scored_match["match_category"],
+            "required_skill_coverage": scored_match["required_skill_coverage"],
+            "preferred_skill_coverage": scored_match["preferred_skill_coverage"],
+            "match_reason": scored_match["match_reason"], "match_breakdown": scored_match["match_breakdown"],
         },
         "learning_recommendations": recommend_learning_resources(skill_gaps=gaps, preferences=preferences or {}, max_recommendations=5),
         "candidate_skill_records": skill_records,
@@ -1070,11 +1138,16 @@ def generate_match_explanation(
     matched_text = ", ".join(matched_skills[:5]) if matched_skills else "some related resume evidence"
     missing_text = ", ".join(missing_skills[:5]) if missing_skills else "no major required skills"
 
-    if match_type == "Fit-Now":
+    if match_type == FIT_NOW:
         return (
             f"This role is showing as {match_type} because your resume already reflects relevant experience for "
             f"{job_title}, including skills such as {matched_text}. "
             f"The main areas to strengthen next are {missing_text}."
+        )
+    if match_type == LOW_MATCH:
+        return (
+            f"This role is showing as a {match_type} because your current skills cover little of what "
+            f"{job_title} requires. Its core requirements include {missing_text}."
         )
 
     return (
@@ -1103,75 +1176,15 @@ def match_text_to_jobs(
 ) -> Dict[str, Any]:
     started_at = time.perf_counter()
     preferences = preferences or {}
-    provided_confirmed_skills = confirmed_skills is not None
-    confirmed_skills = confirmed_skills or []
-    if len(confirmed_skills) > MAX_CONFIRMED_SKILLS:
-        raise ValueError(f"You can confirm up to {MAX_CONFIRMED_SKILLS} skills.")
-    resume_text = clean_text(resume_text)
-    if not resume_text:
-        raise ValueError("No readable resume text was provided for matching.")
-
-    extracted_skills = extract_skills_from_text(resume_text, max_skills=30)
-    confirmed_skill_records: List[Dict[str, Any]] = []
-
-    for item in confirmed_skills:
-        if isinstance(item, str):
-            skill_name = clean_text(item)
-            if skill_name:
-                confirmed_skill_records.append({"skill_id": "", "skill_name": skill_name, "source": "confirmed_legacy_name"})
-            continue
-
-        if isinstance(item, dict):
-            skill_id = clean_text(item.get("skill_id", "")).upper()
-            skill_name = clean_text(item.get("skill_name", ""))
-            if not skill_name and skill_id:
-                skill_name = get_skill_labels_by_id().get(skill_id, "")
-            if not skill_name:
-                continue
-            confirmed_skill_records.append(
-                {
-                    "skill_id": skill_id,
-                    "skill_name": skill_name,
-                    "custom_skill_name": clean_text(item.get("custom_skill_name", "")),
-                    "source": clean_text(item.get("source", "")) or "confirmed_skill",
-                    "is_standardized": bool(item.get("is_standardized", bool(clean_text(item.get("skill_id", ""))))),
-                    "source_metadata": item.get("source_metadata", {}) if isinstance(item.get("source_metadata"), dict) else {},
-                }
-            )
-
-    if provided_confirmed_skills:
-        final_skill_records = confirmed_skill_records[:MAX_CONFIRMED_SKILLS]
-    else:
-        final_skill_records = [
-            {
-                "skill_id": clean_text(skill.get("skill_id", "")).upper(),
-                "skill_name": clean_text(skill.get("skill_name", "")),
-                "custom_skill_name": "",
-                "source": "resume_extracted",
-                "is_standardized": True,
-                "source_metadata": skill.get("source_metadata", {}) if isinstance(skill.get("source_metadata"), dict) else {},
-            }
-            for skill in extracted_skills
-            if clean_text(skill.get("skill_name", ""))
-        ][:MAX_CONFIRMED_SKILLS]
-
+    resume_text, final_skill_records, candidate_skill_names, candidate_keys = _prepare_candidate_context(
+        resume_text, confirmed_skills
+    )
     labels, _ = canonical_skill_lookup()
-    for skill in final_skill_records:
-        skill_id = clean_text(skill.get("skill_id", "")).upper()
-        if skill_id:
-            if skill_id not in labels:
-                raise ValueError(f"Unknown confirmed skill ID: {skill_id}")
-            skill["skill_name"] = labels[skill_id]
-    candidate_skill_names = list(dict.fromkeys(skill["skill_name"] for skill in final_skill_records))
-    candidate_keys = [skill.get("skill_id") or skill["skill_name"] for skill in final_skill_records]
     resume_evidence_text = build_model_input(resume_text, skill_names=candidate_skill_names)
     jobs_df = load_reference_jobs()
     scored_jobs = bi_encoder_score_jobs(resume_evidence_text, jobs_df)
     available_learning_skills = reviewed_learning_skill_ids()
-    min_cosine = float(os.getenv("KAREERLY_FIT_NOW_MIN_COSINE", "0.45"))
-    min_coverage = float(os.getenv("KAREERLY_FIT_NOW_MIN_COVERAGE", "0.50"))
-    if not 0 <= min_cosine <= 1 or not 0 <= min_coverage <= 1:
-        raise RuntimeError("Fit-Now thresholds must be between zero and one.")
+    thresholds = MatchThresholds.from_env()
 
     results = [
         _score_single_normalized_job(
@@ -1180,6 +1193,7 @@ def match_text_to_jobs(
             candidate_keys=candidate_keys,
             preferences=preferences,
             available_learning_skills=available_learning_skills,
+            thresholds=thresholds,
         )
         for _, row in scored_jobs.iterrows()
     ]
@@ -1190,18 +1204,17 @@ def match_text_to_jobs(
         fit_now_matches = []
         aspiration_matches = []
     else:
-        fit_now_pool = results_df[results_df["match_type"] == "Fit-Now"]
-        aspiration_pool = results_df[results_df["match_type"] == "Aspiration"]
-
+        # Low Match jobs are scored (see debug_summary) but never recommended.
+        ranking = ["match_score", "semantic_score_raw", "skill_coverage", "preference_alignment", "learning_readiness", "job_id"]
+        order = [False, False, False, False, False, True]
         all_fit_now_matches = (
-            fit_now_pool
-            .sort_values(["semantic_score_raw", "skill_coverage", "preference_alignment", "learning_readiness", "job_id"], ascending=[False, False, False, False, True], kind="stable")
+            results_df[results_df["match_type"] == FIT_NOW]
+            .sort_values(ranking, ascending=order, kind="stable")
             .to_dict(orient="records")
         )
-
         all_aspiration_matches = (
-            aspiration_pool
-            .sort_values(["semantic_score_raw", "skill_coverage", "preference_alignment", "learning_readiness", "job_id"], ascending=[False, False, False, False, True], kind="stable")
+            results_df[results_df["match_type"] == ASPIRATION]
+            .sort_values(ranking, ascending=order, kind="stable")
             .to_dict(orient="records")
         )
         fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
@@ -1231,6 +1244,7 @@ def match_text_to_jobs(
             "missing_skills",
             "final_score",
             "match_type",
+            "match_breakdown",
         ]]
         .to_dict(orient="records")
         if not results_df.empty
@@ -1263,15 +1277,24 @@ def match_text_to_jobs(
             "total_jobs_scored": int(len(scored_jobs)),
             "fit_now_count": len(all_fit_now_matches),
             "aspiration_count": len(all_aspiration_matches),
+            "low_match_count": int((results_df["match_type"] == LOW_MATCH).sum()) if not results_df.empty else 0,
             "elapsed_ms": round((time.perf_counter() - started_at) * 1000, 1),
             "top_10_scores": top_10_scores,
         },
         "metadata": {
             "semantic_scoring_methods": scoring_methods,
             "model_version": MODEL_ID,
-            "ranking_signal": "cosine_similarity",
-            "score_interpretation": "Nonnegative cosine similarity percentage, not hiring probability",
-            "fit_now_rules": {"min_cosine": min_cosine, "min_skill_coverage": min_coverage, "max_critical_missing_skills": 0},
+            "ranking_signal": "composite_match_score",
+            "score_interpretation": "Weighted semantic similarity and skill coverage percentage, not hiring probability",
+            "fit_now_rules": {
+                "min_cosine": thresholds.fit_now_min_semantic,
+                "min_skill_coverage": thresholds.fit_now_min_required_coverage,
+                "max_critical_missing_skills": 0,
+            },
+            "aspiration_rules": {
+                "min_cosine": thresholds.aspiration_min_semantic,
+                "min_matched_skills": thresholds.aspiration_min_matched_skills,
+            },
             "jobs_source": get_jobs_source(),
             "learning_resources_source": get_learning_resources_source(),
             "total_jobs_scored": int(len(scored_jobs)),

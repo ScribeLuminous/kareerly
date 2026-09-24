@@ -117,8 +117,9 @@ def build_model_input(text: str, *, title: str = '', skill_names: Sequence[str] 
 def score_jobs(candidate_input: str, job_inputs: Sequence[str]) -> np.ndarray:
     if not job_inputs:
         return np.asarray([], dtype=float)
-    # Inputs are part of the cache key, so changed/employer-created jobs invalidate it.
-    key = (str(model_path()), tuple(job_inputs))
+    # Inputs and the model identity are part of the cache key, so changed jobs or
+    # a different checkpoint never reuse vectors from another model.
+    key = (MODEL_ID, str(model_path()), tuple(job_inputs))
     try:
         with _lock:
             model = get_bi_encoder()
