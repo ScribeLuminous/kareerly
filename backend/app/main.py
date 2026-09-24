@@ -72,7 +72,7 @@ skill_extractor = SkillExtractor()
 MAX_CONFIRMED_SKILLS = 20
 MAX_SAVED_EXTERNAL_JOB_MATCHES = 5
 MAX_SAVED_EXTERNAL_JOB_RESULT_BYTES = 120_000
-SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+SUPABASE_URL = os.getenv("SUPABASE_URL", os.getenv("VITE_SUPABASE_URL", "")).rstrip("/")
 SUPABASE_ANON_KEY = os.getenv(
     "SUPABASE_ANON_KEY",
     os.getenv("VITE_SUPABASE_ANON_KEY", ""),
@@ -500,8 +500,12 @@ def _get_authenticated_user_id(authorization: str | None) -> str | None:
 
     try:
         auth_user = _supabase_request("/auth/v1/user", token=access_token)
-    except HTTPException:
-        return None
+    except HTTPException as exc:
+        # Only a rejected token means "not signed in". Missing Supabase config or an
+        # unreachable Supabase must surface as-is instead of posing as a logged-out user.
+        if exc.status_code in {400, 401, 403}:
+            return None
+        raise
 
     if not isinstance(auth_user, dict) or not auth_user.get("id"):
         return None

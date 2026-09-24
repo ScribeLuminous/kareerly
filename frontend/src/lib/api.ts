@@ -60,12 +60,20 @@ export type PersistedApplicationMessage = {
 
 async function authenticatedMessageRequest(path: string, options: RequestInit = {}) {
   const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  let token = data.session?.access_token;
   if (!token) throw new Error('Your session has expired. Please log in again.');
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const send = (accessToken: string) => fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`, ...(options.headers || {}) },
   });
+  let response = await send(token);
+  if (response.status === 401) {
+    // The cached access token can be stale (e.g. after the tab slept); refresh once and retry.
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    token = refreshed.session?.access_token;
+    if (!token) throw new Error('Your session has expired. Please log in again.');
+    response = await send(token);
+  }
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error(getReadableMessage(payload) || 'Unable to process the message.');
   return payload;
