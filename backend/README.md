@@ -289,11 +289,14 @@ are shared by the catalogue and pasted-job paths:
 
 - `score = (0.45·cosine + 0.45·required coverage + 0.10·preferred coverage) /
   (weights of the components present) − 0.10 per missing critical skill (max 0.20)`
-- **Fit-Now**: required skills are listed, at least 50% of them are held,
-  cosine ≥ 0.45, and no critical skill is missing. A critical skill is a
-  must-have singled out from the required list.
-- **Aspiration**: not Fit-Now, cosine ≥ 0.20, and at least one of the job's
-  skills is held.
+- **Fit-Now** (resume only): required skills are listed, the resume skills
+  cover at least 50% of them, cosine ≥ 0.30, and no critical skill is missing.
+  A critical skill is a must-have singled out from the required list.
+  Preferences never affect Fit-Now.
+- **Aspiration** (Step 3 preferences): not Fit-Now and in the career area the
+  candidate chose; ranked by job level, work setup and salary alignment, then
+  by the resume match score. Without a known career area (no preference, or an
+  uncategorised job) it falls back to cosine ≥ 0.20 and at least one held skill.
 - **Low Match**: everything else; scored, but never recommended.
 
 Thresholds were calibrated on the development split of the score-distribution
@@ -302,7 +305,7 @@ diagnostic. `docs/matching-diagnosis.md` records the evidence, and
 `KAREERLY_ASPIRATION_MIN_COSINE` override them. None of these values are
 trained parameters, and no job is promoted merely to fill the Fit-Now view.
 
-Each view is ranked by the composite score, with cosine, coverage, preference
+Fit-Now is ranked by the composite score and Aspiration by preference alignment then the composite score, with cosine, coverage, preference
 alignment and reviewed learning-resource coverage as deterministic tie-breakers.
 Learning availability requires a reviewed skill-ID mapping and a usable provider
 URL, with no keyword or semantic learning model. Match percentages are the

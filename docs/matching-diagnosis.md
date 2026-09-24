@@ -161,6 +161,35 @@ Fit-Now job, which is a valid outcome.
 | Aspiration minimum cosine | none (every failure became Aspiration) | **0.20** | Dev F1 optimum for related vs unrelated pairs (0.732; 0.25 scores 0.707). It ties for best on the check split (0.762). 3% of unrelated pairs pass. |
 | Aspiration minimum held skills | none | **1** | Without a single shared skill there is no identifiable path to readiness. |
 
+## Follow-up (2026-09-24): Fit-Now from the resume, Aspiration from preferences
+
+Product rule: Fit-Now is decided by the skills on the uploaded resume; Aspiration
+is decided by the Step 3 preferences and then compared with the resume.
+
+- **Fit-Now** no longer uses preferences (it never did in scoring, but the
+  documentation below still said the semantic floor was 0.45). The floor is now
+  **0.30**: coverage of the required skills decides readiness and the cosine only
+  rules out unrelated roles. On the mock-resume diagnostic (all-required mode)
+  strong Fit-Now pairs rose from 107 to 123 of 179, moderate from 64 to 92 and
+  weak from 4 to 8 of 4,841. Every one of the 33 resumes has at least one
+  Fit-Now job, through the real upload flow (resume analyzer, Step 2 skills,
+  `/api/matches/run-form`) and with production-shaped jobs (three must-have IDs,
+  description without the responsibilities list).
+- **Aspiration** is every job that is not Fit-Now and belongs to the career area
+  chosen in Step 3 (by category name, legacy group name or K01–K24 code). It is
+  ranked by alignment with job level, work setup and salary, then by the resume
+  match score. Its skill gaps come from the resume. Jobs outside the chosen area
+  are Low Match. With no career area, or a job without a category, the previous
+  resume rule applies (cosine ≥ 0.20 and at least one held skill).
+- Preference alignment now compares answers with job data properly: category
+  names with commas map to their area (previously they never did), "unsure",
+  "flexible" and "no preference" are ignored, "entry" matches "Junior" and
+  "Entry to Mid Level", dashboard labels such as "Hybrid (mix of remote &
+  office)" match "Hybrid", and salary ranges are compared numerically.
+- `debug_summary.fit_now_blockers` counts, per rule, how many jobs missed
+  Fit-Now, and the same counts are logged, so an empty Fit-Now list in
+  production can be explained from the response.
+
 ## New matching logic
 
 ```
@@ -170,8 +199,9 @@ preferred  = matched preferred skills / preferred skills (excluding skills alrea
 score      = (0.45·semantic + 0.45·required + 0.10·preferred) / (weights of the components present)
              − 0.10 per missing critical skill (maximum 0.20)
 
-Fit-Now    : required skills listed AND required ≥ 0.50 AND semantic ≥ 0.45 AND no critical skill missing
-Aspiration : not Fit-Now AND semantic ≥ 0.20 AND ≥ 1 skill held (or the job lists no skills)
+Fit-Now    : required skills listed AND required ≥ 0.50 AND semantic ≥ 0.30 AND no critical skill missing
+Aspiration : not Fit-Now AND job in the Step 3 career area
+             (no area known: semantic ≥ 0.20 AND ≥ 1 skill held, or the job lists no skills)
 Low Match  : otherwise; scored, but excluded from the recommendation lists
 ```
 
