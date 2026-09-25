@@ -1,6 +1,7 @@
 import type { JobMatchRunResults, MatchResultItem, PrioritizedSkillGap, ResumeAnalysisResult, ResumeAnalysisSkill, SelectedSkill, SurveyAnswers } from '../types';
 import { normalizeMatchItemPercentages, normalizeSkillGapPercentages, parseNumericValue } from './matchScoring';
 import { supabase } from './supabase';
+import type { MatchFeedbackRow, MatchFeedbackSource, MatchVote } from './matchFeedback';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const REQUEST_TIMEOUT_MS = 90_000;
@@ -58,7 +59,7 @@ export type PersistedApplicationMessage = {
   created_at?: string | null;
 };
 
-async function authenticatedMessageRequest(path: string, options: RequestInit = {}) {
+async function authenticatedMessageRequest(path: string, options: RequestInit = {}, fallbackError = 'Unable to process the message.') {
   const { data } = await supabase.auth.getSession();
   let token = data.session?.access_token;
   if (!token) throw new Error('Your session has expired. Please log in again.');
@@ -75,8 +76,28 @@ async function authenticatedMessageRequest(path: string, options: RequestInit = 
     response = await send(token);
   }
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(getReadableMessage(payload) || 'Unable to process the message.');
+  if (!response.ok) throw new Error(getReadableMessage(payload) || fallbackError);
   return payload;
+}
+
+const MATCH_FEEDBACK_PATH = '/api/candidate/match-feedback';
+
+export async function loadMatchFeedback(): Promise<MatchFeedbackRow[]> {
+  const payload = await authenticatedMessageRequest(MATCH_FEEDBACK_PATH, {}, 'Unable to load your match ratings.');
+  return Array.isArray(payload?.feedback) ? payload.feedback : [];
+}
+
+export async function saveMatchFeedback(input: { jobId: string; jobSource: MatchFeedbackSource; vote: MatchVote }): Promise<MatchFeedbackRow> {
+  const payload = await authenticatedMessageRequest(MATCH_FEEDBACK_PATH, {
+    method: 'PUT',
+    body: JSON.stringify({ job_id: input.jobId, job_source: input.jobSource, vote: input.vote }),
+  }, 'Unable to save your rating.');
+  return payload.feedback;
+}
+
+export async function removeMatchFeedback(input: { jobId: string; jobSource: MatchFeedbackSource }): Promise<void> {
+  const query = new URLSearchParams({ job_id: input.jobId, job_source: input.jobSource });
+  await authenticatedMessageRequest(`${MATCH_FEEDBACK_PATH}?${query.toString()}`, { method: 'DELETE' }, 'Unable to remove your rating.');
 }
 
 export async function loadApplicationMessages(applicationId: string): Promise<PersistedApplicationMessage[]> {
@@ -535,6 +556,70 @@ async function adminMutation(accessToken: string, path: string, method: string, 
     throw new Error(getReadableMessage(errorBody?.detail || errorBody) || 'Unable to complete admin action.');
   }
 }
+
+async function adminRequest<T>(accessToken: string, path: string, method = 'GET', body?: object): Promise<T> {
+  const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  }, 'Admin request timed out. Please try again.');
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(getReadableMessage(payload?.detail || payload) || 'Unable to complete admin action.');
+  return payload as T;
+}
+
+export type RankingRun = {
+  started_at: string;
+  trigger: string;
+  outcome: 'promoted' | 'kept_current' | 'insufficient_data' | 'failed' | 'rolled_back';
+  reason?: string | null;
+  candidate_version?: string | null;
+  active_version_after?: string | null;
+};
+
+export type LearningStatus = {
+  ranking: {
+    active_model: { version: string; metrics?: Record<string, unknown>; activated_at?: string | null };
+    recent_runs: RankingRun[];
+    versions: Array<{ version: string; status: string; created_at?: string; notes?: string | null }>;
+  };
+  feedback_votes: number;
+  pending_skill_proposals: number;
+  ranker_override: string;
+};
+
+export type SkillCandidate = {
+  id: string;
+  display_label: string;
+  status: 'pending' | 'approved' | 'rejected';
+  suggested_action: 'new_skill' | 'alias' | 'review';
+  suggested_skill_id?: string | null;
+  suggestion_similarity?: number | null;
+  confidence: number;
+  job_source_count: number;
+  profile_source_count: number;
+  company_count: number;
+  review_reasons: string[];
+  evidence: Array<{ source_type: string; method: string; snippet?: string | null; job?: string | null }>;
+};
+
+export type SkillReviewInput = {
+  action: 'approve_new' | 'approve_alias' | 'reject';
+  skill_id?: string;
+  label?: string;
+  category_id?: string;
+  note?: string;
+};
+
+export const fetchLearningStatus = (token: string) => adminRequest<LearningStatus>(token, '/api/admin/learning/status');
+export const runLearningJobs = (token: string, input: { job: 'all' | 'ranking' | 'skills'; dry_run: boolean }) =>
+  adminRequest<Record<string, unknown>>(token, '/api/admin/learning/run', 'POST', input);
+export const rollbackRankingModel = (token: string, targetVersion?: string) =>
+  adminRequest<{ previous_version: string; active_version: string }>(token, '/api/admin/learning/rollback', 'POST', { target_version: targetVersion || null });
+export const fetchSkillCandidates = (token: string, status: 'pending' | 'approved' | 'rejected' = 'pending') =>
+  adminRequest<{ candidates: SkillCandidate[] }>(token, `/api/admin/skill-candidates?status=${status}`);
+export const reviewSkillCandidate = (token: string, id: string, input: SkillReviewInput) =>
+  adminRequest<{ status: string; skill_id?: string; kind?: string }>(token, `/api/admin/skill-candidates/${encodeURIComponent(id)}/review`, 'POST', input);
 
 export const updateAdminUser = (token: string, input: { user_id: string; email?: string; password?: string }) => adminMutation(token, '/api/admin/users', 'PATCH', input);
 export const updateAdminJob = (token: string, input: { job_id: string; job_title?: string; company_name?: string; posting_status?: string }) => adminMutation(token, '/api/admin/jobs', 'PATCH', input);

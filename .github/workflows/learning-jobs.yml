@@ -1,0 +1,47 @@
+# Daily feedback ranking retrain + skill discovery scan (docs/feedback-learning.md).
+# Needs repository secrets SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY; without
+# them the job prints "skipped" and succeeds, so the schedule is visible but inert.
+name: Learning jobs
+
+on:
+  schedule:
+    - cron: "43 18 * * *" # 02:43 Asia/Manila
+  workflow_dispatch:
+    inputs:
+      command:
+        description: What to run
+        type: choice
+        options: [run-all, train-ranker, discover-skills, status]
+        default: run-all
+      dry_run:
+        description: Compute and report only (write nothing)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: learning-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-learning.txt
+      - run: pip install -r backend/requirements-learning.txt
+      - name: Run learning jobs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          KAREERLY_EVIDENCE_SALT: ${{ secrets.KAREERLY_EVIDENCE_SALT }}
+          COMMAND: ${{ inputs.command || 'run-all' }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python -m backend.app.learning.jobs "$COMMAND" $DRY_RUN --trigger github-actions

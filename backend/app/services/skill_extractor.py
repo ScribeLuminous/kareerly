@@ -1,8 +1,10 @@
 import re
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
+
+from .taxonomy_additions import merge_reference_rows
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -114,8 +116,14 @@ def _is_group_label(value: str) -> bool:
 
 
 class SkillExtractor:
-    def __init__(self, skills_path: Union[str, Path] = SKILLS_REFERENCE_PATH):
+    def __init__(
+        self,
+        skills_path: Union[str, Path] = SKILLS_REFERENCE_PATH,
+        extra_rows: Optional[list[dict[str, Any]]] = None,
+    ):
+        """``extra_rows`` are approved taxonomy additions (see taxonomy_additions.py)."""
         self.skills_path = Path(skills_path)
+        self.extra_rows = extra_rows or []
         self.rows: list[dict[str, Any]] = []
         self.alias_map: dict[str, list[int]] = {}
         self.ordered_aliases: list[str] = []
@@ -154,16 +162,20 @@ class SkillExtractor:
         for _, row in df.iterrows():
             skill_row = {
                 "skill_id": row.get("skill_id", "").strip(),
+                "category_id": row.get("category_id", "").strip(),
                 "skill_name": row.get("skill_name", "").strip(),
                 "skill_category": row.get("skill_category", "").strip(),
                 "skill_subcategory": row.get("skill_subcategory", "").strip(),
                 "related_skills": row.get("related_skills", "").strip(),
                 "esco_preferred_label": row.get("esco_preferred_label", "").strip(),
                 "esco_alternative_labels": row.get("esco_alternative_labels", "").strip(),
+                "approved_aliases": row.get("approved_aliases", "").strip(),
             }
 
             if skill_row["skill_id"] and skill_row["skill_name"]:
                 self.rows.append(skill_row)
+
+        self.rows = merge_reference_rows(self.rows, self.extra_rows)
 
     def _category_label_terms(self) -> set[str]:
         """Words that only name a taxonomy category, such as "data" or "business".
@@ -196,6 +208,7 @@ class SkillExtractor:
                 "related_skills",
                 "esco_preferred_label",
                 "esco_alternative_labels",
+                "approved_aliases",
             ]:
                 alias_candidates.extend(_split_alias_terms(row.get(field, "")))
 
