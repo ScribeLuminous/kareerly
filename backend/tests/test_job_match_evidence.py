@@ -214,6 +214,17 @@ class StepFourReportTests(unittest.TestCase):
         self.assertIn("Order Processing", self.matches(result)["non-voice"]["missing_skills"])
         self.assertIn("Order Processing", [gap["skill_name"] for gap in result["skill_gaps"]])
 
+    def test_a_job_without_comparable_requirements_claims_no_skills(self):
+        csr = self.matches(self.report(resume_docx()))["csr"]
+        self.assertEqual((csr["matched_skills"], csr["missing_skills"]), ([], []))
+        self.assertFalse(csr["skill_requirements_available"])
+        self.assertEqual(csr["score_basis"], "role_similarity_only")
+        # The score is the role similarity alone, and the text says so.
+        self.assertEqual(csr["match_score"], csr["semantic_score"])
+        self.assertIn("role similarity only", csr["explanation"])
+        self.assertNotIn("no major required skills", csr["explanation"])
+        self.assertIn("no required skills to compare", csr["match_reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

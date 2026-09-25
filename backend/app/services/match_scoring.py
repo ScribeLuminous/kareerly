@@ -250,6 +250,9 @@ def match_reason(
     if category == FIT_NOW:
         tail = f" Remaining gaps: {gaps}." if gaps else ""
         return f"Your resume already covers most of the important requirements ({held} required skills).{tail}"
+    if category == ASPIRATION and not required_total:
+        lead = "This role is in the career area you chose." if in_preferred_career_area else "This role is related to your resume."
+        return f"{lead} Its posting lists no required skills to compare, so the score reflects role similarity and any preferred skills only."
     if category == ASPIRATION:
         tail = f" The main gaps are {gaps}." if gaps else ""
         if in_preferred_career_area:
