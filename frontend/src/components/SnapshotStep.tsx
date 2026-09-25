@@ -314,6 +314,8 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
   const skillGapSnapshotCount = resolveSnapshotCount(matchResults.total_skill_gap_count, fullSkillGaps);
   const learningSnapshotCount = resolveSnapshotCount(undefined, fullLearningRecommendations);
   const isGuestReport = accessControl?.user_mode === 'guest' || !isLoggedIn;
+  // A guest who just signed up: App is saving the report to the new account.
+  const isSavingReport = isLoggedIn && !state.savedResumeId && !state.error;
   const topFitNow = fitNowMatches[0];
   const topFitNowPercent = topFitNow ? extractMatchPercent(topFitNow, 'fit_now') : null;
   const skillNameLookup = buildSkillNameLookup(resumeAnalysis, matchResults);
@@ -523,10 +525,14 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
 
       {isLoggedIn ? (
         <div className="bg-rust-l border border-rust rounded-xl p-4 mb-6 text-center">
-          <div className="text-sm font-bold text-rust mb-3">Ready to keep this as your latest report?</div>
+          <div className="text-sm font-bold text-rust mb-3">
+            {isSavingReport ? 'Saving this report to your account...' : 'Ready to keep this as your latest report?'}
+          </div>
+          {state.error && <div className="mb-3 text-sm font-semibold text-red">{state.error}</div>}
           <button
             onClick={onViewDashboard}
-            className="inline-flex items-center justify-center gap-1.5 bg-rust text-white font-bold py-3 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150"
+            disabled={isSavingReport}
+            className="inline-flex items-center justify-center gap-1.5 bg-rust text-white font-bold py-3 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Save and View Dashboard
           </button>
