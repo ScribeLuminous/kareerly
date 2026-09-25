@@ -605,6 +605,30 @@ def skill_tokens(value: Any) -> List[str]:
 # RULE-BASED SCORING
 # ============================================================
 
+# Rows added by hand with curated spellings ("MS Excel", "Adobe Photoshop") in
+# related_skills. Unlike the imported ESCO labels, every one of them is a name
+# people use for exactly that skill, so they identify it like the label does.
+CURATED_SKILL_SOURCE = "workplace_tools_expansion_2026_09"
+
+
+def _curated_aliases(row: Any) -> List[str]:
+    if clean_text(row.get("source_note", "")) != CURATED_SKILL_SOURCE:
+        return []
+    return split_skill_list(row.get("related_skills", ""))
+
+
+@lru_cache(maxsize=1)
+def skill_evidence_phrases() -> Dict[str, List[str]]:
+    """Names that show a taxonomy skill in resume text: its label, plus curated spellings."""
+    phrases: Dict[str, List[str]] = {}
+    for _, row in load_skills_reference().iterrows():
+        skill_id = clean_text(row.get("skill_id", "")).upper()
+        label = clean_text(row.get("skill_name", ""))
+        if skill_id and label:
+            phrases[skill_id] = list(dict.fromkeys([label, *_curated_aliases(row)]))
+    return phrases
+
+
 @lru_cache(maxsize=1)
 def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
     """Canonical IDs and unambiguous, explicitly mapped aliases; no token partial credit."""
@@ -616,7 +640,7 @@ def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
         if not skill_id or not label:
             continue
         labels[skill_id] = label
-        aliases = [label]
+        aliases = [label, *_curated_aliases(row)]
         if clean_text(row.get("mapping_status", "")) == "mapped":
             aliases += [clean_text(row.get("esco_preferred_label", ""))]
             aliases += split_skill_list(row.get("esco_alternative_labels", ""))
@@ -681,7 +705,16 @@ def _skill_key(value: str) -> str:
 # Trailing words that only say what kind of product a named tool is: an
 # employer asking for "HubSpot CRM" or "Jira software" is asking for HubSpot or
 # Jira, and a resume naming the product holds the requirement.
-TOOL_QUALIFIER_WORDS = {"crm", "software", "platform", "app"}
+TOOL_QUALIFIER_WORDS = {"crm", "software", "platform", "app", "online"}
+# Wording around a skill name in job posts: "Proficiency in Excel",
+# "Strong communication skills", "Salesforce experience".
+LEADING_QUALIFIERS = (
+    "working knowledge of", "hands on experience with", "hands on experience in",
+    "experience with", "experience in", "experience using", "knowledge of",
+    "proficiency in", "proficiency with", "proficient in", "proficient with",
+    "familiarity with", "familiar with", "strong", "excellent",
+)
+TRAILING_QUALIFIER_WORDS = TOOL_QUALIFIER_WORDS | {"skills", "skill", "experience", "knowledge", "proficiency"}
 # Longest run of resume words compared against one requirement without spaces.
 MAX_COMPACT_WORDS = 4
 
@@ -691,12 +724,21 @@ def _compact(value: str) -> str:
 
 
 def _phrase_variants(phrase_norm: str) -> List[str]:
-    words = phrase_norm.split()
+    """The phrase, then shorter forms without the wording around the skill name.
+
+    "Proficiency in MS Excel" also reads as "ms excel"; "HubSpot CRM" as
+    "hubspot". A qualifier is never the whole name.
+    """
     variants = [phrase_norm]
-    while len(words) > 1 and words[-1] in TOOL_QUALIFIER_WORDS:
+    for lead in LEADING_QUALIFIERS:
+        if phrase_norm.startswith(lead + " "):
+            variants.append(phrase_norm[len(lead) + 1:])
+            break
+    words = variants[-1].split()
+    while len(words) > 1 and words[-1] in TRAILING_QUALIFIER_WORDS:
         words = words[:-1]
         variants.append(" ".join(words))
-    return [variant for variant in variants if len(variant) >= 3]
+    return list(dict.fromkeys(variant for variant in variants if len(variant) >= 3))
 
 
 @lru_cache(maxsize=8)
@@ -755,7 +797,8 @@ def compute_skill_coverage(
     def held(key: str) -> bool:
         if key in candidates:
             return True
-        return _phrase_in_text(display_skill_name(key, labels, required[key]), text_norm)
+        phrases = skill_evidence_phrases().get(key) or [display_skill_name(key, labels, required[key])]
+        return any(_phrase_in_text(phrase, text_norm) for phrase in phrases)
 
     matched = [key for key in required if held(key)]
     missing = [key for key in required if key not in matched]

@@ -118,7 +118,7 @@ class SkillCoverageTests(unittest.TestCase):
     def test_legacy_ids_are_met_by_the_named_skill(self):
         result = matching.compute_skill_coverage(["SK004"], ["SK004", "SK_EXCEL", "SK_POWER_BI"],
             resume_text="Built monthly reports in Excel.")
-        self.assertEqual(result["matched_skills"], ["Excel", "SQL"])
+        self.assertEqual(result["matched_skills"], ["Microsoft Excel", "SQL"])
         self.assertEqual(result["missing_skills"], ["Power BI"])
 
     def test_resume_naming_a_taxonomy_skill_satisfies_it_but_an_alias_does_not(self):

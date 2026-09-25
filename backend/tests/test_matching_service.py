@@ -55,8 +55,8 @@ class MatchingRegressionTests(unittest.TestCase):
     def test_named_tools_are_held_despite_spacing_and_product_qualifiers(self):
         resume = "Customer support through Help Scout, records kept in HubSpot and e-commerce order tracking."
         result = matching.compute_skill_coverage([], ["HelpScout", "HubSpot CRM", "Ecommerce", "Jira"], resume)
-        # "HubSpot CRM" reads as the taxonomy skill HubSpot.
-        self.assertEqual(result["matched_skills"], ["Ecommerce", "HelpScout", "HubSpot"])
+        # Every spelling reads as its taxonomy skill.
+        self.assertEqual(result["matched_skills"], ["E-commerce Operations", "Help Scout", "HubSpot"])
         self.assertEqual(result["missing_skills"], ["Jira"])
         # Word boundaries still hold, and a qualifier is never the whole name.
         self.assertEqual(matching.compute_skill_coverage([], ["Java"], "JavaScript developer")["matched_skills"], [])
@@ -70,6 +70,24 @@ class MatchingRegressionTests(unittest.TestCase):
         # A resume naming HubSpot meets it even when HubSpot was not among the confirmed skills.
         self.assertEqual(matching.compute_skill_coverage([], ["HubSpot CRM", "HubSpot"], "Records kept in HubSpot.")["skill_coverage"], 1.0)
         self.assertEqual(matching.compute_skill_coverage([], ["HubSpot CRM"], "Records kept in Salesforce.")["skill_coverage"], 0.0)
+
+    def test_requirement_wording_and_tool_spellings_match_the_resume(self):
+        resume = ("Built reports in MS Excel and Power BI, edited photos in Photoshop, kept books in QuickBooks, "
+                  "handled live chat and inbound calls, strong communication.")
+        cases = {
+            "Microsoft Excel": True, "Proficiency in Excel": True, "Advanced Excel skills": True,
+            "Adobe Photoshop": True, "Microsoft Power BI": True, "QuickBooks Online": True,
+            "Chat Support": True, "Voice Support": True, "Excellent communication skills": True,
+            "Salesforce experience": False, "Adobe Illustrator": False, "Knowledge of Tableau": False,
+        }
+        for requirement, expected in cases.items():
+            with self.subTest(requirement=requirement):
+                result = matching.compute_skill_coverage([], [requirement], resume)
+                self.assertEqual(result["skill_coverage"], 1.0 if expected else 0.0)
+        # Different wordings of one tool resolve to one taxonomy skill, so a job counts it once.
+        keys = {matching._skill_key(value) for value in ["MS Excel", "Microsoft Excel", "Excel", "Proficiency in Excel"]}
+        self.assertEqual(len(keys), 1)
+        self.assertFalse(next(iter(keys)).startswith("CUSTOM:"))
 
     def test_workplace_tools_are_extracted_from_resumes(self):
         resume = ("Executive assistant handling calendar management, inbox management and invoicing. "
