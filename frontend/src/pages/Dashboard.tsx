@@ -363,6 +363,14 @@ const setupLabels: Record<string, string> = {
 };
 
 const salaryLabels: Record<string, string> = {
+  '15-35': 'PHP 15,000 - PHP 35,000/month',
+  '35-50': 'PHP 35,001 - PHP 50,000/month',
+  '50+': 'PHP 50,001 - more',
+  unsure: "I'm not sure",
+};
+
+// Ranges offered before; still labelled for saved answers but no longer selectable.
+const legacySalaryLabels: Record<string, string> = {
   entry: 'Entry level',
   '20-30': 'PHP 20,000 - PHP 30,000/month',
   '30-50': 'PHP 30,000 - PHP 50,000/month',
@@ -371,7 +379,6 @@ const salaryLabels: Record<string, string> = {
   '25000-40000': 'PHP 25,000 - PHP 40,000/month',
   '40000-60000': 'PHP 40,000 - PHP 60,000/month',
   '60000+': 'PHP 60,000+/month',
-  unsure: "I'm not sure",
 };
 
 const iconMap: Record<IconName, IconDefinition> = {
@@ -2212,7 +2219,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       target_role: answers.role,
       role_level: answers.role,
       work_setup: getPreferenceLabel(setupLabels, answers.setup),
-      salary_expectation: getPreferenceLabel(salaryLabels, answers.salary),
+      salary_expectation: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
       skill_to_develop: answers.skill,
     };
 
@@ -2264,7 +2271,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         preferredIndustry: getCareerAreaLabel(answers.industry),
         targetRole: answers.role,
         preferredWorkSetup: getPreferenceLabel(setupLabels, answers.setup),
-        expectedSalary: getPreferenceLabel(salaryLabels, answers.salary),
+        expectedSalary: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
         skillToDevelop: answers.skill,
       }).catch((error) => {
         console.warn('Unable to save preferences to Supabase:', error);

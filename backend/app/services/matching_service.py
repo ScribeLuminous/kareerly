@@ -1076,13 +1076,14 @@ def _work_setups(value: str) -> set:
 
 
 def _salary_range(value: str) -> Optional[Tuple[float, float]]:
-    """Monthly PHP range from "30-50", "PHP 80,000+/month" or "₱18,000-₱30,000"."""
+    """Monthly PHP range from "35-50", "50+", "PHP 50,001 - more" or "₱18,000-₱30,000"."""
     numbers = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", value.replace(",", ""))]
     numbers = [n * 1000 if n < 1000 else n for n in numbers]
     if not numbers:
         return None
     if len(numbers) == 1:
-        return (numbers[0], float("inf")) if "+" in value else (numbers[0], numbers[0])
+        open_ended = "+" in value or re.search(r"\b(more|above|up)\b", value)
+        return (numbers[0], float("inf")) if open_ended else (numbers[0], numbers[0])
     return min(numbers[:2]), max(numbers[:2])
 
 
