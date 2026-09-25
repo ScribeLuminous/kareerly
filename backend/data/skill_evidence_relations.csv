@@ -18,3 +18,10 @@ SK300,gohighlevel,named_tool_is_instance,GoHighLevel is customer relationship ma
 SK300,crm systems,states_skill_definition,Using CRM systems is using customer relationship management software.
 SK300,crm system,states_skill_definition,Singular of the phrase above.
 SK017,data entry,same_skill_common_name,"SK017 Data Encoding is defined as accurately entering and updating information in digital systems, which is what Philippine and international job posts call data entry. Step 1 extraction already reads ""data entry"" as Data Encoding, so gap calculation accepts it too."
+SK186,microsoft 365,named_tool_is_instance,"SK186 Office software covers software for office tasks such as word processing, spreadsheets and email; Microsoft 365 is such a suite, so a resume that uses it shows the skill. One way: office software does not show Microsoft 365, and Microsoft 365 is not taken as Microsoft Excel (SK629)."
+SK186,microsoft office,named_tool_is_instance,Microsoft Office is the desktop name of the same office suite.
+SK186,ms office,named_tool_is_instance,Common abbreviation of Microsoft Office.
+SK186,google workspace,named_tool_is_instance,"Google Workspace (Gmail, Docs, Sheets, Drive) is an office software suite."
+SK186,g suite,named_tool_is_instance,Former name of Google Workspace.
+SK016,document and records organization,states_skill_definition,"SK016 Document Management is defined as organizing, filing, retrieving and maintaining business documents, so a resume that states document and records organization shows it. A bare mention of documents does not count."
+SK016,document records organization,states_skill_definition,"The phrase above written with an ampersand (""Document & Records Organization""), which matching reads as a space."

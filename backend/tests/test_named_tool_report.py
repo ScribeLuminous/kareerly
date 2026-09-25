@@ -161,7 +161,7 @@ class ReportRegressionTests(unittest.TestCase):
 
     @staticmethod
     def matches(result):
-        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_aspiration_matches"]}
+        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_closest_matches"] + result["all_aspiration_matches"]}
 
     def test_help_scout_and_hubspot_are_held_in_every_spelling(self):
         saas = self.matches(self.report({**REPORT_PREFERENCES, "industry": "sales-marketing-customer-service"}))["saas"]

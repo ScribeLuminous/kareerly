@@ -137,3 +137,29 @@ test('both matching routes keep the total skill gap count beyond the listed gaps
   }
  } finally { globalThis.fetch = original; }
 });
+
+test('both matching routes keep closest matches, the catalogue status and the notice', async () => {
+ const original = globalThis.fetch;
+ const closest = { job_id: 'cs', job_title: 'Customer Success Associate', match_percentage: 37.25, match_category: 'Closest Match',
+  match_type: 'Closest Match', is_closest_match: true, base_match_category: 'Low Match', closest_match_strength: 'related' };
+ const body = {
+  fit_now_matches: [], aspiration_matches: [], closest_matches: [closest], all_closest_matches: [closest],
+  catalog_status: { state: 'available', jobs_available: 4, message: '' },
+  recommendation_notice: 'No job meets every Fit-Now requirement yet.',
+  limited_report: { fit_now_matches: [], aspiration_matches: [], closest_matches: [closest], skill_gaps: [], learning_recommendations: [] },
+  skill_gaps: [],
+ };
+ try {
+  globalThis.fetch = async () => new Response(JSON.stringify(body), { status: 200 });
+  for (const request of requests) {
+   const result = await request();
+   assert.deepEqual(result.fit_now_matches, []);
+   assert.equal(result.closest_matches[0].job_id, 'cs');
+   assert.equal(result.closest_matches[0].match_category, 'Closest Match');
+   assert.equal(result.all_closest_matches.length, 1);
+   assert.equal(result.limited_report.closest_matches[0].is_closest_match, true);
+   assert.equal(result.catalog_status.state, 'available');
+   assert.equal(result.recommendation_notice, 'No job meets every Fit-Now requirement yet.');
+  }
+ } finally { globalThis.fetch = original; }
+});
