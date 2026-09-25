@@ -1,12 +1,16 @@
 import re
-from pypdf import PdfReader
+from typing import Any, BinaryIO, Union
+
 from docx import Document
+from docx.oxml.ns import qn
+from pypdf import PdfReader
 
 
 # Resumes are normally one to three pages. These limits prevent a malformed or
 # book-length upload from making alias scanning spend minutes on extracted text.
 MAX_RESUME_PAGES = 15
 MAX_RESUME_TEXT_CHARS = 60000
+_MC_FALLBACK = "{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback"
 
 
 def _append_with_limit(parts: list[str], value: str, current_length: int) -> tuple[int, bool]:
@@ -52,12 +56,13 @@ def repair_letter_spaced_text(text: str) -> str:
     return text + "\n\n" + compact
 
 
-def extract_text_from_pdf(file_path: str) -> str:
+def extract_text_from_pdf(source: Union[str, BinaryIO]) -> str:
+    """Text of a PDF with an extractable text layer (a path or a binary stream)."""
     text_chunks = []
     total_length = 0
 
     try:
-        reader = PdfReader(file_path)
+        reader = PdfReader(source)
 
         for page_number, page in enumerate(reader.pages):
             if page_number >= MAX_RESUME_PAGES:
@@ -78,31 +83,61 @@ def extract_text_from_pdf(file_path: str) -> str:
     return "\n".join(text_chunks)
 
 
-def extract_text_from_docx(file_path: str) -> str:
-    try:
-        doc = Document(file_path)
+def _docx_paragraph_texts(root: Any) -> list[str]:
+    """Every paragraph under an OOXML part, in reading order.
+
+    ``Document.paragraphs`` lists only top-level body paragraphs, so resume
+    templates lost everything inside content controls (w:sdt), nested tables
+    and text boxes. Walking every w:p finds them all. A text box is stored
+    twice (a DrawingML choice and a VML fallback), so fallback content is
+    skipped; a paragraph inside a text box is read once, as its own paragraph,
+    not again as part of the paragraph that anchors the box.
+    """
+    texts = []
+    for paragraph in root.iter(qn("w:p")):
+        if any(ancestor.tag == _MC_FALLBACK for ancestor in paragraph.iterancestors()):
+            continue
         parts = []
+        for node in paragraph.iter(qn("w:t"), qn("w:tab"), qn("w:br")):
+            # Text-box paragraphs nested in this one are read on their own.
+            if next(node.iterancestors(qn("w:p"))) is not paragraph:
+                continue
+            if node.tag == qn("w:t"):
+                parts.append(node.text or "")
+            else:
+                parts.append("\t" if node.tag == qn("w:tab") else "\n")
+        text = "".join(parts).strip()
+        if text:
+            texts.append(text)
+    return texts
+
+
+def extract_text_from_docx(source: Union[str, BinaryIO]) -> str:
+    """Text of a DOCX resume (a path or a binary stream), headers included."""
+    try:
+        doc = Document(source)
+        parts: list[str] = []
         total_length = 0
-        reached_limit = False
 
-        for paragraph in doc.paragraphs:
-            if paragraph.text:
-                total_length, reached_limit = _append_with_limit(parts, paragraph.text, total_length)
-                if reached_limit:
-                    break
+        roots = []
+        for section in doc.sections:
+            # Resume templates often put the name and contact line in the header.
+            roots.extend(
+                part._element
+                for part in (section.header, section.first_page_header)
+                if not part.is_linked_to_previous
+            )
+        roots.append(doc.element.body)
 
-        if not reached_limit:
-            for table in doc.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        if cell.text:
-                            total_length, reached_limit = _append_with_limit(parts, cell.text, total_length)
-                            if reached_limit:
-                                break
-                    if reached_limit:
-                        break
+        seen_roots = set()
+        for root in roots:
+            if id(root) in seen_roots:
+                continue
+            seen_roots.add(id(root))
+            for text in _docx_paragraph_texts(root):
+                total_length, reached_limit = _append_with_limit(parts, text, total_length)
                 if reached_limit:
-                    break
+                    return "\n".join(parts)
 
         return "\n".join(parts)
 
