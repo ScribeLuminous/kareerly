@@ -324,6 +324,11 @@ backend/.venv/bin/python -m backend.scripts.diagnose_match_distribution \
     --inspect-resume path/to/resume.pdf [--job-id JOB-001]
 ```
 
+With an active feedback model, the order inside Fit-Now and Aspiration also includes a bounded
+adjustment learned from candidates' Good/Bad ratings. It never changes a job's list or its percentage,
+and it falls back to the order above whenever no valid model is available. Approved skills from skill
+discovery are merged into the taxonomy at runtime. See `docs/feedback-learning.md`.
+
 Guest limits (three per view), registered initial limits (five per view), and
 full dashboard limits (ten per view) are unchanged. TF-IDF remains isolated in
 `job_matcher.JobMatcher` for evaluation.
@@ -335,6 +340,7 @@ backend/.venv/bin/python -m pip install -r backend/requirements-test.txt
 backend/.venv/bin/python -m unittest discover -s backend/tests -v
 npm --prefix frontend test
 npm --prefix frontend run build
+bash supabase/tests/run_rls_tests.sh   # RLS checks for the learning migration (needs PostgreSQL)
 ```
 
 Evidence is currently stored in dashboard state with browser blob URLs, not durable

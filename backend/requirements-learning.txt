@@ -1,0 +1,6 @@
+# Minimal dependencies for the scheduled learning jobs
+# (python -m backend.app.learning.jobs). The bi-encoder stack is not needed.
+numpy
+pandas
+scikit-learn
+python-dotenv
