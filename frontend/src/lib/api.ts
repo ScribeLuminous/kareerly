@@ -731,6 +731,10 @@ type MatchFromResumeResponse = {
   aspiration_matches?: MatchResultItem[];
   all_fit_now_matches?: MatchResultItem[];
   all_aspiration_matches?: MatchResultItem[];
+  closest_matches?: MatchResultItem[];
+  all_closest_matches?: MatchResultItem[];
+  catalog_status?: JobMatchRunResults['catalog_status'];
+  recommendation_notice?: string;
   total_qualifying_matches?: number | string;
   total_skill_gap_count?: number;
   skill_gaps?: PrioritizedSkillGap[];
@@ -842,8 +846,11 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
   const normalizedAspirationMatches = normalizeMatchList(rawResults.aspiration_matches, 'aspiration');
   const normalizedAllFitNowMatches = normalizeMatchList(rawResults.all_fit_now_matches || rawResults.fit_now_matches, 'fit_now');
   const normalizedAllAspirationMatches = normalizeMatchList(rawResults.all_aspiration_matches || rawResults.aspiration_matches, 'aspiration');
+  // Closest matches carry their own score; 'fit_now' only picks which percentage key is read first.
+  const normalizedClosestMatches = normalizeMatchList(rawResults.closest_matches, 'fit_now');
+  const normalizedAllClosestMatches = normalizeMatchList(rawResults.all_closest_matches || rawResults.closest_matches, 'fit_now');
   // Gaps are counted over the returned matches, never over every job scored.
-  const topLevelTotalMatches = resolveTotalMatchCount([normalizedFitNowMatches, normalizedAspirationMatches]);
+  const topLevelTotalMatches = resolveTotalMatchCount([normalizedFitNowMatches, normalizedClosestMatches, normalizedAspirationMatches]);
 
   const normalizedPrioritizedSkillGaps = normalizeSkillGapList(rawResults.prioritized_skill_gaps, topLevelTotalMatches);
   const normalizedSkillGaps = normalizeSkillGapList(
@@ -853,7 +860,8 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
 
   const normalizedLimitedFitNowMatches = normalizeMatchList(rawResults.limited_report?.fit_now_matches, 'fit_now');
   const normalizedLimitedAspirationMatches = normalizeMatchList(rawResults.limited_report?.aspiration_matches, 'aspiration');
-  const limitedTotalMatches = resolveTotalMatchCount([normalizedLimitedFitNowMatches, normalizedLimitedAspirationMatches]);
+  const normalizedLimitedClosestMatches = normalizeMatchList(rawResults.limited_report?.closest_matches, 'fit_now');
+  const limitedTotalMatches = resolveTotalMatchCount([normalizedLimitedFitNowMatches, normalizedLimitedClosestMatches, normalizedLimitedAspirationMatches]);
   const normalizedLimitedSkillGaps = normalizeSkillGapList(
     rawResults.limited_report?.skill_gaps || normalizedSkillGaps,
     limitedTotalMatches ?? topLevelTotalMatches,
@@ -867,12 +875,15 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     aspiration_matches: normalizedAspirationMatches,
     all_fit_now_matches: normalizedAllFitNowMatches,
     all_aspiration_matches: normalizedAllAspirationMatches,
+    closest_matches: normalizedClosestMatches,
+    all_closest_matches: normalizedAllClosestMatches,
     skill_gaps: normalizedSkillGaps,
     prioritized_skill_gaps: normalizedPrioritizedSkillGaps,
     learning_recommendations: normalizedLearning,
     limited_report: {
       fit_now_matches: normalizedLimitedFitNowMatches,
       aspiration_matches: normalizedLimitedAspirationMatches,
+      closest_matches: normalizedLimitedClosestMatches,
       skill_gaps: normalizedLimitedSkillGaps,
       learning_recommendations: rawResults.limited_report?.learning_recommendations || normalizedLearning,
     },
@@ -963,7 +974,13 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
   const normalizedAllAspirationMatches = Array.isArray(rawResults.all_aspiration_matches)
     ? rawResults.all_aspiration_matches.map((item) => normalizeMatchItemPercentages(item, 'aspiration'))
     : normalizedAspirationMatches;
-  const totalMatches = resolveTotalMatchCount([normalizedFitNowMatches, normalizedAspirationMatches]);
+  const normalizedClosestMatches = Array.isArray(rawResults.closest_matches)
+    ? rawResults.closest_matches.map((item) => normalizeMatchItemPercentages(item, 'fit_now'))
+    : [];
+  const normalizedAllClosestMatches = Array.isArray(rawResults.all_closest_matches)
+    ? rawResults.all_closest_matches.map((item) => normalizeMatchItemPercentages(item, 'fit_now'))
+    : normalizedClosestMatches;
+  const totalMatches = resolveTotalMatchCount([normalizedFitNowMatches, normalizedClosestMatches, normalizedAspirationMatches]);
   const normalizedPrioritizedSkillGaps = normalizeSkillGapList(
     rawResults.skill_gaps || rawResults.prioritized_skill_gaps,
     totalMatches,
@@ -983,7 +1000,11 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
   const limitedAspirationMatches = normalizedLimitedAspirationMatches.length > 0
     ? normalizedLimitedAspirationMatches
     : normalizedAspirationMatches.slice(0, perTypeLimit);
-  const limitedTotalMatches = resolveTotalMatchCount([limitedFitNowMatches, limitedAspirationMatches]);
+  const normalizedLimitedClosestMatches = normalizeMatchList(rawResults.limited_report?.closest_matches, 'fit_now');
+  const limitedClosestMatches = normalizedLimitedClosestMatches.length > 0
+    ? normalizedLimitedClosestMatches
+    : normalizedClosestMatches.slice(0, perTypeLimit);
+  const limitedTotalMatches = resolveTotalMatchCount([limitedFitNowMatches, limitedClosestMatches, limitedAspirationMatches]);
   const limitedSkillGapLimit = rawResults.access_control?.skill_gap_limit ?? (isInitialView ? perTypeLimit : 8);
   const limitedSkillGapsFromBackend = normalizeSkillGapList(
     rawResults.limited_report?.skill_gaps,
@@ -1003,6 +1024,10 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     aspiration_matches: normalizedAspirationMatches,
     all_fit_now_matches: normalizedAllFitNowMatches,
     all_aspiration_matches: normalizedAllAspirationMatches,
+    closest_matches: normalizedClosestMatches,
+    all_closest_matches: normalizedAllClosestMatches,
+    catalog_status: rawResults.catalog_status,
+    recommendation_notice: rawResults.recommendation_notice,
     total_qualifying_matches: rawResults.total_qualifying_matches,
     total_skill_gap_count: rawResults.total_skill_gap_count,
     skill_gaps: normalizedPrioritizedSkillGaps,
@@ -1020,6 +1045,7 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     limited_report: {
       fit_now_matches: limitedFitNowMatches,
       aspiration_matches: limitedAspirationMatches,
+      closest_matches: limitedClosestMatches,
       skill_gaps: limitedSkillGaps,
       learning_recommendations: limitedLearningRecommendations,
       development_progress: rawResults.limited_report?.development_progress,

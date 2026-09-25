@@ -990,10 +990,12 @@ def _apply_report_access_control(
 
     all_fit_now_matches = result.get("all_fit_now_matches") or result.get("fit_now_matches", [])
     all_aspiration_matches = result.get("all_aspiration_matches") or result.get("aspiration_matches", [])
+    all_closest_matches = result.get("all_closest_matches") or result.get("closest_matches", [])
 
     result["limited_report"] = {
         "fit_now_matches": all_fit_now_matches[:job_limit],
         "aspiration_matches": all_aspiration_matches[:job_limit],
+        "closest_matches": all_closest_matches[:job_limit],
         "skill_gaps": result.get("skill_gaps", result.get("prioritized_skill_gaps", []))[:gap_limit],
         "learning_recommendations": result.get("learning_recommendations", [])[:learning_limit],
         "development_progress": result.get("development_progress", []),
