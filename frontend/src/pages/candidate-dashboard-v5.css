@@ -3892,6 +3892,11 @@
   color: var(--mid);
   line-height: 1.5;
   margin: 4px 0 0;
+  /* The full explanation is in the job details; cards show its start. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .cand-job-section {

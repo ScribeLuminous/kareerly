@@ -530,3 +530,43 @@ With the offset, categories per label are nearly unchanged (strong Fit-Now 82
 section. The mock resumes are one page each, so this diagnostic can show that
 the change does not inflate scores, not how much it helps multi-page resumes;
 that needs labelled longer resumes.
+
+## Follow-up (2026-09-25): skill spellings (Help Scout, GWorkspace, CS)
+
+A resume listing "Help Scout" was told HelpScout was missing. An audit of 27
+skills in 100 common spellings (spaced, joined, hyphenated, abbreviated)
+through the real DOCX upload path found 27 spellings never extracted in Step 1
+and 162 of 448 requirement/resume pairs wrongly reported missing (for example
+Zen Desk, GWorkspace, Google Suite, O365, MS-Excel, E-mail Support, CS, CX, VA).
+
+Reviewed spellings now live in `backend/data/skill_name_variants.csv` and are
+read by resume extraction, requirement matching and skill search alike
+(`skill_variants.py`):
+
+- spellings with no ordinary-English reading match in any case ("Zen Desk",
+  "GWorkspace", "O365", "SFDC");
+- spaced brand names that are also ordinary phrases match in Title Case only
+  ("Power Point", not "installed power points");
+- two-letter abbreviations match in upper case only, and not where they mean
+  something else ("BS CS", "CS graduate", "Arlington, VA 22201");
+- brands with an inner capital ("Hub Spot", "Quick Books") are still joined
+  by the split-word repair, which checks capitalisation; "a sales force of 12"
+  is never Salesforce.
+
+Generic rules added: "e-mail"/"E mail" read as "email"; a multi-word name
+typed as one token ("MSExcel") matches it; a hyphenated requirement
+("G-Suite") is looked up spaced; skill search compares names without spaces
+and hyphens, scores every row before ranking, and hides auto-generated copies
+of reviewed skills. After the change all 100 spellings are extracted and all
+448 pairs match (`backend/tests/test_skill_spellings.py`); the mock-resume
+diagnostic is unchanged.
+
+Later the same day: **SK694 Customer Experience** was added (K09, alongside
+Customer Success) and "CX" now names it rather than Customer Service; "CS"
+stays Customer Service, and neither skill stands in for the other. Adding it
+exposed a matching bug: requirement wording was stripped from a skill's own
+names, so "Customer Experience" was checked as "customer", and likewise
+"Office software" as "office", "Product Knowledge" as "product" and
+"Industrial software" as "industrial" (14 skills). A skill's own names are now
+matched whole; only unresolved requirement names are stripped of wording such
+as "experience" or "skills".

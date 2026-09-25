@@ -37,7 +37,9 @@ Categories (a job is in at most one; either list may be empty):
                     (ASPIRATION_MIN_SEMANTIC) or sits in the career area the
                     candidate chose in Step 3, and
                   - a skill bridge: the job lists skills, the candidate
-                    already holds at least one of them, and at most
+                    already holds at least one of its required skills (or
+                    of its preferred skills when it lists no required
+                    ones), and at most
                     ASPIRATION_MAX_MISSING_ESSENTIAL essential skills are
                     missing. Those missing skills are what make it
                     aspirational and are returned with the job.
@@ -218,7 +220,11 @@ def aspiration_failures(
     if required.total + preferred.total == 0:
         failures.append("no_skills_listed")
     else:
-        if len(required.matched) + len(preferred.matched) < thresholds.aspiration_min_matched_skills:
+        # The bridge must be to what the job requires: a shared nice-to-have
+        # skill alone ("Communication" on a teaching job) is no path into it.
+        # Only a job listing no required skills is bridged by preferred ones.
+        bridge = required.matched if required.total else preferred.matched
+        if len(bridge) < thresholds.aspiration_min_matched_skills:
             failures.append("no_shared_skill")
         if len(required.missing) + critical_missing_count > thresholds.aspiration_max_missing_essential:
             failures.append("too_many_missing_essential_skills")

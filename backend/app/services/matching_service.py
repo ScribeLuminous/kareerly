@@ -43,6 +43,7 @@ from .resume_parser import (
     resume_extension,
 )
 from .skill_extractor import SkillExtractor
+from .skill_variants import any_case_variants, exact_case_skill_ids, load_skill_variants, merge_variants_into_rows
 from .supabase_jobs import load_internal_jobs_dataframe
 from . import taxonomy_additions
 from ..learning.ranking_model import BASELINE_VERSION, active_ranker, rank_category
@@ -206,6 +207,8 @@ def normalize_for_match(value: Any) -> str:
     text = clean_text(value).lower()
     text = re.sub(r"[^a-z0-9+#.\s/-]", " ", text)
     text = re.sub(r"\s+", " ", text)
+    # "E-mail" and "E mail" are "email", as in resume extraction.
+    text = re.sub(r"\be[\s-]mail", "email", text)
     return text.strip()
 
 
@@ -366,9 +369,11 @@ def load_skills_reference() -> pd.DataFrame:
     base = _load_base_skills_reference()
     additions = _taxonomy_state["additions"]
     if additions:
-        skills = pd.DataFrame(taxonomy_additions.merge_reference_rows(base.to_dict(orient="records"), additions)).fillna("")
+        rows = taxonomy_additions.merge_reference_rows(base.to_dict(orient="records"), additions)
     else:
-        skills = base.copy()
+        rows = base.to_dict(orient="records")
+    # Reviewed spellings ("Zen Desk", "GWorkspace", "O365"); see skill_variants.py.
+    skills = pd.DataFrame(merge_variants_into_rows(rows)).fillna("")
     if taxonomy_additions.APPROVED_ALIASES_FIELD not in skills.columns:
         skills[taxonomy_additions.APPROVED_ALIASES_FIELD] = ""
 
@@ -722,11 +727,13 @@ def skill_evidence_phrases() -> Dict[str, List[str]]:
     """Names that show a taxonomy skill in resume text: its label, curated spellings
     and, for a reviewed programming language, the language name alone."""
     phrases: Dict[str, List[str]] = {}
+    variants = any_case_variants()
     for _, row in load_skills_reference().iterrows():
         skill_id = clean_text(row.get("skill_id", "")).upper()
         label = clean_text(row.get("skill_name", ""))
         if skill_id and label:
-            phrases[skill_id] = list(dict.fromkeys([label, *_curated_aliases(row), *_programming_language_names(row)]))
+            phrases[skill_id] = list(dict.fromkeys([label, *_curated_aliases(row), *_programming_language_names(row),
+                                                    *variants.get(skill_id, [])]))
     return phrases
 
 
@@ -775,6 +782,20 @@ def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
     # Canonical labels are authoritative even when an imported alias conflicts.
     for skill_id, label in labels.items():
         aliases[normalize_for_match(label)] = skill_id
+    # A job requirement is a name on its own, so "CS" or "JS" there names the
+    # skill; in resume text these match only in upper case (skill_variants.py).
+    for item in load_skill_variants():
+        if item.exact_case and item.skill_id in labels:
+            aliases.setdefault(normalize_for_match(item.variant), item.skill_id)
+    # A multi-word name written as one word ("MSExcel", "GoogleWorkspace").
+    joined: Dict[str, set] = {}
+    for alias, skill_id in aliases.items():
+        compact = _compact(alias)
+        if len(re.split(r"[\s/-]+", alias)) > 1 and len(compact) >= 5:
+            joined.setdefault(compact, set()).add(skill_id)
+    for compact, ids in joined.items():
+        if len(ids) == 1:
+            aliases.setdefault(compact, next(iter(ids)))
     return labels, aliases
 
 
@@ -820,9 +841,12 @@ def _skill_key(value: str) -> str:
         key = text.upper()
     else:
         normalized = normalize_for_match(text)
-        # "HubSpot CRM" names the taxonomy skill "HubSpot".
-        key = next((aliases[variant] for variant in _phrase_variants(normalized) if variant in aliases),
-            "CUSTOM:" + normalized)
+        # "HubSpot CRM" names the taxonomy skill "HubSpot"; "MS-Excel" and
+        # "G-Suite" are "ms excel" and "g suite"; "MSExcel" is looked up joined.
+        # The whole name is tried first, so a short one ("CS") is not skipped.
+        spaced = re.sub(r"[\s/-]+", " ", normalized).strip()
+        candidates = [normalized, *_phrase_variants(normalized), spaced, *_phrase_variants(spaced), _compact(normalized)]
+        key = next((aliases[variant] for variant in candidates if variant in aliases), "CUSTOM:" + normalized)
     return skill_id_equivalents().get(key, key)
 
 
@@ -888,11 +912,18 @@ def _compact_tokens(text_norm: str) -> frozenset:
     return frozenset(word for word in (_compact(token) for token in text_norm.split()) if word)
 
 
-def _phrase_in_text(phrase: str, text_norm: str) -> bool:
+def _phrase_in_text(phrase: str, text_norm: str, strip_qualifiers: bool = True) -> bool:
+    """Whether ``phrase`` appears in the normalized text.
+
+    ``strip_qualifiers`` also tries the phrase without requirement wording
+    ("Salesforce experience" -> "salesforce"). It is off for a taxonomy skill's
+    own names, where those words are part of the name: "Customer Experience"
+    is not "customer", nor "Office software" "office".
+    """
     phrase_norm = normalize_for_match(phrase)
     if len(phrase_norm) < 3 or not text_norm:
         return False
-    for variant in _phrase_variants(phrase_norm):
+    for variant in (_phrase_variants(phrase_norm) if strip_qualifiers else [phrase_norm]):
         if re.search(r"(?<![a-z0-9+#])" + re.escape(variant) + r"(?![a-z0-9+#])", text_norm):
             return True
         compact = _compact(variant)
@@ -950,6 +981,8 @@ def compute_skill_coverage(
     ))
     related_credit: Dict[str, str] = {}
     basis: Dict[str, Dict[str, str]] = {}
+    # Upper-case abbreviations ("CS", "CX") are read from the text as written.
+    abbreviated = exact_case_skill_ids(resume_text) if resume_text else set()
 
     def held(key: str) -> bool:
         if key in excluded:
@@ -961,9 +994,15 @@ def compute_skill_coverage(
         # A requirement with no taxonomy ID is matched by name, which a held
         # skill can carry: "Customer Onboarding" shows a legacy SK_ONBOARDING.
         search_norm = profile_norm if key.startswith("CUSTOM:") else text_norm
-        phrase = next((phrase for phrase in phrases if _phrase_in_text(phrase, search_norm)), None)
+        # A custom requirement name may carry wording ("Salesforce experience");
+        # a taxonomy skill's names are matched whole.
+        custom = key.startswith("CUSTOM:")
+        phrase = next((phrase for phrase in phrases if _phrase_in_text(phrase, search_norm, strip_qualifiers=custom)), None)
         if phrase:
             basis[required[key]] = {"kind": "resume_text", "key": key, "phrase": phrase}
+            return True
+        if key in abbreviated:
+            basis[required[key]] = {"kind": "resume_text", "key": key, "phrase": required[key]}
             return True
         for phrase in related_skill_evidence().get(key, []):
             if _phrase_in_text(phrase, profile_norm):
@@ -2012,7 +2051,9 @@ def match_text_to_jobs(
             "aspiration_rules": {
                 "relevance": "min_cosine to the resume, or the job is in the chosen career area",
                 "min_cosine": thresholds.aspiration_min_semantic,
+                # Held required skills; preferred ones count only when a job lists no required skills.
                 "min_matched_skills": thresholds.aspiration_min_matched_skills,
+                "skill_bridge": "required skills held (preferred only when none are required)",
                 "max_missing_essential_skills": thresholds.aspiration_max_missing_essential,
             },
             "jobs_source": jobs_source,
