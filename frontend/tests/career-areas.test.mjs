@@ -109,3 +109,16 @@ test('choosing an area never changes the skills sent for matching', () => {
   assert.doesNotMatch(surveySource, /setSelectedSkills\([^)]*careerArea/);
   assert.match(surveySource, /Your matches use only the skills you confirmed in Step 2\./);
 });
+
+test('career areas show in two columns on wider screens and one column on phones', () => {
+  const grid = surveySource.match(/data-testid="career-area-grid" className="([^"]+)"/);
+  assert.ok(grid, 'career area choices are laid out in a grid');
+  const classes = grid[1].split(/\s+/);
+  assert.ok(classes.includes('grid-cols-1'), 'one column by default (narrow screens)');
+  assert.ok(classes.includes('sm:grid-cols-2'), 'two columns from the sm breakpoint');
+  assert.ok(!classes.some((name) => /^grid-cols-[2-9]$/.test(name)), 'never two columns without a breakpoint');
+  // The Step 3 section is wide enough for two readable columns.
+  assert.match(surveySource, /<section className="[^"]*max-w-3xl[^"]*">\s*<div className="mb-7">\s*<h2[^>]*>Step 3/);
+  // A saved legacy choice spans the full row instead of squeezing into one column.
+  assert.match(surveySource, /\(saved choice\)`\} checked onChange=\{onChange\} className="sm:col-span-2"/);
+});
