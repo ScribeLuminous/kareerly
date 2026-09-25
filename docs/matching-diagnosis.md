@@ -326,6 +326,9 @@ Fit-Now    : required skills listed AND required ≥ 0.75 AND semantic ≥ 0.30 
 Aspiration : not Fit-Now AND job in the Step 3 career area
              (no area known: semantic ≥ 0.20 AND ≥ 1 skill held, or the job lists no skills)
 Low Match  : otherwise; scored, but excluded from the recommendation lists
+Closest    : only when no job is Fit-Now: up to 5 non-Fit-Now jobs with ≥ 1 held
+             required skill and semantic ≥ 0.20, by composite score; if none
+             qualifies, the single best-scoring job, marked weak (see below)
 ```
 
 Lists are ranked by the composite score, then cosine, coverage, preference
@@ -370,3 +373,95 @@ list a result came from for older saved reports.
 - The labels here are weak metadata labels. The planned human-judged
   development and test collection should replace them before the thresholds
   are frozen for Chapter 4.
+
+## Follow-up (2026-09-25): zero Fit-Now and no relevant recommendation
+
+Symptom: the same executive/administrative assistant resume, now with the
+Step 3 career area "Communications & Creative Media", produced a report with
+zero Fit-Now matches. The Aspiration list held nothing the resume supports.
+
+**Live path.** The frontend calls `/api/matches/run-form`, which runs
+`run_matches`, then `matching_service.match_text_to_jobs`, then
+`match_scoring.score_match`. Jobs come from Supabase `internal_jobs` and
+`employer_job_posts` (active or open, deadline not passed); the bundled
+`reference_jobs.csv` is used only when Supabase returns no job.
+`job_matcher.py` only serves `/api/jobs/list`; its TF-IDF `JobMatcher` is not
+used by any matching route.
+
+**Reproduction.** The resume went through the real analyzer and matcher with
+the fine-tuned bi-encoder, against the 184-job CSV catalogue (Supabase is not
+reachable from the test container). The result was 0 Fit-Now:
+`fit_now_blockers` = `required_skill_coverage` 184 and `semantic_similarity`
+177. Aspiration held 17 creative jobs. The top ten, which the ranker orders by
+preference alignment first, have role similarity 0.00–0.19, and nine of them
+hold none of their required skills. The ten jobs that scored best against the resume
+were all Low Match and hidden. They included Sales Manager (0.40), Customer
+Success Manager (0.37), Customer Service Representative (0.37), Account
+Executive (0.36) and Medical Records Assistant (0.33).
+`backend/tests/test_fit_now_fallback.py` keeps a synthetic version.
+
+Root cause:
+
+1. **No fallback when Fit-Now is empty.** Aspiration follows the career area
+   by design, so when the chosen area holds nothing the resume supports and
+   nothing reaches Fit-Now, every job related to the resume is Low Match. The
+   candidate then sees no relevant job even though several exist.
+2. **Resume evidence missing from reviewed relations.** "Office software" was
+   not credited from Microsoft 365 or Google Workspace, and "Document
+   Management" was not credited from "Document & Records Organization". The
+   Executive Assistant job held 0 of 5 required skills.
+3. **pandas 3 skipped CSV cleaning.** pandas is unpinned; pandas 3 reads text
+   as the `str` dtype, so `safe_read_csv` (which only cleaned `object`
+   columns) left blank cells as NaN and titles with line breaks, such as
+   "Customer Success\nManager".
+4. **Few match-ready jobs for this profile.** The CSV has five Office
+   Administration (K05) jobs. The 24 JobStreet snapshot rows carry no source
+   link, and Supabase jobs list about three required IDs each, many of them
+   legacy `SK_*` names.
+
+The report also listed HelpScout and HubSpot CRM as gaps and used the
+"Sales OPS" label. The current code already handles both, so the deployed
+API is probably still older than this branch (see the previous follow-up).
+
+Changes:
+
+- **Closest Match.** When no job is Fit-Now, `closest_matches` lists up to
+  five jobs nearest to it. A job qualifies when the resume holds at least one
+  of its required skills and the role similarity reaches the Aspiration
+  floor, and the list is ranked by composite score regardless of career area.
+  Each item is labelled `Closest Match`. It keeps `base_match_category` and
+  `failed_fit_now_rules`, and its `match_reason` states which rule failed
+  ("shows 2 of 3 required skills; Fit-Now needs at least 75%", "a must-have
+  skill named by the employer is missing"). Fit-Now rules are unchanged. If
+  no job qualifies, the single best-scoring job is returned with
+  `closest_match_strength: "weak"` and a reason saying it shares little with
+  the resume. A closest match leaves the Aspiration list, so each job appears
+  once. Gap counts (`appears_in_closest`), learning resources,
+  `total_qualifying_matches`, `debug_summary.closest_count` and the guest,
+  initial and full access limits all include it.
+- **Catalogue status.** `catalog_status` reports `available`, `empty` or
+  `unavailable` with a plain message, and `recommendation_notice` repeats it.
+  An empty or unreadable catalogue returns empty lists and no encoder call,
+  never a made-up result.
+- **Reviewed relations.** SK186 Office software is credited from Microsoft
+  365, Microsoft Office, MS Office, Google Workspace and G Suite (never as
+  Microsoft Excel). SK016 Document Management is credited from "document
+  and/or & records organization". A bare mention of documents does not count.
+- **CSV cleaning** now covers the pandas 3 `str` dtype.
+- **Frontend.** Step 4 and its PDF show "Closest opportunities (not Fit-Now)"
+  under the empty Fit-Now list, and the summary names the closest opportunity
+  without calling it Fit-Now. The dashboard lists closest matches with the
+  badge "Closest Match". Match feedback is hidden for them, because
+  `match_feedback.match_category` only allows Fit-Now and Aspiration.
+
+After the change, the reproduction still has 0 Fit-Now, which is correct. It
+now shows five related closest matches (Sales Manager, Customer Success
+Manager, Customer Service Representative, Account Executive, Library
+Assistant), each with the rule it failed.
+
+Jobs were not added. Every job board and jobs API (JobStreet, Indeed,
+Glassdoor, Adzuna, Greenhouse, Lever, Kalibrr, PhilJobNet) was blocked from
+the working environment, so no posting could be opened to verify it, record
+its date or map its skills from its text. See `docs/job-listings-api.md` for
+sourcing more jobs.
+

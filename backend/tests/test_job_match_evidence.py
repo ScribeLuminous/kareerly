@@ -197,7 +197,7 @@ class StepFourReportTests(unittest.TestCase):
             )
 
     def matches(self, result):
-        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_aspiration_matches"]}
+        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_closest_matches"] + result["all_aspiration_matches"]}
 
     def test_order_processing_is_matched_and_leaves_the_prioritized_gaps(self):
         result = self.report(resume_docx())

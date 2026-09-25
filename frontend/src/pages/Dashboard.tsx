@@ -191,6 +191,8 @@ type DashboardJob = {
   hasMatchScore: boolean;
   confidence?: string;
   matchCategory: 'fit-now' | 'aspiration';
+  /** Shown when no job passes Fit-Now; listed with Aspiration but labelled Closest Match, never Fit-Now. */
+  closestMatch?: boolean;
   sourceType: 'internal' | 'external';
   requiredSkills: string[];
   preferredSkills: string[];
@@ -782,6 +784,11 @@ function persistMatchVote(job: DashboardJob, vote: MatchVote | null): Promise<un
     : removeMatchFeedback({ jobId: job.id, jobSource: job.jobSource });
 }
 
+function matchCategoryBadge(job: Pick<DashboardJob, 'matchCategory' | 'closestMatch'>, fitNowLabel = 'Fit Now'): string {
+  if (job.matchCategory === 'fit-now') return fitNowLabel;
+  return job.closestMatch ? 'Closest Match' : 'Aspiration';
+}
+
 function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration'): DashboardJob {
   const scoreContext = category === 'fit-now' ? 'fit_now' : 'aspiration';
   const normalizedScore = extractMatchPercent(match, scoreContext);
@@ -813,6 +820,7 @@ function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration')
     hasMatchScore: normalizedScore !== null,
     confidence: typeof dynamic.confidence === 'string' && dynamic.confidence.trim() ? dynamic.confidence.trim() : undefined,
     matchCategory: category,
+    closestMatch: match.is_closest_match === true,
     sourceType,
     requiredSkills,
     preferredSkills,
@@ -1647,10 +1655,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     if (state.matchResults) {
       const fitNow = (state.matchResults.all_fit_now_matches || state.matchResults.fit_now_matches || []).map((match) => restoreCatalogIdentity(mapRunMatch(match, 'fit-now')));
       const fitNowIds = new Set(fitNow.map((job) => job.id));
-      const aspiration = (state.matchResults.all_aspiration_matches || state.matchResults.aspiration_matches || [])
+      const closest = (state.matchResults.all_closest_matches || state.matchResults.closest_matches || [])
         .map((match) => restoreCatalogIdentity(mapRunMatch(match, 'aspiration')))
         .filter((job) => !fitNowIds.has(job.id));
-      return [...fitNow, ...aspiration].sort((a, b) => b.matchScore - a.matchScore);
+      const listedIds = new Set([...fitNowIds, ...closest.map((job) => job.id)]);
+      const aspiration = (state.matchResults.all_aspiration_matches || state.matchResults.aspiration_matches || [])
+        .map((match) => restoreCatalogIdentity(mapRunMatch(match, 'aspiration')))
+        .filter((job) => !listedIds.has(job.id));
+      return [...fitNow, ...closest, ...aspiration].sort((a, b) => b.matchScore - a.matchScore);
     }
     if (state.results?.jobMatches?.length) {
       return state.results.jobMatches.map((match) => restoreCatalogIdentity(mapModelMatch(match))).sort((a, b) => b.matchScore - a.matchScore);
@@ -3767,7 +3779,7 @@ function DashboardOverview({
                       {getMatchScoreBadge(job)}
                     </div>
                     <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-                      {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}
+                      {job.hasMatchScore ? matchCategoryBadge(job) : 'Match not available'}
                     </span>
                   </div>
                 </div>
@@ -3946,7 +3958,7 @@ function JobMatchesPage({
           </div>
           <div>
             <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-              {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}
+              {job.hasMatchScore ? matchCategoryBadge(job) : 'Match not available'}
             </span>
           </div>
         </div>
@@ -3984,7 +3996,8 @@ function JobMatchesPage({
         <strong>Recommended Next Step:</strong> {getRecommendedNextStep(job)}
       </div>
 
-      {job.hasMatchScore && (
+      {/* Ratings train the Fit-Now/Aspiration order; closest matches are in neither list. */}
+      {job.hasMatchScore && !job.closestMatch && (
         <MatchFeedbackControls
           jobTitle={job.title}
           vote={matchFeedback[matchFeedbackKey(job.id, job.jobSource)] ?? null}
@@ -4078,7 +4091,7 @@ function JobMatchesPage({
                       </td>
                       <td>
                         {job.hasMatchScore
-                          ? <span className="font-display text-sm font-extrabold text-rust">{job.matchScore}% · {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}</span>
+                          ? <span className="font-display text-sm font-extrabold text-rust">{job.matchScore}% · {job.hasMatchScore ? matchCategoryBadge(job) : 'Match not available'}</span>
                           : <span className="cand-status-badge">Not matched</span>}
                       </td>
                       <td>
@@ -5287,7 +5300,7 @@ function KareersPage({
                     <div className="cand-kareer-item-badges">
                       <span className="cand-kareer-mini-badge">{displayOrDash(job.setup)}</span>
                       <span className="cand-kareer-mini-badge">{displayOrDash(job.jobLevel)}</span>
-                      <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit-Now' : 'Aspiration') : 'Match not available'}</span>
+                      <span className={`cand-kareer-mini-badge ${job.matchCategory === 'fit-now' ? 'fit' : 'asp'}`}>{job.hasMatchScore ? matchCategoryBadge(job, 'Fit-Now') : 'Match not available'}</span>
                     </div>
                     <div className="cand-kareer-view-link">View Details</div>
                   </button>
@@ -6049,7 +6062,7 @@ function JobDetailModal({
             <div className="cand-modal-subtitle">{job.company}</div>
             <div className="cand-jd-tags">
               <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-                {job.hasMatchScore ? (job.matchCategory === 'fit-now' ? 'Fit Now' : 'Aspiration') : 'Match not available'}
+                {job.hasMatchScore ? matchCategoryBadge(job) : 'Match not available'}
               </span>
               <span className={`cand-type-tag ${job.sourceType === 'internal' ? 'cand-type-internal' : 'cand-type-external'}`}>
                 {job.sourceType === 'internal' ? 'Internal' : 'External'}
