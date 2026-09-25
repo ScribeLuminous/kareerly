@@ -11,7 +11,7 @@ Kareerly is a Vite/React frontend with a FastAPI matching backend and Supabase p
 - `frontend/`: Vite/React application
 - `supabase/`: database schema and migrations
 
-Both job matching endpoints use the shared fine-tuned all-MiniLM-L6-v2 bi-encoder and cosine similarity, with deterministic canonical skill coverage and preference explanations. The verified checkpoint is bundled in `backend/trained_models/kareerly-bi-encoder/`. Learning resources use reviewed skill-ID mappings; TF-IDF is retained only for offline evaluation. See `backend/README.md` for model provenance and Vercel/Render configuration.
+Both job matching endpoints use the shared fine-tuned all-MiniLM-L6-v2 bi-encoder and cosine similarity, with deterministic canonical skill coverage and preference explanations. The verified checkpoint is bundled in `backend/trained_models/kareerly-bi-encoder/`. Learning resources use reviewed skill-ID mappings; TF-IDF is retained only for offline evaluation. See `backend/README.md` for model provenance and deployment (website on Vercel, backend on Google Cloud Run).
 
 Candidates can rate matches (Good/Bad). A scheduled job uses those ratings to adjust the order within Fit-Now and Aspiration once enough feedback exists, and proposes new skills for admin review. See `docs/feedback-learning.md` for what runs automatically, what needs review, and how to roll back.
 

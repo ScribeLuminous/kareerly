@@ -11,7 +11,7 @@ export default defineConfig(({ mode, command }) => {
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('VITE_SUPABASE_URL must be an HTTP(S) URL.')
   const apiBaseUrl = env.VITE_API_BASE_URL?.trim()
   if (command === 'build' && env.VERCEL && !apiBaseUrl) {
-    throw new Error('Missing VITE_API_BASE_URL. Set it to your public Render backend URL in Vercel and redeploy.')
+    throw new Error('Missing VITE_API_BASE_URL. Set it to your public Cloud Run backend URL in Vercel and redeploy.')
   }
   if (apiBaseUrl) {
     const apiUrl = new URL(apiBaseUrl)
@@ -19,7 +19,7 @@ export default defineConfig(({ mode, command }) => {
       throw new Error('VITE_API_BASE_URL must be an HTTP(S) backend origin without /api, credentials, query parameters, or a fragment.')
     }
     if (command === 'build' && env.VERCEL && (apiUrl.protocol !== 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(apiUrl.hostname))) {
-      throw new Error('Vercel requires a public HTTPS VITE_API_BASE_URL, such as https://your-backend.onrender.com.')
+      throw new Error('Vercel requires a public HTTPS VITE_API_BASE_URL, such as https://your-service-abc123-as.a.run.app.')
     }
   }
   return { plugins: [react()] }
