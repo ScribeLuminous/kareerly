@@ -58,6 +58,13 @@ load_dotenv(BACKEND_DIR / ".env")
 
 
 app = FastAPI(title="Kareerly ML Backend")
+
+# Reported by /api/health/config. The website expects this exact value
+# (EXPECTED_BACKEND_VERSION in frontend/src/lib/backendVersion.ts) and warns
+# that results may be out of date when the running backend reports another
+# one or none. Change both together whenever matching, reports or learning
+# recommendations change in a way the website relies on; a test checks they match.
+BACKEND_VERSION = "2026.09.26-career-areas"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -1181,6 +1188,7 @@ def health_config() -> dict:
     missing = [name for name in required if not (checkpoint / name).is_file()]
     return {
         "status": "ok",
+        "backend_version": BACKEND_VERSION,
         "allowed_origins": allowed_origins,
         "model": {
             "id": MODEL_ID,
