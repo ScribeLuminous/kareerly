@@ -11,6 +11,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { validateResumeFile, formatFileSize } from '../lib/fileUtils';
 import { analyzeResume } from '../lib/api';
+import { extractionWarnings, RESUME_FILE_ACCEPT } from '../lib/resumeFreshness';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveResumeAnalysis } from '../lib/userData';
 import type { ResumeAnalysisResult, SelectedSkill } from '../types';
@@ -124,7 +125,12 @@ export default function UploadZone() {
 
       const extractedSkills = getExtractedSkillsFromAnalysis(analysis);
       if (extractedSkills.length === 0) {
-        throw new Error('No skills were extracted from your resume. Please upload a clearer PDF or DOCX file.');
+        // Say why when the file could not be read (a failed or unavailable OCR),
+        // instead of implying the resume lists no skills.
+        const readingProblems = extractionWarnings(analysis);
+        throw new Error(readingProblems.length > 0
+          ? readingProblems.join(' ')
+          : 'No skills were extracted from your resume. Please upload a clearer PDF, DOCX or DOC file.');
       }
 
       const user = await getCurrentKareerlyUser().catch(() => null);
@@ -200,13 +206,15 @@ export default function UploadZone() {
               <span className="bg-bg border border-bdr rounded px-2 py-1 font-bold text-mid">PDF</span>
               <span className="text-bdr">·</span>
               <span className="bg-bg border border-bdr rounded px-2 py-1 font-bold text-mid">DOCX</span>
+              <span className="text-bdr">·</span>
+              <span className="bg-bg border border-bdr rounded px-2 py-1 font-bold text-mid">DOC</span>
               <span>· Max 5MB</span>
             </div>
 
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.docx"
+              accept={RESUME_FILE_ACCEPT}
               onChange={handleFileInput}
               className="hidden"
             />

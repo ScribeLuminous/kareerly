@@ -11,7 +11,13 @@ numpy
 scikit-learn
 sentence-transformers
 pypdf
+# Word boxes for multi-column PDF reading order.
+pdfplumber
+# Renders scanned PDF pages for OCR (the OCR engine is the tesseract binary; see Dockerfile).
+pypdfium2
+Pillow
 python-docx
+lxml
 torch
 joblib
 scipy

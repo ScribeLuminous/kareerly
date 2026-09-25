@@ -100,6 +100,10 @@ export interface ResumeAnalysisResult {
     resume_text_for_matching: string;
   };
   warnings: string[];
+  // Problems reading the file (OCR, page limits); a subset of warnings.
+  extraction_warnings?: string[];
+  // How the text was read; absent on analyses saved before OCR and .doc support.
+  extraction?: ResumeExtractionInfo;
   parsedResume: ParsedResume;
   jobMatches: JobMatch[];
   skillGaps: SkillGap[];
@@ -375,6 +379,17 @@ export interface LimitedReport {
   skill_gaps: PrioritizedSkillGap[];
   learning_recommendations: LearningRecommendation[];
   development_progress?: DevelopmentProgressRecord[];
+}
+
+export interface ResumeExtractionInfo {
+  parser_version: string;
+  source_format: 'pdf' | 'docx' | 'doc';
+  method: string;
+  pages_read: number;
+  ocr_status: 'not_needed' | 'used' | 'partial' | 'failed' | 'unavailable' | 'no_text' | 'skipped';
+  ocr_pages: number[];
+  ocr_images: number;
+  multi_column_pages: number[];
 }
 
 export interface JobMatchRunResults {

@@ -17,7 +17,6 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Annotated, Optional
-from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
@@ -36,7 +35,16 @@ from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, match_resume_to_jobs, match_text_to_jobs, match_jobs, warm_matching_caches
-from .services.resume_analyzer import analyze_resume_file
+from .services.resume_analyzer import analyze_resume_bytes
+from .services.doc_conversion import antiword_path, soffice_path
+from .services.ocr import ocr_available
+from .services.resume_parser import (
+    MAX_RESUME_BYTES,
+    RESUME_PARSER_VERSION,
+    SUPPORTED_RESUME_EXTENSIONS,
+    ResumeFileError,
+    resume_extension,
+)
 from .learning import ranking_training, skill_discovery
 from .learning.feedback import HISTORY_ROWS_SEARCHED, HISTORY_SELECT, JOB_SOURCES, VOTES, find_match_context
 from .learning.jobs import run_all as run_learning_jobs
@@ -46,8 +54,6 @@ from .learning.supabase_client import SupabaseError, SupabaseRest
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BACKEND_DIR / ".env")
-UPLOADS_DIR = BACKEND_DIR / "uploads"
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 app = FastAPI(title="Kareerly ML Backend")
@@ -1140,6 +1146,14 @@ def health_config() -> dict:
             "missing_files": missing,
             "loaded": get_bi_encoder.cache_info().currsize > 0,
         },
+        # Scanned PDFs need OCR and .doc files a converter; without them those
+        # uploads get a warning or a request for a text-based PDF or DOCX.
+        "resume_readers": {
+            "parser_version": RESUME_PARSER_VERSION,
+            "ocr": ocr_available(),
+            "doc_libreoffice": soffice_path() is not None,
+            "doc_antiword": antiword_path() is not None,
+        },
     }
 
 
@@ -1394,6 +1408,19 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
     }
 
 
+async def _read_resume_upload(upload: UploadFile) -> bytes:
+    """The upload's bytes, refusing files over the resume size limit without reading them whole."""
+    file_bytes = await upload.read(MAX_RESUME_BYTES + 1)
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded resume file is empty.")
+    if len(file_bytes) > MAX_RESUME_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Resume file must be {MAX_RESUME_BYTES // (1024 * 1024)}MB or smaller.",
+        )
+    return file_bytes
+
+
 @app.post("/api/resume/analyze")
 async def analyze_resume(
     resume: Annotated[UploadFile, File()],
@@ -1401,51 +1428,34 @@ async def analyze_resume(
     if not resume.filename:
         raise HTTPException(status_code=400, detail="Resume filename is missing.")
 
-    suffix = resume.filename.lower().rsplit(".", 1)[-1]
-
-    if suffix not in {"pdf", "docx"}:
+    if resume_extension(resume.filename) not in SUPPORTED_RESUME_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail="Please upload a PDF or DOCX resume.",
+            detail="Please upload a PDF, DOCX or DOC resume.",
         )
 
-    file_bytes = await resume.read()
-
-    if not file_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded resume file is empty.",
-        )
-
-    if len(file_bytes) > 5 * 1024 * 1024:
-        raise HTTPException(
-            status_code=400,
-            detail="Resume file must be 5MB or smaller.",
-        )
-
-    suffix_with_dot = f".{suffix}"
-    file_path = UPLOADS_DIR / f"{uuid4().hex}{suffix_with_dot}"
+    file_bytes = await _read_resume_upload(resume)
 
     analysis_started_at = time.perf_counter()
     try:
-        with open(file_path, "wb") as buffer:
-            buffer.write(file_bytes)
-
+        # The resume is read from memory: no copy of it is written to disk
+        # (a .doc conversion uses a private temporary folder that is deleted).
         # Includes approved taxonomy additions; may refresh them from Supabase.
         extractor = await run_in_threadpool(current_skill_extractor)
         result = await run_in_threadpool(
-            analyze_resume_file,
-            file_path=str(file_path),
+            analyze_resume_bytes,
+            file_bytes=file_bytes,
+            filename=resume.filename,
             skill_extractor=extractor,
         )
 
         logger.info(
             "Resume analysis completed",
             extra={
-                "filename": resume.filename,
                 "file_bytes": len(file_bytes),
                 "raw_text_length": result.get("raw_text_length", 0),
                 "skill_count": len(result.get("candidate_profile", {}).get("skills", [])),
+                "extraction": result.get("extraction", {}),
                 "elapsed_ms": round((time.perf_counter() - analysis_started_at) * 1000, 1),
             },
         )
@@ -1454,23 +1464,17 @@ async def analyze_resume(
 
     except HTTPException:
         raise
+    except ResumeFileError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception(
             "Resume analysis failed",
             extra={
-                "filename": resume.filename,
                 "file_bytes": len(file_bytes),
                 "elapsed_ms": round((time.perf_counter() - analysis_started_at) * 1000, 1),
             },
         )
         raise HTTPException(status_code=500, detail=f"Resume analysis failed: {exc}") from exc
-
-    finally:
-        if file_path.exists():
-            try:
-                file_path.unlink()
-            except Exception:
-                pass
 
 
 @app.post("/api/certificates/validate")
@@ -2228,9 +2232,8 @@ async def match_from_resume(
     if not file.filename:
         raise HTTPException(status_code=400, detail="Resume filename is missing.")
 
-    suffix = file.filename.lower().rsplit(".", 1)[-1]
-    if suffix not in {"pdf", "docx"}:
-        raise HTTPException(status_code=400, detail="Please upload a PDF or DOCX resume.")
+    if resume_extension(file.filename) not in SUPPORTED_RESUME_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Please upload a PDF, DOCX or DOC resume.")
 
     try:
         preferences_payload = json.loads(preferences or "{}")
@@ -2268,9 +2271,7 @@ async def match_from_resume(
                 confirmed_skills=confirmed_skill_records or None,
             )
         else:
-            file_bytes = await file.read()
-            if not file_bytes:
-                raise HTTPException(status_code=400, detail="Uploaded resume file is empty.")
+            file_bytes = await _read_resume_upload(file)
 
             result = await run_in_threadpool(
                 match_resume_to_jobs,

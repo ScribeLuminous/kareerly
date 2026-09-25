@@ -62,7 +62,8 @@ import { cleanSkillLabel } from '../lib/skillLabels';
 import { careerAreaOptions, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
-import { loadLatestMatchHistory, loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
+import { loadLatestMatchHistory, loadLatestResume, saveMatchHistory, saveResumeAnalysis, type ExistingResumeFile, type SavedResumeRecord } from '../lib/userData';
+import { assessSavedResume, extractionWarnings, RESUME_FILE_ACCEPT, staleResumeMessage, type SavedResumeFreshness } from '../lib/resumeFreshness';
 import type { DevelopmentProgressRecord, LearningRecommendation as RunLearningRecommendation } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
 import { formatJobDescription } from '../lib/jobDescription';
@@ -1299,6 +1300,12 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [newSkillInput, setNewSkillInput] = useState('');
   const [resumePostRefreshTarget, setResumePostRefreshTarget] = useState<'dashboard' | 'preferences'>('dashboard');
   const [savedResumeFileName, setSavedResumeFileName] = useState('');
+  // An analysis restored from an earlier session, and whether its original file
+  // is still stored, so an analysis made by an older reader is never shown as new.
+  const [savedResumeFreshness, setSavedResumeFreshness] = useState<SavedResumeFreshness | null>(null);
+  const [savedResumeFile, setSavedResumeFile] = useState<ExistingResumeFile | null>(null);
+  // Set while the modal re-scans the stored original, so saving reuses that file.
+  const reusedResumeFile = useRef<ExistingResumeFile | null>(null);
   const [resumePreview, setResumePreview] = useState<{ url: string; name: string; mimeType: string; local: boolean } | null>(null);
   const [docxPreviewResult, setDocxPreviewResult] = useState<{ url: string; html: string; error: string } | null>(null);
   const [candidatePublicId, setCandidatePublicId] = useState('');
@@ -1483,6 +1490,33 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     return () => { isMounted = false; };
   }, [currentUser.id]);
 
+  const locateSavedResumeFile = async (latestResume: SavedResumeRecord | null): Promise<ExistingResumeFile | null> => {
+    if (!currentUser.id || !latestResume) return null;
+    let storageBucket = latestResume.storage_bucket || 'resumes';
+    let storagePath = latestResume.storage_path || '';
+    let mimeType = latestResume.file_mime_type || '';
+    let size = latestResume.file_size_bytes || null;
+
+    // Older resume rows may not contain storage metadata even though the file was
+    // successfully uploaded. Recover the newest file from this user's private folder.
+    if (!storagePath) {
+      const { data: storedFiles, error: listError } = await supabase.storage
+        .from(storageBucket)
+        .list(currentUser.id, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+      const newestFile = storedFiles?.find((file) => file.name && file.name !== '.emptyFolderPlaceholder');
+      if (listError || !newestFile) {
+        if (listError) console.warn('Unable to locate saved resume file:', listError);
+        return null;
+      }
+      storageBucket = 'resumes';
+      storagePath = `${currentUser.id}/${newestFile.name}`;
+      mimeType = mimeType || String(newestFile.metadata?.mimetype || '');
+      size = size || Number(newestFile.metadata?.size) || null;
+    }
+    const name = latestResume.original_filename || storagePath.split('/').pop() || 'resume';
+    return { bucket: storageBucket, path: storagePath, name, mimeType, size };
+  };
+
   useEffect(() => {
     let isMounted = true;
     void (async () => {
@@ -1492,6 +1526,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       if (!isMounted || !latestResume) return;
 
       setSavedResumeFileName(latestResume.original_filename || 'Saved resume');
+      const freshness = assessSavedResume(latestResume);
+      setSavedResumeFreshness(freshness);
+      if (freshness?.stale) {
+        const located = await locateSavedResumeFile(latestResume);
+        if (isMounted) setSavedResumeFile(located);
+      }
+      if (!isMounted) return;
       if (state.resumeAnalysis || state.resumeFile || state.savedResumeId) {
         if (!state.savedResumeId) setSavedResumeId(latestResume.id);
         return;
@@ -2530,6 +2571,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setResumeAnalyzeData(null);
     setResumeActionError('');
     savedResumeUploadId.current = null;
+    reusedResumeFile.current = null;
     setReviewSkills([]);
     setNewSkillInput('');
     setResumePostRefreshTarget('dashboard');
@@ -2543,35 +2585,50 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       return;
     }
     const latestResume = await loadLatestResume({ userId: currentUser.id });
-    let storageBucket = latestResume?.storage_bucket || 'resumes';
-    let storagePath = latestResume?.storage_path || '';
-
-    // Older resume rows may not contain storage metadata even though the file was
-    // successfully uploaded. Recover the newest file from this user's private folder.
-    if (!storagePath) {
-      const { data: storedFiles, error: listError } = await supabase.storage
-        .from(storageBucket)
-        .list(currentUser.id, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
-      const newestFile = storedFiles?.find((file) => file.name && file.name !== '.emptyFolderPlaceholder');
-      if (listError || !newestFile) {
-        console.warn('Unable to locate saved resume file:', listError);
-        showToast('The saved resume file could not be found. Please upload the resume again.', 'warn');
-        return;
-      }
-      storageBucket = 'resumes';
-      storagePath = `${currentUser.id}/${newestFile.name}`;
+    const located = await locateSavedResumeFile(latestResume);
+    if (!located) {
+      showToast('The saved resume file could not be found. Please upload the resume again.', 'warn');
+      return;
     }
     const { data, error } = await supabase.storage
-      .from(storageBucket)
-      .createSignedUrl(storagePath, 300);
+      .from(located.bucket)
+      .createSignedUrl(located.path, 300);
     if (error || !data?.signedUrl) {
       console.warn('Unable to create resume preview link:', error);
       showToast('Unable to open the saved resume. Please try again.', 'danger');
       return;
     }
-    const previewName = latestResume?.original_filename || savedResumeFileName || storagePath.split('/').pop() || 'Saved resume';
-    const previewMimeType = latestResume?.file_mime_type || (previewName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : '');
+    const previewName = latestResume?.original_filename || savedResumeFileName || located.path.split('/').pop() || 'Saved resume';
+    const previewMimeType = located.mimeType || (previewName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : '');
     setResumePreview({ url: data.signedUrl, name: previewName, mimeType: previewMimeType, local: false });
+  };
+
+  const reanalyzeSavedResume = async () => {
+    if (!currentUser.id || state.isLoading) return;
+    const located = savedResumeFile || await locateSavedResumeFile(await loadLatestResume({ userId: currentUser.id }));
+    if (!located) {
+      setSavedResumeFile(null);
+      showToast('The original resume file is not stored. Please upload your resume again.', 'warn');
+      openResumeModal();
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      // The user's own file, read through their session (owner-only storage policy);
+      // it stays in memory and is not stored again when the new analysis is saved.
+      const { data: blob, error: downloadError } = await supabase.storage.from(located.bucket).download(located.path);
+      if (downloadError || !blob) throw new Error(downloadError?.message || 'The saved resume could not be downloaded.');
+      const file = new File([blob], located.name, { type: located.mimeType || blob.type || '' });
+      openResumeModal();
+      reusedResumeFile.current = located;
+      setResumeUploadFile(file);
+      await analyzeResumeForModal(file);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to re-scan the saved resume.';
+      showToast(`${message} Please upload your resume again.`, 'danger');
+      setLoading(false);
+    }
   };
 
   const closeResumePreview = () => {
@@ -2583,13 +2640,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setResumeAnalyzeData(null);
     setResumeActionError('');
     savedResumeUploadId.current = null;
+    reusedResumeFile.current = null;
     if (!file) {
       setResumeUploadFile(null);
       return;
     }
     const validation = validateResumeFile(file);
     if (!validation.valid) {
-      showToast(validation.error || 'Please upload a PDF or DOCX file.', 'warn');
+      showToast(validation.error || 'Please upload a PDF, DOCX or DOC file.', 'warn');
       return;
     }
     setResumeUploadFile(file);
@@ -2600,13 +2658,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       showToast('Please upload a resume file first.', 'warn');
       return;
     }
+    await analyzeResumeForModal(resumeUploadFile);
+  };
+
+  const analyzeResumeForModal = async (resumeFileToAnalyze: File) => {
     savedResumeUploadId.current = null;
     setResumeActionError('');
     setLoading(true);
     setError(null);
     try {
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
-      const data = withExtractedEducation(await analyzeResume(resumeUploadFile, prefs));
+      const data = withExtractedEducation(await analyzeResume(resumeFileToAnalyze, prefs));
       setResumeAnalyzeData(data);
       const extractedEducation = data.candidate_profile?.education?.[0];
       if (extractedEducation) {
@@ -2639,7 +2701,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const unique = Array.from(new Set(baseline.map((item) => item.trim()).filter(Boolean)));
       setReviewSkills(unique);
       setResumeStep('decision');
-      showToast('Resume uploaded. Choose to review skills/preferences or apply changes directly.', 'success');
+      showToast(reusedResumeFile.current
+        ? 'Saved resume re-scanned. Choose to review skills/preferences or apply changes directly.'
+        : 'Resume uploaded. Choose to review skills/preferences or apply changes directly.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to analyze uploaded resume.';
       setError(message);
@@ -2674,10 +2738,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         userId: currentUser.id,
         fileName: resumeUploadFile.name,
         file: resumeUploadFile,
+        // A re-scan points the new analysis at the stored original instead of uploading a second copy.
+        existingFile: reusedResumeFile.current,
         analysis: resumeAnalyzeData,
       });
       savedResumeUploadId.current = resumeId;
       setSavedResumeFileName(resumeUploadFile.name);
+      setSavedResumeFreshness(assessSavedResume({ created_at: new Date().toISOString(), extracted_profile_json: resumeAnalyzeData }));
+      setSavedResumeFile(null);
     }
     setResumeFile(resumeUploadFile);
     applyAnalysisResult(resumeAnalyzeData);
@@ -3115,6 +3183,19 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           </aside>
 
         <main className={`cand-content ${sidebarCollapsed ? 'expanded' : ''}`}>
+          {savedResumeFreshness?.stale && !resumeModalOpen && (
+            <div className="cand-notice warn" role="status">
+              <span>{staleResumeMessage(savedResumeFreshness, Boolean(savedResumeFile))}</span>
+              <button
+                className="cand-btn-secondary"
+                type="button"
+                disabled={state.isLoading}
+                onClick={() => (savedResumeFile ? void reanalyzeSavedResume() : openResumeModal())}
+              >
+                {savedResumeFile ? 'Re-scan saved resume' : 'Upload resume again'}
+              </button>
+            </div>
+          )}
           {inlineNotice && (
             <div className={`cand-notice ${inlineNotice.type === 'danger' ? 'error' : inlineNotice.type === 'warn' ? 'warn' : 'info'}`}>
               <span>{inlineNotice.message}</span>
@@ -3359,6 +3440,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           postRefreshTarget={resumePostRefreshTarget}
           dragOver={resumeDragOver}
           file={resumeUploadFile}
+          readingWarnings={extractionWarnings(resumeAnalyzeData)}
           reviewSkills={reviewSkills}
           skillInput={newSkillInput}
           loading={state.isLoading}
@@ -3462,6 +3544,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
             </div>
             {resumePreview.mimeType.includes('pdf') || resumePreview.name.toLowerCase().endsWith('.pdf') ? (
               <iframe className="cand-resume-preview-frame" src={resumePreview.url} title={`Preview of ${resumePreview.name}`} />
+            ) : resumePreview.mimeType.includes('msword') || resumePreview.name.toLowerCase().endsWith('.doc') ? (
+              <div className="cand-notice info m-4">
+                <span>Old Word (.doc) files cannot be previewed in the browser. <a href={resumePreview.url} download={resumePreview.name}>Download the resume</a> to view it.</span>
+              </div>
             ) : docxPreviewResult?.url !== resumePreview.url ? (
               <div className="cand-resume-preview-status" role="status">Preparing DOCX preview…</div>
             ) : docxPreviewResult.error ? (
@@ -6164,6 +6250,7 @@ function ResumeUpdateModal({
   postRefreshTarget,
   dragOver,
   file,
+  readingWarnings,
   reviewSkills,
   skillInput,
   loading,
@@ -6184,6 +6271,7 @@ function ResumeUpdateModal({
   postRefreshTarget: 'dashboard' | 'preferences';
   dragOver: boolean;
   file: File | null;
+  readingWarnings: string[];
   reviewSkills: string[];
   skillInput: string;
   loading: boolean;
@@ -6232,13 +6320,13 @@ function ResumeUpdateModal({
             >
               <input
                 type="file"
-                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept={RESUME_FILE_ACCEPT}
                 className="hidden"
                 onChange={(event) => onPickFile(event.target.files?.[0] ?? null)}
               />
               <UIIcon name="upload" className="cand-upload-icon" />
               <div className="mt-2 text-sm font-bold text-dark">Drag and drop your resume here</div>
-              <div className="text-xs text-soft">PDF or DOCX · max 5MB</div>
+              <div className="text-xs text-soft">PDF, DOCX or DOC · max 5MB</div>
             </label>
 
             {file && (
@@ -6264,7 +6352,7 @@ function ResumeUpdateModal({
             )}
 
             <div className="cand-notice warn mt-4">
-              <span>Skill extraction works best on readable PDF/DOCX text. Scanned image resumes may reduce extraction quality.</span>
+              <span>Skill extraction works best on text-based PDF or Word files. Scanned resumes are read with text recognition (OCR), so check the extracted skills.</span>
             </div>
 
             <div className="cand-modal-actions">
@@ -6280,6 +6368,9 @@ function ResumeUpdateModal({
 
         {step === 'decision' && (
           <div>
+            {readingWarnings.map((warning) => (
+              <div key={warning} className="cand-notice warn mb-3" role="status"><span>{warning}</span></div>
+            ))}
             <div className="cand-notice info mb-3">
               <span>Review your skills and preferences, or apply the resume to your dashboard now.</span>
             </div>
