@@ -79,6 +79,27 @@ class LearningPathsTests(unittest.TestCase):
         onboarding = next(item for item in result if item["resource_id"] == "test-2")
         self.assertEqual(onboarding["matched_gap_skill_names"], ["Onboarding"])
 
+    def test_nice_to_have_gaps_get_resources(self):
+        # A Fit-Now job can miss only nice-to-have skills; the Skill Gaps page lists
+        # them, so the learning page must have resources for them too.
+        rows = pd.DataFrame([{**self.row, "resource_id": "test-2", "skill_ids": "X1",
+                              "skills_youll_gain": "Procurement", "course_or_certification_title": "Purchasing basics"}])
+        matches = [{"missing_skill_ids": [], "missing_skills": [], "missing_preferred_skills": ["procurement"],
+                    "category_id": "", "job_category": ""}]
+        result = recommend_learning_resources_for_matches(matches, rows)
+        self.assertEqual([item["resource_id"] for item in result], ["test-2"])
+        self.assertEqual(result[0]["matched_gap_skill_names"], ["procurement"])
+
+    def test_employer_skill_names_resolve_to_taxonomy_ids(self):
+        # Employer posts list "Canva" by name; it is taxonomy skill SK660.
+        rows = pd.DataFrame([{**self.row, "skill_ids": "SK660", "course_or_certification_title": "Design essentials"}])
+        matches = [{"missing_skill_ids": [], "missing_skills": [], "missing_preferred_skills": ["Canva"],
+                    "category_id": "", "job_category": ""}]
+        result = recommend_learning_resources_for_matches(matches, rows)
+        self.assertEqual(result[0]["relevance_method"], "reviewed_skill_id_mapping")
+        self.assertEqual(result[0]["matched_gap_skill_ids"], ["SK660"])
+        self.assertEqual(result[0]["matched_gap_skill_names"], ["Canva"])
+
     def test_multiple_gap_mappings_are_preserved_without_mutation(self):
         gaps = [dict(skill_id="SQL", skill_name="SQL"), dict(skill_id="PY", skill_name="Python")]
         frame = pd.DataFrame([self.row]); before = frame.copy(deep=True)
@@ -121,5 +142,31 @@ class LearningPathsTests(unittest.TestCase):
                 learning_recommender.clear_learning_resources_cache()
                 learning_recommender.load_learning_resources()
                 self.assertEqual(learning_recommender.get_learning_resources_source(), source)
+
+
+class BundledCatalogCoverageTests(unittest.TestCase):
+    """The bundled catalogue gives every career area options to recommend."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.catalog = pd.read_csv(LEARNING_RESOURCES_PATH, dtype=str, keep_default_na=False)
+        cls.jobs = pd.read_csv(LEARNING_RESOURCES_PATH.parent / "reference_jobs.csv", dtype=str, keep_default_na=False)
+
+    def test_every_category_has_listable_resources_and_jobs(self):
+        listable = self.catalog[[learning_recommender.resource_is_listable(row) for _, row in self.catalog.iterrows()]]
+        for category in [f"K{number:02d}" for number in range(1, 25)]:
+            with self.subTest(category=category):
+                self.assertGreaterEqual((listable["category_id"] == category).sum(), 10)
+                self.assertGreaterEqual((self.jobs["category_id"] == category).sum(), 10)
+
+    def test_nice_to_have_gaps_from_the_report_get_resources(self):
+        # An Executive Assistant Fit-Now match whose only gaps are nice-to-have.
+        matches = [{"missing_skill_ids": [], "missing_skills": [], "category_id": "K05",
+                    "job_category": "Office Administration and Records",
+                    "missing_preferred_skills": ["Canva", "inventory monitoring", "procurement"]}]
+        result = recommend_learning_resources_for_matches(matches, self.catalog)
+        covered = {name for item in result for name in item["matched_gap_skill_names"]
+                   if item["relevance_method"] != "category_match"}
+        self.assertEqual(covered, {"Canva", "inventory monitoring", "procurement"})
 
 if __name__ == "__main__": unittest.main()

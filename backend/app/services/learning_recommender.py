@@ -162,6 +162,17 @@ def _skill_aliases(skill: dict[str, Any]) -> set[str]:
     return {alias for alias in aliases if alias}
 
 
+def _skill_ids_by_alias(skills_lookup: dict[str, dict[str, Any]]) -> dict[str, str]:
+    """Normalized skill name or alias -> taxonomy ID, for names naming exactly one skill."""
+    owners: dict[str, set[str]] = {}
+    for skill_id, skill in skills_lookup.items():
+        for alias in _skill_aliases(skill):
+            normalized = _normalize_skill_text(alias)
+            if normalized:
+                owners.setdefault(normalized, set()).add(str(skill_id).strip().upper())
+    return {alias: next(iter(ids)) for alias, ids in owners.items() if len(ids) == 1}
+
+
 def _resource_text(resource: pd.Series) -> str:
     return " ".join(
         [
@@ -682,6 +693,7 @@ def recommend_learning_resources_for_matches(
         skills_lookup = _skills_lookup_by_id(load_skills_reference())
     except (FileNotFoundError, ValueError):
         skills_lookup = {}
+    alias_ids = _skill_ids_by_alias(skills_lookup)
     gaps: dict[str, dict[str, Any]] = {}
 
     def add_gap(key: str, skill_id: str, skill_name: str, category_id: str, category_name: str) -> None:
@@ -702,13 +714,21 @@ def recommend_learning_resources_for_matches(
             skill_name = _clean_text(skills_lookup.get(skill_id, {}).get("skill_name", "")) or skill_id
             id_names.add(_normalize_skill_text(skill_name))
             add_gap(skill_id, skill_id, skill_name, category_id, category_name)
-        for raw_name in match.get("missing_skills", []) or []:
+        # Nice-to-have gaps are listed on the Skill Gaps page too, so they need
+        # resources as well; a job with only preferred gaps otherwise has none.
+        missing_names = list(match.get("missing_skills", []) or []) + list(match.get("missing_preferred_skills", []) or [])
+        for raw_name in missing_names:
             skill_name = _clean_text(raw_name)
             normalized = _normalize_skill_text(skill_name)
             # Names that belong to a taxonomy ID above are already covered.
             if not normalized or normalized in id_names:
                 continue
-            add_gap("NAME:" + normalized, "", skill_name, category_id, category_name)
+            id_names.add(normalized)
+            # Employer posts list skills by name; a name that is a taxonomy
+            # skill or alias (e.g. "Canva") reaches the ID-mapped resources.
+            # Keyed by name too, so the resource lists the name the job used.
+            skill_id = alias_ids.get(normalized, "")
+            add_gap(f"{skill_id}:NAME:{normalized}", skill_id, skill_name, category_id, category_name)
     prepared = _prepare_resources(learning_df)
     resources: dict[str, dict] = {}
     for gap in gaps.values():
