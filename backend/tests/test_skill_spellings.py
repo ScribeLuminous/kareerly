@@ -20,7 +20,8 @@ GROUPS = {
     "SK629": ["MS Excel", "Microsoft Excel", "Excel", "MSExcel", "MS-Excel", "Advanced Excel"],
     "SK627": ["Google Workspace", "GWorkspace", "G Workspace", "G Suite", "GSuite", "G-Suite", "Google Suite"],
     "SK276": ["CRM", "Customer Relationship Management"],
-    "SK029": ["Customer Service", "Customer Support", "CS", "CX", "CS/CX"],
+    "SK029": ["Customer Service", "Customer Support", "CS", "CS/CX"],
+    "SK694": ["Customer Experience", "CX", "CX support", "Customer Experience Management"],
     "SK639": ["Customer Success", "Client Success"],
     "SK644": ["Zendesk", "Zen Desk", "ZenDesk"],
     "SK646": ["Freshdesk", "Fresh Desk", "FreshDesk"],
@@ -52,6 +53,8 @@ NOT_SKILLS = {
     "BSCS student.": "SK029",
     "Built pages with HTML and CSS.": "SK029",
     "cs and cx written in lower case": "SK029",
+    "cx in lower case is not an abbreviation": "SK694",
+    "Built a CXF web service in Java.": "SK694",
     "Parsed JSON responses.": "SK002",
     "Address: 123 Main St, Arlington, VA 22201": "SK626",
     "Led a sales force of 12 agents.": "SK643",
@@ -59,6 +62,12 @@ NOT_SKILLS = {
     "Installed power points in new homes.": "SK628",
     "Worked weekends at a photo shop.": "SK662",
     "Scroll and click up to the top.": "SK636",
+    # Words that end a skill's name are part of it: "Customer Experience" is
+    # not "customer", "Office software" is not "office".
+    "Customer Service specialist.": "SK694",
+    "Worked in a busy office.": "SK186",
+    "Launched a new product line.": "SK025",
+    "Handled industrial equipment.": "SK489",
 }
 
 
@@ -111,7 +120,21 @@ class SkillSpellingTests(unittest.TestCase):
     def test_upper_case_abbreviations_in_context(self):
         for text in ["Skills: CS, CX, Zendesk", "Handled CS/CX tickets for an online store."]:
             with self.subTest(text=text):
-                self.assertIn("SK029", {s["skill_id"] for s in matching.extract_skills_from_text(text, max_skills=None)})
+                found = {s["skill_id"] for s in matching.extract_skills_from_text(text, max_skills=None)}
+                # CS is Customer Service and CX is Customer Experience, two skills.
+                self.assertLessEqual({"SK029", "SK694"}, found)
+
+    def test_customer_experience_is_its_own_skill(self):
+        labels = matching.get_skill_labels_by_id()
+        self.assertEqual(labels["SK694"], "Customer Experience")
+        self.assertEqual(matching._skill_key("CX"), "SK694")
+        self.assertEqual(matching._skill_key("CS"), "SK029")
+        # Neither stands in for the other.
+        self.assertEqual(matching.compute_skill_coverage([], ["SK694"], "Customer Service specialist.")["missing_skills"],
+                         ["Customer Experience"])
+        self.assertEqual(matching.compute_skill_coverage([], ["SK029"], "Led the CX team.")["missing_skills"],
+                         ["Customer Service"])
+        self.assertEqual(main.search_skills(q="CX", limit=3)["results"][0]["skill_id"], "SK694")
         self.assertIn("SK626", {s["skill_id"] for s in matching.extract_skills_from_text("Remote VA for US clients.")})
 
     def test_skill_search_finds_every_spelling(self):

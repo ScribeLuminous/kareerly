@@ -22,7 +22,7 @@ SK628,MS 365,false,,,Microsoft 365 abbreviation
 SK628,MS365,false,,,Microsoft 365 abbreviation
 SK276,CRM,false,,,"the practice; CRM software use (SK300) needs a named tool or ""CRM systems"", see skill_evidence_relations.csv"
 SK029,CS,true,"(?i)(?:\b(?:BS|B\.S\.?|BSc|MS|M\.S\.?|MSc|AB|BA|PhD|degree in|major in|bachelor(?:'s)?(?: of science)?(?: in)?|master(?:'s)?(?: of science)?(?: in)?)\s*)$","(?i)^\s*(?:degree|student|graduate|major|department|dept\b|engineering|program|course|club|society|teacher|instructor)","uppercase only; not in a degree (""BS CS"", ""CS graduate"") where it means Computer Science"
-SK029,CX,true,,,"uppercase only; customer experience support, the closest taxonomy skill"
+SK694,CX,true,,,"uppercase only; customer experience"
 SK029,CS/CX,false,,,
 SK029,CX/CS,false,,,
 SK690,Non-voice,false,,,non-voice (chat and email) support account
