@@ -1,12 +1,18 @@
-"""Regression tests for resume text lost before skill matching.
+"""Regression tests for the Step 4 report listing skills the resume shows as gaps.
 
 The synthetic resume below stands in for a real one: an assistant who handled
-order fulfillment and live chat support.
+order fulfillment and live chat support. The Non-Voice job requires "Order
+Processing" (sent by production jobs as the legacy ID SK_ORDER_PROCESSING),
+Chat Support and Onboarding.
 """
 import io
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+import numpy as np
+import pandas as pd
 from docx import Document
 from docx.oxml import parse_xml
 
@@ -27,6 +33,24 @@ RESUME_LINES = [
     "Handled order fulfillment and refunds for an online store.",
     "Answered customer questions through live chat support.",
 ]
+
+
+def job(job_id, title, required_ids, required_names, description="Support online store customers."):
+    return dict(
+        job_id=job_id, category_id="K09", job_category="Customer Service and Retail",
+        job_subcategory="Customer Service", job_title=title, job_description=description,
+        required_skills_comma_separated=required_names, mapped_required_skill_names=required_names,
+        required_skill_ids=required_ids, must_have_skill_ids=required_ids, experience_level_required="Entry Level",
+        location="Remote", work_type="Remote", salary_range_monthly_php="", job_text_for_matching="",
+    )
+
+
+JOBS = pd.DataFrame([
+    job("non-voice", "Non-Voice Support Associate", "SK689;SK_ORDER_PROCESSING;SK_ONBOARDING",
+        "Chat Support; Order Processing; Onboarding"),
+    # No requirement the matcher can compare: it must claim no matched or missing skills.
+    job("csr", "Customer Service Representative", "", "", "Handle customer inquiries by phone and email."),
+])
 
 
 def resume_docx(lines=RESUME_LINES, hide="Handled order fulfillment and refunds for an online store."):
@@ -117,6 +141,78 @@ class ResumeTextExtractionTests(unittest.TestCase):
             path.write_bytes(file_bytes)
             analysis = analyze_resume_file(str(path), SkillExtractor())
         self.assertIn("order fulfillment", analysis["normalized_for_matching"]["resume_text_for_matching"])
+
+
+class OrderEvidenceTests(unittest.TestCase):
+    def test_order_fulfillment_shows_order_processing_in_any_requirement_form(self):
+        resume = "Handled order fulfillment for an online store."
+        for requirement in ["Order Processing", "SK_ORDER_PROCESSING", "SK693"]:
+            result = matching.compute_skill_coverage([], [requirement], resume)
+            self.assertEqual(result["matched_skills"], ["Order Processing"], requirement)
+            self.assertEqual(result["missing_skills"], [], requirement)
+            self.assertEqual(result["related_skill_credit"], [{"skill": "Order Processing", "evidence": "order fulfillment"}])
+
+    def test_the_relation_is_one_way_and_does_not_spread_to_other_order_skills(self):
+        # Processing orders does not show picking, packing and shipping.
+        reverse = matching.compute_skill_coverage([], ["Order Fulfillment"], "Order processing and order entry.")
+        self.assertEqual(reverse["missing_skills"], ["E-commerce Operations"])
+        # Order fulfillment is not purchasing.
+        purchase = matching.compute_skill_coverage([], ["Issue purchase orders"], "Handled order fulfillment.")
+        self.assertEqual(purchase["missing_skills"], ["Issue purchase orders"])
+        unrelated = matching.compute_skill_coverage([], ["Order Processing"], "Kept records in order by date.")
+        self.assertEqual(unrelated["missing_skills"], ["Order Processing"])
+
+    def test_a_confirmed_profile_skill_is_never_also_missing(self):
+        # Added by name in Step 2 although the resume words it differently.
+        result = matching.compute_skill_coverage(["Order Fulfillment"], ["Order Processing", "E-commerce"], "Online store work.")
+        self.assertEqual(result["matched_skills"], ["E-commerce Operations", "Order Processing"])
+        self.assertEqual(result["missing_skills"], [])
+
+    def test_requirements_without_a_readable_name_do_not_count(self):
+        result = matching.compute_skill_coverage(["SK029"], ["SK029", "SK999"], "")
+        self.assertEqual((result["matched_skills"], result["missing_skills"], result["skill_coverage"]),
+            (["Customer Service"], [], 1.0))
+
+
+class StepFourReportTests(unittest.TestCase):
+    def setUp(self):
+        matching.clear_reference_jobs_cache()
+        self.addCleanup(matching.clear_reference_jobs_cache)
+
+    def report(self, file_bytes):
+        """The onboarding flow: analyze the upload, keep the Step 2 skills, generate the report."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "resume.docx"
+            path.write_bytes(file_bytes)
+            analysis = analyze_resume_file(str(path), SkillExtractor())
+        skills = [{"skill_id": s["skill_id"], "skill_name": s["skill_name"]} for s in analysis["candidate_profile"]["skills"]]
+        with patch.object(matching, "load_internal_jobs_dataframe", return_value=JOBS), \
+             patch.object(matching, "score_jobs", return_value=np.asarray([0.35, 0.3])), \
+             patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
+             patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
+            return matching.match_text_to_jobs(
+                analysis["normalized_for_matching"]["resume_text_for_matching"],
+                confirmed_skills=skills,
+                preferences={"industry": "sales-marketing-customer-service"},
+            )
+
+    def matches(self, result):
+        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_aspiration_matches"]}
+
+    def test_order_processing_is_matched_and_leaves_the_prioritized_gaps(self):
+        result = self.report(resume_docx())
+        non_voice = self.matches(result)["non-voice"]
+        self.assertEqual(non_voice["matched_skills"], ["Chat Support", "Order Processing"])
+        self.assertEqual(non_voice["missing_skills"], ["Onboarding"])
+        gaps = [gap["skill_name"] for gap in result["skill_gaps"]]
+        self.assertEqual(gaps, ["Onboarding"])
+        self.assertNotIn("Order Processing", gaps)
+
+    def test_without_the_evidence_order_processing_stays_a_gap(self):
+        lines = [line for line in RESUME_LINES if "order fulfillment" not in line]
+        result = self.report(resume_docx(lines))
+        self.assertIn("Order Processing", self.matches(result)["non-voice"]["missing_skills"])
+        self.assertIn("Order Processing", [gap["skill_name"] for gap in result["skill_gaps"]])
 
 
 if __name__ == "__main__":

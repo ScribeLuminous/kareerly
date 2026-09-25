@@ -47,6 +47,7 @@ REFERENCE_JOBS_PATH = os.path.join(DATA_DIR, "reference_jobs.csv")
 SKILLS_REFERENCE_PATH = os.path.join(DATA_DIR, "skills_reference.csv")
 CATEGORY_REFERENCE_PATH = os.path.join(DATA_DIR, "category_reference.csv")
 LEARNING_RESOURCES_PATH = os.path.join(DATA_DIR, "learning_resources.csv")
+SKILL_EVIDENCE_RELATIONS_PATH = os.path.join(DATA_DIR, "skill_evidence_relations.csv")
 
 TOP_FIT_NOW = 10
 TOP_ASPIRATION = 10
@@ -609,6 +610,26 @@ def skill_evidence_phrases() -> Dict[str, List[str]]:
 
 
 @lru_cache(maxsize=1)
+def related_skill_evidence() -> Dict[str, List[str]]:
+    """Resume phrases that show a skill through a reviewed one-way relation.
+
+    Each row of skill_evidence_relations.csv records why the phrase shows the
+    skill (a broader practice that always includes it, such as order
+    fulfillment including order processing). Relations are never reversed and
+    never make two skills interchangeable.
+    """
+    if not os.path.exists(SKILL_EVIDENCE_RELATIONS_PATH):
+        return {}
+    relations: Dict[str, List[str]] = {}
+    for _, row in safe_read_csv(SKILL_EVIDENCE_RELATIONS_PATH).iterrows():
+        skill_id = clean_text(row.get("skill_id", "")).upper()
+        phrase = clean_text(row.get("evidence_phrase", ""))
+        if skill_id and phrase:
+            relations.setdefault(skill_id, []).append(phrase)
+    return relations
+
+
+@lru_cache(maxsize=1)
 def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
     """Canonical IDs and unambiguous, explicitly mapped aliases; no token partial credit."""
     labels = {}
@@ -662,6 +683,7 @@ def skill_id_equivalents() -> Dict[str, str]:
 
 
 LEGACY_SKILL_ID = re.compile(r"SK_[A-Z0-9_]+")
+TAXONOMY_SKILL_ID = re.compile(r"SK\d+")
 
 
 def _skill_key(value: str) -> str:
@@ -768,25 +790,45 @@ def compute_skill_coverage(
     required: Dict[str, str] = {}
     for value in required_skills:
         text = clean_text(value)
-        if text:
+        if text and not (TAXONOMY_SKILL_ID.fullmatch(text.upper()) and text.upper() not in labels):
             readable = display_skill_name(text.upper(), labels) if LEGACY_SKILL_ID.fullmatch(text.upper()) else text
-            required.setdefault(_skill_key(text), readable)
+            key = _skill_key(text)
+            required.setdefault(key, display_skill_name(key, labels, readable))
+    # A requirement with no readable name (an ID missing from the taxonomy) can
+    # be neither shown nor explained, so it does not count toward coverage either.
+    required = {key: name for key, name in required.items() if name}
     text_norm = normalize_for_match(resume_text)
+    # Related evidence may come from the resume or from a skill the candidate
+    # confirmed by name ("Order Fulfillment" added in Step 2).
+    profile_norm = normalize_for_match(" ".join(
+        [resume_text, *map(clean_text, candidate_skills), *(display_skill_name(key, labels) for key in candidates)]
+    ))
+    related_credit: Dict[str, str] = {}
 
     def held(key: str) -> bool:
         if key in candidates:
             return True
-        phrases = skill_evidence_phrases().get(key) or [display_skill_name(key, labels, required[key])]
-        return any(_phrase_in_text(phrase, text_norm) for phrase in phrases)
+        phrases = skill_evidence_phrases().get(key) or [required[key]]
+        if any(_phrase_in_text(phrase, text_norm) for phrase in phrases):
+            return True
+        for phrase in related_skill_evidence().get(key, []):
+            if _phrase_in_text(phrase, profile_norm):
+                related_credit[required[key]] = phrase
+                return True
+        return False
 
     matched = [key for key in required if held(key)]
     missing = [key for key in required if key not in matched]
     return {
         "skill_coverage": round(len(matched) / len(required), 4) if required else 0.0,
-        "matched_skills": sorted(filter(None, (display_skill_name(key, labels, required[key]) for key in matched))),
-        "missing_skills": sorted(filter(None, (display_skill_name(key, labels, required[key]) for key in missing))),
+        "matched_skills": sorted(required[key] for key in matched),
+        "missing_skills": sorted(required[key] for key in missing),
         "matched_skill_ids": sorted(key for key in matched if key in labels),
         "missing_skill_ids": sorted(key for key in missing if key in labels),
+        # Requirements credited through a related-skill relation, with the phrase that showed them.
+        "related_skill_credit": [
+            {"skill": skill, "evidence": phrase} for skill, phrase in sorted(related_credit.items())
+        ],
     }
 
 
