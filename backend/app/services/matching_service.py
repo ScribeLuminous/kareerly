@@ -2012,7 +2012,9 @@ def match_text_to_jobs(
             "aspiration_rules": {
                 "relevance": "min_cosine to the resume, or the job is in the chosen career area",
                 "min_cosine": thresholds.aspiration_min_semantic,
+                # Held required skills; preferred ones count only when a job lists no required skills.
                 "min_matched_skills": thresholds.aspiration_min_matched_skills,
+                "skill_bridge": "required skills held (preferred only when none are required)",
                 "max_missing_essential_skills": thresholds.aspiration_max_missing_essential,
             },
             "jobs_source": jobs_source,

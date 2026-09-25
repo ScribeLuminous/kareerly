@@ -120,6 +120,18 @@ class ClassificationFlowTests(MatchingFlowCase):
         healthcare = self.run_match(preferences={"industry": "healthcare-wellness"})
         self.assertNotIn("nurse", self.ids(self.returned(healthcare)))
 
+    def test_a_job_sharing_only_a_nice_to_have_skill_is_not_an_aspiration(self):
+        # In the chosen area, sharing Microsoft Excel only as a preferred skill.
+        jobs = pd.concat([CATALOGUE, pd.DataFrame([job("teacher", "Elementary Teacher",
+            "Teach elementary classes.", "SK045;SK046;SK047", preferred="SK629", category_id="K12",
+            category="Education and Training")])], ignore_index=True)
+        result = self.run_match(jobs=jobs, preferences={"industry": "education-training"})
+        self.assertNotIn("teacher", self.ids(self.returned(result)))
+        teacher = next(item for item in result["debug_summary"]["top_10_scores"] if item["job_title"] == "Elementary Teacher")
+        self.assertEqual(teacher["match_breakdown"]["failed_aspiration_rules"], ["no_shared_skill"])
+        for item in result["all_aspiration_matches"]:
+            self.assertTrue(item["matched_skills"], item["job_id"])
+
     def test_missing_must_have_without_resume_evidence_blocks_fit_now(self):
         # Seven of eight required skills held (88%), but Git was marked must-have.
         jobs = pd.DataFrame([job("analyst", "Data Analyst", "Write SQL and Python reports and data analytics dashboards.",

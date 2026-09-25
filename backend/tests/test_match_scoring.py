@@ -103,6 +103,18 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(outside.match_category, scoring.LOW_MATCH)
         self.assertEqual(outside.failed_aspiration_rules, ["not_related"])
 
+    def test_a_shared_preferred_skill_alone_is_no_bridge(self):
+        # Reported: Elementary Teacher (0 of 3 required skills) listed as an
+        # Aspiration in the chosen area because the resume shared a nice-to-have.
+        teacher = self.score(0.03, evidence(0, 3), evidence(1, 1), in_area=True)
+        self.assertEqual(teacher.match_category, scoring.LOW_MATCH)
+        self.assertEqual(teacher.failed_aspiration_rules, ["no_shared_skill"])
+        # One required skill held is a bridge.
+        self.assertEqual(self.score(0.03, evidence(1, 2), evidence(1, 1), in_area=True).match_category,
+                         scoring.ASPIRATION)
+        # A job that lists only preferred skills is bridged by them.
+        self.assertEqual(self.score(0.5, NONE, evidence(1, 1)).match_category, scoring.ASPIRATION)
+
     def test_aspiration_needs_a_bridge_not_a_career_change(self):
         at = scoring.ASPIRATION_MAX_MISSING_ESSENTIAL
         self.assertEqual(self.score(0.5, evidence(1, at)).match_category, scoring.ASPIRATION)

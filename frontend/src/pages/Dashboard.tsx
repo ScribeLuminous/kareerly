@@ -512,6 +512,8 @@ function getConfidenceLabel(job: DashboardJob): string {
 
 function buildJobExplanation(job: DashboardJob): string {
   if (!job.hasMatchScore) return 'Run matching with your current profile to see your alignment with this role.';
+  // Prefer the backend's explanation, which cites the resume evidence.
+  if (job.explanation?.trim()) return job.explanation.trim();
   const score = job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : 0;
   const matchedCount = job.matchedSkills.length;
   const missingCount = job.missingSkills.length;
