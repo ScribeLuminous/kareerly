@@ -39,7 +39,13 @@ def load_learning_resources() -> pd.DataFrame:
             return cached.copy()
 
         supabase_df = load_learning_resources_dataframe()
-        if not supabase_df.empty:
+        # Rows that can never be recommended (no provider link, all inactive)
+        # would leave every report without learning resources; use the
+        # bundled catalog instead.
+        if not supabase_df.empty and any(
+            resource_is_reviewed(row) or resource_is_listable(row)
+            for row in supabase_df.to_dict(orient="records")
+        ):
             LEARNING_RESOURCES_SOURCE = "supabase_learning_resources"
             df = supabase_df
         else:

@@ -605,6 +605,30 @@ def skill_tokens(value: Any) -> List[str]:
 # RULE-BASED SCORING
 # ============================================================
 
+# Rows added by hand with curated spellings ("MS Excel", "Adobe Photoshop") in
+# related_skills. Unlike the imported ESCO labels, every one of them is a name
+# people use for exactly that skill, so they identify it like the label does.
+CURATED_SKILL_SOURCE = "workplace_tools_expansion_2026_09"
+
+
+def _curated_aliases(row: Any) -> List[str]:
+    if clean_text(row.get("source_note", "")) != CURATED_SKILL_SOURCE:
+        return []
+    return split_skill_list(row.get("related_skills", ""))
+
+
+@lru_cache(maxsize=1)
+def skill_evidence_phrases() -> Dict[str, List[str]]:
+    """Names that show a taxonomy skill in resume text: its label, plus curated spellings."""
+    phrases: Dict[str, List[str]] = {}
+    for _, row in load_skills_reference().iterrows():
+        skill_id = clean_text(row.get("skill_id", "")).upper()
+        label = clean_text(row.get("skill_name", ""))
+        if skill_id and label:
+            phrases[skill_id] = list(dict.fromkeys([label, *_curated_aliases(row)]))
+    return phrases
+
+
 @lru_cache(maxsize=1)
 def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
     """Canonical IDs and unambiguous, explicitly mapped aliases; no token partial credit."""
@@ -616,7 +640,7 @@ def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
         if not skill_id or not label:
             continue
         labels[skill_id] = label
-        aliases = [label]
+        aliases = [label, *_curated_aliases(row)]
         if clean_text(row.get("mapping_status", "")) == "mapped":
             aliases += [clean_text(row.get("esco_preferred_label", ""))]
             aliases += split_skill_list(row.get("esco_alternative_labels", ""))
@@ -672,15 +696,79 @@ def _skill_key(value: str) -> str:
         key = text.upper()
     else:
         normalized = normalize_for_match(text)
-        key = aliases.get(normalized, "CUSTOM:" + normalized)
+        # "HubSpot CRM" names the taxonomy skill "HubSpot".
+        key = next((aliases[variant] for variant in _phrase_variants(normalized) if variant in aliases),
+            "CUSTOM:" + normalized)
     return skill_id_equivalents().get(key, key)
+
+
+# Trailing words that only say what kind of product a named tool is: an
+# employer asking for "HubSpot CRM" or "Jira software" is asking for HubSpot or
+# Jira, and a resume naming the product holds the requirement.
+TOOL_QUALIFIER_WORDS = {"crm", "software", "platform", "app", "online"}
+# Wording around a skill name in job posts: "Proficiency in Excel",
+# "Strong communication skills", "Salesforce experience".
+LEADING_QUALIFIERS = (
+    "working knowledge of", "hands on experience with", "hands on experience in",
+    "experience with", "experience in", "experience using", "knowledge of",
+    "proficiency in", "proficiency with", "proficient in", "proficient with",
+    "familiarity with", "familiar with", "strong", "excellent",
+)
+TRAILING_QUALIFIER_WORDS = TOOL_QUALIFIER_WORDS | {"skills", "skill", "experience", "knowledge", "proficiency"}
+# Longest run of resume words compared against one requirement without spaces.
+MAX_COMPACT_WORDS = 4
+
+
+def _compact(value: str) -> str:
+    return re.sub(r"[^a-z0-9+#]", "", value)
+
+
+def _phrase_variants(phrase_norm: str) -> List[str]:
+    """The phrase, then shorter forms without the wording around the skill name.
+
+    "Proficiency in MS Excel" also reads as "ms excel"; "HubSpot CRM" as
+    "hubspot". A qualifier is never the whole name.
+    """
+    variants = [phrase_norm]
+    for lead in LEADING_QUALIFIERS:
+        if phrase_norm.startswith(lead + " "):
+            variants.append(phrase_norm[len(lead) + 1:])
+            break
+    words = variants[-1].split()
+    while len(words) > 1 and words[-1] in TRAILING_QUALIFIER_WORDS:
+        words = words[:-1]
+        variants.append(" ".join(words))
+    return list(dict.fromkeys(variant for variant in variants if len(variant) >= 3))
+
+
+@lru_cache(maxsize=8)
+def _compact_word_runs(text_norm: str) -> frozenset:
+    """Runs of up to MAX_COMPACT_WORDS resume words with the spaces removed.
+
+    Spacing and punctuation differ between spellings of one name ("HelpScout"
+    and "Help Scout", "e-commerce" and "ecommerce"). Runs start and end on word
+    boundaries, so "Java" still never matches "JavaScript".
+    """
+    words = [_compact(word) for word in re.split(r"[\s/-]+", text_norm)]
+    words = [word for word in words if word]
+    return frozenset(
+        "".join(words[start:end])
+        for start in range(len(words))
+        for end in range(start + 1, min(start + MAX_COMPACT_WORDS, len(words)) + 1)
+    )
 
 
 def _phrase_in_text(phrase: str, text_norm: str) -> bool:
     phrase_norm = normalize_for_match(phrase)
     if len(phrase_norm) < 3 or not text_norm:
         return False
-    return re.search(r"(?<![a-z0-9+#])" + re.escape(phrase_norm) + r"(?![a-z0-9+#])", text_norm) is not None
+    for variant in _phrase_variants(phrase_norm):
+        if re.search(r"(?<![a-z0-9+#])" + re.escape(variant) + r"(?![a-z0-9+#])", text_norm):
+            return True
+        compact = _compact(variant)
+        if len(compact) >= 5 and compact in _compact_word_runs(text_norm):
+            return True
+    return False
 
 
 def compute_skill_coverage(
@@ -690,9 +778,11 @@ def compute_skill_coverage(
 ) -> Dict[str, Any]:
     """Coverage over canonical skill keys, each requirement counted once.
 
-    Requirements that have no taxonomy ID (custom names or legacy SK_* IDs) can
-    also be met by their exact name appearing in the resume text, because no
-    confirmed skill ID could ever represent them.
+    A requirement can also be met by its name appearing in the resume text:
+    Step 2 confirms at most MAX_CONFIRMED_SKILLS skills, and requirements with
+    no taxonomy ID (custom names or legacy SK_* IDs) have no confirmed ID that
+    could represent them at all. Taxonomy skills are checked by their canonical
+    label only, never by the broad imported aliases.
     """
     labels, _ = canonical_skill_lookup()
     candidates = {_skill_key(value) for value in candidate_skills if clean_text(value)}
@@ -707,7 +797,8 @@ def compute_skill_coverage(
     def held(key: str) -> bool:
         if key in candidates:
             return True
-        return key not in labels and _phrase_in_text(display_skill_name(key, labels, required[key]), text_norm)
+        phrases = skill_evidence_phrases().get(key) or [display_skill_name(key, labels, required[key])]
+        return any(_phrase_in_text(phrase, text_norm) for phrase in phrases)
 
     matched = [key for key in required if held(key)]
     missing = [key for key in required if key not in matched]
@@ -1501,6 +1592,10 @@ def prioritize_skill_gaps(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]
             "frequency": frequency,
             "priority": priority,
             "appears_in_top_matches": frequency,
+            # Share of the compared matches missing the skill, stated here so
+            # clients never have to guess the denominator.
+            "matches_compared": len(matches),
+            "missing_percentage": round(100 * frequency / len(matches), 1),
             "appears_in_fit_now": item["appears_in_fit_now"],
             "appears_in_aspiration": item["appears_in_aspiration"],
         })
