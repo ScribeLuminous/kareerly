@@ -13,8 +13,6 @@ from typing import Dict, List, Any, Tuple, Optional
 
 import numpy as np
 import pandas as pd
-from pypdf import PdfReader
-from docx import Document
 
 from .learning_recommender import (
     get_learning_resources_source,
@@ -34,6 +32,7 @@ from .match_scoring import (
     match_reason,
     score_match,
 )
+from .resume_parser import extract_text_from_docx as parse_docx_text, extract_text_from_pdf as parse_pdf_text
 from .skill_extractor import SkillExtractor
 from .supabase_jobs import load_internal_jobs_dataframe
 
@@ -239,32 +238,12 @@ def job_career_area(job: Dict[str, Any]) -> str:
 # ============================================================
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
-    reader = PdfReader(io.BytesIO(file_bytes))
-    pages = []
-
-    for page in reader.pages:
-        try:
-            page_text = page.extract_text() or ""
-            pages.append(page_text)
-        except Exception:
-            continue
-
-    return clean_text(repair_letter_spaced_text(" ".join(pages)))
+    return clean_text(repair_letter_spaced_text(parse_pdf_text(io.BytesIO(file_bytes))))
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
-    document = Document(io.BytesIO(file_bytes))
-    paragraphs = [p.text for p in document.paragraphs if p.text]
-
-    # Also read tables if present
-    table_texts = []
-    for table in document.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                if cell.text:
-                    table_texts.append(cell.text)
-
-    return clean_text(repair_letter_spaced_text(" ".join(paragraphs + table_texts)))
+    # The same reader as the Step 1 analyzer, so both routes see identical text.
+    return clean_text(repair_letter_spaced_text(parse_docx_text(io.BytesIO(file_bytes))))
 
 
 def extract_resume_text(file_bytes: bytes, filename: str) -> str:
