@@ -24,6 +24,66 @@ bash backend/dev_server.sh logs
 bash backend/dev_server.sh stop
 ```
 
+## Resume file reading (PDF, DOCX, DOC, scanned resumes)
+
+`POST /api/resume/analyze` (Step 1) and `POST /api/matches/from-resume` read an
+upload through `app/services/resume_parser.py::extract_resume_document`, so both
+see the same text:
+
+| Format | How it is read |
+| --- | --- |
+| PDF with a text layer | pypdf; pages with two or three columns (found from word boxes with pdfplumber) are read column by column (`pdf_layout.py`). |
+| Scanned / image-only PDF | Pages with almost no text are rendered (pypdfium2) and read with **tesseract OCR** (`ocr.py`). A failed or unavailable OCR returns a warning, never guessed skills. |
+| DOCX | Body, headers, footers, tables, content controls, text boxes (the VML fallback copy is skipped), SmartArt (data part only) and, with OCR, text inside embedded images not already in the document. |
+| DOC (Word 97-2003) | Converted by **LibreOffice** to DOCX when installed, otherwise read by **antiword**; both run in a private temporary folder with a timeout. |
+
+Skill names a PDF split into pieces ("Sales force", "Quick Books", "Zen" + line
+break + "desk") are rejoined only when the result is a known skill name and the
+capitalisation fits (`split_words.py`); prose such as "a sales force of 12" is
+left alone.
+
+Limits: 5MB per file, 15 pages read, OCR on at most 5 pages (25s each, 60s per
+resume, two OCR jobs at a time), six DOCX images, 45s per `.doc` conversion,
+60,000 characters of text. Uploads are read in memory; nothing is written to
+disk except the `.doc` converter's input, which is deleted straight away.
+
+### System packages
+
+OCR and `.doc` support need programs outside pip. `backend/Dockerfile` installs
+`tesseract-ocr`, `tesseract-ocr-eng` and `antiword`; build with
+`--build-arg INSTALL_LIBREOFFICE=1` to add LibreOffice Writer (about 300MB) for
+better `.doc` fidelity and very short `.doc` files antiword refuses. Locally:
+
+```bash
+sudo apt-get install tesseract-ocr tesseract-ocr-eng antiword   # Debian/Ubuntu
+brew install tesseract antiword                                  # macOS
+```
+
+A Render **native Python** service cannot install these packages. Deploy the
+backend as a Render **Docker** service using `backend/Dockerfile` to get OCR and
+`.doc` support; without them the backend still starts, text-based PDF and DOCX
+work as before, and scanned PDFs or `.doc` uploads get a clear message asking
+for a text-based PDF or DOCX. `GET /api/health/config` reports which readers are
+available under `resume_readers`.
+
+Optional settings: `KAREERLY_TESSERACT_CMD`, `KAREERLY_SOFFICE_CMD`,
+`KAREERLY_ANTIWORD_CMD` (explicit program paths), `KAREERLY_OCR_LANGUAGES`
+(default `eng`; install the matching `tesseract-ocr-*` package),
+`KAREERLY_OCR_MAX_CONCURRENT` and `KAREERLY_DOC_MAX_CONCURRENT` (default 2).
+
+Test fixtures for every format are in `tests/fixtures/resumes/`; rebuild them
+with `python -m backend.tests.fixtures.resumes.build_fixtures`.
+
+### Resumes analysed before this reader
+
+Signed-in candidates' original files are kept in the private `resumes` storage
+bucket. A saved analysis records `extraction.parser_version`; when it is missing
+or older, the dashboard says the skills come from an earlier analysis and offers
+**Re-scan saved resume** (the file is downloaded through the candidate's own
+session and re-analysed; the new analysis points at the same stored file, so no
+second copy is made). When no stored file is found (guest uploads, or rows from
+before files were kept), it asks the candidate to upload the resume again.
+
 ## Resume Matching Endpoint
 
 The only active FastAPI entry point is `backend/app/main.py`.
@@ -41,7 +101,7 @@ Manual check for the resume-based matching flow:
    bash backend/dev_server.sh start
    ```
 2. Open `/docs` and find `POST /api/matches/from-resume`.
-3. Upload a readable PDF or DOCX resume.
+3. Upload a PDF, DOCX or DOC resume (scanned PDFs are read with OCR).
 4. Provide `preferences` as JSON, for example:
    ```json
    {
@@ -88,7 +148,7 @@ Artifacts live in `backend/baseline_models/`. This implementation is retained fo
 
 The baseline includes:
 
-- Resume parsing: PDF and DOCX
+- Resume parsing: PDF (text layer, multi-column, OCR for scans), DOCX and DOC
 - Skill extraction using alias matching from `backend/data/skills_reference.csv`
 - TF-IDF vectorization + cosine similarity for resume-job text matching
 - Exact skill-ID coverage for candidate vs required skills

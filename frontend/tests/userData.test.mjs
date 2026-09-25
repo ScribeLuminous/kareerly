@@ -104,3 +104,56 @@ test('an older resume\'s matches are skipped; only rows without a resume id are 
     delete globalThis.userDataTestSupabase;
   }
 });
+
+test('re-scanning a stored resume saves the new analysis without a second copy of the file', async () => {
+  const uploads = [];
+  const removed = [];
+  const inserted = [];
+  const stub = (rowError) => ({
+    storage: {
+      from: () => ({
+        upload: async (path) => { uploads.push(path); return { error: null }; },
+        remove: async (paths) => { removed.push(...paths); return { error: null }; },
+      }),
+    },
+    from: (table) => ({
+      insert: (row) => {
+        if (table !== 'resumes') return Promise.resolve({ error: null });
+        inserted.push(row);
+        return { select: () => ({ single: async () => (rowError ? { data: null, error: { message: rowError } } : { data: { id: 'resume-2' }, error: null }) }) };
+      },
+    }),
+  });
+  const existingFile = { bucket: 'resumes', path: 'candidate-1/old.pdf', name: 'old.pdf', mimeType: 'application/pdf', size: 1234 };
+  const input = {
+    userId: 'candidate-1',
+    fileName: 'old.pdf',
+    file: new File(['resume'], 'old.pdf', { type: 'application/pdf' }),
+    existingFile,
+    analysis: { normalized_for_matching: { resume_text_for_matching: 'Zendesk' }, candidate_profile: { skills: [] } },
+  };
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    globalThis.userDataTestSupabase = stub(null);
+    const saved = await (await importFresh()).saveResumeAnalysis(input);
+    assert.equal(saved, 'resume-2');
+    assert.deepEqual(uploads, []);
+    assert.equal(inserted[0].storage_path, 'candidate-1/old.pdf');
+    assert.equal(inserted[0].file_size_bytes, 6);
+
+    // A failed save must never delete the stored original.
+    globalThis.userDataTestSupabase = stub('permission denied');
+    await assert.rejects((await importFresh()).saveResumeAnalysis(input), /permission denied/);
+    assert.deepEqual(removed, []);
+
+    // Another user's path is never reused; the file is uploaded to this user's folder instead.
+    globalThis.userDataTestSupabase = stub(null);
+    await (await importFresh()).saveResumeAnalysis({ ...input, existingFile: { ...existingFile, path: 'someone-else/old.pdf' } });
+    assert.equal(uploads.length, 1);
+    assert.match(uploads[0], /^candidate-1\//);
+  } finally {
+    console.warn = originalWarn;
+    delete globalThis.userDataTestSupabase;
+  }
+});

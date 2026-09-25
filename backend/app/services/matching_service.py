@@ -32,7 +32,14 @@ from .match_scoring import (
     match_reason,
     score_match,
 )
-from .resume_parser import extract_text_from_docx as parse_docx_text, extract_text_from_pdf as parse_pdf_text
+from .resume_parser import (
+    SUPPORTED_RESUME_EXTENSIONS,
+    ResumeFileError,
+    extract_docx_document,
+    extract_pdf_document,
+    extract_resume_document,
+    resume_extension,
+)
 from .skill_extractor import SkillExtractor
 from .supabase_jobs import load_internal_jobs_dataframe
 from . import taxonomy_additions
@@ -289,27 +296,37 @@ def job_career_area(job: Dict[str, Any]) -> str:
 # ============================================================
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
-    return clean_text(repair_letter_spaced_text(parse_pdf_text(io.BytesIO(file_bytes))))
+    return clean_text(repair_letter_spaced_text(extract_pdf_document(file_bytes).text))
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
     # The same reader as the Step 1 analyzer, so both routes see identical text.
-    return clean_text(repair_letter_spaced_text(parse_docx_text(io.BytesIO(file_bytes))))
+    return clean_text(repair_letter_spaced_text(extract_docx_document(file_bytes).text))
 
 
 def extract_resume_text(file_bytes: bytes, filename: str) -> str:
-    filename_lower = filename.lower()
+    """Text of an uploaded resume, read exactly as Step 1 reads it (OCR, columns, .doc, split words)."""
+    if resume_extension(filename) not in SUPPORTED_RESUME_EXTENSIONS:
+        raise ValueError("Unsupported file format. Please upload a readable PDF, DOCX or DOC file.")
 
-    if filename_lower.endswith(".pdf"):
-        text = extract_text_from_pdf(file_bytes)
-    elif filename_lower.endswith(".docx"):
-        text = extract_text_from_docx(file_bytes)
-    else:
-        raise ValueError("Unsupported file format. Please upload a readable PDF or DOCX file.")
+    extractor = current_skill_extractor()
+    try:
+        extraction = extract_resume_document(
+            file_bytes,
+            filename,
+            split_word_vocabulary=extractor.split_word_vocabulary(),
+            known_phrases=extractor.known_phrases(),
+        )
+    except ResumeFileError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"Could not read the resume file: {exc}") from exc
+    text = clean_text(repair_letter_spaced_text(extraction.text))
 
     if len(text) < 50:
+        detail = " ".join(extraction.warnings)
         raise ValueError(
-            "The resume text is too short or unreadable. Please upload a clearer PDF or DOCX resume."
+            detail or "The resume text is too short or unreadable. Please upload a clearer PDF, DOCX or DOC resume."
         )
 
     return text
@@ -877,6 +894,12 @@ def _compact_word_runs(text_norm: str) -> frozenset:
     )
 
 
+@lru_cache(maxsize=8)
+def _compact_tokens(text_norm: str) -> frozenset:
+    """Each space-separated resume word with hyphens and slashes removed ("e-commerce" -> "ecommerce")."""
+    return frozenset(word for word in (_compact(token) for token in text_norm.split()) if word)
+
+
 def _phrase_in_text(phrase: str, text_norm: str) -> bool:
     phrase_norm = normalize_for_match(phrase)
     if len(phrase_norm) < 3 or not text_norm:
@@ -885,7 +908,17 @@ def _phrase_in_text(phrase: str, text_norm: str) -> bool:
         if re.search(r"(?<![a-z0-9+#])" + re.escape(variant) + r"(?![a-z0-9+#])", text_norm):
             return True
         compact = _compact(variant)
-        if len(compact) >= 5 and compact in _compact_word_runs(text_norm):
+        if len(compact) < 5:
+            continue
+        # A name written as several words ("Help Scout") may appear as one
+        # ("HelpScout"), and the reverse for hyphens ("ecommerce"/"e-commerce").
+        # A one-word name is never assembled from separate words: "a sales
+        # force" is not Salesforce. Words a PDF split inside a skill name are
+        # rejoined, with capitalisation checks, when the resume is read.
+        if len(re.split(r"[\s/-]+", variant)) > 1:
+            if compact in _compact_word_runs(text_norm):
+                return True
+        elif compact in _compact_tokens(text_norm):
             return True
     return False
 
