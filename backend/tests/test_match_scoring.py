@@ -24,6 +24,23 @@ class ClassificationTests(unittest.TestCase):
     def score(self, cosine, required, preferred=NONE, critical=0, in_area=None):
         return scoring.score_match(cosine, required, preferred, critical, THRESHOLDS, in_preferred_career_area=in_area)
 
+    def test_a_role_the_resume_names_passes_the_similarity_floor_but_not_the_skill_bar(self):
+        below_floor = scoring.FIT_NOW_MIN_SEMANTIC - 0.01
+        self.assertNotEqual(self.score(below_floor, evidence(4, 1)).match_category, scoring.FIT_NOW)
+        held = scoring.score_match(below_floor, evidence(4, 1), NONE, 0, THRESHOLDS, role_held=True)
+        self.assertEqual(held.match_category, scoring.FIT_NOW)
+        self.assertEqual(held.failed_fit_now_rules, [])
+        # Holding the title never replaces the 75% required-skill coverage.
+        short = scoring.score_match(below_floor, evidence(2, 2), NONE, 0, THRESHOLDS, role_held=True)
+        self.assertEqual(short.failed_fit_now_rules, ["required_skill_coverage"])
+
+    def test_the_resume_names_a_role_only_by_its_full_title(self):
+        resume = "Executive Assistant | Wing Assistant | Dec 2022 - Nov 2023. Customer Support Specialist."
+        self.assertTrue(matching.resume_names_role("Executive Assistant", resume))
+        self.assertTrue(matching.resume_names_role("Customer Support Specialist (Voice)", resume))
+        self.assertFalse(matching.resume_names_role("Assistant", resume))
+        self.assertFalse(matching.resume_names_role("Executive Chef", resume))
+
     def test_module_documents_the_fit_now_coverage_threshold(self):
         # The docstring said "at least half" after the bar moved to 75%.
         self.assertEqual(scoring.FIT_NOW_MIN_REQUIRED_COVERAGE, 0.75)

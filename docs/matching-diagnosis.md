@@ -596,3 +596,49 @@ Training, entry level, 100% remote and PHP 15–35k, every one of the 12
 Education jobs in the bundled catalogue is on-site, hybrid or field-based, so
 strict filtering left the Aspiration list empty. Ranking keeps all 12 and puts
 the best fits first.
+
+## Executive assistant report, Construction area (2026-09-26)
+
+A guest report for an executive and administrative assistant resume listed
+three customer-success and sales jobs as Aspiration under both
+"Communications & Creative Media" and "Construction & Maintenance", no
+Fit-Now job, and no learning resources.
+
+1. **The live backend predated PR #53.** Its explanation text ("partial
+   alignment with your background and career direction") was removed there.
+   With the current code, the same resume and area return the five
+   Construction and Skilled Trades jobs as Aspiration and learning resources
+   for their gaps. Redeploy Cloud Run (`backend/README.md`).
+2. **Supabase jobs with grouped category labels had no career area.**
+   `internal_jobs.category_name` holds labels such as
+   "Sales/Marketing/Customer" that name no K01-K24 category, so the job's
+   area was unknown and Aspiration fell back to the resume rule under any
+   area. `job_career_area` now reads such labels as words; a label spanning
+   several areas ("Engineering/Trades/Operations", "Tech/Business/Finance")
+   is settled by the subcategory, then by which area's reference jobs the
+   title and description read most like (TF-IDF centroids of
+   `reference_jobs.csv`). A job with no category is still unknown.
+3. **Administrative wording was not evidence.** "Administrative support",
+   "Inbox & Email Management", "Document & Records Organization", "customer
+   communications" and "Client & Patient Coordination" now show Office
+   Administration, Perform clerical duties, Business Communication and
+   Client Handling through reviewed rows in `skill_evidence_relations.csv`.
+   Executive Assistant (JOB-025) goes from 1 of 5 to 4 of 5 required skills;
+   Event Coordination stays missing.
+4. **The resume's own job title failed the similarity floor.** The
+   bi-encoder scored Executive Assistant at 0.295 against a resume headed
+   "Executive & Administrative Assistant". The floor only rules out
+   unrelated roles, so a job whose full title (two or more words) the resume
+   names now passes it; the 75% skill coverage rule still applies.
+
+Result on the bundled catalogue: Fit-Now is Customer Service
+Representative, Account Executive and Executive Assistant; Aspiration is the
+five construction jobs; 14 learning resources.
+
+**Learning resources from Supabase.** The read policy only showed rows whose
+`status` is exactly `active`, while the catalogue uses `Active`,
+`Active/Review` and `Generated - Review Needed`, so pushed rows were invisible
+to the backend (anon key). Migration `20260926090000_learning_resources_read_policy.sql`
+hides only inactive statuses, in any case. `backend/scripts/load_learning_resources.py`
+upserts the catalogue and reports how many rows the backend can read and
+recommend; LR-003 has no title and is skipped.
