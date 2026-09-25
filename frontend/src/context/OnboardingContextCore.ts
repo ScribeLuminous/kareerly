@@ -18,6 +18,8 @@ export interface OnboardingContextType {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   reset: () => void;
+  // Brings back a guest's report kept in browser storage; false when there is none.
+  restoreGuestReport: () => boolean;
 }
 
 export const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);

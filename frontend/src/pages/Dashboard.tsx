@@ -62,7 +62,7 @@ import { cleanSkillLabel } from '../lib/skillLabels';
 import { careerAreaOptions, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
-import { loadLatestMatchHistory, loadLatestResume, saveMatchHistory, saveResumeAnalysis, type ExistingResumeFile, type SavedResumeRecord } from '../lib/userData';
+import { loadLatestMatchRun, loadLatestResume, saveMatchHistory, saveResumeAnalysis, type ExistingResumeFile, type SavedResumeRecord } from '../lib/userData';
 import { assessSavedResume, extractionWarnings, RESUME_FILE_ACCEPT, staleResumeMessage, type SavedResumeFreshness } from '../lib/resumeFreshness';
 import type { DevelopmentProgressRecord, LearningRecommendation as RunLearningRecommendation } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
@@ -1559,8 +1559,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const restoredSkills = extractSkillsFromResume(analysis.parsedResume);
       if (restoredSkills.length > 0) setSkillNames(restoredSkills);
 
-      const savedMatches = await loadLatestMatchHistory({ userId: currentUser.id, resumeId: latestResume.id });
-      if (isMounted && savedMatches) setMatchResults(savedMatches);
+      const savedRun = await loadLatestMatchRun({ userId: currentUser.id, resumeId: latestResume.id });
+      if (!isMounted || !savedRun) return;
+      setMatchResults(savedRun.results);
+      if (savedRun.preferences && !state.surveyAnswers) setSurveyAnswers(savedRun.preferences);
     })();
 
     return () => {

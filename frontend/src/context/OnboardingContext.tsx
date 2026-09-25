@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { OnboardingState, SelectedSkill } from '../types';
 import { OnboardingContext } from './OnboardingContextCore';
 import type { OnboardingContextType } from './OnboardingContextCore';
+import { readGuestOnboarding } from '../lib/guestOnboarding';
 
 type AnalysisResults = NonNullable<OnboardingState['results']>;
 const CONFIRMED_SKILL_LIMIT = 20;
@@ -22,8 +23,33 @@ const initialState: OnboardingState = {
   savedResumeId: null,
 };
 
+// A guest's report kept across a reload or the email-confirmation tab, so it can
+// be saved once they sign up or log in (see App).
+function restoredGuestState(): OnboardingState {
+  const guest = readGuestOnboarding();
+  if (!guest) return initialState;
+  return {
+    ...initialState,
+    step: guest.matchResults ? 4 : 2,
+    resumeFile: guest.file,
+    resumeAnalysis: guest.analysis,
+    selectedSkills: guest.selectedSkills.slice(0, CONFIRMED_SKILL_LIMIT),
+    surveyAnswers: guest.surveyAnswers,
+    matchResults: guest.matchResults || undefined,
+    limitedReport: guest.matchResults?.limited_report,
+    resume: {
+      skills: (guest.analysis.candidate_profile?.skills || []).slice(0, CONFIRMED_SKILL_LIMIT).map((skill) => ({ name: skill.skill_name })),
+      education: [],
+      experience: [],
+      normalized_for_matching: {
+        resume_text_for_matching: guest.analysis.normalized_for_matching?.resume_text_for_matching || '',
+      },
+    },
+  };
+}
+
 export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = useState<OnboardingState>(initialState);
+  const [state, setState] = useState<OnboardingState>(restoredGuestState);
 
   const setResumeFile = useCallback((file: File | null) => {
     setState(prev => ({
@@ -127,6 +153,13 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
     setState(initialState);
   }, []);
 
+  const restoreGuestReport = useCallback(() => {
+    const restored = restoredGuestState();
+    if (!restored.resumeAnalysis) return false;
+    setState(restored);
+    return true;
+  }, []);
+
   const value: OnboardingContextType = {
     state,
     setResumeFile,
@@ -142,6 +175,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
     setLoading,
     setError,
     reset,
+    restoreGuestReport,
   };
 
   return (
