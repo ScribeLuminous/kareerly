@@ -24,6 +24,12 @@ class ClassificationTests(unittest.TestCase):
     def score(self, cosine, required, preferred=NONE, critical=0, in_area=None):
         return scoring.score_match(cosine, required, preferred, critical, THRESHOLDS, in_preferred_career_area=in_area)
 
+    def test_module_documents_the_fit_now_coverage_threshold(self):
+        # The docstring said "at least half" after the bar moved to 75%.
+        self.assertEqual(scoring.FIT_NOW_MIN_REQUIRED_COVERAGE, 0.75)
+        self.assertIn("at least 75%", scoring.__doc__)
+        self.assertNotIn("at least half", scoring.__doc__)
+
     def test_strong_match_is_fit_now(self):
         result = self.score(0.62, evidence(4, 1))
         self.assertEqual(result.match_category, scoring.FIT_NOW)

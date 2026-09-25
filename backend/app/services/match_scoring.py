@@ -22,7 +22,8 @@ nor rejected for missing skill data.
 Categories:
 
 * Fit-Now     - decided by the resume alone: required skills are listed, the
-                candidate's resume skills cover at least half of them, the role
+                candidate's resume skills cover at least 75% of them
+                (FIT_NOW_MIN_REQUIRED_COVERAGE), the role
                 is at least related to the resume and no explicitly critical
                 skill is missing. Career preferences never affect it.
 * Aspiration  - decided by the Step 3 career preferences: a job that is not

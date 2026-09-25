@@ -398,6 +398,8 @@ export interface JobMatchRunResults {
   all_fit_now_matches?: MatchResultItem[];
   all_aspiration_matches?: MatchResultItem[];
   total_qualifying_matches?: number | string;
+  /** Distinct skill gaps across the compared matches; skill_gaps lists at most eight of them. */
+  total_skill_gap_count?: number;
   skill_gaps: PrioritizedSkillGap[];
   learning_recommendations: LearningRecommendation[];
   access_control: MatchAccessControl;
