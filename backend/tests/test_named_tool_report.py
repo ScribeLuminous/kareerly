@@ -204,15 +204,14 @@ class ReportRegressionTests(unittest.TestCase):
         for area in by_area:
             for job_id, pair in skills[area].items():
                 self.assertEqual(pair, skills["sales-marketing-customer-service"][job_id], (area, job_id))
-        # Jobs related to the resume that share skills with it are Aspiration
-        # under any area. The chosen area adds relevance for a job the resume is
-        # less similar to (Account Manager, 0.18), never for one sharing no skill.
-        # The job whose posting lists no skills cannot show a bridge: neither list.
-        self.assertEqual({item["job_id"] for item in by_area["engineering-trades-operations"]["all_aspiration_matches"]},
-            {"KJ-0029", "saas", "KJ-0027"})
+        # Aspiration follows the chosen area: the saved legacy "Engineering,
+        # Trades & Operations" area holds none of these jobs, so the list is
+        # empty (the uncategorised job lists no skills, so the resume rule that
+        # applies to it cannot recommend it either). Choosing sales and customer
+        # service lists every such job that is not Fit-Now, shared skills or not.
+        self.assertEqual(by_area["engineering-trades-operations"]["all_aspiration_matches"], [])
         self.assertEqual({item["job_id"] for item in by_area["sales-marketing-customer-service"]["all_aspiration_matches"]},
             {"KJ-0029", "saas", "KJ-0027", "KJ-0025"})
-
 
 class RelatedEvidenceTests(unittest.TestCase):
     def test_named_crm_tools_show_crm_software_use_one_way(self):
