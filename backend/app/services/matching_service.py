@@ -36,6 +36,8 @@ from .match_scoring import (
 )
 from .skill_extractor import SkillExtractor
 from .supabase_jobs import load_internal_jobs_dataframe
+from . import taxonomy_additions
+from ..learning.ranking_model import BASELINE_VERSION, active_ranker, rank_category
 
 # ============================================================
 # CONFIG
@@ -323,8 +325,21 @@ def safe_read_csv(path: str) -> pd.DataFrame:
 
 
 @lru_cache(maxsize=1)
+def _load_base_skills_reference() -> pd.DataFrame:
+    return safe_read_csv(SKILLS_REFERENCE_PATH)
+
+
+@lru_cache(maxsize=1)
 def load_skills_reference() -> pd.DataFrame:
-    skills = safe_read_csv(SKILLS_REFERENCE_PATH)
+    """skills_reference.csv plus approved taxonomy additions (taxonomy_additions.py)."""
+    base = _load_base_skills_reference()
+    additions = _taxonomy_state["additions"]
+    if additions:
+        skills = pd.DataFrame(taxonomy_additions.merge_reference_rows(base.to_dict(orient="records"), additions)).fillna("")
+    else:
+        skills = base.copy()
+    if taxonomy_additions.APPROVED_ALIASES_FIELD not in skills.columns:
+        skills[taxonomy_additions.APPROVED_ALIASES_FIELD] = ""
 
     if "category_id" in skills.columns:
         skills["category_id_norm"] = skills["category_id"].apply(normalize_category_id)
@@ -466,6 +481,7 @@ def build_skill_alias_index(skills_df: pd.DataFrame) -> List[Dict[str, Any]]:
         "esco_preferred_label",
         "esco_alternative_labels",
         "skill_name",
+        taxonomy_additions.APPROVED_ALIASES_FIELD,
     ]
 
     for col in possible_alias_cols:
@@ -531,7 +547,33 @@ def get_skill_alias_index_cached() -> Tuple[List[Dict[str, Any]], str]:
 
 @lru_cache(maxsize=1)
 def get_weighted_skill_extractor() -> SkillExtractor:
-    return SkillExtractor(SKILLS_REFERENCE_PATH)
+    return SkillExtractor(SKILLS_REFERENCE_PATH, extra_rows=_taxonomy_state["additions"])
+
+
+# Approved additions currently merged into the cached taxonomy. When the approved
+# set changes, every cache derived from the taxonomy is rebuilt on next use.
+_taxonomy_state: Dict[str, Any] = {"fingerprint": None, "additions": []}
+_taxonomy_lock = threading.Lock()
+
+
+def ensure_taxonomy_current() -> None:
+    additions = taxonomy_additions.active_additions()
+    fingerprint = taxonomy_additions.fingerprint(additions)
+    with _taxonomy_lock:
+        if fingerprint == _taxonomy_state["fingerprint"]:
+            return
+        _taxonomy_state.update(fingerprint=fingerprint, additions=additions)
+        for cache in (load_skills_reference, get_skill_alias_index_cached, get_weighted_skill_extractor,
+                canonical_skill_lookup, skill_id_equivalents, get_skill_labels_by_id, get_skill_categories_by_id):
+            cache.cache_clear()
+    if additions:
+        logger.info("Skill taxonomy includes %d approved additions", len(additions))
+
+
+def current_skill_extractor() -> SkillExtractor:
+    """The weighted extractor over the current taxonomy, for search and extraction."""
+    ensure_taxonomy_current()
+    return get_weighted_skill_extractor()
 
 
 def extract_skills_from_text(text: str, max_skills: int = 30) -> List[Dict[str, Any]]:
@@ -620,6 +662,8 @@ def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
         if clean_text(row.get("mapping_status", "")) == "mapped":
             aliases += [clean_text(row.get("esco_preferred_label", ""))]
             aliases += split_skill_list(row.get("esco_alternative_labels", ""))
+        # Aliases approved by a reviewer through skill discovery.
+        aliases += split_skill_list(row.get(taxonomy_additions.APPROVED_ALIASES_FIELD, ""))
         for alias in aliases:
             normalized = normalize_for_match(alias)
             if normalized:
@@ -1032,6 +1076,7 @@ def _prepare_candidate_context(
     confirmed_skills: Optional[List[Any]] = None,
 ) -> tuple[str, List[Dict[str, Any]], List[str], List[str]]:
     """Prepare the same candidate evidence for internal and external jobs."""
+    ensure_taxonomy_current()
     resume_text = clean_text(resume_text)
     if not resume_text:
         raise ValueError("No readable resume text was provided for matching.")
@@ -1306,32 +1351,19 @@ def match_text_to_jobs(
 
     results_df = pd.DataFrame(results)
 
-    if results_df.empty:
-        fit_now_matches = []
-        aspiration_matches = []
-    else:
-        # Low Match jobs are scored (see debug_summary) but never recommended.
-        ranking = ["match_score", "semantic_score_raw", "skill_coverage", "preference_alignment", "learning_readiness", "job_id"]
-        order = [False, False, False, False, False, True]
-        all_fit_now_matches = (
-            results_df[results_df["match_type"] == FIT_NOW]
-            .sort_values(ranking, ascending=order, kind="stable")
-            .to_dict(orient="records")
-        )
-        # Aspiration is chosen by preferences, so the jobs closest to all of
-        # them come first; the resume comparison orders the rest.
-        aspiration_ranking = ["preference_alignment", *ranking]
-        all_aspiration_matches = (
-            results_df[results_df["match_type"] == ASPIRATION]
-            .sort_values(aspiration_ranking, ascending=[False, *order], kind="stable")
-            .to_dict(orient="records")
-        )
-        fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
-        aspiration_matches = all_aspiration_matches[:TOP_ASPIRATION]
-
-    if results_df.empty:
-        all_fit_now_matches = []
-        all_aspiration_matches = []
+    # Low Match jobs are scored (see debug_summary) but never recommended.
+    # Categories are final here; the ranker only orders jobs inside each list:
+    # Fit-Now by match score, Aspiration by preference alignment then match
+    # score (shared tie-breakers after). An active feedback model adds a
+    # bounded adjustment to that primary key; see learning/ranking_model.py.
+    ranker = active_ranker()
+    all_fit_now_matches = rank_category([item for item in results if item["match_type"] == FIT_NOW], FIT_NOW, ranker)
+    all_aspiration_matches = rank_category(
+        [item for item in results if item["match_type"] == ASPIRATION], ASPIRATION, ranker)
+    applied_ranker_version = next(
+        (item["ranker_version"] for item in all_fit_now_matches + all_aspiration_matches), ranker.version)
+    fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
+    aspiration_matches = all_aspiration_matches[:TOP_ASPIRATION]
 
     prioritized_gaps = prioritize_skill_gaps(fit_now_matches + aspiration_matches)
     for gap in prioritized_gaps:
@@ -1408,8 +1440,13 @@ def match_text_to_jobs(
         "metadata": {
             "semantic_scoring_methods": scoring_methods,
             "model_version": MODEL_ID,
-            "ranking_signal": "composite_match_score",
+            "ranking_signal": "composite_match_score" if applied_ranker_version == BASELINE_VERSION
+                else "composite_match_score_with_feedback_adjustment",
+            "ranker_version": applied_ranker_version,
+            "ranker_fallback_reason": ranker.fallback_reason
+                or ("ranker_error" if applied_ranker_version == BASELINE_VERSION and not ranker.is_baseline else ""),
             "score_interpretation": "Weighted semantic similarity and skill coverage percentage, not hiring probability",
+            "ranking_interpretation": "Order within Fit-Now and Aspiration may include a small adjustment learned from candidates' good/bad match ratings; it never moves a job between lists and does not change the percentage.",
             "fit_now_rules": {
                 "min_cosine": thresholds.fit_now_min_semantic,
                 "min_skill_coverage": thresholds.fit_now_min_required_coverage,

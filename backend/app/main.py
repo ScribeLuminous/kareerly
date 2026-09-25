@@ -5,6 +5,7 @@ import logging
 import base64
 import copy
 import hashlib
+import hmac
 from io import BytesIO
 import os
 import re
@@ -34,9 +35,13 @@ from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
-from .services.matching_service import MatchingModelUnavailable, match_resume_to_jobs, match_text_to_jobs, match_jobs, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, match_resume_to_jobs, match_text_to_jobs, match_jobs, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_file
-from .services.skill_extractor import SkillExtractor
+from .learning import ranking_training, skill_discovery
+from .learning.feedback import HISTORY_ROWS_SEARCHED, HISTORY_SELECT, JOB_SOURCES, VOTES, find_match_context
+from .learning.jobs import run_all as run_learning_jobs
+from .learning.ranking_model import clear_ranker_cache
+from .learning.supabase_client import SupabaseError, SupabaseRest
 
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -68,7 +73,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-skill_extractor = SkillExtractor()
 MAX_CONFIRMED_SKILLS = 20
 MAX_SAVED_EXTERNAL_JOB_MATCHES = 5
 MAX_SAVED_EXTERNAL_JOB_RESULT_BYTES = 120_000
@@ -128,6 +132,29 @@ class CandidateAccountSettingsRequest(BaseModel):
     degree_program: Optional[str] = None
     school_university: Optional[str] = None
     year_graduated: Optional[str] = None
+
+
+class MatchFeedbackRequest(BaseModel):
+    job_id: str
+    job_source: str = "internal"
+    vote: str
+
+
+class LearningRunRequest(BaseModel):
+    job: str = "all"
+    dry_run: bool = False
+
+
+class RankingRollbackRequest(BaseModel):
+    target_version: Optional[str] = None
+
+
+class SkillCandidateReviewRequest(BaseModel):
+    action: str
+    skill_id: Optional[str] = None
+    label: Optional[str] = None
+    category_id: Optional[str] = None
+    note: Optional[str] = None
 
 
 class AdminResetApplicationRequest(BaseModel):
@@ -1006,10 +1033,12 @@ def search_skills(q: str = "", limit: int = 20) -> dict:
             return 60
         return 0
 
-    for row in skill_extractor.rows:
+    # Includes approved taxonomy additions, so employers and candidates can pick
+    # a newly approved skill without a code change.
+    for row in current_skill_extractor().rows:
         skill_name = row.get("skill_name", "").strip()
         preferred_label = (row.get("esco_preferred_label", "") or skill_name).strip()
-        alt_labels = row.get("esco_alternative_labels", "")
+        alt_labels = ";".join(filter(None, [row.get("esco_alternative_labels", ""), row.get("approved_aliases", "")]))
         related_skills = row.get("related_skills", "")
         skill_id = row.get("skill_id", "")
 
@@ -1402,10 +1431,12 @@ async def analyze_resume(
         with open(file_path, "wb") as buffer:
             buffer.write(file_bytes)
 
+        # Includes approved taxonomy additions; may refresh them from Supabase.
+        extractor = await run_in_threadpool(current_skill_extractor)
         result = await run_in_threadpool(
             analyze_resume_file,
             file_path=str(file_path),
-            skill_extractor=skill_extractor,
+            skill_extractor=extractor,
         )
 
         logger.info(
@@ -1978,6 +2009,209 @@ def mark_candidate_notification_read(notification_id: str, authorization: Annota
     if not isinstance(rows, list) or not rows:
         raise HTTPException(status_code=404, detail="Notification was not found.")
     return rows[0]
+
+
+# ---------------------------------------------------------------------------
+# Match feedback and learning (docs/feedback-learning.md)
+# ---------------------------------------------------------------------------
+
+def _require_user_session(authorization: str | None) -> tuple[str, str]:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Sign in to rate job matches.")
+    return user_id, authorization.split(" ", 1)[1].strip()
+
+
+def _validated_feedback_target(job_id: str, job_source: str) -> tuple[str, str]:
+    job_id = (job_id or "").strip()
+    job_source = (job_source or "internal").strip().lower()
+    if not job_id or len(job_id) > 200:
+        raise HTTPException(status_code=422, detail="A job ID is required.")
+    if job_source not in JOB_SOURCES:
+        raise HTTPException(status_code=422, detail="Unknown job source.")
+    return job_id, job_source
+
+
+def _public_feedback(row: dict) -> dict:
+    return {
+        "job_id": row.get("job_id"),
+        "job_source": row.get("job_source") or "internal",
+        "vote": "good" if row.get("vote") == 1 else "bad",
+        "updated_at": row.get("updated_at"),
+    }
+
+
+@app.get("/api/candidate/match-feedback")
+def list_match_feedback(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    user_id, token = _require_user_session(authorization)
+    query = urllib.parse.urlencode({
+        "user_id": f"eq.{user_id}", "select": "job_id,job_source,vote,updated_at",
+        "order": "updated_at.desc", "limit": "1000",
+    })
+    rows = _supabase_request(f"/rest/v1/match_feedback?{query}", token=token)
+    return {"feedback": [_public_feedback(row) for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []}
+
+
+@app.put("/api/candidate/match-feedback")
+def save_match_feedback(payload: MatchFeedbackRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    """Record or change the caller's vote for one recommended job.
+
+    Written with the caller's own token, so row-level security enforces that
+    the row belongs to them. The context comes from their saved match history,
+    which also limits voting to jobs that were actually recommended to them.
+    """
+    job_id, job_source = _validated_feedback_target(payload.job_id, payload.job_source)
+    vote = VOTES.get((payload.vote or "").strip().lower())
+    if vote is None:
+        raise HTTPException(status_code=422, detail="Vote must be 'good' or 'bad'.")
+    user_id, token = _require_user_session(authorization)
+    history_query = urllib.parse.urlencode({
+        "user_id": f"eq.{user_id}", "select": HISTORY_SELECT,
+        "order": "created_at.desc", "limit": str(HISTORY_ROWS_SEARCHED),
+    })
+    history = _supabase_request(f"/rest/v1/match_history?{history_query}", token=token)
+    context = find_match_context(history if isinstance(history, list) else [], job_id, job_source)
+    if context is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Only jobs from your saved recommendations can be rated. Refresh your matches and try again.",
+        )
+    body = {"user_id": user_id, "job_id": job_id, "job_source": job_source, "vote": vote, **context}
+    try:
+        rows = _supabase_request(
+            "/rest/v1/match_feedback?on_conflict=user_id,job_id,job_source",
+            method="POST", token=token, body=body,
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+    except HTTPException as exc:
+        if "MATCH_FEEDBACK_RATE_LIMIT" in str(exc.detail):
+            raise HTTPException(status_code=429, detail="Too many ratings in a short time. Please try again later.") from exc
+        raise
+    saved = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], dict) else body
+    return {"feedback": _public_feedback(saved)}
+
+
+@app.delete("/api/candidate/match-feedback")
+def delete_match_feedback(
+    job_id: str,
+    job_source: str = "internal",
+    authorization: Annotated[Optional[str], Header()] = None,
+) -> dict:
+    job_id, job_source = _validated_feedback_target(job_id, job_source)
+    user_id, token = _require_user_session(authorization)
+    query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "job_id": f"eq.{job_id}", "job_source": f"eq.{job_source}"})
+    _supabase_request(f"/rest/v1/match_feedback?{query}", method="DELETE", token=token)
+    return {"deleted": True, "job_id": job_id, "job_source": job_source}
+
+
+def _learning_client() -> SupabaseRest:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_ROLE_KEY is required for learning jobs.")
+    return SupabaseRest(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+
+def _learning_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, skill_discovery.ReviewError):
+        return HTTPException(status_code=exc.status, detail=str(exc))
+    if isinstance(exc, SupabaseError):
+        if exc.status == 409 or "duplicate key" in str(exc):
+            return HTTPException(status_code=409, detail="That skill name was already approved.")
+        return HTTPException(status_code=502, detail=f"Learning data store error: {exc}")
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+def _run_learning(job: str, dry_run: bool, trigger: str) -> dict:
+    client = _learning_client()
+    if job == "ranking":
+        report = {"ranking": ranking_training.run_training(client, trigger=trigger, dry_run=dry_run)}
+    elif job == "skills":
+        report = {"skills": skill_discovery.run_discovery(client, dry_run=dry_run)}
+    elif job == "all":
+        report = run_learning_jobs(client, trigger=trigger, dry_run=dry_run)
+    else:
+        raise HTTPException(status_code=422, detail="job must be 'all', 'ranking' or 'skills'.")
+    clear_ranker_cache()
+    return report
+
+
+@app.get("/api/admin/learning/status")
+def admin_learning_status(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    client = _learning_client()
+    try:
+        ranking = ranking_training.status(client)
+        pending = client.select("skill_candidates", {"select": "id", "status": "eq.pending", "limit": "1000"})
+    except SupabaseError as exc:
+        raise _learning_error(exc) from exc
+    return {
+        "ranking": ranking,
+        "feedback_votes": _admin_count("match_feedback"),
+        "pending_skill_proposals": len(pending),
+        "ranker_override": os.getenv("KAREERLY_RANKER", "auto"),
+    }
+
+
+@app.post("/api/admin/learning/run")
+async def admin_run_learning(payload: LearningRunRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    admin_id = _require_admin_user(authorization)
+    try:
+        return await run_in_threadpool(_run_learning, payload.job, payload.dry_run, f"admin:{admin_id}")
+    except (SupabaseError, ValueError) as exc:
+        raise _learning_error(exc) from exc
+
+
+@app.post("/api/admin/learning/rollback")
+def admin_rollback_ranking(payload: RankingRollbackRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    admin_id = _require_admin_user(authorization)
+    try:
+        result = ranking_training.rollback(_learning_client(), target_version=(payload.target_version or "").strip() or None,
+            actor=f"admin:{admin_id}")
+    except (SupabaseError, ValueError) as exc:
+        raise _learning_error(exc) from exc
+    clear_ranker_cache()
+    return result
+
+
+@app.get("/api/admin/skill-candidates")
+def admin_list_skill_candidates(status: str = "pending", limit: int = 100, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    try:
+        return {"candidates": skill_discovery.list_candidates(_learning_client(), status=status, limit=limit)}
+    except (SupabaseError, ValueError) as exc:
+        raise _learning_error(exc) from exc
+
+
+@app.post("/api/admin/skill-candidates/{candidate_id}/review")
+def admin_review_skill_candidate(
+    candidate_id: str,
+    payload: SkillCandidateReviewRequest,
+    authorization: Annotated[Optional[str], Header()] = None,
+) -> dict:
+    admin_id = _require_admin_user(authorization)
+    try:
+        return skill_discovery.review_candidate(
+            _learning_client(), candidate_id, payload.action, admin_id,
+            skill_id=payload.skill_id, label=payload.label, category_id=payload.category_id, note=payload.note,
+        )
+    except (SupabaseError, ValueError) as exc:
+        raise _learning_error(exc) from exc
+
+
+@app.post("/api/internal/learning/run")
+async def scheduled_learning_run(
+    payload: LearningRunRequest,
+    x_learning_job_token: Annotated[Optional[str], Header()] = None,
+) -> dict:
+    """Entry point for an external scheduler (Render cron, pg_cron + pg_net, etc.)."""
+    expected = os.getenv("KAREERLY_LEARNING_JOB_TOKEN", "")
+    if len(expected) < 24:
+        raise HTTPException(status_code=404, detail="Not Found")
+    if not x_learning_job_token or not hmac.compare_digest(x_learning_job_token, expected):
+        raise HTTPException(status_code=401, detail="Invalid learning job token.")
+    try:
+        return await run_in_threadpool(_run_learning, payload.job, payload.dry_run, "webhook")
+    except (SupabaseError, ValueError) as exc:
+        raise _learning_error(exc) from exc
 
 
 @app.post("/api/matches/from-resume")
