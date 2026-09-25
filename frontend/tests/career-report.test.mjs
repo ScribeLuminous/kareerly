@@ -96,3 +96,7 @@ test('the PDF is built from the rows shown on screen, not the full result lists'
 test('line breaks inside report values do not split a PDF line', () => {
   assert.equal(reportPdf.pdfSafeText('Customer Service\nRepresentative'), 'Customer Service Representative');
 });
+
+test('the skill gap card counts every gap, not the capped list', () => {
+  assert.match(snapshotSource, /skillGapSnapshotCount = resolveSnapshotCount\(matchResults\.total_skill_gap_count, fullSkillGaps\)/);
+});

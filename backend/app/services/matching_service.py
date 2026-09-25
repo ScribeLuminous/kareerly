@@ -53,6 +53,8 @@ SKILL_EVIDENCE_RELATIONS_PATH = os.path.join(DATA_DIR, "skill_evidence_relations
 
 TOP_FIT_NOW = 10
 TOP_ASPIRATION = 10
+# Skill gaps listed in a report; total_skill_gap_count says how many there are in all.
+MAX_PRIORITIZED_GAPS = 8
 # Matches whose missing skills get learning resources (the dashboard shows up to 10 per type).
 LEARNING_MATCHES_PER_TYPE = 10
 logger = logging.getLogger(__name__)
@@ -927,7 +929,10 @@ def compute_skill_coverage(
         if key in candidates:
             return True
         phrases = skill_evidence_phrases().get(key) or [required[key]]
-        if any(_phrase_in_text(phrase, text_norm) for phrase in phrases):
+        # A requirement with no taxonomy ID is matched by name, which a held
+        # skill can carry: "Customer Onboarding" shows a legacy SK_ONBOARDING.
+        search_norm = profile_norm if key.startswith("CUSTOM:") else text_norm
+        if any(_phrase_in_text(phrase, search_norm) for phrase in phrases):
             return True
         for phrase in related_skill_evidence().get(key, []):
             if _phrase_in_text(phrase, profile_norm):
@@ -950,6 +955,17 @@ def compute_skill_coverage(
     }
 
 
+# Words in legacy IDs that the default casing gets wrong: short words are read
+# as acronyms (CRM, HR, CNC) and longer ones capitalised (Onboarding).
+LEGACY_WORD_CASING = {
+    "AID": "Aid",
+    "OPS": "Ops",
+    "VAPT": "VAPT",
+    "FASTAPI": "FastAPI",
+    "JAVASCRIPT": "JavaScript",
+}
+
+
 def display_skill_name(skill_id: str, labels: Dict[str, str], fallback: str = "") -> str:
     """A name a candidate can read, never an identifier.
 
@@ -967,8 +983,8 @@ def display_skill_name(skill_id: str, labels: Dict[str, str], fallback: str = ""
         return skill_id.split(":", 1)[1].title()
     legacy = re.fullmatch(r"SK[_-]([A-Za-z0-9_-]+)", clean_text(skill_id))
     if legacy:
-        words = [word for word in re.split(r"[_-]+", legacy.group(1)) if word]
-        return " ".join(word.upper() if len(word) <= 3 else word.capitalize() for word in words)
+        words = [word.upper() for word in re.split(r"[_-]+", legacy.group(1)) if word]
+        return " ".join(LEGACY_WORD_CASING.get(word) or (word if len(word) <= 3 else word.capitalize()) for word in words)
     return ""
 
 
@@ -1593,7 +1609,10 @@ def match_text_to_jobs(
     fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
     aspiration_matches = all_aspiration_matches[:TOP_ASPIRATION]
 
-    prioritized_gaps = prioritize_skill_gaps(fit_now_matches + aspiration_matches)
+    # Count every distinct gap before capping the list, so the report can say
+    # how many there are rather than how many fit in the list.
+    all_gaps = prioritize_skill_gaps(fit_now_matches + aspiration_matches, limit=None)
+    prioritized_gaps = all_gaps[:MAX_PRIORITIZED_GAPS]
     for gap in prioritized_gaps:
         key = _skill_key(gap["skill_name"])
         gap["skill_id"] = key if key in labels else ""
@@ -1648,6 +1667,7 @@ def match_text_to_jobs(
         "all_aspiration_matches": all_aspiration_matches,
         "total_qualifying_matches": len({str(item.get("job_id") or item.get("job_title")) for item in all_fit_now_matches + all_aspiration_matches}),
         "skill_gaps": prioritized_gaps,
+        "total_skill_gap_count": len(all_gaps),
         "prioritized_skill_gaps": prioritized_gaps,
         "learning_recommendations": learning_recommendations,
         "model_used": "Fine-tuned all-MiniLM-L6-v2 bi-encoder with cosine similarity and canonical skill rules",
@@ -1729,7 +1749,11 @@ def match_jobs(
     return result
 
 
-def prioritize_skill_gaps(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def prioritize_skill_gaps(
+    matches: List[Dict[str, Any]],
+    limit: Optional[int] = MAX_PRIORITIZED_GAPS,
+) -> List[Dict[str, Any]]:
+    """Missing skills of the matches, most frequent first; ``limit=None`` returns every one."""
     gap_counts = {}
 
     for match in matches:
@@ -1786,7 +1810,7 @@ def prioritize_skill_gaps(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]
         reverse=True,
     )
 
-    return gap_list[:8]
+    return gap_list if limit is None else gap_list[:limit]
 
 
 def warm_matching_caches() -> None:

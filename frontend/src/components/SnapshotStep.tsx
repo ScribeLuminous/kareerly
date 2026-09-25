@@ -298,7 +298,8 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
   const fullSkillGaps = matchResults.skill_gaps || matchResults.prioritized_skill_gaps || [];
   const fullLearningRecommendations = matchResults.learning_recommendations || [];
   const fitNowSnapshotCount = resolveSnapshotCount(matchResults.debug_summary?.fit_now_count, fullFitNowMatches);
-  const skillGapSnapshotCount = resolveSnapshotCount(undefined, fullSkillGaps);
+  // The gap list is capped; the backend states how many gaps there are in all.
+  const skillGapSnapshotCount = resolveSnapshotCount(matchResults.total_skill_gap_count, fullSkillGaps);
   const learningSnapshotCount = resolveSnapshotCount(undefined, fullLearningRecommendations);
   const isGuestReport = accessControl?.user_mode === 'guest' || !isLoggedIn;
   const topFitNow = fitNowMatches[0];

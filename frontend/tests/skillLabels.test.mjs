@@ -32,3 +32,14 @@ test('lookup wins, unresolved canonical IDs are dropped', () => {
   assert.deepEqual(toSkillLabels(['SK029', 'SK_CRM', 'SK999'], lookup), ['Customer Service', 'CRM']);
   assert.deepEqual(toSkillLabels(undefined, lookup), []);
 });
+
+test('legacy IDs and names keep their usual casing', () => {
+  assert.equal(cleanSkillLabel('SK_FASTAPI'), 'FastAPI');
+  assert.equal(cleanSkillLabel('SK_FIRST_AID'), 'First Aid');
+  assert.equal(cleanSkillLabel('SK_SALES_OPS'), 'Sales Ops');
+  assert.equal(cleanSkillLabel('SK_JAVASCRIPT'), 'JavaScript');
+  assert.equal(cleanSkillLabel('SK_VAPT'), 'VAPT');
+  // Names the backend already cased are not lowercased again.
+  assert.equal(cleanSkillLabel('VAPT'), 'VAPT');
+  assert.equal(cleanSkillLabel('FastAPI'), 'FastAPI');
+});

@@ -732,6 +732,7 @@ type MatchFromResumeResponse = {
   all_fit_now_matches?: MatchResultItem[];
   all_aspiration_matches?: MatchResultItem[];
   total_qualifying_matches?: number | string;
+  total_skill_gap_count?: number;
   skill_gaps?: PrioritizedSkillGap[];
   prioritized_skill_gaps?: PrioritizedSkillGap[];
   learning_recommendations?: JobMatchRunResults['learning_recommendations'];
@@ -1003,6 +1004,7 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     all_fit_now_matches: normalizedAllFitNowMatches,
     all_aspiration_matches: normalizedAllAspirationMatches,
     total_qualifying_matches: rawResults.total_qualifying_matches,
+    total_skill_gap_count: rawResults.total_skill_gap_count,
     skill_gaps: normalizedPrioritizedSkillGaps,
     prioritized_skill_gaps: normalizedPrioritizedSkillGaps,
     learning_recommendations: normalizedLearning,
