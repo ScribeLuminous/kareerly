@@ -176,14 +176,20 @@ def fit_now_failures(
     required: SkillEvidence,
     critical_missing_count: int,
     thresholds: MatchThresholds,
+    role_held: bool = False,
 ) -> List[str]:
-    """Names of the Fit-Now rules the pair fails; empty means Fit-Now."""
+    """Names of the Fit-Now rules the pair fails; empty means Fit-Now.
+
+    ``role_held`` means the resume names the job's title as a role the
+    candidate has held. The semantic floor only rules out unrelated roles, and
+    a role the candidate has done is related whatever the model scores it.
+    """
     failures = []
     if required.total == 0:
         failures.append("no_required_skills_listed")
     elif (required.coverage or 0.0) < thresholds.fit_now_min_required_coverage:
         failures.append("required_skill_coverage")
-    if semantic < thresholds.fit_now_min_semantic:
+    if semantic < thresholds.fit_now_min_semantic and not role_held:
         failures.append("semantic_similarity")
     if critical_missing_count:
         failures.append("critical_skill_missing")
@@ -227,9 +233,10 @@ def classify(
     critical_missing_count: int,
     thresholds: MatchThresholds,
     in_preferred_career_area: Optional[bool] = None,
+    role_held: bool = False,
 ) -> str:
     # Fit-Now reads the resume only; Step 3 preferences never affect it.
-    if not fit_now_failures(semantic, required, critical_missing_count, thresholds):
+    if not fit_now_failures(semantic, required, critical_missing_count, thresholds, role_held):
         return FIT_NOW
     if not aspiration_failures(semantic, required, preferred, critical_missing_count, thresholds, in_preferred_career_area):
         return ASPIRATION
@@ -243,11 +250,13 @@ def score_match(
     critical_missing_count: int = 0,
     thresholds: Optional[MatchThresholds] = None,
     in_preferred_career_area: Optional[bool] = None,
+    role_held: bool = False,
 ) -> MatchBreakdown:
     """Score one pair.
 
     ``in_preferred_career_area`` is None when the candidate chose no career area
     or the job has no known category; Aspiration then rests on the resume.
+    ``role_held``: the resume names the job's title as a role held (see fit_now_failures).
     """
     thresholds = thresholds or MatchThresholds.from_env()
     raw_cosine = float(semantic_cosine)
@@ -269,8 +278,9 @@ def score_match(
         raw_weighted_score=round(raw, 4),
         penalty=round(penalty, 4),
         match_score=round(final, 4),
-        match_category=classify(semantic, required, preferred, critical_missing_count, thresholds, in_preferred_career_area),
-        failed_fit_now_rules=fit_now_failures(semantic, required, critical_missing_count, thresholds),
+        match_category=classify(semantic, required, preferred, critical_missing_count, thresholds,
+                                in_preferred_career_area, role_held),
+        failed_fit_now_rules=fit_now_failures(semantic, required, critical_missing_count, thresholds, role_held),
         failed_aspiration_rules=aspiration_failures(
             semantic, required, preferred, critical_missing_count, thresholds, in_preferred_career_area),
         thresholds=thresholds.as_dict(),

@@ -202,6 +202,29 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertEqual(matching.job_career_area({"job_category": "", "category_id": "K24"}), "government-legal-security")
         self.assertEqual(matching.job_career_area({"job_category": "Uncategorised"}), "")
 
+    def test_career_area_of_grouped_labels_on_supabase_jobs(self):
+        # internal_jobs rows carry grouped labels instead of K01-K24 names.
+        def area(category, title, description=""):
+            return matching.job_career_area({"job_category": category, "job_title": title, "job_description": description})
+
+        self.assertEqual(area("Sales/Marketing/Customer", "Customer Success Associate"), "sales-marketing-customer-service")
+        # A label spanning several areas is settled by the job itself.
+        self.assertEqual(area("Engineering/Trades/Operations", "Electrician Helper",
+                              "Assist electricians with wiring and electrical installation on building sites."),
+                         "construction-maintenance")
+        self.assertEqual(area("Engineering/Trades/Operations", "Warehouse Operations Assistant",
+                              "Pick, pack and track inventory in the warehouse."), "manufacturing-logistics-transport")
+        self.assertEqual(area("Education/Health/Community", "Clinic Assistant", "Assist nurses with patient intake."),
+                         "healthcare-wellness")
+        self.assertEqual(area("Tech/Business/Finance", "Accounting Assistant"), "business-office")
+        self.assertEqual(area("Tech/Business/Finance", "Data Analyst"), "technology-data")
+        # No category at all still leaves the area unknown.
+        self.assertEqual(area("", "Customer Service Representative"), "")
+
+    def test_a_grouped_label_outside_the_chosen_area_is_not_aspiration(self):
+        job = {"job_category": "Sales/Marketing/Customer", "job_title": "Customer Success Associate"}
+        self.assertNotIn(matching.job_career_area(job), matching.preferred_career_areas("construction-maintenance"))
+
     def test_step_three_answers_are_compared_with_job_data(self):
         job = {"job_category": "Software and Web Development", "job_title": "Developer", "job_description": "",
             "experience_level_required": "Entry to Mid Level", "work_type": "Hybrid",
