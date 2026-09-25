@@ -14,15 +14,19 @@ export type SavedResumeFreshness = {
   parserVersion: string | null;
 };
 
-/** Whether a saved analysis came from the current resume reader. */
+/**
+ * Whether a saved analysis came from the current resume reader. `liveVersion`
+ * is the reader the backend actually runs (null for one that predates version
+ * reporting): an analysis it produced cannot be improved by uploading again.
+ */
 export function assessSavedResume(record: {
   created_at?: string | null;
   extracted_profile_json?: Pick<ResumeAnalysisResult, 'extraction'> | null;
-} | null | undefined): SavedResumeFreshness | null {
+} | null | undefined, liveVersion: string | null = CURRENT_RESUME_PARSER_VERSION): SavedResumeFreshness | null {
   if (!record?.extracted_profile_json) return null;
   const parserVersion = record.extracted_profile_json.extraction?.parser_version || null;
   return {
-    stale: parserVersion !== CURRENT_RESUME_PARSER_VERSION,
+    stale: parserVersion !== CURRENT_RESUME_PARSER_VERSION && parserVersion !== liveVersion,
     analyzedAt: record.created_at || null,
     parserVersion,
   };
@@ -35,8 +39,8 @@ export function extractionWarnings(analysis: Pick<ResumeAnalysisResult, 'extract
 
 export function staleResumeMessage(freshness: SavedResumeFreshness, fileAvailable: boolean): string {
   const when = freshness.analyzedAt ? ` on ${new Date(freshness.analyzedAt).toLocaleDateString()}` : '';
-  const shown = `The skills shown come from an earlier analysis of your resume${when}, made before Kareerly could read scanned pages, multi-column layouts, split words, images in Word files and .doc files.`;
+  const shown = `Your skills come from an older scan${when} that may have missed some.`;
   return fileAvailable
-    ? `${shown} Re-scan your saved resume to check for skills that were missed.`
-    : `${shown} The original file is not stored, so please upload your resume again to re-scan it.`;
+    ? `${shown} Re-scan your saved resume to catch them.`
+    : `${shown} Upload your resume again to re-scan it.`;
 }

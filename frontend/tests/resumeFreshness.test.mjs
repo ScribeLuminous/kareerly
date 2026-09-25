@@ -27,12 +27,16 @@ test('an analysis saved before the current reader is stale, never shown as new',
   });
   assert.equal(current.stale, false);
   assert.equal(freshness.assessSavedResume(null), null);
+  // An older live reader produced it, so uploading again would give the same result.
+  const fromOldBackend = { created_at: '2026-09-25T00:00:00Z', extracted_profile_json: { candidate_profile: {} } };
+  assert.equal(freshness.assessSavedResume(fromOldBackend, null).stale, false);
+  assert.equal(freshness.assessSavedResume(fromOldBackend, freshness.CURRENT_RESUME_PARSER_VERSION).stale, true);
 });
 
 test('the stale notice offers a re-scan only when the original file is stored', () => {
   const record = { stale: true, analyzedAt: null, parserVersion: null };
-  assert.match(freshness.staleResumeMessage(record, true), /earlier analysis.*Re-scan your saved resume/s);
-  assert.match(freshness.staleResumeMessage(record, false), /original file is not stored, so please upload your resume again/);
+  assert.match(freshness.staleResumeMessage(record, true), /older scan.*Re-scan your saved resume/s);
+  assert.match(freshness.staleResumeMessage(record, false), /older scan.*Upload your resume again/s);
 });
 
 test('reading problems are shown once each', () => {
