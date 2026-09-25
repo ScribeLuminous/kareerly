@@ -7,7 +7,7 @@ vectors are keyed by the exact encoder input text, so at runtime a job that was
 added or edited after the build simply misses the store and is encoded on
 demand; nothing stale is ever reused.
 
-Run from ``backend/`` (Dockerfile, Render with a ``backend`` root directory):
+Run from ``backend/`` (as ``backend/Dockerfile`` does during the Cloud Run build):
 
     python -m app.precompute_job_vectors
 
