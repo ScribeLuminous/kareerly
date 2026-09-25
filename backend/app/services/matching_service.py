@@ -672,7 +672,9 @@ def _skill_key(value: str) -> str:
         key = text.upper()
     else:
         normalized = normalize_for_match(text)
-        key = aliases.get(normalized, "CUSTOM:" + normalized)
+        # "HubSpot CRM" names the taxonomy skill "HubSpot".
+        key = next((aliases[variant] for variant in _phrase_variants(normalized) if variant in aliases),
+            "CUSTOM:" + normalized)
     return skill_id_equivalents().get(key, key)
 
 
@@ -734,9 +736,11 @@ def compute_skill_coverage(
 ) -> Dict[str, Any]:
     """Coverage over canonical skill keys, each requirement counted once.
 
-    Requirements that have no taxonomy ID (custom names or legacy SK_* IDs) can
-    also be met by their exact name appearing in the resume text, because no
-    confirmed skill ID could ever represent them.
+    A requirement can also be met by its name appearing in the resume text:
+    Step 2 confirms at most MAX_CONFIRMED_SKILLS skills, and requirements with
+    no taxonomy ID (custom names or legacy SK_* IDs) have no confirmed ID that
+    could represent them at all. Taxonomy skills are checked by their canonical
+    label only, never by the broad imported aliases.
     """
     labels, _ = canonical_skill_lookup()
     candidates = {_skill_key(value) for value in candidate_skills if clean_text(value)}
@@ -751,7 +755,7 @@ def compute_skill_coverage(
     def held(key: str) -> bool:
         if key in candidates:
             return True
-        return key not in labels and _phrase_in_text(display_skill_name(key, labels, required[key]), text_norm)
+        return _phrase_in_text(display_skill_name(key, labels, required[key]), text_norm)
 
     matched = [key for key in required if held(key)]
     missing = [key for key in required if key not in matched]

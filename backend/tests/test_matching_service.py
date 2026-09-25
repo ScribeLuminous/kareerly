@@ -55,11 +55,28 @@ class MatchingRegressionTests(unittest.TestCase):
     def test_named_tools_are_held_despite_spacing_and_product_qualifiers(self):
         resume = "Customer support through Help Scout, records kept in HubSpot and e-commerce order tracking."
         result = matching.compute_skill_coverage([], ["HelpScout", "HubSpot CRM", "Ecommerce", "Jira"], resume)
-        self.assertEqual(result["matched_skills"], ["Ecommerce", "HelpScout", "HubSpot CRM"])
+        # "HubSpot CRM" reads as the taxonomy skill HubSpot.
+        self.assertEqual(result["matched_skills"], ["Ecommerce", "HelpScout", "HubSpot"])
         self.assertEqual(result["missing_skills"], ["Jira"])
         # Word boundaries still hold, and a qualifier is never the whole name.
         self.assertEqual(matching.compute_skill_coverage([], ["Java"], "JavaScript developer")["matched_skills"], [])
         self.assertEqual(matching.compute_skill_coverage([], ["CRM Software"], "Microsoft software")["matched_skills"], [])
+
+    def test_product_qualifier_resolves_to_the_taxonomy_tool(self):
+        _, aliases = matching.canonical_skill_lookup()
+        hubspot = aliases["hubspot"]
+        # A confirmed HubSpot skill meets "HubSpot CRM" even when the resume never names it.
+        self.assertEqual(matching.compute_skill_coverage([hubspot], ["HubSpot CRM"])["skill_coverage"], 1.0)
+        # A resume naming HubSpot meets it even when HubSpot was not among the confirmed skills.
+        self.assertEqual(matching.compute_skill_coverage([], ["HubSpot CRM", "HubSpot"], "Records kept in HubSpot.")["skill_coverage"], 1.0)
+        self.assertEqual(matching.compute_skill_coverage([], ["HubSpot CRM"], "Records kept in Salesforce.")["skill_coverage"], 0.0)
+
+    def test_workplace_tools_are_extracted_from_resumes(self):
+        resume = ("Executive assistant handling calendar management, inbox management and invoicing. "
+                  "Tools: HubSpot, Help Scout, Zendesk, Jira, Google Workspace, Microsoft 365.")
+        names = {skill["skill_name"] for skill in matching.extract_skills_from_text(resume)}
+        self.assertTrue({"Executive Assistance", "Calendar Management", "Email Management", "Invoicing and Billing",
+            "HubSpot", "Help Scout", "Zendesk", "Jira", "Google Workspace", "Microsoft Office"} <= names, names)
 
     def test_skill_gaps_state_their_share_of_the_compared_matches(self):
         matches = [{"match_type": "Aspiration", "missing_skills": ["Jira"]}] + [
