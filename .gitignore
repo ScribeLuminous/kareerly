@@ -16,6 +16,8 @@ backend/.venv/
 frontend/.env
 frontend/.env.*
 backend/.env
+# Cloud Run deploy settings (see backend/README.md)
+backend/cloudrun.env.yaml
 backend/.env.*
 
 # Python caches and test output
