@@ -368,9 +368,10 @@ class SkillExtractor:
             return 0.75
         return 0.60
 
-    def _find_alias_matches(self, text: str) -> list[tuple[int, str, str]]:
+    def _find_alias_matches(self, text: str) -> list[tuple[int, str, str, int]]:
+        """(row index, alias, matched text, position) for every mention, repeats included."""
         normalized_text = _normalize_alias(text)
-        matches: list[tuple[int, str, str]] = []
+        matches: list[tuple[int, str, str, int]] = []
         seen = set()
 
         if not normalized_text:
@@ -384,13 +385,15 @@ class SkillExtractor:
                 matched_text = match.group(0).strip()
 
                 for row_index in self.alias_map.get(alias, []):
-                    key = (row_index, alias, matched_text.lower())
+                    # Keyed by position: a skill named three times is three
+                    # pieces of evidence, not one.
+                    key = (row_index, alias, match.start())
 
                     if key in seen:
                         continue
 
                     seen.add(key)
-                    matches.append((row_index, alias, matched_text))
+                    matches.append((row_index, alias, matched_text, match.start()))
 
         # 2. Compact fallback.
         # Handles:
@@ -418,7 +421,7 @@ class SkillExtractor:
                             continue
 
                         seen.add(key)
-                        matches.append((row_index, alias, alias))
+                        matches.append((row_index, alias, alias, match.start()))
 
         return matches
 
@@ -444,7 +447,7 @@ class SkillExtractor:
 
             matches = self._find_alias_matches(section_text)
 
-            for row_index, alias, matched_text in matches:
+            for row_index, alias, matched_text, position in matches:
                 row = self.rows[row_index]
                 section_lower = section_name.lower()
 
@@ -470,6 +473,7 @@ class SkillExtractor:
                         "section_text": section_text,
                         "confidence": round(float(confidence), 2),
                         "method": "exact_phrase_match",
+                        "position": position,
                     }
                 )
 
@@ -483,7 +487,13 @@ class SkillExtractor:
         if not grouped:
             return []
 
-        max_frequency = max(len(items) for items in grouped.values()) or 1
+        def mentions(detections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            # Sections are slices of full_text, so a mention is counted once:
+            # from full_text when it was searched, else from the sections.
+            whole = [item for item in detections if item.get("source_section") == "full_text"]
+            return whole or detections
+
+        max_frequency = max(len(mentions(items)) for items in grouped.values()) or 1
         ranked: list[dict[str, Any]] = []
 
         for skill_id, detections in grouped.items():
@@ -494,7 +504,8 @@ class SkillExtractor:
             }
             source_sections = {str(item.get("source_section", "")) for item in detections if item.get("source_section")}
             matched_aliases = {str(item.get("matched_text", "")) for item in detections if item.get("matched_text")}
-            evidence_frequency = min(len(detections) / max_frequency, 1.0)
+            evidence_count = len(mentions(detections))
+            evidence_frequency = min(evidence_count / max_frequency, 1.0)
             section_weight = self._section_weight(source_sections)
             job_market_relevance = self.job_market_relevance.get(skill_id, 0.0)
             recency_signal = self._recency_signal(detections)
@@ -508,6 +519,7 @@ class SkillExtractor:
             )
 
             row.pop("section_text", None)
+            row.pop("position", None)
             row.update(
                 {
                     "source": "resume_extracted",
@@ -517,23 +529,29 @@ class SkillExtractor:
                         "job_market_relevance": round(job_market_relevance, 4),
                         "recency_signal": round(recency_signal, 4),
                         "specificity_score": round(specificity_score, 4),
-                        "evidence_count": len(detections),
+                        "evidence_count": evidence_count,
                         "source_sections": sorted(source_sections),
                     },
                     "skill_priority_score": round(priority_score, 4),
                     "method": "rule_based_weighted_resume_skill_ranking",
                 }
             )
+            row["_first_position"] = min(int(item.get("position", 0)) for item in mentions(detections))
             ranked.append(row)
 
+        # Ties go to the skill mentioned more often, then earlier in the
+        # resume; never to alphabetical order.
         ranked.sort(
             key=lambda item: (
-                float(item.get("skill_priority_score", 0)),
-                float(item.get("confidence", 0)),
+                -float(item.get("skill_priority_score", 0)),
+                -float(item.get("confidence", 0)),
+                -int(item["source_metadata"]["evidence_count"]),
+                item["_first_position"],
                 str(item.get("skill_name", "")),
             ),
-            reverse=True,
         )
+        for item in ranked:
+            item.pop("_first_position", None)
 
         return ranked[:MAX_CONFIRMED_SKILLS]
 

@@ -239,6 +239,80 @@ ranked past 20 are not reported missing for that reason. "Onboarding" and
 onboarding" or "live chat"). `SK_ONBOARDING` is left as a name because it
 means customer onboarding in some jobs and employee onboarding in others.
 
+## Follow-up (2026-09-25): an executive assistant resume with zero Fit-Now
+
+Symptom: a Step 4 report for an executive/administrative assistant resume that
+names Help Scout and HubSpot showed zero Fit-Now matches, listed "HelpScout"
+and "HubSpot CRM" as gaps, and showed customer-success jobs as Aspiration
+although the chosen career area was "Engineering, Trades & Operations".
+
+The path was traced with the resume, the report's five jobs (rebuilt from
+the report and from `data/skill_id_review/2026-09-20_job_skill_ids.sql`) and
+the fine-tuned bi-encoder (`backend/tests/test_named_tool_report.py` keeps a
+synthetic copy without personal details).
+
+1. **The report came from an older backend.** Current `main` already credits
+   "HelpScout" and "HubSpot CRM" (taxonomy SK645 and SK642, spelling and
+   qualifier matching, resume-text evidence). The report also showed
+   "Sales OPS" (now SK648 Sales Operations), a job with no skills described
+   as having no gaps (now `skill_requirements_available: false`). Those are
+   behaviours of a backend older than PR #44 (merged 10:09 +08:00, report
+   generated 12:31), while the frontend already had the Step 4 PDF, so the
+   deployed API was behind the frontend. Customer-service jobs shown as
+   Aspiration under an engineering area are Low Match since PR #40 unless
+   the job has no category. Redeploy the backend.
+2. **Step 2 dropped named tools the resume repeats.** The extractor
+   de-duplicated repeated mentions before counting them, so HubSpot (named
+   three times) had the same evidence as a word named once; ties then sorted
+   Z to A, and "CORE SKILLS" / "RELEVANT EXPERIENCE" were not recognised as
+   headings, so no skill got the skills-section weight. HubSpot ranked 24th
+   and fell outside the 20-skill limit. Every mention now counts once
+   (`full_text` only, since sections are slices of it), ties go to the more
+   frequent then earlier skill, and headings may carry a qualifier word.
+   HubSpot now ranks 6th. Coverage was not affected by the limit because the
+   resume text is also checked.
+3. **Two requirements the resume shows were still gaps.** SK058 Clinical
+   Documentation is defined as maintaining accurate patient and clinical
+   records (Supabase jobs asking for "Patient Records" were reviewed to it),
+   and SK300 is using CRM software, which HubSpot is. Reviewed one-way
+   relations in `data/skill_evidence_relations.csv` now credit "maintained
+   (accurate) patient records" and named CRM products or "CRM systems". A
+   bare mention of patient records or of "CRM" does not count.
+
+Zero Fit-Now is still correct for the report's five jobs. Fit-Now needs 75%
+of the required skills and a role similarity of at least 0.30:
+
+| Job | Required skills held | Blocking rule |
+|---|---|---|
+| Customer Success Associate | 2 of 3 (Onboarding missing) | coverage |
+| Customer Success Specialist (SaaS) | 6 of 10 (Customer Success, Jira, Problem Solving, SaaS missing) | coverage |
+| Sales Operations Analyst | 1 of 3 (Microsoft Excel, Sales Operations missing) | coverage |
+| Account Manager | 1 of 3 (Account Management, Negotiation missing); similarity 0.18 | coverage, similarity |
+| Customer Service Representative | lists no skills | no required skills |
+
+Microsoft 365 is not taken as Excel, and customer support or patient intake is
+not taken as onboarding or customer success. Of the reviewed Supabase jobs,
+KJ-0055 (Scheduling, Patient Records, Customer Service) now has every
+required skill held and becomes Fit-Now if its role similarity is at least
+0.30; its posting text was not available here to check.
+
+The career area never changes Fit-Now or the matched and missing skills; it
+decides Aspiration. Under the legacy "Engineering, Trades & Operations" area
+the customer-service and sales jobs are Low Match; a job with no category
+(the Customer Service Representative) falls back to the resume rule under
+any area.
+
+## Career areas (2026-09-25)
+
+Step 3 now offers 13 areas, each mapped to K01-K24 job categories in
+`CAREER_AREA_JOB_CATEGORIES` and to example canonical skills in
+`frontend/src/lib/careerAreas.ts` (a skill may belong to several areas). The
+examples only help a candidate choose; matching uses the skills confirmed in
+Step 2. The former broad areas "Education, Health & Community" and
+"Engineering, Trades & Operations" remain valid saved values and match every
+area they used to cover (`LEGACY_CAREER_AREAS`), and a preference saved as its
+label resolves to its area.
+
 ## New matching logic
 
 ```
