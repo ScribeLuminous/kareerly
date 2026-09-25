@@ -201,6 +201,8 @@ type DashboardJob = {
   matchedSkills: string[];
   missingSkills: string[];
   missingSkillIds?: string[];
+  /** Nice-to-have skills the resume does not show; gaps worth learning, never required. */
+  missingPreferredSkills?: string[];
   explanation: string;
   category?: string;
   subCategory?: string;
@@ -617,7 +619,7 @@ function buildMatchReasons(job: DashboardJob, requiredSkills: string[]): MatchRe
 function getLearningForJob(job: DashboardJob, courses: DashboardCourse[]): DashboardCourse[] {
   // Custom employer skills have no taxonomy ID, so match by ID or by name.
   const missingIds = new Set((job.missingSkillIds || []).map((id) => id.toUpperCase()));
-  const missingNames = new Set(job.missingSkills.map(normalizeSkill).filter(Boolean));
+  const missingNames = new Set([...job.missingSkills, ...(job.missingPreferredSkills || [])].map(normalizeSkill).filter(Boolean));
   return courses
     .filter((course) => course.reviewed && (
       course.mappedSkillIds.some((id) => missingIds.has(id.toUpperCase()))
@@ -837,6 +839,7 @@ function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration')
     matchedSkills,
     missingSkills,
     missingSkillIds: match.missing_skill_ids,
+    missingPreferredSkills: cleanSkillList(match.missing_preferred_skills || []).filter((skill) => !missingSkills.includes(skill)),
     explanation: match.explanation || '',
     category: titleCase(categoryLabel),
     subCategory: titleCase(subCategoryLabel),
@@ -5623,7 +5626,8 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, course
   const jobSelectRef = useRef<HTMLSelectElement>(null);
   const selectedJob = jobs.find((job) => job.id === selectedJobId) || jobs[0];
   const visibleCourses = selectedJob ? getLearningForJob(selectedJob, courses) : [];
-  const skillsToDevelop = Array.from(new Set((selectedJob?.missingSkills || []).map(cleanSkillDisplayName).filter(Boolean)));
+  // Required gaps first, then nice-to-have gaps (the Skill Gaps page lists both).
+  const skillsToDevelop = Array.from(new Set([...(selectedJob?.missingSkills || []), ...(selectedJob?.missingPreferredSkills || [])].map(cleanSkillDisplayName).filter(Boolean)));
   const selectedSkillGap = (skill: string) => gaps.find((gap) => normalizeSkill(gap.skill) === normalizeSkill(skill));
   const learningTabOrder: UpskillTab[] = ['recommended', 'by-gap'];
   const handleLearningTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
