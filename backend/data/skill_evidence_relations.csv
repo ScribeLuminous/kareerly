@@ -1,0 +1,5 @@
+skill_id,evidence_phrase,relation,rationale
+SK693,order fulfillment,broader_practice_includes_skill,"Fulfilling an order starts with receiving, checking and entering it, so a resume that states order fulfillment shows order processing. The relation is one way: processing orders does not show picking, packing or shipping."
+SK693,order fulfilment,broader_practice_includes_skill,British spelling of order fulfillment.
+SK693,fulfilling orders,broader_practice_includes_skill,Verb form of order fulfillment.
+SK693,fulfilled orders,broader_practice_includes_skill,Verb form of order fulfillment.

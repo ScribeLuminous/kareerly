@@ -9,7 +9,8 @@ import type { SelectedSkill, SurveyAnswers } from '../types';
 import { CONFIRMED_SKILL_LIMIT, runJobMatches, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
-import { careerAreaOptions, normalizeCareerAreaValue } from '../lib/careerAreas';
+import { normalizeCareerAreaValue } from '../lib/careerAreas';
+import { careerAreaPreferenceOptions, jobLevelOptions, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
 import StepArrowButton from './StepArrowButton';
 
 type SurveyStepProps = {
@@ -508,44 +509,28 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           name="industry"
           value={answers.industry}
           onChange={(value) => handleChange('industry', value)}
-          options={careerAreaOptions.map((option) => ({ value: option.value, label: option.label }))}
+          options={careerAreaPreferenceOptions}
         />
         <Question
           label="What job level are you targeting?"
           name="role"
           value={answers.role}
           onChange={(value) => handleChange('role', value)}
-          options={[
-            { value: 'entry', label: 'Entry-level (first job/junior)' },
-            { value: 'mid', label: 'Mid-level (2-5 years experience)' },
-            { value: 'senior', label: 'Senior (5+ years experience)' },
-            { value: 'unsure', label: "I'm not sure" },
-          ]}
+          options={jobLevelOptions}
         />
         <Question
           label="What's your work setup preference?"
           name="setup"
           value={answers.setup}
           onChange={(value) => handleChange('setup', value)}
-          options={[
-            { value: 'remote', label: '100% Work from Home' },
-            { value: 'hybrid', label: 'Hybrid (mix of remote & office)' },
-            { value: 'onsite', label: 'On-site (office only)' },
-            { value: 'flexible', label: 'Flexible - no preference' },
-          ]}
+          options={workSetupOptions}
         />
         <Question
           label="What's your salary expectation?"
           name="salary"
           value={answers.salary}
           onChange={(value) => handleChange('salary', value)}
-          options={[
-            { value: '20-30', label: 'PHP 20,000 - PHP 30,000/month' },
-            { value: '30-50', label: 'PHP 30,000 - PHP 50,000/month' },
-            { value: '50-80', label: 'PHP 50,000 - PHP 80,000/month' },
-            { value: '80+', label: 'PHP 80,000+/month' },
-            { value: 'unsure', label: "I'm not sure" },
-          ]}
+          options={salaryOptions}
         />
       </div>
 
