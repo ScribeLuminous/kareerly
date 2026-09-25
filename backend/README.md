@@ -59,11 +59,12 @@ sudo apt-get install tesseract-ocr tesseract-ocr-eng antiword   # Debian/Ubuntu
 brew install tesseract antiword                                  # macOS
 ```
 
-A Render **native Python** service cannot install these packages. Deploy the
-backend as a Render **Docker** service using `backend/Dockerfile` to get OCR and
-`.doc` support; without them the backend still starts, text-based PDF and DOCX
-work as before, and scanned PDFs or `.doc` uploads get a clear message asking
-for a text-based PDF or DOCX. `GET /api/health/config` reports which readers are
+The production backend runs on Google Cloud Run, built from
+`backend/Dockerfile`, so OCR and `.doc` support are included (see
+[Google Cloud Run deployment](#google-cloud-run-deployment)). A host that runs
+plain Python without the Dockerfile cannot install these packages; the backend
+still starts there, text-based PDF and DOCX work as before, and scanned PDFs
+or `.doc` uploads get a clear message asking for a text-based PDF or DOCX. `GET /api/health/config` reports which readers are
 available under `resume_readers`.
 
 Optional settings: `KAREERLY_TESSERACT_CMD`, `KAREERLY_SOFFICE_CMD`,
@@ -198,37 +199,133 @@ include the origins used by your browser. Supabase credentials are required for
 account services, but missing credentials do not prevent health/public routes
 from starting. Matching still requires its datasets and model dependencies.
 
-## Vercel and Render connection checks
+## Google Cloud Run deployment
 
-Set Vercel's `VITE_API_BASE_URL` to the public Render origin (for example,
-`https://kareerly-yvze.onrender.com`), without `/api`, and redeploy Vercel.
-Vercel builds now reject missing, localhost, and malformed backend origins.
-In Render, set `FRONTEND_URLS` to a comma-separated list of the exact public
-website origins allowed to call the API. A Vercel dashboard URL such as
-`https://vercel.com/team/project` is not a website origin. Include any preview
-origins you actually use, and redeploy Render after changing its configuration.
+The backend is a container on **Google Cloud Run**, built from
+`backend/Dockerfile`; the website is on Vercel. The Dockerfile installs the CPU
+build of torch, tesseract and antiword, precomputes the job vectors, and starts
+uvicorn on `$PORT` (8080 by default), which is the port Cloud Run sends
+traffic to.
+
+Commands below use two placeholders. Set them once per shell:
+
+```bash
+REGION=asia-southeast1                                  # the service's region
+BACKEND=https://YOUR-SERVICE-URL.run.app                # printed by the first deploy
+```
+
+### Deploy
+
+From the repository root, build `backend/` with Cloud Build and deploy it:
+
+```bash
+gcloud run deploy kareerly-backend \
+  --source backend \
+  --region "$REGION" \
+  --allow-unauthenticated \
+  --memory 2Gi --cpu 1 \
+  --timeout 300 \
+  --no-cpu-throttling --cpu-boost \
+  --env-vars-file backend/cloudrun.env.yaml \
+  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,MESSAGE_ENCRYPTION_KEY=message-encryption-key:latest
+```
+
+Why these settings:
+
+- **`--memory 2Gi`**: the service peaks at about 1 GB with the encoder and job
+  vectors loaded and a report running; 2 GiB leaves room for OCR and two
+  concurrent reports. An instance that runs out is restarted, and the logs
+  show `Memory limit of ... exceeded`.
+- **`--timeout 300`**: the website waits up to 240 s for a report (cold start
+  plus matching); Cloud Run's timeout must be longer.
+- **`--no-cpu-throttling`**: by default Cloud Run gives an instance CPU only
+  while a request is in flight. Two things here run outside a request: the
+  startup warmup of the encoder and job vectors, and saving a signed-in
+  report to Supabase after the response is sent. With throttled CPU both
+  stall, and the first report pays the warmup itself.
+- **`--cpu-boost`**: extra CPU while the container starts, so the warmup
+  (about 15 s) finishes sooner.
+- Optionally **`--min-instances 1`** keeps one instance warm, so no report
+  pays a cold start; it is billed while idle.
+
+Build from the repository root so `--source backend` uploads only the backend
+folder; the bundled checkpoint (`backend/trained_models/`, about 90 MB) and
+`backend/data/` are part of it. `backend/.gcloudignore` keeps local virtual
+environments, caches, `.env` files and `cloudrun.env.yaml` out of the upload. The image build needs outbound internet only
+(PyPI, the PyTorch CPU index, and Supabase for the job-vector precompute).
+
+### Configuration
+
+Put non-secret settings in `backend/cloudrun.env.yaml` (not committed; one
+`KEY: value` per line). A YAML file is used because `FRONTEND_URLS` contains
+commas, which `--set-env-vars` would split:
+
+```yaml
+SUPABASE_URL: https://YOUR-PROJECT.supabase.co
+SUPABASE_ANON_KEY: YOUR-ANON-KEY
+FRONTEND_URLS: https://YOUR-PUBLIC-WEBSITE.vercel.app,https://www.YOUR-DOMAIN
+KAREERLY_WARM_ON_STARTUP: "1"
+```
+
+Keep secrets in Secret Manager and map them with `--set-secrets`, as above
+(create each once with `gcloud secrets create NAME --data-file=-`). The
+service account that runs the service needs the *Secret Manager Secret
+Accessor* role on them. `backend/.env.example` lists every setting.
+
+To change one setting without rebuilding:
+
+```bash
+gcloud run services update kareerly-backend --region "$REGION" --env-vars-file backend/cloudrun.env.yaml
+```
+
+### Redeploying after a merge
+
+A merge to `main` does not redeploy Cloud Run by itself. Run the
+`gcloud run deploy` command again, or connect the repository once under
+*Cloud Run → the service → Set up continuous deployment* (a Cloud Build
+trigger on `main` with `backend/Dockerfile`), so every merge builds and
+deploys. Vercel redeploys the website from `main` on its own.
+
+### Logs
+
+Logs Explorer (*Cloud Run → the service → Logs*), or:
+
+```bash
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="kareerly-backend"' \
+  --limit 100 --freshness 1h
+```
+
+## Vercel and Cloud Run connection checks
+
+Set Vercel's `VITE_API_BASE_URL` to the Cloud Run service URL (`$BACKEND`),
+without `/api`, and redeploy Vercel. Vercel builds reject missing, localhost,
+and malformed backend origins. In Cloud Run, set `FRONTEND_URLS` to a
+comma-separated list of the exact public website origins allowed to call the
+API. A Vercel dashboard URL such as `https://vercel.com/team/project` is not a
+website origin. Include any preview origins you actually use; changing a
+setting creates a new revision, which takes effect without a rebuild.
 
 Check both health and the browser preflight; health alone does not verify CORS:
 
 ```bash
-curl -i https://kareerly-yvze.onrender.com/api/health
-curl -i -X OPTIONS https://kareerly-yvze.onrender.com/api/matches/from-resume \
+curl -i "$BACKEND/api/health"
+curl -i -X OPTIONS "$BACKEND/api/matches/from-resume" \
   -H 'Origin: https://YOUR-PUBLIC-WEBSITE.vercel.app' \
   -H 'Access-Control-Request-Method: POST' \
   -H 'Access-Control-Request-Headers: content-type,authorization'
 ```
 
 The preflight must return 200 and `Access-Control-Allow-Origin` matching the
-website. `400 Disallowed CORS origin` indicates Render's `FRONTEND_URLS` needs
-that origin. Matching runs in a worker thread so inference does not block the
-API event loop, and failures appear in backend logs.
+website. `400 Disallowed CORS origin` means the service's `FRONTEND_URLS`
+needs that origin. Matching runs in a worker thread so inference does not block
+the API event loop, and failures appear in the service logs.
 
 `/api/health/config` reports the origins the running service actually accepts
 and whether the checkpoint files are in place, which is the fastest way to tell
 a stale `FRONTEND_URLS` apart from a bad deploy:
 
 ```bash
-curl -s https://kareerly-yvze.onrender.com/api/health/config
+curl -s "$BACKEND/api/health/config"
 ```
 
 It checks the checkpoint by path only and never loads it, so it stays
@@ -245,7 +342,7 @@ checks answer while the warmup runs, and matching requests that arrive afterward
 skip the load entirely. Watch it finish with the `model.loaded` flag:
 
 ```bash
-curl -s https://kareerly-yvze.onrender.com/api/health/config
+curl -s "$BACKEND/api/health/config"
 ```
 
 A warmup that fails is logged and does not stop the service: matching still
@@ -253,12 +350,14 @@ raises its own readable errors per request. Set `KAREERLY_WARM_ON_STARTUP=0` to
 turn it off (useful locally, where paying the load lazily is cheaper than
 warming on every reload).
 
-A host that sleeps when idle pays a container boot on top of this, so the client
-allows matching requests 240s.
+With no instance running (Cloud Run scales to zero unless `--min-instances` is
+set), the first request also pays a container start, so the client allows
+matching requests 240s. On Cloud Run the warmup needs CPU outside requests;
+deploy with `--no-cpu-throttling` (see [Deploy](#deploy)).
 
 Job embeddings are computed at build time so that cold start does not encode the
-catalogue. `backend/Dockerfile` runs this already; on Render, append it to the
-build command:
+catalogue. `backend/Dockerfile` runs this already; a build without the
+Dockerfile runs it after installing the requirements:
 
 ```bash
 python -m app.precompute_job_vectors            # backend root directory
@@ -281,21 +380,20 @@ Before reporting the error, the website sends an opaque `no-cors` probe to
 `/api/health`:
 
 - *"answered, but the request could not complete"* — something responded at
-  the backend origin, but an opaque response does not reveal whether it was
-  FastAPI, Render, or Cloudflare. Check the actual response and preflight
-  headers before changing `FRONTEND_URLS`.
-- *"not responding"* — the service is down, asleep, or failing to boot. Check
-  Render's logs. A boot that is killed without a Python traceback is usually the
-  instance running out of memory.
+  the backend origin, but an opaque response does not reveal what. Check the
+  actual response and preflight headers (above) before changing
+  `FRONTEND_URLS`.
+- *"not responding"* — the service is down, starting, or failing to boot.
+  Check the service logs. A revision that never becomes ready usually failed
+  to start (a Python traceback) or ran out of memory (`Memory limit of ...
+  exceeded`); Cloud Run keeps serving the previous revision in that case.
 
-If `OPTIONS /api/matches/run` or `/api/health` returns HTTP 429 with
-`cf-mitigated: challenge`, Cloudflare is responding before the request reaches
-FastAPI. It will not include FastAPI's CORS headers, even if `FRONTEND_URLS` is
-correct. The browser's report request uses `/api/matches/run-form` as a simple
+The browser's report request uses `/api/matches/run-form` as a simple
 multipart request to avoid the JSON preflight, while the JSON endpoint remains
-available for other clients. If Cloudflare also challenges the multipart POST,
-check Render's edge/request logs and contact Render support with the `CF-Ray`
-header and timestamp; changing `FRONTEND_URLS` cannot fix an edge challenge.
+available for other clients. If a proxy or CDN is put in front of the service
+(a custom domain through Cloudflare, for example) and it challenges requests,
+its response carries none of FastAPI's CORS headers, however `FRONTEND_URLS`
+is set; check that layer's logs first.
 
 `requirements.txt` carries an `--extra-index-url` for the CPU-only torch index.
 The default PyPI wheel bundles the CUDA runtime, which a CPU instance cannot use
@@ -303,15 +401,15 @@ and which pulls in gigabytes of NVIDIA packages — enough to fail the build or 
 the process killed at startup. Keep that line when editing the file.
 
 `--extra-index-url` only *prefers* the CPU build (a `+cpu` version sorts above the
-plain one). To make it certain, install torch from the CPU index explicitly in
-Render's build command:
+plain one). `backend/Dockerfile` makes it certain by installing torch from the
+CPU index first:
 
 ```bash
 pip install --index-url https://download.pytorch.org/whl/cpu torch && pip install -r requirements.txt
 ```
 
-The second command then sees torch as already satisfied. `backend/Dockerfile`
-already builds this way. To confirm which build a deploy got, run
+The second command then sees torch as already satisfied; use the same two
+commands for any build without the Dockerfile. To confirm which build a deploy got, run
 `pip show torch` — a `+cpu` version, or the absence of `nvidia-*` packages in
 `pip list`, means the CPU wheel was used.
 
@@ -330,11 +428,11 @@ tokenizer, pooling configuration, frozen training-derived skill IDF features,
 and checksum provenance. Its weights match the saved September 10 experiment.
 The package contains no training resumes or job records. Include the entire
 model directory when committing/deploying; the `.gitignore` exception keeps
-this specific production weight file available to Git. Render can keep its
-existing `pip install -r backend/requirements.txt` build and
-`uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT` start command when
-its root directory is the repository root. With a `backend` root directory,
-use `pip install -r requirements.txt` and `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+this specific production weight file available to Git. The Dockerfile copies
+it into the image. Without the Dockerfile, run from the repository root with
+`pip install -r backend/requirements.txt` and
+`uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`, or from `backend/`
+with `pip install -r requirements.txt` and `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 No model download environment variable is required. Optionally configure
 `KAREERLY_BI_ENCODER_MODEL_PATH` for a separately provisioned copy.
 

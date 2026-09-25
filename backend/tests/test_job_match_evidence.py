@@ -215,16 +215,18 @@ class StepFourReportTests(unittest.TestCase):
         self.assertIn("Order Processing", self.matches(result)["non-voice"]["missing_skills"])
         self.assertIn("Order Processing", [gap["skill_name"] for gap in result["skill_gaps"]])
 
-    def test_a_job_without_comparable_requirements_is_not_recommended(self):
-        # With no skills to compare there is no bridge to show, so the job is
-        # scored but in neither list, and claims no skills.
-        result = self.report(resume_docx())
-        self.assertNotIn("csr", self.matches(result))
-        csr = next(item for item in result["debug_summary"]["top_10_scores"]
-                   if item["job_title"] == "Customer Service Representative")
+    def test_a_job_without_comparable_requirements_claims_no_skills(self):
+        # In the chosen career area, so it is an Aspiration; its posting lists no
+        # skills, so nothing is claimed as matched or missing.
+        csr = self.matches(self.report(resume_docx()))["csr"]
+        self.assertEqual(csr["match_type"], "Aspiration")
         self.assertEqual((csr["matched_skills"], csr["missing_skills"]), ([], []))
-        self.assertEqual(csr["match_type"], "Low Match")
-        self.assertIn("no_skills_listed", csr["match_breakdown"]["failed_aspiration_rules"])
+        self.assertFalse(csr["skill_requirements_available"])
+        self.assertEqual(csr["score_basis"], "role_similarity_only")
+        # The score is the role similarity alone, and the text says so.
+        self.assertEqual(csr["match_score"], csr["semantic_score"])
+        self.assertIn("role similarity only", csr["explanation"])
+        self.assertIn("role similarity only", csr["match_reason"])
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -192,7 +192,8 @@ def _career_area_keys() -> Dict[str, str]:
 # ============================================================
 
 def clean_text(value: Any) -> str:
-    if value is None:
+    # A missing cell in a job table (None, NaN) is empty, never the text "nan".
+    if value is None or (isinstance(value, float) and value != value):
         return ""
 
     text = str(value)
@@ -1322,6 +1323,56 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
     return round(score / total, 4)
 
 
+def preference_conflicts(job: Dict[str, Any], preferences: Dict[str, Any]) -> List[str]:
+    """Step 3 answers the job clearly fails: "job_level", "work_setup", "salary".
+
+    Only a stated answer and a job that states the same field can conflict:
+    "I'm not sure" or "Flexible" answers, and jobs with no level, setup or
+    salary listed (or one that cannot be read), never exclude a job.
+    """
+    preferences = preferences or {}
+    conflicts = []
+    role_level = normalize_for_match(preferences.get("role_level", ""))
+    if role_level and not is_unrestricted_preference(role_level):
+        wanted = _role_level(role_level)
+        experience = normalize_for_match(job.get("experience_level_required", ""))
+        levels = {level for level, terms in ROLE_LEVEL_TERMS.items() if any(re.search(rf"\b{term}", experience) for term in terms)}
+        if wanted and levels and wanted not in levels:
+            conflicts.append("job_level")
+    work_setup = normalize_for_match(preferences.get("work_setup", ""))
+    if work_setup and not is_unrestricted_preference(work_setup):
+        wanted_setups = _work_setups(work_setup)
+        job_setups = _work_setups(normalize_for_match(job.get("work_type", "")))
+        if wanted_setups and job_setups and not wanted_setups & job_setups:
+            conflicts.append("work_setup")
+    salary = clean_text(preferences.get("salary_expectation", "") or preferences.get("salary", ""))
+    if salary and not is_unrestricted_preference(salary):
+        wanted_salary = _salary_range(salary.lower())
+        job_salary = _salary_range(clean_text(job.get("salary_range_monthly_php", "")).lower())
+        if wanted_salary and job_salary and not (wanted_salary[0] <= job_salary[1] and job_salary[0] <= wanted_salary[1]):
+            conflicts.append("salary")
+    return conflicts
+
+
+PREFERENCE_NOUNS = {"job_level": "level", "work_setup": "work setup", "salary": "salary"}
+
+
+def preference_mismatch_notes(job: Dict[str, Any], preferences: Dict[str, Any], conflicts: List[str]) -> List[str]:
+    """Each conflicting Step 3 answer in words: what the job offers, what was chosen."""
+    preferences = preferences or {}
+    values = {
+        "job_level": (job.get("experience_level_required", ""), preferences.get("role_level", "")),
+        "work_setup": (job.get("work_type", ""), preferences.get("work_setup", "")),
+        "salary": (job.get("salary_range_monthly_php", ""),
+                   preferences.get("salary_expectation", "") or preferences.get("salary", "")),
+    }
+    notes = []
+    for name in conflicts:
+        offered, chosen = (clean_text(value) for value in values[name])
+        notes.append(f"{PREFERENCE_NOUNS[name]} {offered} (you chose {chosen})")
+    return notes
+
+
 def compute_evidence_strength(resume_text: str, matched_skills: List[str]) -> float:
     text = normalize_for_match(resume_text)
 
@@ -1645,6 +1696,7 @@ def grounded_explanation(
     semantic_section: str,
     in_preferred_career_area: Optional[bool],
     requirements_available: bool,
+    mismatch_notes: Sequence[str] = (),
 ) -> str:
     """An explanation that quotes the resume evidence behind the match.
 
@@ -1652,8 +1704,10 @@ def grounded_explanation(
     the candidate lacks, unless the candidate removed them in Step 2.
     """
     if not requirements_available:
+        note = (f" It differs from your Step 3 choices: {'; '.join(mismatch_notes)}."
+                if match_type == ASPIRATION and mismatch_notes else "")
         return (f"The posting for {job_title} lists no skills Kareerly can compare with your resume, "
-                "so its score reflects role similarity only and no skill evidence or gaps can be shown.")
+                f"so its score reflects role similarity only and no skill evidence or gaps can be shown.{note}")
     essential = [item for item in matched_evidence if item["requirement"] == "essential"]
     shown = essential or matched_evidence
     parts = []
@@ -1667,10 +1721,17 @@ def grounded_explanation(
     if match_type == FIT_NOW:
         lead = f"{job_title} is a Fit-Now match: your resume covers its must-have skills and most of its required skills."
     elif match_type == ASPIRATION:
-        basis = "is in the career area you chose" if in_preferred_career_area else "is related to your experience"
-        lead = f"{job_title} is an Aspiration: it {basis} and builds on skills you already have."
+        if in_preferred_career_area:
+            lead = f"{job_title} is an Aspiration: it is in the career area you chose in Step 3."
+        else:
+            lead = f"{job_title} is an Aspiration: it is related to your experience and shares skills with it."
+        if not shown:
+            # Membership follows Step 3; the resume only shows how far there is to go.
+            parts.insert(0, "Your resume does not show any of its listed skills yet, so every one is a step toward it.")
     else:
         lead = f"{job_title} has little overlap with your resume."
+    if match_type == ASPIRATION and mismatch_notes:
+        parts.append("It differs from your Step 3 choices: " + "; ".join(mismatch_notes) + ".")
     if not_found:
         parts.append("Required skills not found in your resume: " + ", ".join(not_found[:5]) + ".")
     if removed:
@@ -1714,6 +1775,9 @@ def _score_single_normalized_job(
     area = job_career_area(job)
     in_preferred_area = (area in preferred_areas) if preferred_areas and area else None
 
+    # Step 3 answers the job does not fit. They never remove an Aspiration
+    # job; preference alignment orders the list and the explanation says so.
+    conflicts = preference_conflicts(job, preferences)
     breakdown = score_match(
         float(job.get("semantic_score_raw", job.get("semantic_score", 0.0))),
         SkillEvidence(skill_result["matched_skills"], skill_result["missing_skills"]),
@@ -1742,6 +1806,10 @@ def _score_single_normalized_job(
         "job_source": job.get("job_source", "internal"), "job_category": job.get("job_category", ""),
         "job_subcategory": job.get("job_subcategory", ""), "category_id": job.get("category_id_norm", ""),
         "career_area": area, "in_preferred_career_area": in_preferred_area,
+        # Step 3 answers this job does not fit (job_level, work_setup, salary),
+        # and the same in words ("On-site work (you chose remote)").
+        "preference_conflicts": conflicts,
+        "preference_mismatch_notes": preference_mismatch_notes(job, preferences, conflicts),
         "location": job.get("location", ""), "work_type": job.get("work_type", ""),
         "employment_type": job.get("employment_type", ""), "experience_level_required": job.get("experience_level_required", ""),
         "salary_range_monthly_php": job.get("salary_range_monthly_php", ""), "job_description": job.get("job_description", ""),
@@ -1780,7 +1848,8 @@ def _score_single_normalized_job(
             breakdown.required_skill_count, in_preferred_area),
         "match_breakdown": breakdown.as_dict(),
         "explanation": grounded_explanation(job.get("job_title", ""), match_type, matched_evidence, missing_status,
-            semantic_section, in_preferred_area, requirements_available),
+            semantic_section, in_preferred_area, requirements_available,
+            preference_mismatch_notes(job, preferences, conflicts)),
     }
 
 
@@ -1861,12 +1930,12 @@ def _recommendation_notice(catalog: Dict[str, Any], fit_now: List[Dict[str, Any]
     if catalog["state"] != "available":
         return catalog["message"]
     if not fit_now and not aspiration:
-        return ("None of the available jobs is related closely enough to your resume or chosen career area, "
-                "with skills you already share, to recommend. Adding skills your resume shows but Kareerly missed, "
-                "or choosing a different career area, may change this.")
+        return ("None of the available jobs is a Fit-Now match for your resume, and none fits the career area "
+                "and preferences you chose in Step 3. Choosing another career area, or answering \"not sure\" "
+                "where you are flexible on job level, work setup or salary, may show more.")
     if not fit_now:
-        return ("No job meets every Fit-Now requirement yet. The Aspiration list shows related roles "
-                "and the specific skills each one still needs.")
+        return ("No job meets every Fit-Now requirement yet. The Aspiration list shows roles in the career area "
+                "you chose and the specific skills each one still needs.")
     return ""
 
 
@@ -2049,12 +2118,12 @@ def match_text_to_jobs(
                 "max_critical_missing_skills": 0,
             },
             "aspiration_rules": {
-                "relevance": "min_cosine to the resume, or the job is in the chosen career area",
-                "min_cosine": thresholds.aspiration_min_semantic,
-                # Held required skills; preferred ones count only when a job lists no required skills.
-                "min_matched_skills": thresholds.aspiration_min_matched_skills,
-                "skill_bridge": "required skills held (preferred only when none are required)",
-                "max_missing_essential_skills": thresholds.aspiration_max_missing_essential,
+                "basis": "Step 3 career area",
+                "ordering": "preference alignment (job level, work setup, salary fit first), then match score",
+                "resume_role": "score, order and skill gaps only",
+                # Used only when no career area is known for the candidate or the job.
+                "fallback_min_cosine": thresholds.aspiration_min_semantic,
+                "fallback_min_matched_skills": thresholds.aspiration_min_matched_skills,
             },
             "jobs_source": jobs_source,
             "learning_resources_source": get_learning_resources_source(),

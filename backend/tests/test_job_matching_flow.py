@@ -110,27 +110,34 @@ class ClassificationFlowTests(MatchingFlowCase):
         self.assertEqual(bi["aspiration_gap_skills"], sorted([LABELS["SK670"], LABELS["SK006"], LABELS["SK669"]]))
         self.assertIn(LABELS["SK004"], bi["matched_skills"])
 
-    def test_unrelated_jobs_are_in_neither_list(self):
+    def test_unrelated_jobs_are_in_neither_list_unless_they_are_the_chosen_area(self):
+        # No career area chosen: the resume decides, and the unrelated jobs are out.
         result = self.run_match()
-        listed = set(self.ids(self.returned(result)))
-        self.assertFalse(listed & {"nurse", "welder"})
+        self.assertFalse(set(self.ids(self.returned(result))) & {"nurse", "welder"})
         self.assertEqual(result["debug_summary"]["low_match_count"], 2)
-        # Choosing the healthcare area does not pad Aspiration with a job
-        # the resume shares no skill with.
+        # Healthcare chosen in Step 3: the nurse job is the candidate's aspiration,
+        # compared with the resume for its gaps; the data jobs outside it are not.
         healthcare = self.run_match(preferences={"industry": "healthcare-wellness"})
-        self.assertNotIn("nurse", self.ids(self.returned(healthcare)))
+        self.assertEqual(self.ids(healthcare["all_fit_now_matches"]), ["analyst"])
+        self.assertEqual(self.ids(healthcare["all_aspiration_matches"]), ["nurse"])
+        nurse = healthcare["all_aspiration_matches"][0]
+        self.assertEqual(nurse["matched_skills"], [])
+        self.assertEqual(nurse["aspiration_gap_skills"], nurse["missing_skills"])
 
-    def test_a_job_sharing_only_a_nice_to_have_skill_is_not_an_aspiration(self):
-        # In the chosen area, sharing Microsoft Excel only as a preferred skill.
+    def test_aspiration_notes_shared_skills_but_does_not_require_them(self):
+        # Elementary Teacher shares only Microsoft Excel, a nice-to-have.
         jobs = pd.concat([CATALOGUE, pd.DataFrame([job("teacher", "Elementary Teacher",
             "Teach elementary classes.", "SK045;SK046;SK047", preferred="SK629", category_id="K12",
             category="Education and Training")])], ignore_index=True)
-        result = self.run_match(jobs=jobs, preferences={"industry": "education-training"})
-        self.assertNotIn("teacher", self.ids(self.returned(result)))
-        teacher = next(item for item in result["debug_summary"]["top_10_scores"] if item["job_title"] == "Elementary Teacher")
-        self.assertEqual(teacher["match_breakdown"]["failed_aspiration_rules"], ["no_shared_skill"])
-        for item in result["all_aspiration_matches"]:
-            self.assertTrue(item["matched_skills"], item["job_id"])
+        education = self.run_match(jobs=jobs, preferences={"industry": "education-training"})
+        self.assertEqual(self.ids(education["all_aspiration_matches"]), ["teacher"])
+        teacher = education["all_aspiration_matches"][0]
+        self.assertEqual(teacher["matched_preferred_skills"], [LABELS["SK629"]])
+        self.assertEqual(len(teacher["missing_essential_skills"]), 3)
+        # With another area chosen, the teacher job is not an Aspiration.
+        technology = self.run_match(jobs=jobs, preferences={"industry": "technology-data"})
+        self.assertNotIn("teacher", self.ids(self.returned(technology)))
+        self.assertIn("bi", self.ids(technology["all_aspiration_matches"]))
 
     def test_missing_must_have_without_resume_evidence_blocks_fit_now(self):
         # Seven of eight required skills held (88%), but Git was marked must-have.
