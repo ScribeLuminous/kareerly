@@ -3,3 +3,17 @@ SK693,order fulfillment,broader_practice_includes_skill,"Fulfilling an order sta
 SK693,order fulfilment,broader_practice_includes_skill,British spelling of order fulfillment.
 SK693,fulfilling orders,broader_practice_includes_skill,Verb form of order fulfillment.
 SK693,fulfilled orders,broader_practice_includes_skill,Verb form of order fulfillment.
+SK058,maintained accurate patient records,states_skill_definition,"SK058 Clinical Documentation is defined as maintaining accurate patient and clinical records, so a resume that states it maintained patient records shows the skill. Supabase jobs that asked for Patient Records (SK_PATIENT_RECORDS) were reviewed to SK058 on 2026-09-20. Only the activity counts: merely mentioning patient records (accessing or handling them) does not."
+SK058,maintain accurate patient records,states_skill_definition,Present tense of the phrase above.
+SK058,maintained patient records,states_skill_definition,The phrase above without "accurate".
+SK058,maintain patient records,states_skill_definition,Present tense of the phrase above.
+SK058,maintaining patient records,states_skill_definition,Gerund form of the phrase above.
+SK058,updated patient records,states_skill_definition,Keeping patient records up to date is maintaining them.
+SK058,patient record keeping,states_skill_definition,Noun form of maintaining patient records.
+SK300,hubspot,named_tool_is_instance,"HubSpot is customer relationship management software, so a resume that uses it shows the skill. One way: using CRM software does not show HubSpot."
+SK300,salesforce,named_tool_is_instance,Salesforce is customer relationship management software.
+SK300,zoho crm,named_tool_is_instance,Zoho CRM is customer relationship management software.
+SK300,pipedrive,named_tool_is_instance,Pipedrive is customer relationship management software.
+SK300,gohighlevel,named_tool_is_instance,GoHighLevel is customer relationship management software.
+SK300,crm systems,states_skill_definition,Using CRM systems is using customer relationship management software.
+SK300,crm system,states_skill_definition,Singular of the phrase above.

@@ -75,7 +75,7 @@ def label_pair(resume: Dict[str, Any], job: Dict[str, Any]) -> str:
     title = matching.normalize_for_match(job.get("job_title", ""))
     if re.search(resume["strong_title_pattern"], title):
         return "strong"
-    if job_career_area(job.get("job_category", "")) == resume["career_area"]:
+    if job_career_area(job.get("job_category", "")) in matching.preferred_career_areas(resume["career_area"]):
         return "moderate"
     return "weak"
 
