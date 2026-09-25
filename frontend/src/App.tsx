@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { OnboardingProvider } from './context/OnboardingContext';
 import { useOnboarding } from './hooks/useOnboarding';
@@ -15,6 +15,8 @@ import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import SignUpDefault from './pages/SignUpDefault';
 import { getAuthStatus, getCurrentKareerlyUser, signOutCurrentUser } from './lib/auth';
+import { clearGuestOnboarding, stashGuestOnboarding } from './lib/guestOnboarding';
+import { saveMatchHistory, saveResumeAnalysis } from './lib/userData';
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 import './index.css';
@@ -39,7 +41,7 @@ type EmployerUser = KareerlyUser & { company: string };
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, reset, goToStep } = useOnboarding();
+  const { state, reset, goToStep, restoreGuestReport, setSavedResumeId, setError } = useOnboarding();
   const [view, setView] = useState<AppView>('landing');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [currentEmployer, setCurrentEmployer] = useState<EmployerUser | null>(null);
@@ -47,6 +49,10 @@ function AppContent() {
   const [authRole, setAuthRole] = useState<AuthRole>('candidate');
   const [isRestoringSession, setIsRestoringSession] = useState(true);
   const resumeCandidateName = state.resumeAnalysis?.candidate_profile?.full_name?.trim() || '';
+  // The account the guest report was last saved for. Saving runs once per
+  // sign-in (a renamed user object must not save a second copy); a failed save
+  // is retried when the candidate logs in again.
+  const guestReportSaveFor = useRef<string | null>(null);
 
   const applyAuthenticatedUser = (user: KareerlyUser, options?: { preserveView?: boolean }) => {
     if (user.role === 'admin') {
@@ -118,6 +124,7 @@ function AppContent() {
         setCurrentAdmin(null);
         setAuthRole('candidate');
         reset();
+        clearGuestOnboarding();
         if (window.location.pathname.endsWith('/login')) return;
         setView('landing');
         navigate('/', { replace: true });
@@ -146,6 +153,57 @@ function AppContent() {
       return { ...previous, name: resumeCandidateName };
     });
   }, [authRole, resumeCandidateName]);
+
+  // A guest's report exists only in memory. Keep it in browser storage so it
+  // survives a reload or the email-confirmation tab until they sign up or log in.
+  useEffect(() => {
+    if (isRestoringSession || currentUser || !state.resumeAnalysis || state.savedResumeId) return;
+    void stashGuestOnboarding({
+      analysis: state.resumeAnalysis,
+      selectedSkills: state.selectedSkills,
+      surveyAnswers: state.surveyAnswers,
+      matchResults: state.matchResults || null,
+      file: state.resumeFile,
+    });
+  }, [isRestoringSession, currentUser, state.resumeAnalysis, state.savedResumeId, state.selectedSkills, state.surveyAnswers, state.matchResults, state.resumeFile]);
+
+  // Signing up or logging in from the guest flow saves that resume, its skills,
+  // the Step 3 preferences and the report to the account. A signed-in
+  // candidate's own uploads are saved as they happen, so an analysis without a
+  // saved resume id in the onboarding flow is always a guest's.
+  useEffect(() => {
+    if (!currentUser?.id || view !== 'onboarding') return;
+    const { resumeAnalysis: analysis, resumeFile, matchResults, surveyAnswers } = state;
+    if (!analysis || state.savedResumeId || guestReportSaveFor.current === currentUser.id) return;
+    guestReportSaveFor.current = currentUser.id;
+    const userId = currentUser.id;
+    void (async () => {
+      try {
+        // Sign-up returns no session while the email address awaits confirmation;
+        // the report stays in storage and is saved once they log in.
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session?.user.id !== userId) {
+          setError('Confirm your email address, then log in to save this report to your account.');
+          return;
+        }
+        const resumeId = await saveResumeAnalysis({
+          userId,
+          fileName: resumeFile?.name,
+          file: resumeFile,
+          analysis,
+        });
+        setSavedResumeId(resumeId);
+        if (matchResults) {
+          await saveMatchHistory({ userId, resumeId, preferences: surveyAnswers || {}, results: matchResults });
+        }
+        clearGuestOnboarding();
+        setError(null);
+      } catch (error) {
+        console.warn('Unable to save the guest report to the new account:', error);
+        setError(error instanceof Error ? error.message : 'Unable to save your resume to your account.');
+      }
+    })();
+  }, [currentUser?.id, view, state, setSavedResumeId, setError]);
 
   const hasOnboardingSessionData = Boolean(
     state.resumeFile ||
@@ -176,6 +234,7 @@ function AppContent() {
   const startOnboarding = (options?: { preserveState?: boolean; step?: 1 | 2 | 3 | 4 }) => {
     if (!options?.preserveState) {
       reset();
+      clearGuestOnboarding();
     } else if (options.step) {
       goToStep(options.step);
     }
@@ -214,16 +273,19 @@ function AppContent() {
     setView('dashboard');
   };
   const handleCandidateLoginAuthenticated = (user: AuthUser) => {
+    guestReportSaveFor.current = null;
     setCurrentUser(user);
-    if (hasOnboardingSessionData) {
+    // A guest who left the report (Home, reload) still has it in storage.
+    if (hasOnboardingSessionData || restoreGuestReport()) {
       setView('onboarding');
       return;
     }
     startOnboarding();
   };
   const handleCandidateSignUpAuthenticated = (user: AuthUser) => {
+    guestReportSaveFor.current = null;
     setCurrentUser(user);
-    if (hasOnboardingSessionData) {
+    if (hasOnboardingSessionData || restoreGuestReport()) {
       setView('onboarding');
       return;
     }
@@ -239,6 +301,7 @@ function AppContent() {
     setCurrentUser(null);
     setAuthRole('candidate');
     reset();
+    clearGuestOnboarding();
     setView('landing');
   };
   const handleEmployerLogout = async () => {

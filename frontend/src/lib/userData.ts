@@ -193,10 +193,19 @@ export async function saveMatchHistory(input: {
 // last saved run is restored. Only use a run made from the given resume: an
 // older resume's matches would be wrong after a failed refresh.
 export async function loadLatestMatchHistory(input: { userId: string; resumeId?: string | null }): Promise<JobMatchRunResults | null> {
+  return (await loadLatestMatchRun(input))?.results || null;
+}
+
+// The saved run with the Step 3 answers it was made with, so a reload shows the
+// candidate's preferences instead of the defaults.
+export async function loadLatestMatchRun(input: { userId: string; resumeId?: string | null }): Promise<{
+  results: JobMatchRunResults;
+  preferences: SurveyAnswers | null;
+} | null> {
   const latestFor = (resumeId: string | null) => {
     const query = supabase
       .from('match_history')
-      .select('results_json')
+      .select('results_json,preferences_json')
       .eq('user_id', input.userId);
     return (resumeId ? query.eq('resume_id', resumeId) : query.is('resume_id', null))
       .order('created_at', { ascending: false })
@@ -213,5 +222,19 @@ export async function loadLatestMatchHistory(input: { userId: string; resumeId?:
     console.warn('Unable to load match history:', error.message);
     return null;
   }
-  return (data?.results_json as JobMatchRunResults | null) || null;
+  const results = (data?.results_json as JobMatchRunResults | null) || null;
+  if (!results) return null;
+  const preferences = data?.preferences_json as Partial<SurveyAnswers> | null | undefined;
+  return {
+    results,
+    preferences: preferences && typeof preferences.industry === 'string' && preferences.industry
+      ? {
+          industry: preferences.industry,
+          role: preferences.role || '',
+          setup: preferences.setup || '',
+          salary: preferences.salary || '',
+          skill: preferences.skill || '',
+        }
+      : null,
+  };
 }
