@@ -34,7 +34,8 @@ from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
-from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services.skill_variants import load_skill_variants
+from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
 from .services.ocr import ocr_available
@@ -1040,23 +1041,41 @@ def _is_valid_certificate_pdf(filename: str, file_bytes: bytes) -> tuple[bool, s
 
 
 @app.get("/api/skills/search")
+def _search_form(value: str) -> str:
+    """Lower case with hyphens and slashes as spaces and "e-mail" as "email"."""
+    value = re.sub(r"[\-_/]+", " ", str(value or "").lower())
+    value = re.sub(r"\be mail", "email", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
 def search_skills(q: str = "", limit: int = 20) -> dict:
-    query = q.strip().lower()
+    query = _search_form(q)
+    # "MSExcel", "Hub Spot" and "HubSpot" are compared without their spaces too.
+    query_compact = re.sub(r"[^a-z0-9+#]", "", query)
     safe_limit = max(1, min(limit, 10))
     seen_ids = set()
     scored_results: list[tuple[int, dict[str, str]]] = []
 
     def match_alias(alias: str) -> int:
-        alias_lower = alias.lower().strip()
+        alias_lower = _search_form(alias)
         if not query:
             return 1
         if alias_lower == query:
             return 100
+        if len(query_compact) >= 3 and re.sub(r"[^a-z0-9+#]", "", alias_lower) == query_compact:
+            return 95
         if alias_lower.startswith(query):
             return 80
         if re.search(r"(?<![a-z0-9])" + re.escape(query) + r"(?![a-z0-9])", alias_lower):
             return 60
         return 0
+
+    # Upper-case abbreviations ("CS", "VA", "JS") are not row aliases, since
+    # resume text matches them only as written; a search for one still finds it.
+    duplicate_ids = set(skill_id_equivalents())
+    abbreviations: dict[str, list[str]] = {}
+    for variant in load_skill_variants():
+        abbreviations.setdefault(variant.skill_id, []).append(variant.variant)
 
     # Includes approved taxonomy additions, so employers and candidates can pick
     # a newly approved skill without a code change.
@@ -1069,12 +1088,17 @@ def search_skills(q: str = "", limit: int = 20) -> dict:
 
         if not skill_id or skill_id in seen_ids:
             continue
+        # Auto-generated copies of a reviewed skill (SK134 of SK001 Python) are
+        # one skill in matching, so search lists the reviewed one only.
+        if skill_id.upper() in duplicate_ids:
+            continue
 
         aliases = [
             skill_name,
             preferred_label,
             *[part.strip() for part in str(alt_labels).replace("|", ";").replace(",", ";").split(";") if part.strip()],
             *[part.strip() for part in str(related_skills).replace("|", ";").replace(",", ";").split(";") if part.strip()],
+            *abbreviations.get(skill_id.upper(), []),
         ]
         matched_alias = ""
         match_score = 0
@@ -1105,9 +1129,9 @@ def search_skills(q: str = "", limit: int = 20) -> dict:
                 )
             )
 
-        if len(scored_results) >= safe_limit * 3:
-            break
 
+    # Every row is scored before ranking: stopping at the first few hits in file
+    # order could drop the exact match ("CS" found JavaScript's "CSJS" first).
     results = [item for _, item in sorted(scored_results, key=lambda result: result[0], reverse=True)[:safe_limit]]
     return {"results": results}
 
