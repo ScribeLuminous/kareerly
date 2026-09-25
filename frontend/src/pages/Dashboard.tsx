@@ -52,7 +52,10 @@ import { formatFileSize, validateResumeFile } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
+import { analyzeResume, fetchAvailableJobs, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removeMatchFeedback, runJobMatches, saveCandidateAccountSettings, saveMatchFeedback, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
+import MatchFeedbackControls from '../components/MatchFeedbackControls';
+import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote } from '../lib/matchFeedback';
+import type { MatchFeedbackStatus, MatchVote } from '../lib/matchFeedback';
 import type { MessageModerationState, MessageReportReason } from '../lib/api';
 import type { AvailableJobItem, CandidateNotification } from '../lib/api';
 import { cleanSkillLabel } from '../lib/skillLabels';
@@ -205,9 +208,19 @@ type DashboardJob = {
   updatedAt?: string;
   salaryMin?: number;
   salaryMax?: number;
+  // Position in the backend's Fit-Now or Aspiration list (1 = first).
+  rankPosition?: number;
 };
 
 const TOP_MATCHES_PER_CATEGORY = 10;
+
+// Within a list, keep the backend's order: Aspiration follows preference
+// alignment, and an active feedback model may adjust either list. Results saved
+// before rank positions existed keep the order they arrive in.
+function orderByBackendRank(jobs: DashboardJob[]): DashboardJob[] {
+  if (!jobs.length || !jobs.every((job) => typeof job.rankPosition === 'number')) return jobs;
+  return jobs.slice().sort((a, b) => (a.rankPosition as number) - (b.rankPosition as number));
+}
 
 type DashboardGap = {
   skill: string;
@@ -750,6 +763,17 @@ function categoryBarColor(category: SkillCategory): string {
   return 'var(--tan)';
 }
 
+function withMatchVote(current: Record<string, MatchVote>, key: string, vote: MatchVote | null): Record<string, MatchVote> {
+  if (vote) return { ...current, [key]: vote };
+  return Object.fromEntries(Object.entries(current).filter(([entryKey]) => entryKey !== key));
+}
+
+function persistMatchVote(job: DashboardJob, vote: MatchVote | null): Promise<unknown> {
+  return vote
+    ? saveMatchFeedback({ jobId: job.id, jobSource: job.jobSource, vote })
+    : removeMatchFeedback({ jobId: job.id, jobSource: job.jobSource });
+}
+
 function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration'): DashboardJob {
   const scoreContext = category === 'fit-now' ? 'fit_now' : 'aspiration';
   const normalizedScore = extractMatchPercent(match, scoreContext);
@@ -799,6 +823,7 @@ function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration')
     jobLevel: titleCase(jobLevel),
     niceToHaveSkills: [],
     externalUrl,
+    rankPosition: typeof dynamic.rank_position === 'number' ? dynamic.rank_position : undefined,
   };
 }
 
@@ -1402,6 +1427,38 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     };
   }, [currentUser.id]);
 
+  const [matchFeedback, setMatchFeedback] = useState<Record<string, MatchVote>>({});
+  const [matchFeedbackStatus, setMatchFeedbackStatus] = useState<Record<string, MatchFeedbackStatus>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!currentUser.id) return undefined;
+    loadMatchFeedback()
+      .then((rows) => { if (isMounted) setMatchFeedback(feedbackMapFromRows(rows)); })
+      // Rating still works without the saved ratings; they just are not preselected.
+      .catch((error) => { if (isMounted) console.warn('Unable to load match ratings:', error); });
+    return () => { isMounted = false; };
+  }, [currentUser.id]);
+
+  // The buttons are disabled while a rating saves, so the state read here is current.
+  const submitMatchFeedback = (job: DashboardJob, clicked: MatchVote) => {
+    const key = matchFeedbackKey(job.id, job.jobSource);
+    const previous = matchFeedback[key] ?? null;
+    const next = nextMatchVote(previous, clicked);
+    setMatchFeedback((current) => withMatchVote(current, key, next));
+    setMatchFeedbackStatus((current) => ({ ...current, [key]: { state: 'saving', vote: next } }));
+    persistMatchVote(job, next).then(
+      () => setMatchFeedbackStatus((current) => ({ ...current, [key]: { state: 'idle' } })),
+      (error: unknown) => {
+        setMatchFeedback((current) => withMatchVote(current, key, previous));
+        setMatchFeedbackStatus((current) => ({
+          ...current,
+          [key]: { state: 'error', message: feedbackErrorMessage(error), retryVote: clicked },
+        }));
+      },
+    );
+  };
+
   useEffect(() => {
     let isMounted = true;
     void supabase
@@ -1902,8 +1959,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     return () => { active = false; };
   }, [currentUser.id]);
 
-  const fitNowJobs = useMemo(() => jobs.filter((job) => job.matchCategory === 'fit-now'), [jobs]);
-  const aspirationJobs = useMemo(() => jobs.filter((job) => job.matchCategory === 'aspiration'), [jobs]);
+  const fitNowJobs = useMemo(() => orderByBackendRank(jobs.filter((job) => job.matchCategory === 'fit-now')), [jobs]);
+  const aspirationJobs = useMemo(() => orderByBackendRank(jobs.filter((job) => job.matchCategory === 'aspiration')), [jobs]);
   const topFitNowJobs = useMemo(() => fitNowJobs.slice(0, TOP_MATCHES_PER_CATEGORY), [fitNowJobs]);
   const topAspirationJobs = useMemo(() => aspirationJobs.slice(0, TOP_MATCHES_PER_CATEGORY), [aspirationJobs]);
   const topMatches = useMemo(() => [...topFitNowJobs, ...topAspirationJobs], [topAspirationJobs, topFitNowJobs]);
@@ -3101,6 +3158,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               onSave={toggleSaved}
               onApply={applyToInternalJob}
               onView={openJobDetails}
+              matchFeedback={matchFeedback}
+              matchFeedbackStatus={matchFeedbackStatus}
+              onRateMatch={submitMatchFeedback}
               onVisitSite={(job) => {
                 const fallbackQuery = encodeURIComponent(`${job.title} ${job.company} jobs`);
                 const targetUrl = job.externalUrl || `https://www.google.com/search?q=${fallbackQuery}`;
@@ -3718,6 +3778,9 @@ function JobMatchesPage({
   onApply,
   onView,
   onVisitSite,
+  matchFeedback,
+  matchFeedbackStatus,
+  onRateMatch,
 }: {
   jobs: DashboardJob[];
   topMatchesCount: number;
@@ -3735,9 +3798,12 @@ function JobMatchesPage({
   onApply: (job: DashboardJob) => Promise<boolean>;
   onView: (job: DashboardJob) => void;
   onVisitSite: (job: DashboardJob) => void;
+  matchFeedback: Record<string, MatchVote>;
+  matchFeedbackStatus: Record<string, MatchFeedbackStatus>;
+  onRateMatch: (job: DashboardJob, vote: MatchVote) => void;
 }) {
-  const fitNowJobs = jobs.filter((job) => job.matchCategory === 'fit-now');
-  const aspirationJobs = jobs.filter((job) => job.matchCategory === 'aspiration');
+  const fitNowJobs = orderByBackendRank(jobs.filter((job) => job.matchCategory === 'fit-now'));
+  const aspirationJobs = orderByBackendRank(jobs.filter((job) => job.matchCategory === 'aspiration'));
   const savedTableRows = savedJobRows.filter((job) => {
     const query = jobSearch.trim().toLowerCase();
     return !query || [job.title, job.company, job.location, job.category || '', job.subCategory || ''].join(' ').toLowerCase().includes(query);
@@ -3825,6 +3891,15 @@ function JobMatchesPage({
         <strong>Recommended Next Step:</strong> {getRecommendedNextStep(job)}
       </div>
 
+      {job.hasMatchScore && (
+        <MatchFeedbackControls
+          jobTitle={job.title}
+          vote={matchFeedback[matchFeedbackKey(job.id, job.jobSource)] ?? null}
+          status={matchFeedbackStatus[matchFeedbackKey(job.id, job.jobSource)] ?? { state: 'idle' }}
+          onVote={(vote) => onRateMatch(job, vote)}
+        />
+      )}
+
       <div className="cand-actions">
         {job.sourceType === 'internal' ? (
           <>
@@ -3859,6 +3934,7 @@ function JobMatchesPage({
         <div className="cand-page-header cand-page-header-inline">
           <h1 className="cand-page-title">Job Matches</h1>
           <p className="cand-page-subtitle">Jobs recommended based on your resume, confirmed skills, and career preferences</p>
+          <p className="cand-feedback-note">Match percentages show how well your skills and experience line up with a role, not your chance of being hired. Rating matches helps Kareerly improve the order of future recommendations once enough candidates have rated them.</p>
         </div>
 
         <div className="cand-search-row">
