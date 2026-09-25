@@ -912,11 +912,18 @@ def _compact_tokens(text_norm: str) -> frozenset:
     return frozenset(word for word in (_compact(token) for token in text_norm.split()) if word)
 
 
-def _phrase_in_text(phrase: str, text_norm: str) -> bool:
+def _phrase_in_text(phrase: str, text_norm: str, strip_qualifiers: bool = True) -> bool:
+    """Whether ``phrase`` appears in the normalized text.
+
+    ``strip_qualifiers`` also tries the phrase without requirement wording
+    ("Salesforce experience" -> "salesforce"). It is off for a taxonomy skill's
+    own names, where those words are part of the name: "Customer Experience"
+    is not "customer", nor "Office software" "office".
+    """
     phrase_norm = normalize_for_match(phrase)
     if len(phrase_norm) < 3 or not text_norm:
         return False
-    for variant in _phrase_variants(phrase_norm):
+    for variant in (_phrase_variants(phrase_norm) if strip_qualifiers else [phrase_norm]):
         if re.search(r"(?<![a-z0-9+#])" + re.escape(variant) + r"(?![a-z0-9+#])", text_norm):
             return True
         compact = _compact(variant)
@@ -987,7 +994,10 @@ def compute_skill_coverage(
         # A requirement with no taxonomy ID is matched by name, which a held
         # skill can carry: "Customer Onboarding" shows a legacy SK_ONBOARDING.
         search_norm = profile_norm if key.startswith("CUSTOM:") else text_norm
-        phrase = next((phrase for phrase in phrases if _phrase_in_text(phrase, search_norm)), None)
+        # A custom requirement name may carry wording ("Salesforce experience");
+        # a taxonomy skill's names are matched whole.
+        custom = key.startswith("CUSTOM:")
+        phrase = next((phrase for phrase in phrases if _phrase_in_text(phrase, search_norm, strip_qualifiers=custom)), None)
         if phrase:
             basis[required[key]] = {"kind": "resume_text", "key": key, "phrase": phrase}
             return True

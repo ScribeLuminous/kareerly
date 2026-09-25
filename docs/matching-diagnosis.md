@@ -560,3 +560,13 @@ and hyphens, scores every row before ranking, and hides auto-generated copies
 of reviewed skills. After the change all 100 spellings are extracted and all
 448 pairs match (`backend/tests/test_skill_spellings.py`); the mock-resume
 diagnostic is unchanged.
+
+Later the same day: **SK694 Customer Experience** was added (K09, alongside
+Customer Success) and "CX" now names it rather than Customer Service; "CS"
+stays Customer Service, and neither skill stands in for the other. Adding it
+exposed a matching bug: requirement wording was stripped from a skill's own
+names, so "Customer Experience" was checked as "customer", and likewise
+"Office software" as "office", "Product Knowledge" as "product" and
+"Industrial software" as "industrial" (14 skills). A skill's own names are now
+matched whole; only unresolved requirement names are stripped of wording such
+as "experience" or "skills".
