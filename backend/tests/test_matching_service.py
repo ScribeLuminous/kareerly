@@ -181,6 +181,15 @@ class MatchingRegressionTests(unittest.TestCase):
             "industry": "technology-data", "role_level": "senior", "work_setup": "remote", "salary_expectation": "80+"})
         self.assertLess(mismatch, 1.0)
 
+    def test_step_three_salary_ranges_are_parsed(self):
+        # Onboarding sends values; the dashboard sends the labels.
+        for value in ("15-35", "PHP 15,000 - PHP 35,000/month"):
+            self.assertEqual(matching._salary_range(value), (15000, 35000))
+        for value in ("35-50", "PHP 35,001 - PHP 50,000/month"):
+            self.assertEqual(matching._salary_range(value)[1], 50000)
+        self.assertEqual(matching._salary_range("50+"), (50000, float("inf")))
+        self.assertEqual(matching._salary_range("php 50,001 - more"), (50001, float("inf")))
+
     def test_expanded_category_ids_are_normalized_through_k24(self):
         self.assertEqual(matching.normalize_category_id("K24"), "K24")
         self.assertEqual(matching.normalize_category_id("24"), "K24")

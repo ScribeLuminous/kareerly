@@ -19,13 +19,13 @@ const snapshotSource = readFileSync(new URL('../src/components/SnapshotStep.tsx'
 
 test('the preference summary shows labels for the answers given', () => {
   const items = preferences.summarizePreferences({
-    industry: 'sales-marketing-customer-service', role: 'entry', setup: 'remote', salary: '30-50', skill: '',
+    industry: 'sales-marketing-customer-service', role: 'entry', setup: 'remote', salary: '35-50', skill: '',
   });
   assert.deepEqual(items, [
     { label: 'Career area', value: 'Sales, Marketing & Customer Service' },
     { label: 'Target job level', value: 'Entry-level (first job/junior)' },
     { label: 'Work setup', value: '100% Work from Home' },
-    { label: 'Salary expectation', value: 'PHP 30,000 - PHP 50,000/month' },
+    { label: 'Salary expectation', value: 'PHP 35,001 - PHP 50,000/month' },
   ]);
   // The optional answer appears only when supplied.
   const withSkill = preferences.summarizePreferences({ industry: 'technology-data', role: 'unsure', setup: 'flexible', salary: 'unsure', skill: 'SQL' });

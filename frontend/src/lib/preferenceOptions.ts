@@ -18,11 +18,18 @@ export const workSetupOptions: PreferenceOption[] = [
 ];
 
 export const salaryOptions: PreferenceOption[] = [
+  { value: '15-35', label: 'PHP 15,000 - PHP 35,000/month' },
+  { value: '35-50', label: 'PHP 35,001 - PHP 50,000/month' },
+  { value: '50+', label: 'PHP 50,001 - more' },
+  { value: 'unsure', label: "I'm not sure" },
+];
+
+// Ranges offered before, kept so reports generated with them still read well.
+const legacySalaryOptions: PreferenceOption[] = [
   { value: '20-30', label: 'PHP 20,000 - PHP 30,000/month' },
   { value: '30-50', label: 'PHP 30,000 - PHP 50,000/month' },
   { value: '50-80', label: 'PHP 50,000 - PHP 80,000/month' },
   { value: '80+', label: 'PHP 80,000+/month' },
-  { value: 'unsure', label: "I'm not sure" },
 ];
 
 export const careerAreaPreferenceOptions: PreferenceOption[] = careerAreaOptions.map((option) => ({
@@ -69,7 +76,7 @@ export function summarizePreferences(answers: SurveyAnswers | null | undefined):
   if (answers.industry?.trim()) items.push({ label: 'Career area', value: getCareerAreaLabel(answers.industry) });
   if (answers.role?.trim()) items.push({ label: 'Target job level', value: optionLabel(jobLevelOptions, answers.role) });
   if (answers.setup?.trim()) items.push({ label: 'Work setup', value: optionLabel(workSetupOptions, answers.setup) });
-  if (answers.salary?.trim()) items.push({ label: 'Salary expectation', value: optionLabel(salaryOptions, answers.salary) });
+  if (answers.salary?.trim()) items.push({ label: 'Salary expectation', value: optionLabel([...salaryOptions, ...legacySalaryOptions], answers.salary) });
   if (answers.skill?.trim()) items.push({ label: 'Skill to develop', value: answers.skill.trim() });
   return items;
 }
