@@ -175,6 +175,33 @@ class OrderEvidenceTests(unittest.TestCase):
             (["Customer Service"], [], 1.0))
 
 
+class AdministrativeEvidenceTests(unittest.TestCase):
+    # Wording from an executive and administrative assistant's resume.
+    RESUME = ("Remote executive and administrative support professional. CORE SKILLS: Inbox & Email Management | "
+              "Document & Records Organization | Client & Patient Coordination | Microsoft 365. "
+              "Executive Assistant | Wing Assistant. Handled phone and email communication and customer communications.")
+
+    def test_an_administrative_resume_shows_the_executive_assistant_requirements(self):
+        result = matching.compute_skill_coverage(
+            [], ["Office Administration", "Business Communication", "Event Coordination", "Perform clerical duties", "Office software"],
+            self.RESUME)
+        self.assertEqual(result["matched_skills"],
+                         ["Business Communication", "Office Administration", "Office software", "Perform clerical duties"])
+        # Nothing in the resume shows planning events.
+        self.assertEqual(result["missing_skills"], ["Event Coordination"])
+
+    def test_client_support_shows_client_handling_but_not_english(self):
+        result = matching.compute_skill_coverage([], ["Client Handling", "English Communication"], self.RESUME)
+        self.assertEqual(result["matched_skills"], ["Client Handling"])
+        self.assertEqual(result["missing_skills"], ["English Communication"])
+
+    def test_bare_words_do_not_count(self):
+        result = matching.compute_skill_coverage(
+            [], ["Office Administration", "Perform clerical duties", "Business Communication"],
+            "Configured the admin panel, answered email, and supported customers.")
+        self.assertEqual(result["matched_skills"], [])
+
+
 class StepFourReportTests(unittest.TestCase):
     def setUp(self):
         matching.clear_reference_jobs_cache()
