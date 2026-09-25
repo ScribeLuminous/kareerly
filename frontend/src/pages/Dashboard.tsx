@@ -59,7 +59,7 @@ import type { MatchFeedbackStatus, MatchVote } from '../lib/matchFeedback';
 import type { MessageModerationState, MessageReportReason } from '../lib/api';
 import type { AvailableJobItem, CandidateNotification } from '../lib/api';
 import { cleanSkillLabel } from '../lib/skillLabels';
-import { careerAreaOptions, getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
+import { careerAreaOptions, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestMatchHistory, loadLatestResume, saveMatchHistory, saveResumeAnalysis } from '../lib/userData';
@@ -4595,7 +4595,11 @@ function PreferencesPage({
       <div className="cand-card">
         <div className="cand-form-grid">
           <FormField label="Career Area of Interest">
-            <select className="cand-form-select" value={draft.industry} onChange={(event) => setDraft((current) => ({ ...current, industry: event.target.value }))}>
+            <select className="cand-form-select" value={normalizeCareerAreaValue(draft.industry)} onChange={(event) => setDraft((current) => ({ ...current, industry: event.target.value }))}>
+              {/* A saved broad area from before the split stays selected until another is chosen. */}
+              {isLegacyCareerArea(draft.industry) && (
+                <option value={normalizeCareerAreaValue(draft.industry)}>{getCareerAreaLabel(draft.industry)} (saved choice)</option>
+              )}
               {careerAreaOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}

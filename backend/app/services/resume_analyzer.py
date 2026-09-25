@@ -190,9 +190,14 @@ def extract_candidate_full_name(raw_text: str, cleaned_text: str) -> str:
     return ""
 
 
+# Words that qualify a heading without changing its kind: "CORE SKILLS",
+# "RELEVANT EXPERIENCE", "ADDITIONAL TECHNICAL EXPERIENCE".
+HEADING_QUALIFIERS = r"(?:(?:core|key|relevant|additional|professional|technical|work|other|related)\s+){0,2}"
+
+
 def detect_resume_sections(resume_text: str) -> Dict[str, str]:
     heading_pattern = re.compile(
-        r"^\s*(?P<h>(" + "|".join(SECTION_HEADINGS) + r"))\s*:?\s*$",
+        r"^\s*(?P<h>" + HEADING_QUALIFIERS + r"(" + "|".join(SECTION_HEADINGS) + r"))\s*:?\s*$",
         re.IGNORECASE | re.MULTILINE,
     )
 
