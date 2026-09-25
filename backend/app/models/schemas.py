@@ -50,6 +50,8 @@ class RunMatchesRequest(BaseModel):
     resume_text_for_matching: str = Field(min_length=1)
     candidate_skill_ids: List[str] = []
     confirmed_skills: List[dict] = Field(default_factory=list)
+    # Skills shown in Step 2 that the candidate removed; never credited from the resume.
+    removed_skill_ids: Optional[List[str]] = None
     preferences: MatchPreferences = Field(default_factory=MatchPreferences)
 
 

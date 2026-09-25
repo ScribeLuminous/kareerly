@@ -104,8 +104,9 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
 
     def test_unrestricted_fields_neither_filter_nor_penalize_any_job(self):
         area_only = recommended(report({"industry": AREA}))
-        # Every sales and customer service job is recommended; the construction job is not.
-        self.assertEqual({job_id for job_id, *_ in area_only}, {"support", "sales-ops", "crm"})
+        # The sales and customer service jobs sharing a skill with the resume are
+        # recommended; the CRM job shares none and the construction job is unrelated.
+        self.assertEqual({job_id for job_id, *_ in area_only}, {"support", "sales-ops"})
         for name, open_fields in [
             ("job level", UNRESTRICTED_LEVEL), ("salary", UNRESTRICTED_SALARY), ("work setup", UNRESTRICTED_SETUP),
             ("all three", {**UNRESTRICTED_LEVEL, **UNRESTRICTED_SALARY, **UNRESTRICTED_SETUP}),
@@ -121,28 +122,25 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
         # Restricted answers the jobs do not meet still keep the jobs (they are
         # never filtered out) but lower their alignment.
         restricted = report({"industry": AREA, **MISMATCHED_LEVEL, **MISMATCHED_SALARY, **MISMATCHED_SETUP})
-        self.assertEqual({job_id for job_id, *_ in recommended(restricted)}, {"support", "sales-ops", "crm"})
+        self.assertEqual({job_id for job_id, *_ in recommended(restricted)}, {"support", "sales-ops"})
         self.assertTrue(all(alignment < 1.0 for *_, alignment in recommended(restricted)))
         self.assertEqual(restricted["debug_summary"]["unrestricted_preferences"], [])
 
-    def test_career_area_decides_which_jobs_are_compared_with_the_resume(self):
+    def test_career_area_adds_relevance_but_never_a_skill_bridge(self):
         open_fields = {**UNRESTRICTED_LEVEL, **UNRESTRICTED_SALARY, **UNRESTRICTED_SETUP}
         sales_report = report({"industry": AREA, **open_fields})
         sales = {item["job_id"]: item for item in sales_report["all_fit_now_matches"] + sales_report["all_aspiration_matches"]}
         construction = report({"industry": "construction-maintenance", **open_fields})
-        self.assertEqual(set(sales), {"support", "sales-ops", "crm"})
-        self.assertTrue(all(item["in_preferred_career_area"] for item in sales.values()))
-        # The resume already covers these two, so they are Fit-Now; the third is Aspiration.
+        # The resume already covers these two, so they are Fit-Now under any area.
+        self.assertEqual(set(sales), {"support", "sales-ops"})
         self.assertEqual({item["job_id"] for item in sales_report["all_fit_now_matches"]}, {"support", "sales-ops"})
-        self.assertEqual([item["job_id"] for item in sales_report["all_aspiration_matches"]], ["crm"])
-        # Aspiration follows the chosen area; Fit-Now is decided by the resume alone.
-        self.assertEqual([item["job_id"] for item in construction["all_aspiration_matches"]], ["site"])
         self.assertEqual({item["job_id"] for item in construction["all_fit_now_matches"]}, {"support", "sales-ops"})
-        self.assertNotIn("crm", {item["job_id"] for item in construction["all_fit_now_matches"] + construction["all_aspiration_matches"]})
-        # Within the area, jobs are compared with the resume: its skills decide the gaps.
+        # The CRM job (chosen area) and the site job (construction area) share no
+        # skill with the resume, so neither is padded into Aspiration.
+        self.assertEqual(sales_report["all_aspiration_matches"], [])
+        self.assertEqual(construction["all_aspiration_matches"], [])
         self.assertEqual(sales["support"]["missing_skills"], [])
         self.assertEqual(sales["sales-ops"]["missing_skills"], [])
-        self.assertEqual(sales["crm"]["missing_skills"], ["HubSpot", "Invoicing and Billing", "Project Coordination"])
 
     def test_salary_ranges_with_thousands_separators(self):
         self.assertEqual(matching._salary_range("php 60,000 - 80,000"), (60000.0, 80000.0))

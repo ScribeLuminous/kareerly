@@ -45,6 +45,7 @@ import pandas as pd
 
 from backend.app.services import bi_encoder_service as encoder
 from backend.app.services import matching_service as matching
+from backend.app.services.resume_evidence import candidate_model_inputs
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 RESUME_DIR = BACKEND_DIR / "evaluation" / "sample_resumes"
@@ -197,14 +198,16 @@ def run(output: Path, baseline_model: Optional[str], must_have_mode: str) -> Dic
 
     rows: List[Dict[str, Any]] = []
     for resume in resumes.to_dict(orient="records"):
-        text, _records, skill_names, candidate_keys = matching._prepare_candidate_context(resume["resume_text"], None)
-        candidate_input = encoder.build_model_input(text, skill_names=skill_names)
-        scored = matching.bi_encoder_score_jobs(candidate_input, jobs)
+        context = matching._prepare_candidate_context(resume["resume_text"], None)
+        skill_names = context.skill_names
+        evidence = candidate_model_inputs(context.resume_text, skill_names=skill_names)
+        # The pretrained comparison reads the profile input only, as before.
+        candidate_input = evidence.inputs[0]
+        scored = matching.bi_encoder_score_jobs(evidence, jobs)
         other_scores = {name: scorer(candidate_input, job_inputs) for name, scorer in scorers.items()}
         for index, job in enumerate(scored.to_dict(orient="records")):
             result = matching._score_single_normalized_job(
-                resume_text=text, job=job, candidate_keys=candidate_keys,
-                preferences={}, available_learning_skills=available_learning,
+                context=context, job=job, preferences={}, available_learning_skills=available_learning,
             )
             breakdown = result.get("match_breakdown", {})
             rows.append({
@@ -214,6 +217,9 @@ def run(output: Path, baseline_model: Optional[str], must_have_mode: str) -> Dic
                 "label": label_pair(resume, job),
                 "model": encoder.MODEL_ID,
                 "cosine_finetuned": float(job["semantic_score_raw"]),
+                # The single opening-of-resume input the matcher used to rely on alone.
+                "profile_only_cosine": float(job["semantic_profile_score_raw"]),
+                "evidence_section": job["semantic_evidence_section"],
                 **{f"cosine_{name}": float(values[index]) for name, values in other_scores.items()},
                 "required_skill_count": len(matching.split_ids(job.get("required_skill_ids", ""))),
                 "matched_required": len(result["matched_skills"]),
@@ -283,14 +289,14 @@ def inspect(resume_path: Path, job_id: str = "", top: int = 10) -> List[Dict[str
         jobs = matching.load_reference_jobs()
     if job_id:
         jobs = jobs[jobs["job_id"].astype(str) == job_id].reset_index(drop=True)
-    text, _records, skill_names, candidate_keys = matching._prepare_candidate_context(text, None)
-    scored = matching.bi_encoder_score_jobs(encoder.build_model_input(text, skill_names=skill_names), jobs)
+    context = matching._prepare_candidate_context(text, None)
+    skill_names = context.skill_names
+    scored = matching.bi_encoder_score_jobs(candidate_model_inputs(context.resume_text, skill_names=skill_names), jobs)
     available_learning = matching.reviewed_learning_skill_ids()
     rows = []
     for job in scored.to_dict(orient="records"):
         result = matching._score_single_normalized_job(
-            resume_text=text, job=job, candidate_keys=candidate_keys,
-            preferences={}, available_learning_skills=available_learning,
+            context=context, job=job, preferences={}, available_learning_skills=available_learning,
         )
         rows.append({
             "candidate": resume_path.name, "candidate_skills": skill_names,

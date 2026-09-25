@@ -6,7 +6,7 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useOnboarding } from '../hooks/useOnboarding';
 import type { SelectedSkill, SurveyAnswers } from '../types';
-import { CONFIRMED_SKILL_LIMIT, runJobMatches, searchSkills } from '../lib/api';
+import { CONFIRMED_SKILL_LIMIT, removedSkillIds, runJobMatches, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
 import { careerAreaSkillExamples, confirmedSkillsInCareerArea, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
@@ -202,6 +202,8 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         candidate_skill_ids: finalCandidateSkillIds,
         // Guests cannot edit skills, but must still be matched on the ones shown in Step 2.
         confirmed_skills: selectedSkills,
+        // Step 2 skills a signed-in candidate unticked; guests cannot remove any.
+        removed_skill_ids: isLoggedIn ? removedSkillIds(extractedSkillIds, selectedSkills) : [],
         preferences: {
           industry: answers.industry,
           target_role: answers.role,

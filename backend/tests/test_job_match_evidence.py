@@ -17,7 +17,7 @@ from docx import Document
 from docx.oxml import parse_xml
 
 from backend.app.services import matching_service as matching
-from backend.app.services.resume_analyzer import analyze_resume_file
+from backend.app.services.resume_analyzer import analyze_resume_file, prepare_resume_text
 from backend.app.services.resume_parser import extract_text_from_docx, extract_text_from_pdf
 from backend.app.services.skill_extractor import SkillExtractor
 
@@ -130,8 +130,9 @@ class ResumeTextExtractionTests(unittest.TestCase):
     def test_pdf_with_a_text_layer_is_read(self):
         text = extract_text_from_pdf(io.BytesIO(text_pdf(RESUME_LINES)))
         self.assertIn("Handled order fulfillment and refunds for an online store.", text)
-        self.assertEqual(matching.extract_text_from_pdf(text_pdf(RESUME_LINES)), matching.clean_text(
-            matching.extract_text_from_pdf(text_pdf(RESUME_LINES))))
+        # Matching reads the text prepared as Step 1 prepares it: lines kept, so
+        # sections can be read as separate evidence.
+        self.assertEqual(matching.extract_text_from_pdf(text_pdf(RESUME_LINES)), prepare_resume_text(text))
 
     def test_upload_and_report_routes_read_the_same_docx_text(self):
         file_bytes = resume_docx()
@@ -197,7 +198,7 @@ class StepFourReportTests(unittest.TestCase):
             )
 
     def matches(self, result):
-        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_closest_matches"] + result["all_aspiration_matches"]}
+        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_aspiration_matches"]}
 
     def test_order_processing_is_matched_and_leaves_the_prioritized_gaps(self):
         result = self.report(resume_docx())
@@ -214,16 +215,16 @@ class StepFourReportTests(unittest.TestCase):
         self.assertIn("Order Processing", self.matches(result)["non-voice"]["missing_skills"])
         self.assertIn("Order Processing", [gap["skill_name"] for gap in result["skill_gaps"]])
 
-    def test_a_job_without_comparable_requirements_claims_no_skills(self):
-        csr = self.matches(self.report(resume_docx()))["csr"]
+    def test_a_job_without_comparable_requirements_is_not_recommended(self):
+        # With no skills to compare there is no bridge to show, so the job is
+        # scored but in neither list, and claims no skills.
+        result = self.report(resume_docx())
+        self.assertNotIn("csr", self.matches(result))
+        csr = next(item for item in result["debug_summary"]["top_10_scores"]
+                   if item["job_title"] == "Customer Service Representative")
         self.assertEqual((csr["matched_skills"], csr["missing_skills"]), ([], []))
-        self.assertFalse(csr["skill_requirements_available"])
-        self.assertEqual(csr["score_basis"], "role_similarity_only")
-        # The score is the role similarity alone, and the text says so.
-        self.assertEqual(csr["match_score"], csr["semantic_score"])
-        self.assertIn("role similarity only", csr["explanation"])
-        self.assertNotIn("no major required skills", csr["explanation"])
-        self.assertIn("no required skills to compare", csr["match_reason"])
+        self.assertEqual(csr["match_type"], "Low Match")
+        self.assertIn("no_skills_listed", csr["match_breakdown"]["failed_aspiration_rules"])
 
 
 if __name__ == "__main__":

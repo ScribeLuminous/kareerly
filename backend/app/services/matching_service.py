@@ -8,6 +8,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Dict, List, Any, Tuple, Optional
 
@@ -32,12 +33,13 @@ from .match_scoring import (
     match_reason,
     score_match,
 )
+from .resume_analyzer import extract_resume_skills, prepare_resume_text, resume_text_from_upload, split_resume_sections
+from .resume_evidence import CandidateEvidence, candidate_model_inputs
 from .resume_parser import (
     SUPPORTED_RESUME_EXTENSIONS,
     ResumeFileError,
     extract_docx_document,
     extract_pdf_document,
-    extract_resume_document,
     resume_extension,
 )
 from .skill_extractor import SkillExtractor
@@ -60,8 +62,9 @@ SKILL_EVIDENCE_RELATIONS_PATH = os.path.join(DATA_DIR, "skill_evidence_relations
 
 TOP_FIT_NOW = 10
 TOP_ASPIRATION = 10
-# Shown only when no job passes Fit-Now; see select_closest_matches().
-TOP_CLOSEST = 5
+# The closest_matches lists stay in the response, always empty, for older
+# clients: every related job now qualifies as Aspiration on its own merits,
+# so no job is promoted into a separate list to fill an empty Fit-Now list.
 CLOSEST_MATCH = "Closest Match"
 # Skill gaps listed in a report; total_skill_gap_count says how many there are in all.
 MAX_PRIORITIZED_GAPS = 8
@@ -199,29 +202,6 @@ def clean_text(value: Any) -> str:
     return text
 
 
-def repair_letter_spaced_text(text: str) -> str:
-    if not isinstance(text, str):
-        return ""
-
-    text = text.replace("\u00a0", " ")
-    single_char_tokens = re.findall(r"\b[A-Za-z0-9]\b", text)
-    word_tokens = re.findall(r"\b[A-Za-z0-9]+\b", text)
-
-    looks_letter_spaced = (
-        len(single_char_tokens) >= 30
-        and len(single_char_tokens) / max(len(word_tokens), 1) >= 0.60
-    )
-
-    if not looks_letter_spaced:
-        return text
-
-    compact = re.sub(r"\s+", "", text)
-    if compact and compact not in text:
-        return text + "\n\n" + compact
-
-    return text
-
-
 def normalize_for_match(value: Any) -> str:
     text = clean_text(value).lower()
     text = re.sub(r"[^a-z0-9+#.\s/-]", " ", text)
@@ -301,34 +281,33 @@ def job_career_area(job: Dict[str, Any]) -> str:
 # ============================================================
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
-    return clean_text(repair_letter_spaced_text(extract_pdf_document(file_bytes).text))
+    return prepare_resume_text(extract_pdf_document(file_bytes).text)
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
     # The same reader as the Step 1 analyzer, so both routes see identical text.
-    return clean_text(repair_letter_spaced_text(extract_docx_document(file_bytes).text))
+    return prepare_resume_text(extract_docx_document(file_bytes).text)
 
 
 def extract_resume_text(file_bytes: bytes, filename: str) -> str:
-    """Text of an uploaded resume, read exactly as Step 1 reads it (OCR, columns, .doc, split words)."""
+    """Text of an uploaded resume, read and prepared exactly as Step 1 reads it.
+
+    The same function (resume_analyzer.resume_text_from_upload) produces the
+    Step 1 text, so a report built from the file and one built from the Step 1
+    text see the same words, tables, text boxes and OCR output included.
+    """
     if resume_extension(filename) not in SUPPORTED_RESUME_EXTENSIONS:
         raise ValueError("Unsupported file format. Please upload a readable PDF, DOCX or DOC file.")
 
     extractor = current_skill_extractor()
     try:
-        extraction = extract_resume_document(
-            file_bytes,
-            filename,
-            split_word_vocabulary=extractor.split_word_vocabulary(),
-            known_phrases=extractor.known_phrases(),
-        )
+        text, extraction = resume_text_from_upload(file_bytes, filename, extractor)
     except ResumeFileError:
         raise
     except Exception as exc:
         raise RuntimeError(f"Could not read the resume file: {exc}") from exc
-    text = clean_text(repair_letter_spaced_text(extraction.text))
 
-    if len(text) < 50:
+    if len(clean_text(text)) < 50:
         detail = " ".join(extraction.warnings)
         raise ValueError(
             detail or "The resume text is too short or unreadable. Please upload a clearer PDF, DOCX or DOC resume."
@@ -628,10 +607,12 @@ def current_skill_extractor() -> SkillExtractor:
     return get_weighted_skill_extractor()
 
 
-def extract_skills_from_text(text: str, max_skills: int = 30) -> List[Dict[str, Any]]:
-    weighted_skills = get_weighted_skill_extractor().extract_skills(text)
+def extract_skills_from_text(text: str, max_skills: Optional[int] = 30) -> List[Dict[str, Any]]:
+    """Skills with evidence in the text, ranked as Step 2 ranks them; ``max_skills=None`` returns all."""
+    weighted_skills = extract_resume_skills(text, get_weighted_skill_extractor(), limit=max_skills)
     if weighted_skills:
-        return weighted_skills[:max_skills]
+        return weighted_skills
+    max_skills = max_skills or 10_000
 
     text_norm = normalize_for_match(text)
     alias_index, _ = get_skill_alias_index_cached()
@@ -934,6 +915,7 @@ def compute_skill_coverage(
     candidate_skills: List[str],
     required_skills: List[str],
     resume_text: str = "",
+    excluded_keys: Optional[set] = None,
 ) -> Dict[str, Any]:
     """Coverage over canonical skill keys, each requirement counted once.
 
@@ -942,8 +924,13 @@ def compute_skill_coverage(
     no taxonomy ID (custom names or legacy SK_* IDs) have no confirmed ID that
     could represent them at all. Taxonomy skills are checked by their canonical
     label only, never by the broad imported aliases.
+
+    ``excluded_keys`` are skills the candidate removed in Step 2: they are
+    never credited, even when the resume names them, and are reported in
+    ``removed_skills`` so a gap can say so instead of "not found".
     """
     labels, _ = canonical_skill_lookup()
+    excluded = excluded_keys or set()
     candidates = {_skill_key(value) for value in candidate_skills if clean_text(value)}
     required: Dict[str, str] = {}
     for value in required_skills:
@@ -962,25 +949,35 @@ def compute_skill_coverage(
         [resume_text, *map(clean_text, candidate_skills), *(display_skill_name(key, labels) for key in candidates)]
     ))
     related_credit: Dict[str, str] = {}
+    basis: Dict[str, Dict[str, str]] = {}
 
     def held(key: str) -> bool:
+        if key in excluded:
+            return False
         if key in candidates:
+            basis[required[key]] = {"kind": "held_skill", "key": key}
             return True
         phrases = skill_evidence_phrases().get(key) or [required[key]]
         # A requirement with no taxonomy ID is matched by name, which a held
         # skill can carry: "Customer Onboarding" shows a legacy SK_ONBOARDING.
         search_norm = profile_norm if key.startswith("CUSTOM:") else text_norm
-        if any(_phrase_in_text(phrase, search_norm) for phrase in phrases):
+        phrase = next((phrase for phrase in phrases if _phrase_in_text(phrase, search_norm)), None)
+        if phrase:
+            basis[required[key]] = {"kind": "resume_text", "key": key, "phrase": phrase}
             return True
         for phrase in related_skill_evidence().get(key, []):
             if _phrase_in_text(phrase, profile_norm):
                 related_credit[required[key]] = phrase
+                basis[required[key]] = {"kind": "related", "key": key, "phrase": phrase}
                 return True
         return False
 
     matched = [key for key in required if held(key)]
     missing = [key for key in required if key not in matched]
     return {
+        "matched_basis": basis,
+        "missing_keys": missing,
+        "removed_skills": sorted(required[key] for key in missing if key in excluded),
         "skill_coverage": round(len(matched) / len(required), 4) if required else 0.0,
         "matched_skills": sorted(required[key] for key in matched),
         "missing_skills": sorted(required[key] for key in missing),
@@ -1329,43 +1326,106 @@ def job_model_inputs(jobs_df: pd.DataFrame) -> List[str]:
         skill_names=split_skill_list(row.get("required_skills_for_eval", ""))) for _, row in jobs_df.iterrows()]
 
 
-def bi_encoder_score_jobs(candidate_input: str, jobs_df: pd.DataFrame) -> pd.DataFrame:
+SEMANTIC_SCORING_METHOD = "fine_tuned_bi_encoder_cosine_max_over_resume_sections"
+# The maximum of many section cosines is higher than one cosine even for an
+# unrelated job (about +0.08 on average on the mock-resume diagnostic), and the
+# Fit-Now and Aspiration floors were calibrated on the single profile input.
+# A section therefore counts only by how far it beats this offset:
+#     semantic = max(profile cosine, best section cosine - offset)
+# 0.125 was chosen on the development split of
+# scripts/diagnose_match_distribution.py so that unrelated ("weak") pairs pass
+# the 0.20 and 0.30 floors about as often as before (held-out split: 9.9% vs
+# 9.4%, 2.5% vs 2.4%) with strong-pair recall unchanged; see docs/matching-diagnosis.md.
+SECTION_EVIDENCE_OFFSET = 0.125
+
+
+def section_evidence_offset() -> float:
+    try:
+        value = float(os.getenv("KAREERLY_SECTION_EVIDENCE_OFFSET", str(SECTION_EVIDENCE_OFFSET)))
+    except (TypeError, ValueError):
+        return SECTION_EVIDENCE_OFFSET
+    return min(max(value, 0.0), 1.0)
+
+
+def bi_encoder_score_jobs(candidate: Any, jobs_df: pd.DataFrame) -> pd.DataFrame:
+    """Role similarity of each job with the resume, read section by section.
+
+    ``candidate`` is a CandidateEvidence (see resume_evidence.py) or a single
+    model input. Every evidence input is compared with every job; each job
+    keeps the profile cosine or its best section cosine less
+    SECTION_EVIDENCE_OFFSET, whichever is higher, and the section that gave it.
+    The rationale is in resume_evidence.py. The value is a cosine similarity,
+    not a probability.
+    """
+    evidence = candidate if isinstance(candidate, CandidateEvidence) else CandidateEvidence(
+        inputs=[str(candidate)], sections=["profile_summary"], chunk_count=0, truncated=False)
     scored = jobs_df.copy()
-    raw_scores = score_jobs(candidate_input, job_model_inputs(jobs_df))
+    raw = np.asarray(score_jobs(evidence.inputs, job_model_inputs(jobs_df)), dtype=float)
+    # A test double may answer with one row for every input.
+    matrix = raw.reshape(1, -1) if raw.ndim == 1 else raw
+    matrix = matrix.copy()
+    # Section inputs are offset before the maximum; see SECTION_EVIDENCE_OFFSET.
+    matrix[1:] -= section_evidence_offset()
+    best = matrix.argmax(axis=0)
+    raw_scores = matrix[best, np.arange(matrix.shape[1])]
     scored["semantic_score_raw"] = raw_scores
     scored["semantic_score"] = np.clip(raw_scores, 0, 1)
-    scored["semantic_scoring_method"] = "fine_tuned_bi_encoder_cosine"
+    scored["semantic_profile_score_raw"] = matrix[0]
+    scored["semantic_evidence_section"] = [
+        evidence.sections[index] if index < len(evidence.sections) else "profile_summary" for index in best]
+    scored["semantic_scoring_method"] = SEMANTIC_SCORING_METHOD
     return scored
 
 
-def _prepare_candidate_context(
-    resume_text: str,
-    confirmed_skills: Optional[List[Any]] = None,
-) -> tuple[str, List[Dict[str, Any]], List[str], List[str]]:
-    """Prepare the same candidate evidence for internal and external jobs."""
-    ensure_taxonomy_current()
-    resume_text = clean_text(resume_text)
-    if not resume_text:
-        raise ValueError("No readable resume text was provided for matching.")
-    provided_confirmed_skills = confirmed_skills is not None
-    confirmed_skills = confirmed_skills or []
-    if len(confirmed_skills) > MAX_CONFIRMED_SKILLS:
-        raise ValueError(f"You can confirm up to {MAX_CONFIRMED_SKILLS} skills.")
+# How a held skill was shown, for per-job evidence.
+EVIDENCE_CONFIRMED = "confirmed_in_skill_review"
+EVIDENCE_RESUME = "found_in_resume"
+# Why a requirement is missing. "Not found" is not proof the candidate lacks
+# it; only a skill the candidate removed in Step 2 is a stated absence.
+MISSING_NOT_FOUND = "not_found_in_resume"
+MISSING_REMOVED = "removed_by_candidate"
 
-    extracted_skills = extract_skills_from_text(resume_text, max_skills=30)
-    confirmed_skill_records: List[Dict[str, Any]] = []
+
+@dataclass
+class CandidateContext:
+    """What matching knows about the candidate, shared by every job it scores."""
+
+    resume_text: str
+    # The Step 2 list: confirmed skills, or the first twenty extracted.
+    skill_records: List[Dict[str, Any]]
+    skill_names: List[str]
+    # Every skill held: confirmed ones plus resume evidence not removed in Step 2.
+    held_values: List[str]
+    removed_keys: set
+    removed_skill_ids: List[str]
+    evidence: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    sections: List[Tuple[str, str]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self._normalized_sections = [(heading, normalize_for_match(body)) for heading, body in self.sections]
+
+    def section_of(self, phrase: str) -> str:
+        """The resume section whose text names ``phrase``, or ""."""
+        for heading, body_norm in self._normalized_sections:
+            if _phrase_in_text(phrase, body_norm):
+                return heading
+        return ""
+
+
+def _confirmed_skill_records(confirmed_skills: List[Any]) -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
     for item in confirmed_skills:
         if isinstance(item, str):
             skill_name = clean_text(item)
             if skill_name:
-                confirmed_skill_records.append({"skill_id": "", "skill_name": skill_name, "source": "confirmed_legacy_name"})
+                records.append({"skill_id": "", "skill_name": skill_name, "source": "confirmed_legacy_name"})
             continue
         if isinstance(item, dict):
             skill_id = clean_text(item.get("skill_id", "")).upper()
             skill_name = clean_text(item.get("skill_name", "")) or get_skill_labels_by_id().get(skill_id, "")
             if not skill_name:
                 continue
-            confirmed_skill_records.append({
+            records.append({
                 "skill_id": skill_id,
                 "skill_name": skill_name,
                 "custom_skill_name": clean_text(item.get("custom_skill_name", "")),
@@ -1373,9 +1433,43 @@ def _prepare_candidate_context(
                 "is_standardized": bool(item.get("is_standardized", bool(skill_id))),
                 "source_metadata": item.get("source_metadata", {}) if isinstance(item.get("source_metadata"), dict) else {},
             })
+    return records
+
+
+def _prepare_candidate_context(
+    resume_text: str,
+    confirmed_skills: Optional[List[Any]] = None,
+    removed_skill_ids: Optional[List[str]] = None,
+) -> CandidateContext:
+    """Prepare the same candidate evidence for internal and external jobs.
+
+    Skills come from the whole resume, not only the twenty Step 2 shows:
+
+    * confirmed skills (Step 2) are held, including ones the candidate added;
+    * every other skill the resume shows is held too, so a skill ranked below
+      the twentieth is never reported missing;
+    * a skill the candidate removed in Step 2 is not held, even though the
+      resume names it. Clients send those as ``removed_skill_ids``. A skill
+      merely absent from ``confirmed_skills`` is not treated as removed: older
+      clients and saved dashboards send lists that may predate the resume
+      text, and guessing a removal would report a documented skill missing.
+    """
+    ensure_taxonomy_current()
+    resume_text = prepare_resume_text(resume_text)
+    if not clean_text(resume_text):
+        raise ValueError("No readable resume text was provided for matching.")
+    provided_confirmed_skills = confirmed_skills is not None
+    confirmed_skills = confirmed_skills or []
+    if len(confirmed_skills) > MAX_CONFIRMED_SKILLS:
+        raise ValueError(f"You can confirm up to {MAX_CONFIRMED_SKILLS} skills.")
+
+    resume_skills = [
+        skill for skill in extract_skills_from_text(resume_text, max_skills=None)
+        if clean_text(skill.get("skill_name", ""))
+    ]
 
     if provided_confirmed_skills:
-        final_skill_records = confirmed_skill_records[:MAX_CONFIRMED_SKILLS]
+        final_skill_records = _confirmed_skill_records(confirmed_skills)[:MAX_CONFIRMED_SKILLS]
     else:
         final_skill_records = [
             {
@@ -1386,8 +1480,7 @@ def _prepare_candidate_context(
                 "is_standardized": True,
                 "source_metadata": skill.get("source_metadata", {}) if isinstance(skill.get("source_metadata"), dict) else {},
             }
-            for skill in extracted_skills
-            if clean_text(skill.get("skill_name", ""))
+            for skill in resume_skills
         ][:MAX_CONFIRMED_SKILLS]
 
     labels, _ = canonical_skill_lookup()
@@ -1398,50 +1491,186 @@ def _prepare_candidate_context(
                 raise ValueError(f"Unknown confirmed skill ID: {skill_id}")
             skill["skill_name"] = labels[skill_id]
     candidate_skill_names = list(dict.fromkeys(skill["skill_name"] for skill in final_skill_records))
-    candidate_keys = [skill.get("skill_id") or skill["skill_name"] for skill in final_skill_records]
-    return resume_text, final_skill_records, candidate_skill_names, candidate_keys
+
+    confirmed_keys = {_skill_key(skill.get("skill_id") or skill["skill_name"]) for skill in final_skill_records}
+    removed = [clean_text(value).upper() for value in (removed_skill_ids or []) if clean_text(value)]
+    # A skill both confirmed and listed as removed stays confirmed.
+    removed_keys = {_skill_key(value) for value in removed} - confirmed_keys
+
+    evidence: Dict[str, Dict[str, Any]] = {}
+    for skill in final_skill_records:
+        value = skill.get("skill_id") or skill["skill_name"]
+        evidence.setdefault(_skill_key(value), {
+            "value": value, "skill_id": skill.get("skill_id", ""), "skill_name": skill["skill_name"],
+            "source": EVIDENCE_CONFIRMED, "matched_text": "", "source_section": "", "evidence_text": "",
+        })
+    for skill in resume_skills:
+        skill_id = clean_text(skill.get("skill_id", "")).upper()
+        key = _skill_key(skill_id or skill["skill_name"])
+        if key in removed_keys:
+            continue
+        found = {
+            "matched_text": clean_text(skill.get("matched_text", "")),
+            "source_section": clean_text(skill.get("source_section", "")),
+            "evidence_text": clean_text(skill.get("evidence_text", "")),
+        }
+        if key in evidence:
+            if not evidence[key]["matched_text"]:
+                evidence[key].update(found)
+            continue
+        evidence[key] = {"value": skill_id or skill["skill_name"], "skill_id": skill_id,
+            "skill_name": clean_text(skill.get("skill_name", "")), "source": EVIDENCE_RESUME, **found}
+
+    return CandidateContext(
+        resume_text=resume_text,
+        skill_records=final_skill_records,
+        skill_names=candidate_skill_names,
+        held_values=[item["value"] for item in evidence.values()],
+        removed_keys=removed_keys,
+        removed_skill_ids=sorted(key for key in removed_keys if key in labels),
+        evidence=evidence,
+        sections=split_resume_sections(resume_text),
+    )
 
 
 def _critical_skill_ids(job: Dict[str, Any], required_ids: List[str]) -> List[str]:
-    """Must-have IDs that an employer singled out from the required list.
+    """Must-have IDs that an employer explicitly designated.
 
     Supabase and pasted jobs store one ID list and copy it into both fields, so
     a must-have list equal to the required list carries no extra designation;
-    treating it as critical would silently demand 100% coverage.
+    treating it as critical would silently demand 100% coverage. Any other
+    must-have list is an explicit designation, and each skill in it must be
+    held for Fit-Now.
     """
     critical = split_ids(job.get("must_have_skill_ids", ""))
-    if not critical or set(critical) >= set(required_ids):
+    if not critical or set(critical) == set(required_ids):
         return []
     return critical
 
 
+def _matched_skill_evidence(
+    context: CandidateContext,
+    coverage: Dict[str, Any],
+    requirement: str,
+) -> List[Dict[str, Any]]:
+    """For each met requirement, the resume evidence (or confirmation) behind it."""
+    labels, _ = canonical_skill_lookup()
+    items = []
+    for name in coverage["matched_skills"]:
+        basis = coverage["matched_basis"].get(name, {})
+        key = basis.get("key", "")
+        held = context.evidence.get(key) if basis.get("kind") == "held_skill" else None
+        if held:
+            source, phrase, section, snippet = held["source"], held["matched_text"], held["source_section"], held["evidence_text"]
+        else:
+            phrase = basis.get("phrase", name)
+            source = "related_resume_evidence" if basis.get("kind") == "related" else EVIDENCE_RESUME
+            section, snippet = context.section_of(phrase), ""
+        items.append({
+            "skill": name,
+            "skill_id": key if key in labels else "",
+            "requirement": requirement,
+            "source": source,
+            "matched_text": phrase,
+            "source_section": section if section != "full_text" else "",
+            "evidence_text": snippet,
+        })
+    return items
+
+
+def _missing_skill_status(coverage: Dict[str, Any], requirement: str) -> List[Dict[str, Any]]:
+    return [
+        {"skill": name, "requirement": requirement,
+         "status": MISSING_REMOVED if name in coverage["removed_skills"] else MISSING_NOT_FOUND}
+        for name in coverage["missing_skills"]
+    ]
+
+
+def _describe_evidence(item: Dict[str, Any]) -> str:
+    if item["source"] == EVIDENCE_CONFIRMED and not item["matched_text"]:
+        return f"{item['skill']} (confirmed in your skill review)"
+    where = f" in your {item['source_section']} section" if item["source_section"] and item["source_section"] not in {"resume", "profile"} else ""
+    phrase = item["matched_text"]
+    if item["source"] == "related_resume_evidence":
+        return f"{item['skill']} (shown by \"{phrase}\"{where})"
+    if phrase and normalize_for_match(phrase) != normalize_for_match(item["skill"]):
+        return f"{item['skill']} (\"{phrase}\"{where})"
+    return f"{item['skill']}{' (' + where.strip() + ')' if where else ''}"
+
+
+def grounded_explanation(
+    job_title: str,
+    match_type: str,
+    matched_evidence: List[Dict[str, Any]],
+    missing_status: List[Dict[str, Any]],
+    semantic_section: str,
+    in_preferred_career_area: Optional[bool],
+    requirements_available: bool,
+) -> str:
+    """An explanation that quotes the resume evidence behind the match.
+
+    Missing skills are described as not found in the resume, never as skills
+    the candidate lacks, unless the candidate removed them in Step 2.
+    """
+    if not requirements_available:
+        return (f"The posting for {job_title} lists no skills Kareerly can compare with your resume, "
+                "so its score reflects role similarity only and no skill evidence or gaps can be shown.")
+    essential = [item for item in matched_evidence if item["requirement"] == "essential"]
+    shown = essential or matched_evidence
+    parts = []
+    if shown:
+        parts.append("Your resume shows " + "; ".join(_describe_evidence(item) for item in shown[:4]) + ".")
+    if semantic_section and semantic_section not in {"profile_summary", "resume", "profile", "full_text"}:
+        parts.append(f"Its closest match in your resume is your {semantic_section} section.")
+    not_found = [item["skill"] for item in missing_status if item["requirement"] == "essential" and item["status"] == MISSING_NOT_FOUND]
+    removed = [item["skill"] for item in missing_status if item["requirement"] == "essential" and item["status"] == MISSING_REMOVED]
+    optional = [item["skill"] for item in missing_status if item["requirement"] == "preferred"]
+    if match_type == FIT_NOW:
+        lead = f"{job_title} is a Fit-Now match: your resume covers its must-have skills and most of its required skills."
+    elif match_type == ASPIRATION:
+        basis = "is in the career area you chose" if in_preferred_career_area else "is related to your experience"
+        lead = f"{job_title} is an Aspiration: it {basis} and builds on skills you already have."
+    else:
+        lead = f"{job_title} has little overlap with your resume."
+    if not_found:
+        parts.append("Required skills not found in your resume: " + ", ".join(not_found[:5]) + ".")
+    if removed:
+        parts.append("Required skills you removed from your skill list: " + ", ".join(removed[:5]) + ".")
+    if optional:
+        parts.append("Nice-to-have skills not found: " + ", ".join(optional[:3]) + ".")
+    return " ".join([lead, *parts])
+
+
 def _score_single_normalized_job(
     *,
-    resume_text: str,
+    context: CandidateContext,
     job: Dict[str, Any],
-    candidate_keys: List[str],
     preferences: Dict[str, Any],
     available_learning_skills: set,
     thresholds: Optional[MatchThresholds] = None,
 ) -> Dict[str, Any]:
     """Score one normalized job using the production matching rules."""
+    resume_text = context.resume_text
     required_ids = split_ids(job.get("required_skill_ids", ""))
-    required_skills = required_ids or split_skill_list(job.get("required_skills_for_eval", ""))
-    skill_result = compute_skill_coverage(candidate_keys, required_skills, resume_text)
+    critical_ids = _critical_skill_ids(job, required_ids)
+    # Essential = required plus any must-have not repeated in the required list.
+    essential_ids = required_ids + [skill_id for skill_id in critical_ids if skill_id not in required_ids]
+    required_skills = essential_ids or split_skill_list(job.get("required_skills_for_eval", ""))
+    skill_result = compute_skill_coverage(context.held_values, required_skills, resume_text, context.removed_keys)
     preferred_ids = split_ids(job.get("nice_to_have_skill_ids", ""))
     preferred_skills = preferred_ids or split_skill_list(
         job.get("mapped_nice_to_have_skill_names") or job.get("nice_to_have_skills_optional", "")
     )
-    preferred_result = compute_skill_coverage(candidate_keys, preferred_skills, resume_text)
+    preferred_result = compute_skill_coverage(context.held_values, preferred_skills, resume_text, context.removed_keys)
     # Preferred skills that are also required are already counted once.
     preferred_matched = [name for name in preferred_result["matched_skills"] if name not in skill_result["matched_skills"]]
     preferred_missing = [name for name in preferred_result["missing_skills"] if name not in skill_result["missing_skills"]]
-    critical_missing = sorted(
-        skill_id for skill_id in _critical_skill_ids(job, required_ids)
-        if not compute_skill_coverage(candidate_keys, [skill_id], resume_text)["matched_skills"]
-    )
-    # Aspiration follows the career area chosen in Step 3. Unknown on either
-    # side (no preference, uncategorised job) falls back to the resume rule.
+    preferred_result = {**preferred_result, "matched_skills": preferred_matched, "missing_skills": preferred_missing}
+    labels, _ = canonical_skill_lookup()
+    missing_keys = set(skill_result["missing_keys"])
+    critical_missing = sorted(skill_id for skill_id in critical_ids if _skill_key(skill_id) in missing_keys)
+    # Relevance to the stated career goal: the job is in the chosen area.
+    # Unknown on either side (no preference, uncategorised job) leaves it None.
     preferred_areas = preferred_career_areas(preferences.get("industry", ""))
     area = job_career_area(job)
     in_preferred_area = (area in preferred_areas) if preferred_areas and area else None
@@ -1464,6 +1693,10 @@ def _score_single_normalized_job(
     preference_alignment = compute_preference_alignment(job, preferences)
     evidence_strength = compute_evidence_strength(resume_text=resume_text, matched_skills=skill_result["matched_skills"])
     learning_readiness = compute_learning_readiness(skill_result["missing_skills"], available_learning_skills)
+    matched_evidence = (_matched_skill_evidence(context, skill_result, "essential")
+        + _matched_skill_evidence(context, preferred_result, "preferred"))
+    missing_status = _missing_skill_status(skill_result, "essential") + _missing_skill_status(preferred_result, "preferred")
+    semantic_section = clean_text(job.get("semantic_evidence_section", ""))
     return {
         "job_id": job.get("job_id", ""), "job_title": job.get("job_title", ""),
         "company": job.get("company_name", ""), "company_name": job.get("company_name", ""),
@@ -1481,23 +1714,34 @@ def _score_single_normalized_job(
         "preferred_skill_coverage": breakdown.preferred_skill_coverage,
         "preference_alignment": round(float(preference_alignment), 4), "evidence_strength": round(float(evidence_strength), 4),
         "learning_readiness": round(float(learning_readiness), 4),
-        "semantic_scoring_method": job.get("semantic_scoring_method", "fine_tuned_bi_encoder_cosine"),
+        "semantic_scoring_method": job.get("semantic_scoring_method", SEMANTIC_SCORING_METHOD),
         "semantic_score_raw": float(job.get("semantic_score_raw", 0.0)), "text_similarity": float(job.get("semantic_score_raw", 0.0)),
+        # The resume section whose evidence was most similar to this job, and
+        # the cosine the opening of the resume alone would have given.
+        "semantic_evidence_section": semantic_section,
+        "semantic_score_profile_only": round(float(job.get("semantic_profile_score_raw", job.get("semantic_score_raw", 0.0))), 4),
         "fit_now_score": score, "fit_now_percentage": round(score * 100, 2),
         "aspiration_score": score, "aspiration_percentage": round(score * 100, 2),
         "matched_skill_ids": skill_result["matched_skill_ids"], "missing_skill_ids": skill_result["missing_skill_ids"],
         "critical_missing_skill_ids": critical_missing, "required_skill_ids": ";".join(required_ids),
         "matched_skills": skill_result["matched_skills"], "missing_skills": skill_result["missing_skills"],
+        # Essential = required and must-have skills; preferred = nice-to-have.
+        "missing_essential_skills": skill_result["missing_skills"],
+        "missing_must_have_skills": [display_skill_name(skill_id, labels) for skill_id in critical_missing],
         "matched_preferred_skills": preferred_matched, "missing_preferred_skills": preferred_missing,
+        # The requirements that make an Aspiration job aspirational.
+        "aspiration_gap_skills": skill_result["missing_skills"] if match_type == ASPIRATION else [],
+        "matched_skill_evidence": matched_evidence,
+        "missing_skill_status": missing_status,
         "related_skill_credit": skill_result["related_skill_credit"],
         "skill_requirements_available": requirements_available,
         "score_basis": "semantic_and_skills" if requirements_available else "role_similarity_only",
+        "score_interpretation": "Similarity of your resume to the job and share of its skills you hold; not a probability of being hired.",
         "match_reason": match_reason(match_type, skill_result["matched_skills"], skill_result["missing_skills"],
             breakdown.required_skill_count, in_preferred_area),
         "match_breakdown": breakdown.as_dict(),
-        "explanation": generate_match_explanation(job.get("job_title", ""), match_type, skill_result["matched_skills"],
-            skill_result["missing_skills"], skill_coverage, preference_alignment, in_preferred_area,
-            requirements_available=requirements_available),
+        "explanation": grounded_explanation(job.get("job_title", ""), match_type, matched_evidence, missing_status,
+            semantic_section, in_preferred_area, requirements_available),
     }
 
 
@@ -1509,17 +1753,16 @@ def analyze_candidate_job_match(
     confirmed_skills: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
     """Run one internal or pasted job through the shared production matcher."""
-    resume_text, skill_records, candidate_skill_names, candidate_keys = _prepare_candidate_context(resume_text, confirmed_skills)
+    context = _prepare_candidate_context(resume_text, confirmed_skills)
     normalized_job = dict(job)
     normalized_job.setdefault("job_description", "")
     normalized_job.setdefault("job_title", "")
     normalized_job.setdefault("required_skills_for_eval", "")
-    candidate_input = build_model_input(resume_text, skill_names=candidate_skill_names)
-    scored = bi_encoder_score_jobs(candidate_input, pd.DataFrame([normalized_job])).iloc[0].to_dict()
+    candidate_evidence = candidate_model_inputs(context.resume_text, skill_names=context.skill_names)
+    scored = bi_encoder_score_jobs(candidate_evidence, pd.DataFrame([normalized_job])).iloc[0].to_dict()
     scored_match = _score_single_normalized_job(
-        resume_text=resume_text,
+        context=context,
         job=scored,
-        candidate_keys=candidate_keys,
         preferences=preferences or {},
         available_learning_skills=reviewed_learning_skill_ids(),
     )
@@ -1534,9 +1777,13 @@ def analyze_candidate_job_match(
             "required_skill_coverage": scored_match["required_skill_coverage"],
             "preferred_skill_coverage": scored_match["preferred_skill_coverage"],
             "match_reason": scored_match["match_reason"], "match_breakdown": scored_match["match_breakdown"],
+            "missing_preferred_skills": scored_match["missing_preferred_skills"],
+            "matched_skill_evidence": scored_match["matched_skill_evidence"],
+            "missing_skill_status": scored_match["missing_skill_status"],
+            "explanation": scored_match["explanation"],
         },
         "learning_recommendations": recommend_learning_resources_for_matches([scored_match], preferences=preferences or {}),
-        "candidate_skill_records": skill_records,
+        "candidate_skill_records": context.skill_records,
         "metadata": {"model_version": MODEL_ID, "matching_source": "shared_kareerly_matching_service"},
     }
 
@@ -1545,140 +1792,15 @@ def analyze_candidate_job_match(
 # JOB MATCHING MAIN FUNCTION
 # ============================================================
 
-def generate_match_explanation(
-    job_title: str,
-    match_type: str,
-    matched_skills: List[str],
-    missing_skills: List[str],
-    skill_coverage: float,
-    preference_alignment: float,
-    in_preferred_career_area: Optional[bool] = None,
-    *,
-    requirements_available: bool = True,
-) -> str:
-    if not requirements_available:
-        basis = "is in the career area you chose" if in_preferred_career_area else "is related to your resume"
-        return (
-            f"This role is showing as {match_type} because it {basis}. The posting for {job_title} lists no skills "
-            "Kareerly can compare with your resume, so its score reflects role similarity only and no skill gaps are shown."
-        )
-    matched_text = ", ".join(matched_skills[:5]) if matched_skills else "some related resume evidence"
-    missing_text = ", ".join(missing_skills[:5]) if missing_skills else "no major required skills"
-
-    if match_type == FIT_NOW:
-        return (
-            f"This role is showing as {match_type} because your resume already reflects relevant experience for "
-            f"{job_title}, including skills such as {matched_text}. "
-            f"The main areas to strengthen next are {missing_text}."
-        )
-    if match_type == LOW_MATCH:
-        return (
-            f"This role is showing as a {match_type} because your current skills cover little of what "
-            f"{job_title} requires. Its core requirements include {missing_text}."
-        )
-    if in_preferred_career_area:
-        held_text = f"Your resume already shows {matched_text}. " if matched_skills else ""
-        return (
-            f"This role is showing as {match_type} because it is in the career area you chose. "
-            f"{held_text}The skills to build next for {job_title} are {missing_text}."
-        )
-
-    return (
-        f"This role is showing as {match_type} because it has partial alignment with your background and career "
-        f"direction. Your current profile already connects through {matched_text}. "
-        f"The main skills to improve next are {missing_text}."
-    )
-
-
 def match_resume_to_jobs(
     file_bytes: bytes,
     filename: str,
     preferences: Optional[Dict[str, Any]] = None,
     confirmed_skills: Optional[List[Any]] = None,
+    removed_skill_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     return match_text_to_jobs(extract_resume_text_cached(file_bytes, filename), filename=filename,
-        preferences=preferences, confirmed_skills=confirmed_skills)
-
-
-def _closest_sort_key(item: Dict[str, Any]) -> tuple:
-    return (
-        -float(item.get("match_score") or 0.0),
-        -float(item.get("semantic_score") or 0.0),
-        -float(item.get("required_skill_coverage") or 0.0),
-        str(item.get("job_id", "")),
-    )
-
-
-def _closest_match_reason(item: Dict[str, Any], strength: str, thresholds: MatchThresholds) -> str:
-    """Say plainly why a closest match is not Fit-Now."""
-    breakdown = item.get("match_breakdown") or {}
-    failed = breakdown.get("failed_fit_now_rules") or []
-    held, total = breakdown.get("matched_required_count", 0), breakdown.get("required_skill_count", 0)
-    missing = ", ".join((item.get("missing_skills") or [])[:3])
-    parts = ["Not a Fit-Now match yet."]
-    if "no_required_skills_listed" in failed:
-        parts.append("The posting lists no required skills to compare, so readiness cannot be confirmed.")
-    elif "required_skill_coverage" in failed:
-        parts.append(
-            f"Your resume shows {held} of {total} required skills; Fit-Now needs at least "
-            f"{round(thresholds.fit_now_min_required_coverage * 100)}%."
-        )
-    if "critical_skill_missing" in failed:
-        parts.append("A must-have skill named by the employer is missing.")
-    if "semantic_similarity" in failed:
-        parts.append("The role is only loosely related to the experience on your resume.")
-    if missing:
-        parts.append(f"To close the gap: {missing}.")
-    if strength == "weak":
-        parts.append("No available job shares a required skill with your resume, so this is the nearest role, with little overlap.")
-    return " ".join(parts)
-
-
-def select_closest_matches(
-    results: List[Dict[str, Any]],
-    thresholds: MatchThresholds,
-    limit: int = TOP_CLOSEST,
-) -> List[Dict[str, Any]]:
-    """The jobs nearest to Fit-Now, for a candidate with no Fit-Now job.
-
-    Fit-Now is never relaxed: these jobs failed at least one Fit-Now rule and
-    are labelled ``Closest Match`` with the rules they failed. They are chosen
-    by the resume alone (match score, then role similarity), regardless of the
-    Step 3 career area, so a candidate whose area holds no suitable job still
-    sees the roles their resume is nearest to.
-
-    A job is a related closest match when the resume holds at least one of its
-    required skills and the role similarity reaches the Aspiration floor. When
-    no job qualifies but the catalogue has jobs, the single best-scoring job is
-    returned with ``closest_match_strength: "weak"`` and a reason that says it
-    shares little with the resume, rather than returning nothing.
-    """
-    candidates = [item for item in results if item.get("match_type") != FIT_NOW]
-    related = [
-        item for item in candidates
-        if (item.get("match_breakdown") or {}).get("matched_required_count", 0) >= 1
-        and float(item.get("semantic_score") or 0.0) >= thresholds.aspiration_min_semantic
-    ]
-    if related:
-        chosen, strength = sorted(related, key=_closest_sort_key)[:max(0, limit)], "related"
-    else:
-        chosen, strength = sorted(candidates, key=_closest_sort_key)[:min(1, max(0, limit))], "weak"
-    closest = []
-    for position, item in enumerate(chosen, start=1):
-        reason = _closest_match_reason(item, strength, thresholds)
-        closest.append({
-            **item,
-            "match_type": CLOSEST_MATCH,
-            "match_category": CLOSEST_MATCH,
-            # The category the scoring rules gave the job; kept for audit and feedback.
-            "base_match_category": item.get("match_type", ""),
-            "is_closest_match": True,
-            "closest_match_strength": strength,
-            "rank_position": position,
-            "match_reason": reason,
-            "explanation": reason,
-        })
-    return closest
+        preferences=preferences, confirmed_skills=confirmed_skills, removed_skill_ids=removed_skill_ids)
 
 
 def catalog_status(state: str, jobs_available: int = 0, source: str = "") -> Dict[str, Any]:
@@ -1696,20 +1818,34 @@ def catalog_status(state: str, jobs_available: int = 0, source: str = "") -> Dic
     return {"state": state, "jobs_available": int(jobs_available), "source": source, "message": messages[state]}
 
 
+def _recommendation_notice(catalog: Dict[str, Any], fit_now: List[Dict[str, Any]], aspiration: List[Dict[str, Any]]) -> str:
+    if catalog["state"] != "available":
+        return catalog["message"]
+    if not fit_now and not aspiration:
+        return ("None of the available jobs is related closely enough to your resume or chosen career area, "
+                "with skills you already share, to recommend. Adding skills your resume shows but Kareerly missed, "
+                "or choosing a different career area, may change this.")
+    if not fit_now:
+        return ("No job meets every Fit-Now requirement yet. The Aspiration list shows related roles "
+                "and the specific skills each one still needs.")
+    return ""
+
+
 def match_text_to_jobs(
     resume_text: str,
     *,
     filename: str = "",
     preferences: Optional[Dict[str, Any]] = None,
     confirmed_skills: Optional[List[Any]] = None,
+    removed_skill_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     started_at = time.perf_counter()
     preferences = preferences or {}
-    resume_text, final_skill_records, candidate_skill_names, candidate_keys = _prepare_candidate_context(
-        resume_text, confirmed_skills
-    )
+    context = _prepare_candidate_context(resume_text, confirmed_skills, removed_skill_ids)
+    resume_text = context.resume_text
+    final_skill_records, candidate_skill_names = context.skill_records, context.skill_names
     labels, _ = canonical_skill_lookup()
-    resume_evidence_text = build_model_input(resume_text, skill_names=candidate_skill_names)
+    candidate_evidence = candidate_model_inputs(resume_text, skill_names=candidate_skill_names)
     try:
         jobs_df = load_reference_jobs()
         jobs_source = get_jobs_source()
@@ -1727,13 +1863,12 @@ def match_text_to_jobs(
         scored_jobs = pd.DataFrame()
         results: List[Dict[str, Any]] = []
     else:
-        scored_jobs = bi_encoder_score_jobs(resume_evidence_text, jobs_df)
+        scored_jobs = bi_encoder_score_jobs(candidate_evidence, jobs_df)
         available_learning_skills = reviewed_learning_skill_ids()
         results = [
             _score_single_normalized_job(
-                resume_text=resume_text,
+                context=context,
                 job=row.to_dict(),
-                candidate_keys=candidate_keys,
                 preferences=preferences,
                 available_learning_skills=available_learning_skills,
                 thresholds=thresholds,
@@ -1748,42 +1883,34 @@ def match_text_to_jobs(
     # Fit-Now by match score, Aspiration by preference alignment then match
     # score (shared tie-breakers after). An active feedback model adds a
     # bounded adjustment to that primary key; see learning/ranking_model.py.
+    # Either list may be empty and both may be full; nothing is moved between
+    # them to reach a count.
     ranker = active_ranker()
     all_fit_now_matches = rank_category([item for item in results if item["match_type"] == FIT_NOW], FIT_NOW, ranker)
-    # With no Fit-Now job, the jobs nearest to it are shown as Closest Match
-    # (never as Fit-Now), so a non-empty catalogue always yields a recommendation.
-    all_closest_matches = [] if all_fit_now_matches else select_closest_matches(results, thresholds)
-    closest_ids = {item["job_id"] for item in all_closest_matches}
-    # Each job appears in one list only; a closest match leaves the Aspiration list.
-    all_aspiration_matches = rank_category(
-        [item for item in results if item["match_type"] == ASPIRATION and item["job_id"] not in closest_ids],
-        ASPIRATION, ranker)
+    all_aspiration_matches = rank_category([item for item in results if item["match_type"] == ASPIRATION], ASPIRATION, ranker)
     applied_ranker_version = next(
         (item["ranker_version"] for item in all_fit_now_matches + all_aspiration_matches), ranker.version)
     fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
     aspiration_matches = all_aspiration_matches[:TOP_ASPIRATION]
-    closest_matches = all_closest_matches[:TOP_CLOSEST]
 
+    # Gaps come only from the jobs returned, never from every job scored.
     # Count every distinct gap before capping the list, so the report can say
     # how many there are rather than how many fit in the list.
-    all_gaps = prioritize_skill_gaps(fit_now_matches + closest_matches + aspiration_matches, limit=None)
+    all_gaps = prioritize_skill_gaps(fit_now_matches + aspiration_matches, limit=None)
     prioritized_gaps = all_gaps[:MAX_PRIORITIZED_GAPS]
-    for gap in prioritized_gaps:
-        key = _skill_key(gap["skill_name"])
-        gap["skill_id"] = key if key in labels else ""
     # Cover every missing skill of the jobs the dashboard can show, so the
     # learning page has resources for whichever job the candidate focuses on.
     learning_recommendations = recommend_learning_resources_for_matches(
-        all_fit_now_matches[:LEARNING_MATCHES_PER_TYPE] + closest_matches
-        + all_aspiration_matches[:LEARNING_MATCHES_PER_TYPE],
+        all_fit_now_matches[:LEARNING_MATCHES_PER_TYPE] + all_aspiration_matches[:LEARNING_MATCHES_PER_TYPE],
         preferences=preferences,
-    ) if results else []
+    ) if fit_now_matches or aspiration_matches else []
     top_10_scores = (
         results_df.sort_values("final_score", ascending=False)
         .head(10)
         .loc[:, [
             "job_title",
             "semantic_score",
+            "semantic_evidence_section",
             "skill_coverage",
             "matched_skills",
             "missing_skills",
@@ -1796,28 +1923,23 @@ def match_text_to_jobs(
         else []
     )
 
-    # Why jobs missed Fit-Now, counted per rule, so an empty Fit-Now list can be
-    # explained from the response (or the log) without rerunning anything.
+    # Why jobs missed Fit-Now and Aspiration, counted per rule, so an empty
+    # list can be explained from the response (or the log) without rerunning.
     fit_now_blockers: Dict[str, int] = {}
+    aspiration_blockers: Dict[str, int] = {}
     for item in results:
         for rule in item["match_breakdown"]["failed_fit_now_rules"]:
             fit_now_blockers[rule] = fit_now_blockers.get(rule, 0) + 1
+        if item["match_type"] == LOW_MATCH:
+            for rule in item["match_breakdown"]["failed_aspiration_rules"]:
+                aspiration_blockers[rule] = aspiration_blockers.get(rule, 0) + 1
     logger.info(
         "Job matching finished",
         extra={"jobs_scored": len(results), "fit_now": len(all_fit_now_matches),
-            "closest": len(all_closest_matches), "aspiration": len(all_aspiration_matches),
-            "fit_now_blockers": fit_now_blockers, "catalog_state": catalog["state"]},
+            "aspiration": len(all_aspiration_matches), "fit_now_blockers": fit_now_blockers,
+            "aspiration_blockers": aspiration_blockers, "catalog_state": catalog["state"],
+            "evidence_inputs": len(candidate_evidence.inputs)},
     )
-
-    if catalog["state"] != "available":
-        recommendation_notice = catalog["message"]
-    elif not all_fit_now_matches and all_closest_matches:
-        recommendation_notice = (
-            "No job meets every Fit-Now requirement yet. The closest opportunities are labelled "
-            "Closest Match and show which requirements are still missing."
-        )
-    else:
-        recommendation_notice = ""
 
     scoring_methods = sorted(set(scored_jobs["semantic_scoring_method"].tolist())) if not scored_jobs.empty else []
     return {
@@ -1827,30 +1949,36 @@ def match_text_to_jobs(
         "extracted_skills": final_skill_records,
         "confirmed_skills": candidate_skill_names,
         "confirmed_skill_records": final_skill_records,
+        # Every skill counted as held, and where it came from.
+        "resume_skill_evidence": [
+            {key: value for key, value in item.items() if key != "value"} for item in context.evidence.values()
+        ],
+        "removed_skill_ids": context.removed_skill_ids,
         "preferences_used": preferences,
         "catalog_status": catalog,
-        "recommendation_notice": recommendation_notice,
+        "recommendation_notice": _recommendation_notice(catalog, all_fit_now_matches, all_aspiration_matches),
         "fit_now_matches": fit_now_matches,
         "aspiration_matches": aspiration_matches,
-        "closest_matches": closest_matches,
+        "closest_matches": [],
         "all_fit_now_matches": all_fit_now_matches,
         "all_aspiration_matches": all_aspiration_matches,
-        "all_closest_matches": all_closest_matches,
+        "all_closest_matches": [],
         "total_qualifying_matches": len({str(item.get("job_id") or item.get("job_title"))
-            for item in all_fit_now_matches + all_closest_matches + all_aspiration_matches}),
+            for item in all_fit_now_matches + all_aspiration_matches}),
         "skill_gaps": prioritized_gaps,
         "total_skill_gap_count": len(all_gaps),
         "prioritized_skill_gaps": prioritized_gaps,
         "learning_recommendations": learning_recommendations,
-        "model_used": "Fine-tuned all-MiniLM-L6-v2 bi-encoder with cosine similarity and canonical skill rules",
+        "model_used": "Fine-tuned all-MiniLM-L6-v2 bi-encoder (cosine, best resume section) with canonical skill rules",
         "warnings": ["No canonical required skills were supplied for some jobs; detailed gap explanations may be limited."] if any(not clean_text(row.get("required_skill_ids", "")) and not clean_text(row.get("required_skills_for_eval", "")) for _, row in jobs_df.iterrows()) else [],
         "debug_summary": {
             "extracted_skill_count": len(candidate_skill_names),
             "extracted_skill_names": candidate_skill_names,
+            "held_skill_count": len(context.held_values),
             "total_jobs_loaded": int(len(jobs_df)),
             "total_jobs_scored": int(len(scored_jobs)),
             "fit_now_count": len(all_fit_now_matches),
-            "closest_count": len(all_closest_matches),
+            "closest_count": 0,
             "aspiration_count": len(all_aspiration_matches),
             "low_match_count": int((results_df["match_type"] == LOW_MATCH).sum()) if not results_df.empty else 0,
             "preferred_career_area": normalize_career_area(preferences.get("industry", "")),
@@ -1858,12 +1986,17 @@ def match_text_to_jobs(
             # did not filter or lower any job.
             "unrestricted_preferences": unrestricted_preference_fields(preferences),
             "fit_now_blockers": fit_now_blockers,
+            "aspiration_blockers": aspiration_blockers,
+            "resume_evidence_inputs": len(candidate_evidence.inputs),
+            "resume_evidence_truncated": candidate_evidence.truncated,
             "elapsed_ms": round((time.perf_counter() - started_at) * 1000, 1),
             "top_10_scores": top_10_scores,
         },
         "metadata": {
             "semantic_scoring_methods": scoring_methods,
             "model_version": MODEL_ID,
+            "semantic_aggregation": "max(profile cosine, best resume-section cosine - section offset)",
+            "section_evidence_offset": section_evidence_offset(),
             "ranking_signal": "composite_match_score" if applied_ranker_version == BASELINE_VERSION
                 else "composite_match_score_with_feedback_adjustment",
             "ranker_version": applied_ranker_version,
@@ -1877,17 +2010,10 @@ def match_text_to_jobs(
                 "max_critical_missing_skills": 0,
             },
             "aspiration_rules": {
-                "basis": "preferred_career_area" if normalize_career_area(preferences.get("industry", "")) else "resume_relatedness",
-                # Used only when no career area is known for the candidate or the job.
+                "relevance": "min_cosine to the resume, or the job is in the chosen career area",
                 "min_cosine": thresholds.aspiration_min_semantic,
                 "min_matched_skills": thresholds.aspiration_min_matched_skills,
-            },
-            "closest_match_rules": {
-                "shown_when": "no_fit_now_match",
-                "related_min_matched_required_skills": 1,
-                "related_min_cosine": thresholds.aspiration_min_semantic,
-                "fallback": "single best-scoring job, marked weak",
-                "max_results": TOP_CLOSEST,
+                "max_missing_essential_skills": thresholds.aspiration_max_missing_essential,
             },
             "jobs_source": jobs_source,
             "learning_resources_source": get_learning_resources_source(),
@@ -1896,106 +2022,150 @@ def match_text_to_jobs(
     }
 
 
+def run_matching(
+    *,
+    resume_text: str = "",
+    file_bytes: Optional[bytes] = None,
+    filename: str = "",
+    preferences: Optional[Dict[str, Any]] = None,
+    confirmed_skills: Optional[List[Any]] = None,
+    candidate_skill_ids: Optional[List[str]] = None,
+    removed_skill_ids: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """The one matching entry point for onboarding, the dashboard and uploads.
+
+    Text from Step 1 is used when sent; otherwise the file is read exactly as
+    Step 1 reads it. Confirmed skill records win over bare skill IDs; with
+    neither, the resume's own extracted skills are used (the text fallback).
+    """
+    text = clean_text(resume_text)
+    if text:
+        text = resume_text
+    elif file_bytes is not None:
+        text = extract_resume_text_cached(file_bytes, filename)
+    else:
+        raise ValueError("No readable resume text was provided for matching.")
+    records: Optional[List[Any]] = list(confirmed_skills) if confirmed_skills else None
+    if records is None and candidate_skill_ids:
+        labels, _ = canonical_skill_lookup()
+        ids = list(dict.fromkeys(clean_text(value).upper() for value in candidate_skill_ids if clean_text(value)))
+        if any(value not in labels for value in ids):
+            raise ValueError("Unknown confirmed skill IDs were supplied.")
+        records = [{"skill_id": value, "skill_name": labels[value], "source": "confirmed_skill"} for value in ids] or None
+    return match_text_to_jobs(text, filename=filename, preferences=preferences,
+        confirmed_skills=records, removed_skill_ids=removed_skill_ids)
+
+
 def match_jobs(
     resume_text_for_matching: str,
     candidate_skill_ids: Optional[List[str]] = None,
     preferences: Optional[Dict[str, Any]] = None,
     top_n_retrieval: int = 100,
     top_n_output: int = 10,
+    removed_skill_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    labels, _ = canonical_skill_lookup()
-    ids = list(dict.fromkeys(clean_text(value).upper() for value in (candidate_skill_ids or []) if clean_text(value)))
-    if any(value not in labels for value in ids):
-        raise ValueError("Unknown confirmed skill IDs were supplied.")
-
-    # An empty list means the caller did not provide usable confirmed skills.
-    # Preserve the normal resume-extraction path instead of treating the
-    # candidate as explicitly skill-less. Without this fallback the text route
-    # can never produce Fit-Now matches and often produces no matches at all.
-    if not ids:
-        result = match_text_to_jobs(
-            resume_text_for_matching,
-            preferences=preferences,
-            confirmed_skills=None,
-        )
-        result["fit_now_matches"] = result["all_fit_now_matches"][:max(0, top_n_output)]
-        result["aspiration_matches"] = result["all_aspiration_matches"][:max(0, top_n_output)]
-        result["closest_matches"] = result["all_closest_matches"][:max(0, top_n_output)]
-        return result
-
-    records = [{"skill_id": value, "skill_name": labels[value], "source": "confirmed_skill"} for value in ids]
-    result = match_text_to_jobs(resume_text_for_matching, preferences=preferences, confirmed_skills=records)
+    # An empty ID list means the caller did not provide usable confirmed
+    # skills; the resume's own extracted skills are used instead.
+    result = run_matching(resume_text=resume_text_for_matching, preferences=preferences,
+        candidate_skill_ids=candidate_skill_ids, removed_skill_ids=removed_skill_ids)
     result["fit_now_matches"] = result["all_fit_now_matches"][:max(0, top_n_output)]
     result["aspiration_matches"] = result["all_aspiration_matches"][:max(0, top_n_output)]
-    result["closest_matches"] = result["all_closest_matches"][:max(0, top_n_output)]
+    result["closest_matches"] = []
     return result
+
+
+GAP_ESSENTIAL = "essential"
+GAP_OPTIONAL = "optional"
 
 
 def prioritize_skill_gaps(
     matches: List[Dict[str, Any]],
     limit: Optional[int] = MAX_PRIORITIZED_GAPS,
 ) -> List[Dict[str, Any]]:
-    """Missing skills of the matches, most frequent first; ``limit=None`` returns every one."""
-    gap_counts = {}
+    """Missing skills of the given (returned) matches, essential gaps first.
+
+    A gap is essential when at least one of the jobs requires it (required or
+    must-have) and optional when the jobs only prefer it. Within each group,
+    must-have gaps and then the most common gaps come first. Each gap lists
+    the jobs it affects. ``limit=None`` returns every gap.
+    """
+    labels, _ = canonical_skill_lookup()
+    gap_counts: Dict[str, Dict[str, Any]] = {}
 
     for match in matches:
         match_type = match.get("match_type", "")
-        for skill in match.get("missing_skills", []):
-            if skill not in gap_counts:
-                gap_counts[skill] = {
-                    "skill": skill,
-                    "frequency": 0,
-                    "appears_in_fit_now": 0,
-                    "appears_in_closest": 0,
-                    "appears_in_aspiration": 0,
-                }
-
-            gap_counts[skill]["frequency"] += 1
-
-            if match_type == FIT_NOW:
-                gap_counts[skill]["appears_in_fit_now"] += 1
-            elif match_type == CLOSEST_MATCH:
-                gap_counts[skill]["appears_in_closest"] += 1
-            else:
-                gap_counts[skill]["appears_in_aspiration"] += 1
+        essential = match.get("missing_essential_skills", match.get("missing_skills", [])) or []
+        optional = match.get("missing_preferred_skills", []) or []
+        must_have = set(match.get("missing_must_have_skills", []) or [])
+        removed = {item.get("skill") for item in match.get("missing_skill_status", []) or []
+                   if item.get("status") == MISSING_REMOVED}
+        for gap_type, skills in ((GAP_ESSENTIAL, essential), (GAP_OPTIONAL, optional)):
+            for skill in skills:
+                item = gap_counts.setdefault(skill, {
+                    "skill": skill, "essential": 0, "optional": 0, "must_have": 0, "removed": False,
+                    "appears_in_fit_now": 0, "appears_in_aspiration": 0, "affected_jobs": [],
+                })
+                item[gap_type] += 1
+                item["must_have"] += int(skill in must_have)
+                item["removed"] = item["removed"] or skill in removed
+                if match_type == FIT_NOW:
+                    item["appears_in_fit_now"] += 1
+                else:
+                    item["appears_in_aspiration"] += 1
+                item["affected_jobs"].append({
+                    "job_id": match.get("job_id", ""), "job_title": match.get("job_title", ""),
+                    "match_type": match_type, "requirement": gap_type,
+                })
 
     gap_list = []
-
     for item in gap_counts.values():
-        frequency = item["frequency"]
-
-        if frequency >= 3:
+        frequency = len(item["affected_jobs"])
+        gap_type = GAP_ESSENTIAL if item["essential"] else GAP_OPTIONAL
+        if gap_type == GAP_OPTIONAL:
+            priority = "Moderate"
+        elif item["must_have"] or item["essential"] >= 3:
             priority = "Critical"
-        elif frequency == 2:
+        elif item["essential"] == 2:
             priority = "High Priority"
         else:
             priority = "Moderate"
-
+        key = _skill_key(item["skill"])
         gap_list.append({
             "skill_name": item["skill"],
             "skill": item["skill"],
+            "skill_id": key if key in labels else "",
+            "gap_type": gap_type,
+            "is_essential": gap_type == GAP_ESSENTIAL,
+            "is_must_have": bool(item["must_have"]),
+            # "not_found_in_resume" does not mean the candidate lacks the skill.
+            "evidence_status": MISSING_REMOVED if item["removed"] else MISSING_NOT_FOUND,
             "severity": priority,
             "frequency": frequency,
             "priority": priority,
+            "essential_job_count": item["essential"],
+            "optional_job_count": item["optional"],
             "appears_in_top_matches": frequency,
             # Share of the compared matches missing the skill, stated here so
             # clients never have to guess the denominator.
             "matches_compared": len(matches),
             "missing_percentage": round(100 * frequency / len(matches), 1),
             "appears_in_fit_now": item["appears_in_fit_now"],
-            "appears_in_closest": item["appears_in_closest"],
+            "appears_in_closest": 0,
             "appears_in_aspiration": item["appears_in_aspiration"],
+            # Titles, as other gap producers and the dashboard read them;
+            # affected_job_details carries the IDs and requirement type.
+            "affected_jobs": list(dict.fromkeys(job["job_title"] for job in item["affected_jobs"])),
+            "related_jobs": list(dict.fromkeys(job["job_title"] for job in item["affected_jobs"])),
+            "affected_job_details": item["affected_jobs"],
         })
 
-    gap_list = sorted(
-        gap_list,
-        key=lambda x: (
-            {"Critical": 3, "High Priority": 2, "Moderate": 1}[x["priority"]],
-            x["frequency"],
-        ),
-        reverse=True,
-    )
-
+    gap_list.sort(key=lambda gap: (
+        gap["gap_type"] != GAP_ESSENTIAL,
+        not gap["is_must_have"],
+        -gap["essential_job_count"],
+        -gap["frequency"],
+        gap["skill_name"].lower(),
+    ))
     return gap_list if limit is None else gap_list[:limit]
 
 

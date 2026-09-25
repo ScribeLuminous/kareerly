@@ -120,7 +120,7 @@ class ScannedPdfTests(unittest.TestCase, VisibleSkillAssertions):
         extraction = self.mixed["extraction"]
         self.assertEqual((extraction["method"], extraction["ocr_pages"]), ("text+ocr", [2]))
         text = resume_text(self.mixed)
-        self.assertIn("food manufacturing", text)  # page 1, text layer
+        self.assertIn("food manufacturing", text.lower())  # page 1, text layer
         self.assert_visible_skills_held(self.mixed, [ZENDESK, QUICKBOOKS, SALESFORCE, EXCEL])
 
     def test_scanned_pages_past_the_limit_are_skipped_with_a_warning(self):
@@ -241,7 +241,7 @@ class SplitSkillNameTests(unittest.TestCase, VisibleSkillAssertions):
         self.assert_visible_skills_held(analysis, [SALESFORCE, HUBSPOT, QUICKBOOKS, ZENDESK, JAVASCRIPT])
         self.assert_report_route_reads_the_same("split_words_resume.pdf", [SALESFORCE, QUICKBOOKS, ZENDESK])
         # The prose "a sales force of 12" in the same resume stays as written.
-        self.assertIn("led a sales force of 12", resume_text(analysis))
+        self.assertIn("led a sales force of 12", resume_text(analysis).lower())
 
     def test_decoy_phrases_do_not_become_skills(self):
         analysis = analyze("decoy_phrases_resume.pdf")
