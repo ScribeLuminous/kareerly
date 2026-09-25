@@ -97,6 +97,9 @@ export interface ResumeAnalysisResult {
   normalized_for_matching: {
     skill_ids: string[];
     skill_names: string[];
+    /** Every skill found; skill_ids is the first twenty, shown in Step 2. */
+    all_skill_ids?: string[];
+    all_skill_names?: string[];
     resume_text_for_matching: string;
   };
   warnings: string[];
@@ -225,6 +228,23 @@ export interface MatchResultItem {
   closest_match_strength?: 'related' | 'weak';
   /** The category the scoring rules gave a Closest Match job (Aspiration or Low Match). */
   base_match_category?: string;
+  missing_essential_skills?: string[];
+  missing_must_have_skills?: string[];
+  missing_preferred_skills?: string[];
+  /** The missing requirements that make an Aspiration job aspirational. */
+  aspiration_gap_skills?: string[];
+  matched_skill_evidence?: Array<{
+    skill: string;
+    skill_id?: string;
+    requirement: 'essential' | 'preferred';
+    source: string;
+    matched_text?: string;
+    source_section?: string;
+    evidence_text?: string;
+  }>;
+  missing_skill_status?: Array<{ skill: string; requirement: 'essential' | 'preferred'; status: 'not_found_in_resume' | 'removed_by_candidate' }>;
+  /** The resume section whose evidence was most similar to the job. */
+  semantic_evidence_section?: string;
   company?: string;
   location?: string;
   job_category?: string;
@@ -310,6 +330,13 @@ export interface PrioritizedSkillGap {
   severity: 'Critical' | 'High' | 'Moderate' | string;
   related_jobs?: string[];
   affected_jobs?: string[];
+  /** essential = required or must-have in at least one returned job; optional = only preferred. */
+  gap_type?: 'essential' | 'optional';
+  is_essential?: boolean;
+  is_must_have?: boolean;
+  /** Not found in the resume is not proof of absence; removed_by_candidate is. */
+  evidence_status?: 'not_found_in_resume' | 'removed_by_candidate';
+  affected_job_details?: Array<{ job_id: string; job_title: string; match_type: string; requirement: 'essential' | 'optional' }>;
   recommended_learning_resources?: LearningRecommendation[];
 }
 

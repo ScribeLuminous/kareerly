@@ -52,7 +52,7 @@ import { formatFileSize, validateResumeFile } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removeMatchFeedback, runJobMatches, saveCandidateAccountSettings, saveMatchFeedback, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
+import { analyzeResume, fetchAvailableJobs, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removeMatchFeedback, removedSkillIds, runJobMatches, saveCandidateAccountSettings, saveMatchFeedback, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
 import MatchFeedbackControls from '../components/MatchFeedbackControls';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote } from '../lib/matchFeedback';
 import type { MatchFeedbackStatus, MatchVote } from '../lib/matchFeedback';
@@ -233,6 +233,8 @@ type DashboardGap = {
   priorityScore?: number;
   categoryName?: string;
   requirementImportance?: string;
+  /** Only preferred (nice-to-have) in the returned jobs, never required. */
+  optional?: boolean;
   learningResourceAvailable?: boolean;
   category: SkillCategory;
   relatedJobs: string[];
@@ -1099,6 +1101,7 @@ function mapRunGap(gap: PrioritizedSkillGap): DashboardGap {
     priorityScore: parseNumericValue(gap.priority_score) ?? undefined,
     categoryName: gap.category_name || gap.skill_category || '',
     requirementImportance: gap.requirement_importance || '',
+    optional: gap.gap_type === 'optional',
     learningResourceAvailable: Boolean(gap.learning_resource_available),
     category: classifySkillCategory(gap.skill_name || ''),
     relatedJobs: (gap.related_jobs || []).map(titleCase).slice(0, 4),
@@ -2282,6 +2285,11 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       resume_text_for_matching: resumeText,
       candidate_skill_ids: finalCandidateSkillIds,
       confirmed_skills: confirmedSkillRecords,
+      // Only right after reviewing this analysis' skills is an unticked skill a
+      // known removal; otherwise nothing is sent and no resume skill is dropped.
+      removed_skill_ids: options?.analysis
+        ? removedSkillIds(extractedSkillRecords.map((skill) => skill.skill_id), confirmedSkillRecords)
+        : undefined,
       preferences: {
         industry: preferencePayload.industry,
         target_role: preferencePayload.target_role,
@@ -4340,7 +4348,11 @@ function SkillGapsPage({
                           <span><UIIcon name="target" className="cand-mini-icon" />{gap.category}</span>
                         </div>
                         <div className="text-[11px] text-soft">
-                          {gap.affectedCount === null ? 'This skill was identified as a gap in your matching results.' : `This skill is prioritized because it appears as a missing requirement in ${gap.affectedCount} of your recommended roles.`}
+                          {gap.affectedCount === null
+                            ? 'This skill was identified as a gap in your matching results.'
+                            : gap.optional
+                              ? `A nice-to-have skill, not found in your resume, for ${gap.affectedCount} of your recommended roles.`
+                              : `This skill is prioritized because it is a required skill not found in your resume for ${gap.affectedCount} of your recommended roles.`}
                         </div>
                         <div className="cand-gap-jobs">
                           {gap.relatedJobs.map((jobTitle) => (

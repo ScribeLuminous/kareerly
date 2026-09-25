@@ -323,12 +323,10 @@ score      = (0.45·semantic + 0.45·required + 0.10·preferred) / (weights of t
              − 0.10 per missing critical skill (maximum 0.20)
 
 Fit-Now    : required skills listed AND required ≥ 0.75 AND semantic ≥ 0.30 AND no critical skill missing
-Aspiration : not Fit-Now AND job in the Step 3 career area
-             (no area known: semantic ≥ 0.20 AND ≥ 1 skill held, or the job lists no skills)
-Low Match  : otherwise; scored, but excluded from the recommendation lists
-Closest    : only when no job is Fit-Now: up to 5 non-Fit-Now jobs with ≥ 1 held
-             required skill and semantic ≥ 0.20, by composite score; if none
-             qualifies, the single best-scoring job, marked weak (see below)
+Aspiration : not Fit-Now AND relevant (semantic ≥ 0.20, or the job is in the Step 3 career area)
+             AND ≥ 1 of its required/preferred skills held AND ≤ 4 essential skills missing
+Low Match  : otherwise (including jobs that list no skills); scored, but in neither list
+semantic   = max(profile cosine, best resume-section cosine − 0.125)   (see 2026-09-25 follow-up)
 ```
 
 Lists are ranked by the composite score, then cosine, coverage, preference
@@ -465,3 +463,70 @@ the working environment, so no posting could be opened to verify it, record
 its date or map its skills from its text. See `docs/job-listings-api.md` for
 sourcing more jobs.
 
+
+## Follow-up (2026-09-25): full-resume evidence and stricter Aspiration
+
+Problems found in the pipeline:
+
+1. **Aspiration took every non-Fit-Now job in the chosen career area**, even
+   one sharing no skill with the resume (a nurse job for a data analyst who
+   chose Healthcare), and Closest Match padded an empty Fit-Now list with the
+   single best job even when it was unrelated.
+2. **The encoder read only the opening of the resume.** `build_model_input`
+   keeps 1,400 characters of evidence and the checkpoint reads 256 tokens, so
+   later work experience and projects never reached the model (their skills
+   could appear in the `[SKILLS]` block only).
+3. **Held skills were capped at the 20 Step 2 shows.** A skill the extractor
+   found through an alias (for example "customer care" for Customer Service)
+   and ranked 21st or lower was reported missing, because the text fallback
+   in `compute_skill_coverage` checks canonical labels only.
+4. **Step 1 and matching read different text.** Both used the same DOCX and
+   PDF readers (table cells were already read by both), but Step 1 sent
+   lowercased, punctuation-stripped single-line text to matching while the
+   upload route used a differently flattened copy, so section structure was
+   lost and the two routes could disagree.
+5. **Aggregate gaps** mixed in closest matches, and the guest/initial report
+   sliced gaps computed over ten jobs per list while showing three or five.
+
+Changes:
+
+- **Classification** (`match_scoring.py`): Aspiration needs relevance (to the
+  resume, or the chosen career area) and a skill bridge (≥ 1 listed skill
+  held, ≤ 4 essential skills missing). `failed_aspiration_rules` explains
+  each Low Match. Closest Match is no longer filled; the fields stay, empty.
+- **Full-resume evidence** (`resume_evidence.py`): the resume is split into
+  sections and ≤ 700-character windows (all under 256 tokens with the
+  checkpoint tokenizer), each encoded in the unchanged training format next
+  to the original profile input. Each job keeps
+  `max(profile, best section − 0.125)` and the section that gave it
+  (`semantic_evidence_section`).
+- **All resume skills are held**: every skill the extractor finds, plus
+  confirmed and added skills, minus skills the client reports as removed in
+  Step 2 (`removed_skill_ids`). Missing skills carry `not_found_in_resume` or
+  `removed_by_candidate`.
+- **One text**: `resume_analyzer.prepare_resume_text` produces the Step 1
+  text (line breaks and case kept) and the upload route's text.
+- **One entry point**: `/api/matches/run`, `/run-form` and `/from-resume`
+  all call `matching_service.run_matching`.
+- **Gaps** come only from returned Fit-Now and Aspiration jobs, list the
+  affected jobs, and put essential (required/must-have) gaps before optional
+  (preferred) ones. Limited reports recompute gaps from the jobs they show.
+
+Calibration of the section offset (33 mock resumes × 184 CSV jobs, real
+checkpoint). A plain maximum over sections raised every cosine by about 0.08,
+unrelated pairs included (weak pairs at ≥ 0.20: 9.2% → 26.4% on the
+development split) without improving separation (relevant-vs-weak AUC 0.763 →
+0.772 dev, 0.754 → 0.744 check). The offset was chosen on the development
+split to restore the weak-pair pass rates and checked on the held-out split:
+
+| split | offset | weak ≥ 0.20 | weak ≥ 0.30 | strong ≥ 0.20 |
+|---|---|---|---|---|
+| check | profile only | 9.4% | 2.4% | 93.3% |
+| check | 0 (plain max) | 25.1% | 5.9% | 96.6% |
+| check | 0.125 | 10.0% | 2.5% | 93.3% |
+
+With the offset, categories per label are nearly unchanged (strong Fit-Now 82
+→ 82, weak Aspiration 94 → 91) and 19% of pairs take their score from a later
+section. The mock resumes are one page each, so this diagnostic can show that
+the change does not inflate scores, not how much it helps multi-page resumes;
+that needs labelled longer resumes.
