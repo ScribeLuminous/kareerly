@@ -104,6 +104,43 @@ class MatchingRegressionTests(unittest.TestCase):
         gap = matching.prioritize_skill_gaps(matches)[0]
         self.assertEqual((gap["frequency"], gap["matches_compared"], gap["missing_percentage"]), (1, 4, 25.0))
 
+    def test_held_taxonomy_skill_meets_a_legacy_requirement_of_the_same_name(self):
+        # Supabase KJ-0029 and KJ-0001 require SK_ONBOARDING and SK_REACT, which
+        # have no taxonomy ID; a candidate holding Customer Onboarding or React.js
+        # was still told Onboarding and React were missing.
+        onboarding = matching.compute_skill_coverage(["SK640"], ["SK029", "SK_ONBOARDING", "SK276"], "Onboarded new customers.")
+        self.assertEqual(onboarding["missing_skills"], ["Customer Service", "Customer relationship management"])
+        self.assertIn("Onboarding", onboarding["matched_skills"])
+        react = matching.compute_skill_coverage(["SK678"], ["SK_REACT"], "Built user interfaces in ReactJS.")
+        self.assertEqual(react["matched_skills"], ["React"])
+        # Whole words only, and nothing held means nothing credited.
+        self.assertEqual(matching.compute_skill_coverage(["SK002"], ["SK_JAVA"], "")["missing_skills"], ["Java"])
+        self.assertEqual(matching.compute_skill_coverage([], ["SK_ONBOARDING"], "Handled customer inquiries.")["missing_skills"],
+            ["Onboarding"])
+
+    def test_taxonomy_requirements_are_not_met_by_a_similarly_named_held_skill(self):
+        # Only requirements without a taxonomy ID are compared with held skill
+        # names; a canonical requirement still needs its own ID or resume evidence.
+        result = matching.compute_skill_coverage(["SK006"], ["SK005"], "Built dashboards.")
+        self.assertEqual(result["missing_skills"], ["Data Analysis"])
+
+    def test_skill_gap_total_counts_every_gap_beyond_the_listed_eight(self):
+        matches = [{"match_type": "Aspiration", "missing_skills": [f"Skill {index}" for index in range(10)]}]
+        self.assertEqual(len(matching.prioritize_skill_gaps(matches)), matching.MAX_PRIORITIZED_GAPS)
+        self.assertEqual(len(matching.prioritize_skill_gaps(matches, limit=None)), 10)
+        result = self.run_match([{"skill_id": "SK001", "skill_name": "Python Programming"}])
+        self.assertEqual(result["total_skill_gap_count"], len({
+            skill for item in result["fit_now_matches"] + result["aspiration_matches"] for skill in item["missing_skills"]}))
+        self.assertLessEqual(len(result["skill_gaps"]), result["total_skill_gap_count"])
+
+    def test_legacy_skill_ids_read_with_their_usual_casing(self):
+        labels = matching.get_skill_labels_by_id()
+        names = {skill_id: matching.display_skill_name(skill_id, labels) for skill_id in [
+            "SK_FASTAPI", "SK_FIRST_AID", "SK_VAPT", "SK_SALES_OPS", "SK_JAVASCRIPT", "SK_CRM", "SK_HR_RECORDS", "SK_ONBOARDING"]}
+        self.assertEqual(names, {
+            "SK_FASTAPI": "FastAPI", "SK_FIRST_AID": "First Aid", "SK_VAPT": "VAPT", "SK_SALES_OPS": "Sales Ops",
+            "SK_JAVASCRIPT": "JavaScript", "SK_CRM": "CRM", "SK_HR_RECORDS": "HR Records", "SK_ONBOARDING": "Onboarding"})
+
     def test_no_forced_fit_now_or_critical_skill_override(self):
         result = self.run_match([{"skill_id": "SK001", "skill_name": "Python Programming"}])
         self.assertEqual([item["job_id"] for item in result["fit_now_matches"]], ["developer"])
