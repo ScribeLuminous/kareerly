@@ -871,21 +871,18 @@
 }
 
 @media (min-width: 1200px) {
-  .cand-job-matches-page {
-    display: flex;
-    flex-direction: column;
-    height: calc(100dvh - 106px);
-    min-height: 420px;
-  }
-
+  /* The page scrolls normally so each column can be tall enough to show one
+     whole job card (measured into --cand-first-card-h); the rest of the
+     matches scroll inside the column. The controls stop being sticky here so
+     they do not cover the card while the page scrolls. */
   .cand-job-matches-page .cand-sticky-controls {
-    flex-shrink: 0;
+    position: static;
   }
 
-  .cand-job-matches-page .cand-match-groups {
-    flex: 1;
-    min-height: 0;
-    grid-template-rows: minmax(0, 1fr);
+  .cand-job-matches-page .cand-match-group-scroll {
+    flex: none;
+    height: calc(var(--cand-first-card-h, 480px) + 2px);
+    min-height: 240px;
   }
 
   .cand-match-groups {
