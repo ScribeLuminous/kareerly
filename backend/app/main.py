@@ -2202,7 +2202,7 @@ async def scheduled_learning_run(
     payload: LearningRunRequest,
     x_learning_job_token: Annotated[Optional[str], Header()] = None,
 ) -> dict:
-    """Entry point for an external scheduler (Render cron, pg_cron + pg_net, etc.)."""
+    """Entry point for an external scheduler, such as Cloud Scheduler."""
     expected = os.getenv("KAREERLY_LEARNING_JOB_TOKEN", "")
     if len(expected) < 24:
         raise HTTPException(status_code=404, detail="Not Found")

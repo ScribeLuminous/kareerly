@@ -164,33 +164,54 @@ candidate profiles.
 
 1. **Apply the migration** `supabase/migrations/20260925090000_match_feedback_learning.sql`, using
    `supabase db push` or the Supabase SQL editor. It can be re-run safely.
-2. **Backend (Render).** `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are
-   already needed for account and admin features. Optional settings:
+2. **Backend (Google Cloud Run).** `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`
+   are already needed for account and admin features. The only new setting you might want is
+   `KAREERLY_LEARNING_JOB_TOKEN`. Optional settings:
    - `KAREERLY_RANKER=baseline`: kill switch
    - `KAREERLY_RANKER_CACHE_SECONDS`, `KAREERLY_TAXONOMY_CACHE_SECONDS`
    - `KAREERLY_EVIDENCE_SALT`: use the same value as the scheduler
    - `KAREERLY_SKILL_AUTO_APPROVE`
    - `KAREERLY_LEARN_MIN_USERS`, `KAREERLY_LEARN_MIN_VOTES`, `KAREERLY_LEARN_MIN_AUC_GAIN`
    - `KAREERLY_LEARNING_JOB_TOKEN`: at least 24 characters; enables `POST /api/internal/learning/run`
-3. **Schedule.** `.github/workflows/learning-jobs.yml` runs daily and can be started by hand under
-   *Actions → Learning jobs*. Add the repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`,
-   plus `KAREERLY_EVIDENCE_SALT` if you set one. Without them the job logs `skipped` and does nothing.
-   The job installs only `backend/requirements-learning.txt` and never loads the bi-encoder.
-   Alternatives if GitHub Actions is not used:
-   - Render Cron Job running `python -m backend.app.learning.jobs run-all`
-   - Supabase `pg_cron` + `pg_net` calling the backend:
-     ```sql
-     select cron.schedule('kareerly-learning', '43 18 * * *', $$
-       select net.http_post(
-         url := 'https://YOUR-BACKEND.onrender.com/api/internal/learning/run',
-         headers := jsonb_build_object('Content-Type', 'application/json',
-           'X-Learning-Job-Token', 'YOUR_KAREERLY_LEARNING_JOB_TOKEN'),
-         body := '{"job": "all"}'::jsonb, timeout_milliseconds := 120000)
-     $$);
+
+   Plain values can be set with environment variables. Keep secrets in Secret Manager:
+   ```bash
+   gcloud run services update SERVICE --region REGION \
+     --update-env-vars KAREERLY_RANKER_CACHE_SECONDS=300 \
+     --update-secrets KAREERLY_LEARNING_JOB_TOKEN=kareerly-learning-job-token:latest
+   ```
+   Each update creates a new revision. Every Cloud Run instance keeps its own copy of the active model
+   and approved skills for up to 5 minutes, so admin changes reach all instances within that time.
+3. **Schedule.** Pick one:
+   - **GitHub Actions (recommended, already included).** `.github/workflows/learning-jobs.yml` runs
+     daily and can be started by hand under *Actions → Learning jobs*. Add the repository secrets
+     `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, plus `KAREERLY_EVIDENCE_SALT` if you set one.
+     Without them the job logs `skipped` and does nothing. It talks to Supabase directly, installs only
+     `backend/requirements-learning.txt`, and never needs the Cloud Run service to be awake.
+   - **Cloud Scheduler calling the service.** Set `KAREERLY_LEARNING_JOB_TOKEN` on the service first.
+     The service already allows unauthenticated requests because the website calls it directly, so
+     the token header is what protects this endpoint.
+     ```bash
+     gcloud scheduler jobs create http kareerly-learning --location REGION \
+       --schedule "43 18 * * *" --time-zone UTC \
+       --uri "https://YOUR-SERVICE-URL.run.app/api/internal/learning/run" \
+       --http-method POST \
+       --headers "Content-Type=application/json,X-Learning-Job-Token=YOUR_TOKEN" \
+       --message-body '{"job": "all"}' --attempt-deadline 600s
      ```
-     A sleeping free Render instance may need to wake up first, so the GitHub Actions job, which
-     talks to Supabase directly, is the more reliable option.
-4. **Check** with `python -m backend.app.learning.jobs status`, or in Admin → *Learning & Skills*.
+     The run happens inside the request, so it finishes before Cloud Run throttles CPU. A cold start
+     adds the encoder warm-up to the first request, so keep the attempt deadline generous.
+   - **Cloud Run Job with the same image.** No HTTP endpoint needed. The image is built from `backend/`,
+     so the module is `app.learning.jobs` (not `backend.app.learning.jobs`):
+     ```bash
+     gcloud run jobs create kareerly-learning --region REGION --image IMAGE_URL \
+       --command python --args=-m,app.learning.jobs,run-all,--trigger,cloud-run-job \
+       --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role:latest \
+       --set-env-vars SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+     ```
+     Trigger it daily from Cloud Scheduler with *Cloud Run Job* as the target.
+4. **Check** with `python -m backend.app.learning.jobs status` (`python -m app.learning.jobs status` inside the
+   container), or in Admin → *Learning & Skills*.
    The first runs report `insufficient_data` until enough candidates have rated matches. This is
    expected.
 
