@@ -139,9 +139,12 @@ function describeMatch(
       { tone: 'matched', text: matchedText ? `Matched Skills: ${matchedText}` : 'Matched Skills: None identified yet.' },
       { tone: 'missing', text: missingText ? `Missing Skills: ${missingText}` : 'Missing Skills: No major missing skills identified.' },
     ],
+    // The backend explanation quotes the resume evidence (phrase and section)
+    // and says whether a missing skill was not found or removed; the local
+    // sentence is only for results saved before it existed.
     explanation: listType === 'closest'
       ? match.match_reason || 'Not a Fit-Now match yet: some required skills are still missing.'
-      : buildMatchExplanation(matchType, matchedText, missingText),
+      : match.explanation?.trim() || buildMatchExplanation(matchType, matchedText, missingText),
   };
 }
 
