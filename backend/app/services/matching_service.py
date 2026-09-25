@@ -687,15 +687,41 @@ def _curated_aliases(row: Any) -> List[str]:
     return split_skill_list(row.get("related_skills", ""))
 
 
+# "Python Programming", "Java (computer programming)": the label of a
+# programming language skill is the language's name plus a generic suffix.
+PROGRAMMING_LANGUAGE_LABEL = re.compile(r"^(?P<name>.+?)\s*(?:\(computer programming\)|programming)$", re.IGNORECASE)
+# Only reviewed rows: auto-generated ones include languages named with
+# everyday words ("Scratch", "Assembly", "Swift") that a resume uses otherwise.
+REVIEWED_MAPPING_STATUSES = {"reviewed", "mapped"}
+
+
+def _programming_language_names(row: Any) -> List[str]:
+    """The bare language name ("Python") that resumes use for a reviewed language skill.
+
+    Step 1 extraction finds "Python" as Python Programming, so gap calculation
+    must accept the same name or a resume listing Python reports it missing
+    whenever the skill falls outside the twenty confirmed in Step 2.
+    """
+    if clean_text(row.get("mapping_status", "")) not in REVIEWED_MAPPING_STATUSES:
+        return []
+    names = []
+    for value in (row.get("skill_name", ""), row.get("esco_preferred_label", "")):
+        match = PROGRAMMING_LANGUAGE_LABEL.match(clean_text(value))
+        if match and len(match.group("name")) >= 3:
+            names.append(match.group("name"))
+    return names
+
+
 @lru_cache(maxsize=1)
 def skill_evidence_phrases() -> Dict[str, List[str]]:
-    """Names that show a taxonomy skill in resume text: its label, plus curated spellings."""
+    """Names that show a taxonomy skill in resume text: its label, curated spellings
+    and, for a reviewed programming language, the language name alone."""
     phrases: Dict[str, List[str]] = {}
     for _, row in load_skills_reference().iterrows():
         skill_id = clean_text(row.get("skill_id", "")).upper()
         label = clean_text(row.get("skill_name", ""))
         if skill_id and label:
-            phrases[skill_id] = list(dict.fromkeys([label, *_curated_aliases(row)]))
+            phrases[skill_id] = list(dict.fromkeys([label, *_curated_aliases(row), *_programming_language_names(row)]))
     return phrases
 
 
@@ -1087,6 +1113,31 @@ def _salary_range(value: str) -> Optional[Tuple[float, float]]:
     return min(numbers[:2]), max(numbers[:2])
 
 
+# Step 3 answers that place no restriction on a field: job level or salary
+# "I'm not sure", work setup "Flexible - no preference", and the same answers
+# saved as labels or typed differently in the dashboard.
+UNRESTRICTED_PREFERENCE_VALUES = {"", "any", "anything", "flexible", "unsure", "none", "n/a", "na", "open"}
+UNRESTRICTED_PREFERENCE_PHRASES = ("not sure", "no preference", "flexible", "open to any", "any setup", "any level")
+PREFERENCE_FIELDS = ("role_level", "work_setup", "salary_expectation")
+
+
+def is_unrestricted_preference(value: Any) -> bool:
+    """True when a preference answer does not restrict which jobs fit.
+
+    An unrestricted field is left out of preference alignment entirely: it
+    neither filters jobs out nor lowers any job's alignment, so the report
+    rests on the career area and the resume.
+    """
+    text = normalize_for_match(str(value or "").replace("\u2019", "'"))
+    return text in UNRESTRICTED_PREFERENCE_VALUES or any(phrase in text for phrase in UNRESTRICTED_PREFERENCE_PHRASES)
+
+
+def unrestricted_preference_fields(preferences: Dict[str, Any]) -> List[str]:
+    """The Step 3 fields (job level, work setup, salary) the candidate left open."""
+    preferences = preferences or {}
+    return [field for field in PREFERENCE_FIELDS if is_unrestricted_preference(preferences.get(field, ""))]
+
+
 def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any]) -> float:
     if not preferences:
         return 0.0
@@ -1123,8 +1174,7 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
     skill_to_develop = normalize_for_match(preferences.get("skill_to_develop", ""))
 
     def specified(value: str) -> bool:
-        return (bool(value) and value not in {"any", "flexible", "unsure"}
-            and "not sure" not in value and "no preference" not in value)
+        return not is_unrestricted_preference(value)
 
     # Step 3 asks for a job level; older clients send it as the target role too.
     if target_role and _role_level(target_role) and _role_level(target_role) == _role_level(role_level):
@@ -1161,8 +1211,10 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
 
     if specified(salary_expectation):
         total += 0.10
-        wanted_salary = _salary_range(salary_expectation)
-        job_salary = _salary_range(salary)
+        # Parsed from the raw text: normalizing turns "PHP 60,000" into "php 60 000",
+        # which reads as the numbers 60 and 0.
+        wanted_salary = _salary_range(clean_text(preferences.get("salary_expectation", "")).lower())
+        job_salary = _salary_range(clean_text(job.get("salary_range_monthly_php", "")).lower())
         if wanted_salary and job_salary:
             if wanted_salary[0] <= job_salary[1] and job_salary[0] <= wanted_salary[1]:
                 score += 0.10
@@ -1609,6 +1661,9 @@ def match_text_to_jobs(
             "aspiration_count": len(all_aspiration_matches),
             "low_match_count": int((results_df["match_type"] == LOW_MATCH).sum()) if not results_df.empty else 0,
             "preferred_career_area": normalize_career_area(preferences.get("industry", "")),
+            # Fields left open ("I'm not sure", "Flexible - no preference") that
+            # did not filter or lower any job.
+            "unrestricted_preferences": unrestricted_preference_fields(preferences),
             "fit_now_blockers": fit_now_blockers,
             "elapsed_ms": round((time.perf_counter() - started_at) * 1000, 1),
             "top_10_scores": top_10_scores,

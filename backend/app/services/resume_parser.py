@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from typing import Any, BinaryIO, Union
 
 from docx import Document
@@ -56,6 +57,34 @@ def repair_letter_spaced_text(text: str) -> str:
     return text + "\n\n" + compact
 
 
+# Invisible characters that PDF and Word files put inside words: zero-width
+# spaces and joiners, word joiners and byte-order marks.
+_INVISIBLE_CHARS = re.compile("[\u200b-\u200d\u2060\ufeff]")
+# A word broken with a hyphen at the end of a line and continued in lowercase
+# on the next ("Sales-\nforce"). Hyphenated names split on a capital letter
+# ("Jan-\nMar") and ranges ("2021 -\nPresent") are left alone.
+_LINE_END_HYPHEN = re.compile(r"(?<=[A-Za-z])-[ \t]*\n[ \t]*(?=[a-z])")
+
+
+def normalize_extracted_text(text: str) -> str:
+    """Undo layout artifacts that split words in extracted document text.
+
+    PDF writers store "ffi"/"fl" ligatures as single characters, so "Office"
+    reads as "O" + U+FB03 + "ce" and no longer contains the word; NFKC turns them (and
+    full-width letters) back into plain letters. Soft hyphens and zero-width
+    characters sit inside words without being visible, and a hyphenated line
+    break splits one word into two. Without this, a skill named plainly in the
+    resume is neither extracted nor found when skill gaps are calculated.
+    """
+    if not isinstance(text, str) or not text:
+        return ""
+    text = unicodedata.normalize("NFKC", text)
+    # A soft hyphen at a line end marks the same break as a hyphen.
+    text = re.sub("\u00ad[ \t]*\n[ \t]*", "", text).replace("\u00ad", "")
+    text = _INVISIBLE_CHARS.sub("", text)
+    return _LINE_END_HYPHEN.sub("", text)
+
+
 def extract_text_from_pdf(source: Union[str, BinaryIO]) -> str:
     """Text of a PDF with an extractable text layer (a path or a binary stream)."""
     text_chunks = []
@@ -80,7 +109,9 @@ def extract_text_from_pdf(source: Union[str, BinaryIO]) -> str:
     except Exception as exc:
         raise RuntimeError(f"Failed to read PDF: {exc}") from exc
 
-    return "\n".join(text_chunks)
+    # Image-only (scanned) pages have no text layer and yield nothing here;
+    # there is no OCR, so such a resume reads as empty or very short text.
+    return normalize_extracted_text("\n".join(text_chunks))
 
 
 def _docx_paragraph_texts(root: Any) -> list[str]:
@@ -98,12 +129,15 @@ def _docx_paragraph_texts(root: Any) -> list[str]:
         if any(ancestor.tag == _MC_FALLBACK for ancestor in paragraph.iterancestors()):
             continue
         parts = []
-        for node in paragraph.iter(qn("w:t"), qn("w:tab"), qn("w:br")):
+        for node in paragraph.iter(qn("w:t"), qn("w:tab"), qn("w:br"), qn("w:cr"), qn("w:noBreakHyphen")):
             # Text-box paragraphs nested in this one are read on their own.
             if next(node.iterancestors(qn("w:p"))) is not paragraph:
                 continue
             if node.tag == qn("w:t"):
                 parts.append(node.text or "")
+            elif node.tag == qn("w:noBreakHyphen"):
+                # Word stores a non-breaking hyphen ("E-commerce") as an element, not text.
+                parts.append("-")
             else:
                 parts.append("\t" if node.tag == qn("w:tab") else "\n")
         text = "".join(parts).strip()
@@ -121,10 +155,11 @@ def extract_text_from_docx(source: Union[str, BinaryIO]) -> str:
 
         roots = []
         for section in doc.sections:
-            # Resume templates often put the name and contact line in the header.
+            # Resume templates often put the name and contact line in the
+            # header, and some put a skills or links line in the footer.
             roots.extend(
                 part._element
-                for part in (section.header, section.first_page_header)
+                for part in (section.header, section.first_page_header, section.footer, section.first_page_footer)
                 if not part.is_linked_to_previous
             )
         roots.append(doc.element.body)
@@ -137,9 +172,9 @@ def extract_text_from_docx(source: Union[str, BinaryIO]) -> str:
             for text in _docx_paragraph_texts(root):
                 total_length, reached_limit = _append_with_limit(parts, text, total_length)
                 if reached_limit:
-                    return "\n".join(parts)
+                    return normalize_extracted_text("\n".join(parts))
 
-        return "\n".join(parts)
+        return normalize_extracted_text("\n".join(parts))
 
     except Exception as exc:
         raise RuntimeError(f"Failed to read DOCX: {exc}") from exc

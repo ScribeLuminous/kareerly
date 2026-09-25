@@ -491,7 +491,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
   }
 
   return (
-    <section className="max-w-lg mx-auto px-6 py-12">
+    <section className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
       <div className="mb-7">
         <h2 className="font-display text-2xl font-bold text-dark mb-2">Step 3: Your Career Preferences</h2>
         <p className="text-sm text-soft">Tell us your goals so we can generate a personalized report.</p>
@@ -614,9 +614,10 @@ function CareerAreaQuestion({ value, onChange, confirmedSkillIds }: CareerAreaQu
           until you choose one below.
         </div>
       )}
-      <div className="space-y-2.5">
+      {/* Two columns from the sm breakpoint up; one column on phones so labels stay readable. */}
+      <div data-testid="career-area-grid" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {legacyValue && (
-          <CareerAreaChoice value={legacyValue} label={`${getCareerAreaLabel(legacyValue)} (saved choice)`} checked onChange={onChange} />
+          <CareerAreaChoice value={legacyValue} label={`${getCareerAreaLabel(legacyValue)} (saved choice)`} checked onChange={onChange} className="sm:col-span-2" />
         )}
         {careerAreaPreferenceOptions.map((option) => (
           <CareerAreaChoice
@@ -641,11 +642,12 @@ type CareerAreaChoiceProps = {
   onChange: (value: string) => void;
   examples?: string[];
   yourSkills?: string[];
+  className?: string;
 };
 
-function CareerAreaChoice({ value, label, checked, onChange, examples = [], yourSkills = [] }: CareerAreaChoiceProps) {
+function CareerAreaChoice({ value, label, checked, onChange, examples = [], yourSkills = [], className = '' }: CareerAreaChoiceProps) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-bdr bg-white p-3 transition-all hover:border-rust hover:bg-rust-l">
+    <label className={`flex h-full cursor-pointer items-start gap-3 rounded-lg border border-bdr bg-white p-3 transition-all hover:border-rust hover:bg-rust-l ${className}`}>
       <input
         type="radio"
         name="industry"
@@ -655,7 +657,7 @@ function CareerAreaChoice({ value, label, checked, onChange, examples = [], your
         className="mt-1 cursor-pointer accent-rust"
       />
       <span className="min-w-0">
-        <span className="block text-sm font-medium text-mid">{label}</span>
+        <span className="block break-words text-sm font-medium text-mid">{label}</span>
         {examples.length > 0 && (
           <span className="mt-0.5 block text-xs text-soft">e.g. {examples.join(', ')}</span>
         )}
