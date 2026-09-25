@@ -111,6 +111,24 @@ def _split_alias_terms(value: Any) -> list[str]:
     return [part.strip() for part in text.split(";") if part.strip()]
 
 
+EVIDENCE_WINDOW_CHARS = 60
+
+
+def _evidence_window(normalized_text: str, position: int, length: int) -> str:
+    """The words around a skill mention, so a report can quote where it was found."""
+    if not normalized_text:
+        return ""
+    start = max(0, position - EVIDENCE_WINDOW_CHARS)
+    end = min(len(normalized_text), position + length + EVIDENCE_WINDOW_CHARS)
+    # Widen to whole words.
+    while start > 0 and normalized_text[start - 1] != " ":
+        start -= 1
+    while end < len(normalized_text) and normalized_text[end] != " ":
+        end += 1
+    snippet = normalized_text[start:end].strip()
+    return ("... " if start > 0 else "") + snippet + (" ..." if end < len(normalized_text) else "")
+
+
 def _is_group_label(value: str) -> bool:
     """Taxonomy group labels such as "Healthcare, Caregiving, and Wellness"."""
     return bool(re.search(r",\s*(?:and|&)\s+\S", value))
@@ -451,7 +469,14 @@ class SkillExtractor:
     def extract_skills_from_sections(
         self,
         sections: dict[str, str],
+        limit: Optional[int] = MAX_CONFIRMED_SKILLS,
     ) -> list[dict[str, Any]]:
+        """Skills named anywhere in the resume, highest priority first.
+
+        ``limit`` is the Step 2 list size (MAX_CONFIRMED_SKILLS); pass None for
+        every skill with evidence, which matching uses so that a skill ranked
+        below the twentieth is never reported as missing.
+        """
         found: list[dict[str, Any]] = []
 
         section_order = list(sections.keys())
@@ -469,6 +494,7 @@ class SkillExtractor:
                 continue
 
             matches = self._find_alias_matches(section_text)
+            normalized_section = _normalize_alias(section_text) if matches else ""
 
             for row_index, alias, matched_text, position in matches:
                 row = self.rows[row_index]
@@ -494,6 +520,7 @@ class SkillExtractor:
                         "matched_text": matched_text,
                         "source_section": section_name,
                         "section_text": section_text,
+                        "evidence_text": _evidence_window(normalized_section, position, len(matched_text)),
                         "confidence": round(float(confidence), 2),
                         "method": "exact_phrase_match",
                         "position": position,
@@ -576,11 +603,11 @@ class SkillExtractor:
         for item in ranked:
             item.pop("_first_position", None)
 
-        return ranked[:MAX_CONFIRMED_SKILLS]
+        return ranked if limit is None else ranked[:limit]
 
-    def extract_from_text(self, full_text: str) -> list[dict[str, Any]]:
+    def extract_from_text(self, full_text: str, limit: Optional[int] = MAX_CONFIRMED_SKILLS) -> list[dict[str, Any]]:
         sections = {"full_text": full_text}
-        return self.extract_skills_from_sections(sections)
+        return self.extract_skills_from_sections(sections, limit=limit)
 
-    def extract_skills(self, full_text: str) -> list[dict[str, Any]]:
-        return self.extract_from_text(full_text)
+    def extract_skills(self, full_text: str, limit: Optional[int] = MAX_CONFIRMED_SKILLS) -> list[dict[str, Any]]:
+        return self.extract_from_text(full_text, limit=limit)

@@ -145,7 +145,11 @@ def _skill_trie() -> dict:
 
 
 def build_model_input(text: str, *, title: str = '', skill_names: Sequence[str] = ()) -> str:
-    """Match training: role, <=32 IDF-ordered skills, redacted <=1400-char evidence."""
+    """Match training: role, <=32 IDF-ordered skills, redacted <=1400-char evidence.
+
+    The model reads at most 256 tokens of this, so for a resume only the
+    opening is evidence; resume_evidence.py adds inputs for the rest.
+    """
     words = _normalize(' '.join([text, *skill_names])).split()
     trie = _skill_trie()
     found = set()
@@ -182,9 +186,19 @@ def encode_job_inputs(model, job_inputs: Sequence[str]) -> np.ndarray:
     return np.asarray(model.encode(list(job_inputs), batch_size=batch_size, normalize_embeddings=True, show_progress_bar=False), dtype=np.float32)
 
 
-def score_jobs(candidate_input: str, job_inputs: Sequence[str]) -> np.ndarray:
+def score_jobs(candidate_input, job_inputs: Sequence[str]) -> np.ndarray:
+    """Cosine similarity of candidate input(s) with each job input.
+
+    One string gives a vector (one score per job). A list of strings (the
+    evidence windows of one resume, see resume_evidence.py) gives a matrix with
+    one row per input; the caller aggregates the rows.
+    """
+    single = isinstance(candidate_input, str)
+    queries = [candidate_input] if single else list(candidate_input)
     if not job_inputs:
-        return np.asarray([], dtype=float)
+        return np.asarray([], dtype=float) if single else np.zeros((len(queries), 0))
+    if not queries:
+        raise ValueError('No candidate input to score')
     # Vectors are cached per job input text, so an edited job re-encodes only
     # itself. The model is fixed for the process, and the build-time store is
     # checked against the checkpoint before it seeds this cache.
@@ -202,13 +216,15 @@ def score_jobs(candidate_input: str, job_inputs: Sequence[str]) -> np.ndarray:
             while len(_job_vectors) > max(MAX_CACHED_JOB_VECTORS, len(keys)):
                 _job_vectors.popitem(last=False)
             vectors = np.stack([_job_vectors[key] for key in keys])
-            query = np.asarray(model.encode([candidate_input], batch_size=1, normalize_embeddings=True, show_progress_bar=False), dtype=float)[0]
+            query = np.asarray(model.encode(queries, batch_size=max(1, min(len(queries), 8)), normalize_embeddings=True, show_progress_bar=False), dtype=float)
+        query = query.reshape(len(queries), -1)
         # Explicit normalization also supports test doubles and protects against drift.
-        norms = np.linalg.norm(vectors, axis=1) * np.linalg.norm(query)
-        scores = np.divide(vectors @ query, norms, out=np.zeros(len(vectors)), where=norms > 0)
-        if len(scores) != len(job_inputs) or not np.isfinite(scores).all():
+        norms = np.outer(np.linalg.norm(query, axis=1), np.linalg.norm(vectors, axis=1))
+        scores = np.divide(query @ vectors.T, norms, out=np.zeros(norms.shape), where=norms > 0)
+        if scores.shape != (len(queries), len(job_inputs)) or not np.isfinite(scores).all():
             raise ValueError('Invalid bi-encoder scores')
-        return np.clip(scores, -1, 1)
+        scores = np.clip(scores, -1, 1)
+        return scores[0] if single else scores
     except MatchingModelUnavailable:
         raise
     except Exception as exc:

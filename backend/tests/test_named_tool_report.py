@@ -161,7 +161,7 @@ class ReportRegressionTests(unittest.TestCase):
 
     @staticmethod
     def matches(result):
-        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_closest_matches"] + result["all_aspiration_matches"]}
+        return {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_aspiration_matches"]}
 
     def test_help_scout_and_hubspot_are_held_in_every_spelling(self):
         saas = self.matches(self.report({**REPORT_PREFERENCES, "industry": "sales-marketing-customer-service"}))["saas"]
@@ -204,13 +204,14 @@ class ReportRegressionTests(unittest.TestCase):
         for area in by_area:
             for job_id, pair in skills[area].items():
                 self.assertEqual(pair, skills["sales-marketing-customer-service"][job_id], (area, job_id))
-        # The saved legacy "Engineering, Trades & Operations" area holds no customer
-        # service or sales jobs, so they are not Aspiration under it. A job with no
-        # category falls back to the resume rule under any area.
-        self.assertEqual([item["job_id"] for item in by_area["engineering-trades-operations"]["all_aspiration_matches"]],
-            ["csr"])
+        # Jobs related to the resume that share skills with it are Aspiration
+        # under any area. The chosen area adds relevance for a job the resume is
+        # less similar to (Account Manager, 0.18), never for one sharing no skill.
+        # The job whose posting lists no skills cannot show a bridge: neither list.
+        self.assertEqual({item["job_id"] for item in by_area["engineering-trades-operations"]["all_aspiration_matches"]},
+            {"KJ-0029", "saas", "KJ-0027"})
         self.assertEqual({item["job_id"] for item in by_area["sales-marketing-customer-service"]["all_aspiration_matches"]},
-            {"KJ-0029", "saas", "KJ-0027", "KJ-0025", "csr"})
+            {"KJ-0029", "saas", "KJ-0027", "KJ-0025"})
 
 
 class RelatedEvidenceTests(unittest.TestCase):

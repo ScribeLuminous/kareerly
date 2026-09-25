@@ -89,12 +89,33 @@ class ClassificationTests(unittest.TestCase):
             scoring.MATCH_WEIGHT_SEMANTIC,
         )
 
-    def test_preferred_career_area_decides_aspiration(self):
-        # Chosen area: Aspiration even with no held skill and low similarity.
+    def test_career_area_gives_relevance_but_never_replaces_a_skill_bridge(self):
+        # Chosen area, no shared skill: unrelated to the resume, so neither list.
         chosen = self.score(0.05, evidence(0, 4), in_area=True)
-        self.assertEqual(chosen.match_category, scoring.ASPIRATION)
-        # Outside the chosen area a related job is not an Aspiration.
-        self.assertEqual(self.score(0.40, evidence(1, 3), in_area=False).match_category, scoring.LOW_MATCH)
+        self.assertEqual(chosen.match_category, scoring.LOW_MATCH)
+        self.assertEqual(chosen.failed_aspiration_rules, ["no_shared_skill"])
+        # Chosen area with a shared skill: the stated goal supplies the relevance.
+        self.assertEqual(self.score(0.05, evidence(1, 3), in_area=True).match_category, scoring.ASPIRATION)
+        # Outside the chosen area a job related to the resume is still an Aspiration.
+        self.assertEqual(self.score(0.40, evidence(1, 3), in_area=False).match_category, scoring.ASPIRATION)
+        # Outside the area and unrelated to the resume: neither.
+        outside = self.score(0.10, evidence(1, 3), in_area=False)
+        self.assertEqual(outside.match_category, scoring.LOW_MATCH)
+        self.assertEqual(outside.failed_aspiration_rules, ["not_related"])
+
+    def test_aspiration_needs_a_bridge_not_a_career_change(self):
+        at = scoring.ASPIRATION_MAX_MISSING_ESSENTIAL
+        self.assertEqual(self.score(0.5, evidence(1, at)).match_category, scoring.ASPIRATION)
+        too_far = self.score(0.5, evidence(1, at + 1))
+        self.assertEqual(too_far.match_category, scoring.LOW_MATCH)
+        self.assertEqual(too_far.failed_aspiration_rules, ["too_many_missing_essential_skills"])
+        # A missing must-have counts toward the essential gap.
+        self.assertEqual(self.score(0.5, evidence(1, at), critical=1).match_category, scoring.LOW_MATCH)
+
+    def test_a_job_listing_no_skills_is_in_neither_list(self):
+        result = self.score(0.6, NONE)
+        self.assertEqual(result.match_category, scoring.LOW_MATCH)
+        self.assertIn("no_skills_listed", result.failed_aspiration_rules)
 
     def test_fit_now_ignores_career_preferences(self):
         self.assertEqual(self.score(0.62, evidence(4, 1), in_area=False).match_category, scoring.FIT_NOW)
@@ -173,11 +194,11 @@ class PipelineRegressionTests(unittest.TestCase):
         self.assertEqual(result["aspiration_matches"], [])
         self.assertEqual(result["debug_summary"]["low_match_count"], 1)
 
-    def test_aspiration_lists_jobs_from_the_chosen_career_area(self):
+    def test_career_area_jobs_need_a_skill_bridge_to_be_aspiration(self):
         jobs = [self.job("analyst", "Data Analyst", "SK004;SK006;SK134;SK_POWER_BI"),
                 self.job("nurse", "Staff Nurse", "SK056;SK061", category_id="K14",
                     job_category="Healthcare and Clinical Services"),
-                self.job("teacher", "Teacher", "SK045", category_id="K12", job_category="Education and Training")]
+                self.job("teacher", "Teacher", "SK045;SK004", category_id="K12", job_category="Education and Training")]
         skills = [{"skill_id": "SK004"}, {"skill_id": "SK006"}, {"skill_id": "SK001"}]
         with patch.object(matching, "load_internal_jobs_dataframe", return_value=pd.DataFrame(jobs)), \
              patch.object(matching, "score_jobs", return_value=np.asarray([0.58, 0.05, 0.02])), \
@@ -187,13 +208,15 @@ class PipelineRegressionTests(unittest.TestCase):
                 confirmed_skills=skills, preferences={"industry": "education-health-community"})
         # Fit-Now comes from the resume whatever the preference says.
         self.assertEqual([item["job_id"] for item in result["fit_now_matches"]], ["analyst"])
-        # Aspiration is every non-Fit-Now job in the chosen area, gaps from the resume.
-        self.assertEqual({item["job_id"] for item in result["aspiration_matches"]}, {"nurse", "teacher"})
-        nurse = next(item for item in result["aspiration_matches"] if item["job_id"] == "nurse")
-        self.assertTrue(nurse["in_preferred_career_area"])
-        self.assertIn("career area you chose", nurse["match_reason"])
+        # In the chosen area: the teacher job shares SQL, so it is an Aspiration
+        # with its one missing skill; the nurse job shares nothing and is in neither list.
+        self.assertEqual([item["job_id"] for item in result["aspiration_matches"]], ["teacher"])
+        teacher = result["aspiration_matches"][0]
+        self.assertTrue(teacher["in_preferred_career_area"])
+        self.assertIn("career area you chose", teacher["match_reason"])
+        self.assertEqual(teacher["aspiration_gap_skills"], [matching.get_skill_labels_by_id()["SK045"]])
         self.assertEqual(result["debug_summary"]["preferred_career_area"], "education-health-community")
-        self.assertEqual(result["debug_summary"]["fit_now_blockers"]["required_skill_coverage"], 2)
+        self.assertEqual(result["debug_summary"]["aspiration_blockers"], {"no_shared_skill": 1})
 
     def test_education_heading_does_not_add_teaching_skills(self):
         text = ("Junior Software Developer skilled in Python and JavaScript. "

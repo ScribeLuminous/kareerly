@@ -34,7 +34,7 @@ from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
-from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, match_resume_to_jobs, match_text_to_jobs, match_jobs, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
 from .services.ocr import ocr_available
@@ -880,6 +880,18 @@ def _normalize_candidate_skill_ids(raw_skill_ids: list) -> list[str]:
     return skill_ids
 
 
+def _normalize_removed_skill_ids(raw_skill_ids: object) -> list[str] | None:
+    """Skill IDs the candidate removed in Step 2; None when the client sent none."""
+    if raw_skill_ids is None:
+        return None
+    if not isinstance(raw_skill_ids, list):
+        raise HTTPException(status_code=400, detail="Removed skill IDs must be a list.")
+    return list(dict.fromkeys(
+        str(skill_id).strip().upper() for skill_id in raw_skill_ids
+        if isinstance(skill_id, str) and str(skill_id).strip()
+    ))[:200]
+
+
 def _normalize_confirmed_skills_payload(payload: list) -> list[dict]:
     normalized: list[dict] = []
     seen_ids: set[str] = set()
@@ -991,12 +1003,17 @@ def _apply_report_access_control(
     all_fit_now_matches = result.get("all_fit_now_matches") or result.get("fit_now_matches", [])
     all_aspiration_matches = result.get("all_aspiration_matches") or result.get("aspiration_matches", [])
     all_closest_matches = result.get("all_closest_matches") or result.get("closest_matches", [])
+    limited_fit_now = all_fit_now_matches[:job_limit]
+    limited_aspiration = all_aspiration_matches[:job_limit]
+    # Gaps of the jobs this report shows, never of jobs cut by the limit.
+    limited_gaps = prioritize_skill_gaps(limited_fit_now + limited_aspiration, limit=gap_limit) \
+        if limited_fit_now or limited_aspiration else []
 
     result["limited_report"] = {
-        "fit_now_matches": all_fit_now_matches[:job_limit],
-        "aspiration_matches": all_aspiration_matches[:job_limit],
+        "fit_now_matches": limited_fit_now,
+        "aspiration_matches": limited_aspiration,
         "closest_matches": all_closest_matches[:job_limit],
-        "skill_gaps": result.get("skill_gaps", result.get("prioritized_skill_gaps", []))[:gap_limit],
+        "skill_gaps": limited_gaps,
         "learning_recommendations": result.get("learning_recommendations", [])[:learning_limit],
         "development_progress": result.get("development_progress", []),
     }
@@ -1519,25 +1536,19 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
 
     candidate_skill_ids = _normalize_candidate_skill_ids(payload.candidate_skill_ids)
     confirmed_skill_records = _normalize_confirmed_skills_payload(payload.confirmed_skills)
+    removed_skill_ids = _normalize_removed_skill_ids(payload.removed_skill_ids)
 
     try:
-        # Always compute enough results for the logged-in full dashboard.
-        if confirmed_skill_records:
-            result = await run_in_threadpool(
-                match_text_to_jobs,
-                resume_text=resume_text_for_matching,
-                preferences=preferences,
-                confirmed_skills=confirmed_skill_records,
-            )
-        else:
-            result = await run_in_threadpool(
-                match_jobs,
-                resume_text_for_matching=resume_text_for_matching,
-                candidate_skill_ids=candidate_skill_ids,
-                preferences=preferences,
-                top_n_retrieval=150,
-                top_n_output=10,
-            )
+        # Onboarding and the dashboard both land here; the upload route uses
+        # the same run_matching, so every report follows one set of rules.
+        result = await run_in_threadpool(
+            run_matching,
+            resume_text=resume_text_for_matching,
+            preferences=preferences,
+            confirmed_skills=confirmed_skill_records or None,
+            candidate_skill_ids=candidate_skill_ids,
+            removed_skill_ids=removed_skill_ids,
+        )
     except MatchingModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
@@ -2228,6 +2239,7 @@ async def match_from_resume(
     preferences: str = Form("{}"),
     confirmed_skills: str = Form("[]"),
     resume_text_for_matching: str = Form(""),
+    removed_skill_ids: str = Form(""),
     user_mode: str = Form("guest"),
     view_mode: str = Form("initial"),
 ) -> dict:
@@ -2260,29 +2272,26 @@ async def match_from_resume(
     confirmed_skill_records = _normalize_confirmed_skills_payload(confirmed_skills_payload)
 
     try:
-        normalized_resume_text = resume_text_for_matching.strip()
-        if normalized_resume_text:
-            # The UI already analyzed this file before the skills-review step.
-            # Reuse that normalized text instead of parsing the same PDF/DOCX a
-            # second time when the report is generated.
-            result = await run_in_threadpool(
-                match_text_to_jobs,
-                resume_text=normalized_resume_text,
-                filename=file.filename,
-                preferences=preferences_payload,
-                confirmed_skills=confirmed_skill_records or None,
-            )
-        else:
-            file_bytes = await _read_resume_upload(file)
+        removed_skill_ids_payload = json.loads(removed_skill_ids or "null")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Removed skill IDs must be valid JSON.") from exc
+    removed = _normalize_removed_skill_ids(removed_skill_ids_payload)
 
-            result = await run_in_threadpool(
-                match_resume_to_jobs,
-                file_bytes=file_bytes,
-                filename=file.filename,
-                preferences=preferences_payload,
-                # An empty list means none were sent, not that the user has no skills.
-                confirmed_skills=confirmed_skill_records or None,
-            )
+    try:
+        normalized_resume_text = resume_text_for_matching.strip()
+        # The UI already analyzed this file before the skills-review step and
+        # sends that text; otherwise the file is read exactly as Step 1 reads it.
+        file_bytes = None if normalized_resume_text else await _read_resume_upload(file)
+        result = await run_in_threadpool(
+            run_matching,
+            resume_text=normalized_resume_text,
+            file_bytes=file_bytes,
+            filename=file.filename,
+            preferences=preferences_payload,
+            # An empty list means none were sent, not that the user has no skills.
+            confirmed_skills=confirmed_skill_records or None,
+            removed_skill_ids=removed,
+        )
         if user_mode in {"registered", "logged_in"}:
             # Saving to Supabase takes several round trips; do it after the report is
             # sent. Access control trims the result in place, so sync a full copy.

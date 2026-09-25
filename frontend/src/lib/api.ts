@@ -680,6 +680,8 @@ export type RunJobMatchesPayload = {
   resume_text_for_matching: string;
   candidate_skill_ids?: string[];
   confirmed_skills?: SelectedSkill[];
+  /** Step 2 skills the candidate removed; the backend never credits them from the resume text. */
+  removed_skill_ids?: string[];
   skill_names?: string[];
   preferences: {
     industry: string;
@@ -700,6 +702,7 @@ type MatchFromResumePayload = {
   userMode?: UserMode;
   viewMode?: ViewMode;
   confirmedSkills?: SelectedSkill[];
+  removedSkillIds?: string[];
   preferences: {
     industry?: string;
     target_role?: string;
@@ -781,6 +784,20 @@ function normalizeSkillGapList(
   return skillGaps.map((gap) => normalizeSkillGapPercentages(gap, totalMatchCount));
 }
 
+function normalizeSkillIds(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => String(value || '').trim().toUpperCase()).filter(Boolean)));
+}
+
+/**
+ * Skill IDs shown in Step 2 (the analysis' first twenty) that are not among the
+ * confirmed skills: the candidate removed them. Skills beyond the twenty shown
+ * are never listed here, so the list size cannot turn resume evidence into a gap.
+ */
+export function removedSkillIds(shownSkillIds: Array<string | null | undefined>, confirmed: SelectedSkill[]): string[] {
+  const kept = new Set(confirmed.map((skill) => String(skill.skill_id || '').trim().toUpperCase()).filter(Boolean));
+  return normalizeSkillIds(shownSkillIds.map((value) => String(value || ''))).filter((skillId) => !kept.has(skillId));
+}
+
 export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobMatchRunResults> {
   const candidateSkillIds = (payload.candidate_skill_ids || payload.skill_names || [])
     .map((skillId) => String(skillId || '').trim().toUpperCase())
@@ -803,6 +820,8 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     resume_text_for_matching: resumeText,
     candidate_skill_ids: uniqueCandidateSkillIds,
     confirmed_skills: confirmedSkills,
+    // Omitted (not an empty list) when unknown, so the backend removes nothing.
+    ...(payload.removed_skill_ids ? { removed_skill_ids: normalizeSkillIds(payload.removed_skill_ids) } : {}),
     preferences: {
       industry: payload.preferences.industry || '',
       target_role: payload.preferences.target_role || payload.preferences.role || payload.preferences.job_level || '',
@@ -926,6 +945,9 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
     formData.append('resume_text_for_matching', payload.resumeTextForMatching.trim());
   }
   formData.append('confirmed_skills', JSON.stringify(confirmedSkills));
+  if (payload.removedSkillIds) {
+    formData.append('removed_skill_ids', JSON.stringify(normalizeSkillIds(payload.removedSkillIds)));
+  }
   formData.append('user_mode', payload.userMode || 'guest');
   formData.append('view_mode', payload.viewMode || 'initial');
   formData.append(

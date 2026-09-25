@@ -1,14 +1,13 @@
 import re
 from typing import Dict, List
 
-from .skill_extractor import SkillExtractor
+from .skill_extractor import MAX_CONFIRMED_SKILLS, SkillExtractor
 from .resume_parser import (
     MAX_RESUME_BYTES,
     ResumeExtraction,
     ResumeFileError,
     clean_resume_text,
     extract_resume_document,
-    normalize_for_matching,
 )
 
 
@@ -198,11 +197,35 @@ def extract_candidate_full_name(raw_text: str, cleaned_text: str) -> str:
 HEADING_QUALIFIERS = r"(?:(?:core|key|relevant|additional|professional|technical|work|other|related)\s+){0,2}"
 
 
+SECTION_HEADING_PATTERN = re.compile(
+    r"^\s*(?P<h>" + HEADING_QUALIFIERS + r"(" + "|".join(SECTION_HEADINGS) + r"))\s*:?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def split_resume_sections(resume_text: str) -> List[tuple]:
+    """(heading, body) pairs in document order, the text before the first heading included.
+
+    Unlike detect_resume_sections, a heading used twice ("EXPERIENCE" for two
+    jobs) keeps both bodies, so no part of the resume is dropped.
+    """
+    matches = list(SECTION_HEADING_PATTERN.finditer(resume_text or ""))
+    if not matches:
+        return [("resume", resume_text.strip())] if (resume_text or "").strip() else []
+    sections = []
+    preamble = resume_text[:matches[0].start()].strip()
+    if preamble:
+        sections.append(("profile", preamble))
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(resume_text)
+        body = resume_text[match.end():end].strip()
+        if body:
+            sections.append((re.sub(r"\s+", " ", match.group("h").strip().lower()), body))
+    return sections
+
+
 def detect_resume_sections(resume_text: str) -> Dict[str, str]:
-    heading_pattern = re.compile(
-        r"^\s*(?P<h>" + HEADING_QUALIFIERS + r"(" + "|".join(SECTION_HEADINGS) + r"))\s*:?\s*$",
-        re.IGNORECASE | re.MULTILINE,
-    )
+    heading_pattern = SECTION_HEADING_PATTERN
 
     positions = [
         (match.start(), match.end(), match.group("h").strip())
@@ -426,6 +449,32 @@ def extract_resume_for_analysis(file_bytes: bytes, filename: str, skill_extracto
     )
 
 
+def prepare_resume_text(text: str) -> str:
+    """The resume text that both Step 1 and matching read.
+
+    Line breaks and capitalisation are kept: section headings ("EXPERIENCE",
+    "PROJECTS") are found line by line, and matching reads each section as
+    separate evidence. Older clients may send text already lowercased and
+    flattened; it goes through here unchanged apart from whitespace.
+    """
+    return clean_resume_text(text or "")
+
+
+def extract_resume_skills(text: str, skill_extractor: SkillExtractor, limit=None) -> List[Dict]:
+    """Skills with evidence anywhere in the resume, ranked as Step 2 shows them.
+
+    The first MAX_CONFIRMED_SKILLS are the Step 2 list; the rest are still
+    resume evidence and count as held when matching.
+    """
+    return skill_extractor.extract_skills_from_sections(detect_resume_sections(text), limit=limit)
+
+
+def resume_text_from_upload(file_bytes: bytes, filename: str, skill_extractor: SkillExtractor) -> tuple:
+    """(prepared text, extraction) of an upload, exactly as Step 1 reads it."""
+    extraction = extract_resume_for_analysis(file_bytes, filename, skill_extractor)
+    return prepare_resume_text(extraction.text), extraction
+
+
 def analyze_resume_file(file_path: str, skill_extractor: SkillExtractor) -> Dict:
     with open(file_path, "rb") as handle:
         file_bytes = handle.read(MAX_RESUME_BYTES + 1)
@@ -442,7 +491,7 @@ def analyze_resume_bytes(file_bytes: bytes, filename: str, skill_extractor: Skil
         raise ValueError(f"Could not extract readable text from resume: {exc}") from exc
 
     raw_text = extraction.text
-    cleaned = clean_resume_text(raw_text)
+    cleaned = prepare_resume_text(raw_text)
     raw_text_length = len(cleaned)
 
     sections = detect_resume_sections(cleaned)
@@ -499,7 +548,10 @@ def analyze_resume_bytes(file_bytes: bytes, filename: str, skill_extractor: Skil
         ),
     }
 
-    skills = skill_extractor.extract_skills_from_sections(sections)
+    all_skills = skill_extractor.extract_skills_from_sections(sections, limit=None)
+    # Step 2 shows and lets the candidate edit the first twenty; the rest are
+    # returned too, so nothing the resume documents is lost to the list size.
+    skills = all_skills[:MAX_CONFIRMED_SKILLS]
 
     education_indicators = extract_education_indicators(cleaned)
     certification_indicators = extract_certification_indicators(cleaned)
@@ -542,7 +594,12 @@ def analyze_resume_bytes(file_bytes: bytes, filename: str, skill_extractor: Skil
     normalized_for_matching = {
         "skill_ids": [skill["skill_id"] for skill in skills],
         "skill_names": [skill["skill_name"] for skill in skills],
-        "resume_text_for_matching": normalize_for_matching(cleaned),
+        "all_skill_ids": [skill["skill_id"] for skill in all_skills],
+        "all_skill_names": [skill["skill_name"] for skill in all_skills],
+        # The same prepared text matching reads (line breaks kept), so the
+        # report sees exactly what Step 1 saw, tables and text boxes included.
+        "resume_text_for_matching": cleaned,
+        "text_format": "prepared_resume_text_v2",
     }
 
     return {
@@ -551,6 +608,18 @@ def analyze_resume_bytes(file_bytes: bytes, filename: str, skill_extractor: Skil
         "sections_detected": sections_detected,
         "candidate_profile": candidate_profile,
         "normalized_for_matching": normalized_for_matching,
+        # Every skill found, with the phrase and section that showed it.
+        "resume_skill_evidence": [
+            {
+                "skill_id": skill["skill_id"],
+                "skill_name": skill["skill_name"],
+                "matched_text": skill.get("matched_text", ""),
+                "source_section": skill.get("source_section", ""),
+                "evidence_text": skill.get("evidence_text", ""),
+                "shown_in_skill_review": index < MAX_CONFIRMED_SKILLS,
+            }
+            for index, skill in enumerate(all_skills)
+        ],
         "warnings": warnings,
         # Only the problems reading the file (OCR, page limits), for the UI to
         # show beside the extracted skills.
