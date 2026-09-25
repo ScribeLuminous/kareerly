@@ -270,6 +270,10 @@ export interface MatchResultItem {
   match_type?: string;
   match_category?: string;
   match_reason?: string;
+  /** False when the posting lists no skills the matcher can compare with the resume. */
+  skill_requirements_available?: boolean;
+  score_basis?: 'semantic_and_skills' | 'role_similarity_only' | string;
+  related_skill_credit?: Array<{ skill: string; evidence: string }>;
 }
 
 export interface PrioritizedSkillGap {
@@ -407,6 +411,8 @@ export interface JobMatchRunResults {
     pipeline_state?: Record<string, unknown>;
   };
   resume_text_preview?: string;
+  /** The Step 3 preferences this report was generated with. */
+  preferences_used?: Record<string, unknown>;
   model_used?: string;
   metadata?: {
     model_version?: string;

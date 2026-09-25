@@ -13,8 +13,6 @@ from typing import Dict, List, Any, Tuple, Optional
 
 import numpy as np
 import pandas as pd
-from pypdf import PdfReader
-from docx import Document
 
 from .learning_recommender import (
     get_learning_resources_source,
@@ -34,6 +32,7 @@ from .match_scoring import (
     match_reason,
     score_match,
 )
+from .resume_parser import extract_text_from_docx as parse_docx_text, extract_text_from_pdf as parse_pdf_text
 from .skill_extractor import SkillExtractor
 from .supabase_jobs import load_internal_jobs_dataframe
 from . import taxonomy_additions
@@ -50,6 +49,7 @@ REFERENCE_JOBS_PATH = os.path.join(DATA_DIR, "reference_jobs.csv")
 SKILLS_REFERENCE_PATH = os.path.join(DATA_DIR, "skills_reference.csv")
 CATEGORY_REFERENCE_PATH = os.path.join(DATA_DIR, "category_reference.csv")
 LEARNING_RESOURCES_PATH = os.path.join(DATA_DIR, "learning_resources.csv")
+SKILL_EVIDENCE_RELATIONS_PATH = os.path.join(DATA_DIR, "skill_evidence_relations.csv")
 
 TOP_FIT_NOW = 10
 TOP_ASPIRATION = 10
@@ -241,32 +241,12 @@ def job_career_area(job: Dict[str, Any]) -> str:
 # ============================================================
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
-    reader = PdfReader(io.BytesIO(file_bytes))
-    pages = []
-
-    for page in reader.pages:
-        try:
-            page_text = page.extract_text() or ""
-            pages.append(page_text)
-        except Exception:
-            continue
-
-    return clean_text(repair_letter_spaced_text(" ".join(pages)))
+    return clean_text(repair_letter_spaced_text(parse_pdf_text(io.BytesIO(file_bytes))))
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
-    document = Document(io.BytesIO(file_bytes))
-    paragraphs = [p.text for p in document.paragraphs if p.text]
-
-    # Also read tables if present
-    table_texts = []
-    for table in document.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                if cell.text:
-                    table_texts.append(cell.text)
-
-    return clean_text(repair_letter_spaced_text(" ".join(paragraphs + table_texts)))
+    # The same reader as the Step 1 analyzer, so both routes see identical text.
+    return clean_text(repair_letter_spaced_text(parse_docx_text(io.BytesIO(file_bytes))))
 
 
 def extract_resume_text(file_bytes: bytes, filename: str) -> str:
@@ -672,6 +652,26 @@ def skill_evidence_phrases() -> Dict[str, List[str]]:
 
 
 @lru_cache(maxsize=1)
+def related_skill_evidence() -> Dict[str, List[str]]:
+    """Resume phrases that show a skill through a reviewed one-way relation.
+
+    Each row of skill_evidence_relations.csv records why the phrase shows the
+    skill (a broader practice that always includes it, such as order
+    fulfillment including order processing). Relations are never reversed and
+    never make two skills interchangeable.
+    """
+    if not os.path.exists(SKILL_EVIDENCE_RELATIONS_PATH):
+        return {}
+    relations: Dict[str, List[str]] = {}
+    for _, row in safe_read_csv(SKILL_EVIDENCE_RELATIONS_PATH).iterrows():
+        skill_id = clean_text(row.get("skill_id", "")).upper()
+        phrase = clean_text(row.get("evidence_phrase", ""))
+        if skill_id and phrase:
+            relations.setdefault(skill_id, []).append(phrase)
+    return relations
+
+
+@lru_cache(maxsize=1)
 def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
     """Canonical IDs and unambiguous, explicitly mapped aliases; no token partial credit."""
     labels = {}
@@ -727,6 +727,7 @@ def skill_id_equivalents() -> Dict[str, str]:
 
 
 LEGACY_SKILL_ID = re.compile(r"SK_[A-Z0-9_]+")
+TAXONOMY_SKILL_ID = re.compile(r"SK\d+")
 
 
 def _skill_key(value: str) -> str:
@@ -833,25 +834,45 @@ def compute_skill_coverage(
     required: Dict[str, str] = {}
     for value in required_skills:
         text = clean_text(value)
-        if text:
+        if text and not (TAXONOMY_SKILL_ID.fullmatch(text.upper()) and text.upper() not in labels):
             readable = display_skill_name(text.upper(), labels) if LEGACY_SKILL_ID.fullmatch(text.upper()) else text
-            required.setdefault(_skill_key(text), readable)
+            key = _skill_key(text)
+            required.setdefault(key, display_skill_name(key, labels, readable))
+    # A requirement with no readable name (an ID missing from the taxonomy) can
+    # be neither shown nor explained, so it does not count toward coverage either.
+    required = {key: name for key, name in required.items() if name}
     text_norm = normalize_for_match(resume_text)
+    # Related evidence may come from the resume or from a skill the candidate
+    # confirmed by name ("Order Fulfillment" added in Step 2).
+    profile_norm = normalize_for_match(" ".join(
+        [resume_text, *map(clean_text, candidate_skills), *(display_skill_name(key, labels) for key in candidates)]
+    ))
+    related_credit: Dict[str, str] = {}
 
     def held(key: str) -> bool:
         if key in candidates:
             return True
-        phrases = skill_evidence_phrases().get(key) or [display_skill_name(key, labels, required[key])]
-        return any(_phrase_in_text(phrase, text_norm) for phrase in phrases)
+        phrases = skill_evidence_phrases().get(key) or [required[key]]
+        if any(_phrase_in_text(phrase, text_norm) for phrase in phrases):
+            return True
+        for phrase in related_skill_evidence().get(key, []):
+            if _phrase_in_text(phrase, profile_norm):
+                related_credit[required[key]] = phrase
+                return True
+        return False
 
     matched = [key for key in required if held(key)]
     missing = [key for key in required if key not in matched]
     return {
         "skill_coverage": round(len(matched) / len(required), 4) if required else 0.0,
-        "matched_skills": sorted(filter(None, (display_skill_name(key, labels, required[key]) for key in matched))),
-        "missing_skills": sorted(filter(None, (display_skill_name(key, labels, required[key]) for key in missing))),
+        "matched_skills": sorted(required[key] for key in matched),
+        "missing_skills": sorted(required[key] for key in missing),
         "matched_skill_ids": sorted(key for key in matched if key in labels),
         "missing_skill_ids": sorted(key for key in missing if key in labels),
+        # Requirements credited through a related-skill relation, with the phrase that showed them.
+        "related_skill_credit": [
+            {"skill": skill, "evidence": phrase} for skill, phrase in sorted(related_credit.items())
+        ],
     }
 
 
@@ -1280,6 +1301,9 @@ def _score_single_normalized_job(
     )
     match_type = breakdown.match_category
     score = breakdown.match_score
+    # With no comparable skill requirement the score is role similarity alone,
+    # and there are no matched or missing skills to report.
+    requirements_available = breakdown.required_skill_count + breakdown.preferred_skill_count > 0
     semantic_score = breakdown.semantic_similarity
     skill_coverage = float(skill_result["skill_coverage"])
     preference_alignment = compute_preference_alignment(job, preferences)
@@ -1310,11 +1334,15 @@ def _score_single_normalized_job(
         "critical_missing_skill_ids": critical_missing, "required_skill_ids": ";".join(required_ids),
         "matched_skills": skill_result["matched_skills"], "missing_skills": skill_result["missing_skills"],
         "matched_preferred_skills": preferred_matched, "missing_preferred_skills": preferred_missing,
+        "related_skill_credit": skill_result["related_skill_credit"],
+        "skill_requirements_available": requirements_available,
+        "score_basis": "semantic_and_skills" if requirements_available else "role_similarity_only",
         "match_reason": match_reason(match_type, skill_result["matched_skills"], skill_result["missing_skills"],
             breakdown.required_skill_count, in_preferred_area),
         "match_breakdown": breakdown.as_dict(),
         "explanation": generate_match_explanation(job.get("job_title", ""), match_type, skill_result["matched_skills"],
-            skill_result["missing_skills"], skill_coverage, preference_alignment, in_preferred_area),
+            skill_result["missing_skills"], skill_coverage, preference_alignment, in_preferred_area,
+            requirements_available=requirements_available),
     }
 
 
@@ -1370,7 +1398,15 @@ def generate_match_explanation(
     skill_coverage: float,
     preference_alignment: float,
     in_preferred_career_area: Optional[bool] = None,
+    *,
+    requirements_available: bool = True,
 ) -> str:
+    if not requirements_available:
+        basis = "is in the career area you chose" if in_preferred_career_area else "is related to your resume"
+        return (
+            f"This role is showing as {match_type} because it {basis}. The posting for {job_title} lists no skills "
+            "Kareerly can compare with your resume, so its score reflects role similarity only and no skill gaps are shown."
+        )
     matched_text = ", ".join(matched_skills[:5]) if matched_skills else "some related resume evidence"
     missing_text = ", ".join(missing_skills[:5]) if missing_skills else "no major required skills"
 

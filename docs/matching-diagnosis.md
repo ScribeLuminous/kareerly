@@ -197,6 +197,48 @@ is decided by the Step 3 preferences and then compared with the resume.
   Fit-Now, and the same counts are logged, so an empty Fit-Now list in
   production can be explained from the response.
 
+## Follow-up (2026-09-25): skills the resume shows reported as gaps
+
+Symptom: a Step 4 report listed "Order Processing" as missing for a resume
+that says "order fulfillment", and a Customer Service Representative match
+showed neither matched nor missing skills.
+
+The scorer in this flow is the fine-tuned bi-encoder plus canonical skill
+coverage (`/api/matches/run-form` → `match_text_to_jobs` → `score_match`); no
+TF-IDF model runs. The causes, reproduced with a synthetic resume and
+production-shaped jobs (`backend/tests/test_job_match_evidence.py`):
+
+1. **DOCX text was lost.** `extract_text_from_docx` read only
+   `Document.paragraphs` and top-level table cells, dropping content controls
+   (`w:sdt`), nested tables, text boxes and headers. A line inside a content
+   control never reached skill extraction or matching. Every `w:p` is now read
+   in order (text boxes once), on both the analyzer and report routes. PDFs
+   with a text layer were already read correctly.
+2. **"Order Processing" had no taxonomy skill.** Jobs send it as the legacy
+   ID `SK_ORDER_PROCESSING`, which resolved to the free-text name and matched
+   only the literal words "order processing". SK693 Order Processing now
+   exists, and `backend/data/skill_evidence_relations.csv` records reviewed,
+   one-way relations: order fulfillment shows order processing (fulfilling an
+   order includes processing it); the reverse does not hold, and purchase
+   orders are unrelated. Relations are checked against the resume and the
+   names the candidate confirmed, so an accepted skill is never also missing.
+   Because gaps are counted from each match's missing skills, the fix also
+   removes the entry from "Skill Gaps to Work On".
+3. **Jobs without comparable requirements looked like clean fits.** A job
+   with no skill IDs or names (or only IDs missing from the taxonomy) showed
+   no matched and no missing skills, an explanation about "no major required
+   skills", and a percentage that was role similarity alone. Unnamed IDs no
+   longer count toward coverage, and such matches carry
+   `skill_requirements_available: false` and `score_basis:
+   "role_similarity_only"`, which Step 4 and the explanations state plainly.
+
+The 20-skill Step 2 limit was checked: requirements are also credited when
+the skill's label or curated spelling appears in the resume text, so skills
+ranked past 20 are not reported missing for that reason. "Onboarding" and
+"Chat Support" stay gaps unless the resume names them (for example "client
+onboarding" or "live chat"). `SK_ONBOARDING` is left as a name because it
+means customer onboarding in some jobs and employee onboarding in others.
+
 ## New matching logic
 
 ```
