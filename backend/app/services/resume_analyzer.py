@@ -3,8 +3,11 @@ from typing import Dict, List
 
 from .skill_extractor import SkillExtractor
 from .resume_parser import (
-    extract_resume_text,
+    MAX_RESUME_BYTES,
+    ResumeExtraction,
+    ResumeFileError,
     clean_resume_text,
+    extract_resume_document,
     normalize_for_matching,
 )
 
@@ -413,12 +416,32 @@ def extract_experience_indicators(resume_text: str) -> List[str]:
     return indicators
 
 
+def extract_resume_for_analysis(file_bytes: bytes, filename: str, skill_extractor: SkillExtractor) -> ResumeExtraction:
+    """The document text both Step 1 and the report read, split skill names rejoined."""
+    return extract_resume_document(
+        file_bytes,
+        filename,
+        split_word_vocabulary=skill_extractor.split_word_vocabulary(),
+        known_phrases=skill_extractor.known_phrases(),
+    )
+
+
 def analyze_resume_file(file_path: str, skill_extractor: SkillExtractor) -> Dict:
+    with open(file_path, "rb") as handle:
+        file_bytes = handle.read(MAX_RESUME_BYTES + 1)
+    return analyze_resume_bytes(file_bytes, file_path, skill_extractor)
+
+
+def analyze_resume_bytes(file_bytes: bytes, filename: str, skill_extractor: SkillExtractor) -> Dict:
+    """Step 1 analysis of an uploaded resume, read from memory (no copy is written)."""
     try:
-        raw_text = extract_resume_text(file_path)
+        extraction = extract_resume_for_analysis(file_bytes, filename, skill_extractor)
+    except ResumeFileError:
+        raise
     except Exception as exc:
         raise ValueError(f"Could not extract readable text from resume: {exc}") from exc
 
+    raw_text = extraction.text
     cleaned = clean_resume_text(raw_text)
     raw_text_length = len(cleaned)
 
@@ -485,14 +508,15 @@ def analyze_resume_file(file_path: str, skill_extractor: SkillExtractor) -> Dict
     certifications = extract_certifications(cleaned, sections)
     candidate_full_name = extract_candidate_full_name(raw_text, cleaned)
 
-    warnings = []
-    status = "success"
+    warnings = list(extraction.warnings)
+    status = "warning" if extraction.ocr_status in {"unavailable", "failed", "partial"} else "success"
 
     if raw_text_length < 100:
         status = "warning"
-        warnings.append(
-            "The uploaded resume has very little readable text. It may be scanned, image-based, corrupted, or poorly formatted."
-        )
+        if extraction.ocr_status not in {"unavailable", "failed"}:
+            warnings.append(
+                "The uploaded resume has very little readable text. It may be scanned, image-based, corrupted, or poorly formatted."
+            )
 
     if not skills:
         warnings.append(
@@ -528,4 +552,13 @@ def analyze_resume_file(file_path: str, skill_extractor: SkillExtractor) -> Dict
         "candidate_profile": candidate_profile,
         "normalized_for_matching": normalized_for_matching,
         "warnings": warnings,
+        # Only the problems reading the file (OCR, page limits), for the UI to
+        # show beside the extracted skills.
+        "extraction_warnings": [
+            warning for warning in warnings
+            if warning in extraction.warnings or warning.startswith("The uploaded resume has very little readable text")
+        ],
+        # How the text was read, so a saved analysis shows whether it predates
+        # OCR, column ordering or .doc support (see RESUME_PARSER_VERSION).
+        "extraction": extraction.metadata(),
     }

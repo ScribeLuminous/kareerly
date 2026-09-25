@@ -4,6 +4,7 @@ from typing import Any, Optional, Union
 
 import pandas as pd
 
+from .split_words import build_split_word_vocabulary
 from .taxonomy_additions import merge_reference_rows
 
 
@@ -131,6 +132,7 @@ class SkillExtractor:
         self._compact_alias_map: dict[str, list[str]] = {}
         self._compact_alias_pattern: re.Pattern[str] | None = None
         self.job_market_relevance: dict[str, float] = {}
+        self._split_word_vocabulary: Optional[dict[str, tuple[str, ...]]] = None
 
         self._load_skills_reference()
         self._build_alias_index()
@@ -261,6 +263,27 @@ class SkillExtractor:
                 r"(?=(" + "|".join(re.escape(alias) for alias in compact_aliases) + r"))",
                 flags=re.IGNORECASE,
             )
+
+    def split_word_vocabulary(self) -> dict[str, tuple[str, ...]]:
+        """Single-word skill names and aliases, as written, for rejoining split words.
+
+        Built from names and aliases only (never descriptions), so a split is
+        rejoined only into a word that names a skill. See split_words.py.
+        """
+        if self._split_word_vocabulary is None:
+            names: list[str] = []
+            for row in self.rows:
+                names.append(row.get("skill_name", ""))
+                for field in ["related_skills", "esco_preferred_label", "esco_alternative_labels", "approved_aliases"]:
+                    names.extend(
+                        part for part in _split_alias_terms(row.get(field, "")) if not _is_group_label(part)
+                    )
+            self._split_word_vocabulary = build_split_word_vocabulary(names)
+        return self._split_word_vocabulary
+
+    def known_phrases(self) -> set[str]:
+        """Normalised aliases; a spaced form that is itself an alias is never joined."""
+        return set(self.alias_map.keys())
 
     def _build_job_market_relevance(self) -> dict[str, float]:
         counts: dict[str, int] = {}

@@ -29,6 +29,7 @@ const { default: UploadZone } = await import(compile('../src/components/UploadZo
   '../lib/api': noopModule,
   '../lib/auth': noopModule,
   '../lib/userData': noopModule,
+  '../lib/resumeFreshness': dataUrl('export const RESUME_FILE_ACCEPT = ".pdf,.docx,.doc"; export const extractionWarnings = () => [];'),
   './StepArrowButton': compile('../src/components/StepArrowButton.tsx'),
 }));
 

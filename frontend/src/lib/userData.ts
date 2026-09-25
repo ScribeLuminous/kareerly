@@ -16,17 +16,33 @@ export type SavedResumeRecord = {
   created_at: string | null;
 };
 
+// A resume file already in storage, re-analysed without uploading it again.
+export type ExistingResumeFile = {
+  bucket: string;
+  path: string;
+  name: string;
+  mimeType: string;
+  size: number | null;
+};
+
 export async function saveResumeAnalysis(input: {
   userId: string;
   fileName?: string;
   file?: File | null;
+  existingFile?: ExistingResumeFile | null;
   analysis: ResumeAnalysisResult;
 }): Promise<string> {
   const parsedText = input.analysis.normalized_for_matching?.resume_text_for_matching || '';
   let storagePath = '';
   let storageBucket = '';
+  // Only a file uploaded by this call may be removed when saving fails; an
+  // existing file is the user's stored original.
+  let uploadedNow = false;
 
-  if (input.file) {
+  if (input.existingFile && input.existingFile.path.startsWith(`${input.userId}/`)) {
+    storageBucket = input.existingFile.bucket;
+    storagePath = input.existingFile.path;
+  } else if (input.file) {
     const extension = input.file.name.includes('.') ? input.file.name.split('.').pop() : 'resume';
     storageBucket = RESUME_STORAGE_BUCKET;
     storagePath = `${input.userId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
@@ -41,6 +57,7 @@ export async function saveResumeAnalysis(input: {
       console.warn('Unable to upload resume file:', uploadError.message);
       throw new Error(`Unable to store the resume file: ${uploadError.message}`);
     }
+    uploadedNow = true;
   }
 
   const basePayload = {
@@ -53,8 +70,8 @@ export async function saveResumeAnalysis(input: {
     ...basePayload,
     storage_bucket: storageBucket || null,
     storage_path: storagePath || null,
-    file_mime_type: input.file?.type || null,
-    file_size_bytes: input.file?.size || null,
+    file_mime_type: input.file?.type || input.existingFile?.mimeType || null,
+    file_size_bytes: input.file?.size || input.existingFile?.size || null,
   };
 
   let { data, error } = await supabase
@@ -77,7 +94,7 @@ export async function saveResumeAnalysis(input: {
     console.warn('Unable to save resume analysis:', error.message);
     // Do not leave an orphaned file behind when the database row fails. More
     // importantly, do not report the resume as saved to the UI when it is not.
-    if (storageBucket && storagePath) {
+    if (uploadedNow) {
       const { error: cleanupError } = await supabase.storage
         .from(storageBucket)
         .remove([storagePath]);
@@ -106,7 +123,7 @@ export async function saveResumeAnalysis(input: {
   }
 
   if (!data?.id) {
-    if (storageBucket && storagePath) {
+    if (uploadedNow) {
       await supabase.storage.from(storageBucket).remove([storagePath]);
     }
     throw new Error('Unable to save the resume to your profile: no resume record was returned.');

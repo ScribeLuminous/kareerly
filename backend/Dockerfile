@@ -7,12 +7,25 @@ ENV PORT=8080
 
 WORKDIR /app
 
+# Resume readers: tesseract reads scanned PDF pages and text inside DOCX images
+# (OCR); antiword reads legacy Word 97-2003 (.doc) files. Set
+# INSTALL_LIBREOFFICE=1 to also install LibreOffice Writer (about 300MB more),
+# which converts .doc files with better fidelity (text boxes, tables) and reads
+# the very short .doc files antiword refuses.
+ARG INSTALL_LIBREOFFICE=0
+
 # Install required system packages
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         gcc \
         curl \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        antiword \
+    && if [ "$INSTALL_LIBREOFFICE" = "1" ]; then \
+        apt-get install -y --no-install-recommends libreoffice-writer-nogui; \
+    fi \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

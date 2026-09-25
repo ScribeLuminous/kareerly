@@ -268,7 +268,7 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertEqual(matching.get_jobs_source(), "supabase_internal_and_employer_jobs")
 
     def test_repeat_resume_upload_skips_parsing(self):
-        with patch.object(matching, "extract_text_from_pdf", return_value="Python developer " * 10) as parse:
+        with patch.object(matching, "extract_resume_text", return_value="Python developer " * 10) as parse:
             first = matching.extract_resume_text_cached(b"%PDF same file", "resume.pdf")
             second = matching.extract_resume_text_cached(b"%PDF same file", "copy.PDF")
         self.assertEqual(first, second)
