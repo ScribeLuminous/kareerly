@@ -5252,3 +5252,91 @@
     display: none;
   }
 }
+
+/* Good match / Bad match rating on job match cards */
+.cand-feedback-note {
+  margin-top: 4px;
+  max-width: 72ch;
+  font-size: 12px;
+  color: var(--soft);
+}
+
+.cand-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--bdr);
+}
+
+.cand-feedback-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mid);
+}
+
+.cand-feedback-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.cand-feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--mid);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cand-feedback-btn:hover:not(:disabled) {
+  border-color: var(--rust);
+  color: var(--rust);
+}
+
+.cand-feedback-btn.good.selected {
+  background: var(--green-l);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.cand-feedback-btn.bad.selected {
+  background: var(--red-l);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.cand-feedback-btn:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+.cand-feedback-status {
+  font-size: 12px;
+  color: var(--soft);
+}
+
+.cand-feedback-error {
+  flex-basis: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red);
+}
+
+.cand-feedback-retry {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--rust);
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}

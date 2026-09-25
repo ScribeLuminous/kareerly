@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import Logo from '../components/Logo';
+import AdminLearningPanel from '../components/AdminLearningPanel';
 import { deleteAdminJob, fetchAdminOverview, resetAdminApplication, updateAdminApplication, updateAdminJob, updateAdminUser } from '../lib/api';
 import type { AdminOverview } from '../lib/api';
 import { supabase } from '../lib/supabase';
@@ -12,7 +13,7 @@ type AdminDashboardProps = {
   onLogout: () => void;
 };
 
-type AdminTab = 'users' | 'jobs' | 'applications' | 'messages' | 'evidence';
+type AdminTab = 'users' | 'jobs' | 'applications' | 'messages' | 'evidence' | 'learning';
 type UserFilter = 'candidate' | 'employer' | 'admin';
 
 const tabs: Array<{ id: AdminTab; label: string }> = [
@@ -21,6 +22,7 @@ const tabs: Array<{ id: AdminTab; label: string }> = [
   { id: 'applications', label: 'Applications' },
   { id: 'messages', label: 'Messages' },
   { id: 'evidence', label: 'Evidence' },
+  { id: 'learning', label: 'Learning & Skills' },
 ];
 
 function valueText(value: unknown): string {
@@ -143,6 +145,13 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
     }
   };
 
+  const getAdminToken = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error('Admin session is missing. Please log in again.');
+    return token;
+  }, []);
+
   const loadOverview = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -176,7 +185,7 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
     ];
   }, [overview]);
 
-  const unfilteredRows = overview?.recent[
+  const unfilteredRows = activeTab === 'learning' ? [] : overview?.recent[
     activeTab === 'users' ? 'profiles' : activeTab === 'jobs' ? 'job_posts' : activeTab
   ] || [];
   const currentRows = activeTab === 'users' ? unfilteredRows.filter((row) => row.role === userFilter) : unfilteredRows;
@@ -348,9 +357,11 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
         <div className="rounded-lg border border-bdr bg-card">
           <div className="flex items-center justify-between px-4 py-3">
             <h2 className="text-base font-extrabold">{tabs.find((tab) => tab.id === activeTab)?.label}</h2>
-            <span className="text-xs font-semibold text-soft">{currentRows.length} records</span>
+            {activeTab !== 'learning' && <span className="text-xs font-semibold text-soft">{currentRows.length} records</span>}
           </div>
-          <AdminTable rows={currentRows} columns={columns} empty={`No ${activeTab} records found.`} />
+          {activeTab === 'learning'
+            ? <AdminLearningPanel getToken={getAdminToken} />
+            : <AdminTable rows={currentRows} columns={columns} empty={`No ${activeTab} records found.`} />}
         </div>
       </section>
     </main>
