@@ -3926,6 +3926,33 @@ function JobMatchesPage({
   matchFeedbackStatus: Record<string, MatchFeedbackStatus>;
   onRateMatch: (job: DashboardJob, vote: MatchVote) => void;
 }) {
+  // Each column is sized to its tallest first card so one whole match, down to
+  // its Apply/View/Save buttons, is visible before the column needs scrolling.
+  const matchGroupsRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node || typeof ResizeObserver === 'undefined') return undefined;
+    const syncHeight = () => {
+      let tallest = 0;
+      node.querySelectorAll<HTMLElement>('.cand-match-group-scroll > .cand-job-card:first-child').forEach((card) => {
+        tallest = Math.max(tallest, card.offsetHeight);
+      });
+      if (tallest > 0) node.style.setProperty('--cand-first-card-h', `${tallest}px`);
+      else node.style.removeProperty('--cand-first-card-h');
+    };
+    const resizeObserver = new ResizeObserver(syncHeight);
+    const observeFirstCards = () => {
+      resizeObserver.disconnect();
+      node.querySelectorAll<HTMLElement>('.cand-match-group-scroll > .cand-job-card:first-child').forEach((card) => resizeObserver.observe(card));
+      syncHeight();
+    };
+    // Search, filters and feedback swap which card is first, so re-observe on DOM changes.
+    const mutationObserver = new MutationObserver(observeFirstCards);
+    mutationObserver.observe(node, { childList: true, subtree: true });
+    observeFirstCards();
+    return () => {
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
+    };
+  }, []);
   const fitNowJobs = orderByBackendRank(jobs.filter((job) => job.matchCategory === 'fit-now'));
   const aspirationJobs = orderByBackendRank(jobs.filter((job) => job.matchCategory === 'aspiration'));
   const savedTableRows = savedJobRows.filter((job) => {
@@ -4132,7 +4159,7 @@ function JobMatchesPage({
           </div>
         ) : <div className="cand-empty">No saved jobs match your search. Save any role from Careers or Job Matches to see it here.</div>
       ) : jobs.length > 0 ? (
-        <div className={`cand-match-groups ${groupedSections.length === 1 ? 'single' : 'dual'}`}>
+        <div ref={matchGroupsRef} className={`cand-match-groups ${groupedSections.length === 1 ? 'single' : 'dual'}`}>
           {groupedSections.map((section) => (
             <div key={section.key} className="cand-card cand-match-group-card">
               <div className="cand-match-group-head">
