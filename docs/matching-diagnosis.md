@@ -323,9 +323,10 @@ score      = (0.45·semantic + 0.45·required + 0.10·preferred) / (weights of t
              − 0.10 per missing critical skill (maximum 0.20)
 
 Fit-Now    : required skills listed AND required ≥ 0.75 AND semantic ≥ 0.30 AND no critical skill missing
-Aspiration : not Fit-Now AND relevant (semantic ≥ 0.20, or the job is in the Step 3 career area)
-             AND ≥ 1 of its required/preferred skills held AND ≤ 4 essential skills missing
-Low Match  : otherwise (including jobs that list no skills); scored, but in neither list
+Aspiration : not Fit-Now AND the job is in the Step 3 career area
+             (job level, work setup and salary order the list and are noted; they never remove a job)
+             (no area known: semantic ≥ 0.20 AND ≥ 1 skill held)
+Low Match  : otherwise; scored, but in neither list
 semantic   = max(profile cosine, best resume-section cosine − 0.125)   (see 2026-09-25 follow-up)
 ```
 
@@ -570,3 +571,28 @@ names, so "Customer Experience" was checked as "customer", and likewise
 "Industrial software" as "industrial" (14 skills). A skill's own names are now
 matched whole; only unresolved requirement names are stripped of wording such
 as "experience" or "skills".
+
+## Product rule (2026-09-25): Fit-Now from the resume, Aspiration from Step 3
+
+Set by the product owner, replacing the "relevance and skill bridge" rule
+above and the later "shared required skill" rule:
+
+- **Fit-Now** reads the resume only; Step 3 answers never affect it.
+- **Aspiration** is every non-Fit-Now job in the career area chosen in Step 3,
+  whether or not the resume shares its skills. The resume is compared with
+  each job: shared skills are listed and raise the match score, and the
+  missing skills are what to build. Jobs outside the chosen area are not
+  Aspiration.
+- **Job level, work setup and salary** never remove a job. Jobs that fit them
+  come first (preference alignment is the list's primary order) and a job
+  that does not fit one says so ("work setup On-site (you chose remote)",
+  `preference_conflicts` / `preference_mismatch_notes`). "Not sure" and
+  "Flexible" answers, and job fields that are not stated, never conflict.
+- With no career area known, the resume decides: related (≥ 0.20) and at
+  least one shared skill.
+
+Why not remove conflicting jobs: with an assistant resume, Education &
+Training, entry level, 100% remote and PHP 15–35k, every one of the 12
+Education jobs in the bundled catalogue is on-site, hybrid or field-based, so
+strict filtering left the Aspiration list empty. Ranking keeps all 12 and puts
+the best fits first.
