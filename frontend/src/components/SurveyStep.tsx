@@ -9,7 +9,7 @@ import type { SelectedSkill, SurveyAnswers } from '../types';
 import { CONFIRMED_SKILL_LIMIT, runJobMatches, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
-import { normalizeCareerAreaValue } from '../lib/careerAreas';
+import { careerAreaSkillExamples, confirmedSkillsInCareerArea, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { careerAreaPreferenceOptions, jobLevelOptions, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
 import StepArrowButton from './StepArrowButton';
 
@@ -504,12 +504,10 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
       )}
 
       <div className="space-y-5 mb-6">
-        <Question
-          label="Which career area interests you most?"
-          name="industry"
+        <CareerAreaQuestion
           value={answers.industry}
           onChange={(value) => handleChange('industry', value)}
-          options={careerAreaPreferenceOptions}
+          confirmedSkillIds={isLoggedIn ? selectedSkillIds : extractedSkillIds}
         />
         <Question
           label="What job level are you targeting?"
@@ -591,5 +589,80 @@ function Question({ label, name, value, options, onChange }: QuestionProps) {
         ))}
       </div>
     </div>
+  );
+}
+
+type CareerAreaQuestionProps = {
+  value: string;
+  onChange: (value: string) => void;
+  confirmedSkillIds: string[];
+};
+
+// Examples help a candidate choose an area. Matching still uses only the
+// skills confirmed in Step 2: an area's skills are never added to them.
+function CareerAreaQuestion({ value, onChange, confirmedSkillIds }: CareerAreaQuestionProps) {
+  const legacyValue = isLegacyCareerArea(value) ? normalizeCareerAreaValue(value) : '';
+  return (
+    <div className="rounded-xl border border-bdr bg-card p-5 transition-all hover:border-rust-m">
+      <label className="mb-1 block text-sm font-semibold text-dark">Which career area interests you most?</label>
+      <p className="mb-3.5 text-xs text-soft">
+        Example skills show what each area involves. Your matches use only the skills you confirmed in Step 2.
+      </p>
+      {legacyValue && (
+        <div className="mb-2.5 rounded-lg border border-bdr bg-bg p-3 text-xs text-mid">
+          Your saved choice, {getCareerAreaLabel(legacyValue)}, is now split into more specific areas. It stays selected
+          until you choose one below.
+        </div>
+      )}
+      <div className="space-y-2.5">
+        {legacyValue && (
+          <CareerAreaChoice value={legacyValue} label={`${getCareerAreaLabel(legacyValue)} (saved choice)`} checked onChange={onChange} />
+        )}
+        {careerAreaPreferenceOptions.map((option) => (
+          <CareerAreaChoice
+            key={option.value}
+            value={option.value}
+            label={option.label}
+            checked={value === option.value}
+            onChange={onChange}
+            examples={careerAreaSkillExamples(option.value)}
+            yourSkills={confirmedSkillsInCareerArea(option.value, confirmedSkillIds)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type CareerAreaChoiceProps = {
+  value: string;
+  label: string;
+  checked: boolean;
+  onChange: (value: string) => void;
+  examples?: string[];
+  yourSkills?: string[];
+};
+
+function CareerAreaChoice({ value, label, checked, onChange, examples = [], yourSkills = [] }: CareerAreaChoiceProps) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-bdr bg-white p-3 transition-all hover:border-rust hover:bg-rust-l">
+      <input
+        type="radio"
+        name="industry"
+        value={value}
+        checked={checked}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 cursor-pointer accent-rust"
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-mid">{label}</span>
+        {examples.length > 0 && (
+          <span className="mt-0.5 block text-xs text-soft">e.g. {examples.join(', ')}</span>
+        )}
+        {yourSkills.length > 0 && (
+          <span className="mt-0.5 block text-xs text-green">Your confirmed skills here: {yourSkills.slice(0, 4).join(', ')}</span>
+        )}
+      </span>
+    </label>
   );
 }

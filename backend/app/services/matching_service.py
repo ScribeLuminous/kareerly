@@ -90,44 +90,85 @@ CAREER_AREA_JOB_CATEGORIES = {
         "writing, language, and communications",
         "design, media, and performing arts",
     },
-    "education-health-community": {
-        "education and training",
-        "social and community services",
-        "healthcare and clinical services",
-        "caregiving and wellness",
-    },
-    "engineering-trades-operations": {
-        "engineering and architecture",
-        "construction and skilled trades",
-        "hospitality and tourism",
-        "food service and personal care",
+    "education-training": {"education and training"},
+    "healthcare-wellness": {"healthcare and clinical services", "caregiving and wellness"},
+    "community-social-services": {"social and community services"},
+    "engineering-architecture": {"engineering and architecture"},
+    "construction-maintenance": {"construction and skilled trades"},
+    "manufacturing-logistics-transport": {
         "logistics, transport, and warehousing",
         "manufacturing and quality operations",
-        "agriculture, forestry, fishery, and environment",
     },
+    "hospitality-tourism-food-services": {"hospitality and tourism", "food service and personal care"},
+    "agriculture-environment": {"agriculture, forestry, fishery, and environment"},
     "government-legal-security": {
         "public administration and government",
         "legal, security, and protective services",
     },
 }
 
+# Step 3 labels, so a preference saved as its label (the dashboard stores
+# labels) still resolves to its area.
+CAREER_AREA_LABELS = {
+    "technology-data": "Technology & Data",
+    "business-office": "Business & Office",
+    "sales-marketing-customer-service": "Sales, Marketing & Customer Service",
+    "communications-creative-media": "Communications & Creative Media",
+    "education-training": "Education & Training",
+    "healthcare-wellness": "Healthcare & Wellness",
+    "community-social-services": "Community & Social Services",
+    "engineering-architecture": "Engineering & Architecture",
+    "construction-maintenance": "Construction & Maintenance",
+    "manufacturing-logistics-transport": "Manufacturing, Logistics & Transport",
+    "hospitality-tourism-food-services": "Hospitality, Tourism & Food Services",
+    "agriculture-environment": "Agriculture & Environment",
+    "government-legal-security": "Government, Legal & Security",
+}
+
+# Broad areas offered before the 13 above. Saved preferences keep them, and
+# they still cover exactly the job categories they covered then.
+LEGACY_CAREER_AREAS = {
+    "education-health-community": ("education-training", "healthcare-wellness", "community-social-services"),
+    "engineering-trades-operations": (
+        "engineering-architecture",
+        "construction-maintenance",
+        "manufacturing-logistics-transport",
+        "hospitality-tourism-food-services",
+        "agriculture-environment",
+    ),
+}
+LEGACY_CAREER_AREA_LABELS = {
+    "education-health-community": "Education, Health & Community",
+    "engineering-trades-operations": "Engineering, Trades & Operations",
+}
+
 CAREER_AREA_ALIASES = {
-    "technology data": "technology-data",
     "technology data business finance": "technology-data",
     "tech business finance": "technology-data",
-    "business office": "business-office",
     "business finance and office administration": "business-office",
-    "sales marketing customer service": "sales-marketing-customer-service",
     "sales marketing customer relations": "sales-marketing-customer-service",
     "creative media and communications": "communications-creative-media",
-    "communications creative media": "communications-creative-media",
-    "education health and community": "education-health-community",
     "education healthcare hospitality and community services": "education-health-community",
-    "engineering trades and operations": "engineering-trades-operations",
     "engineering manufacturing agriculture logistics and field operations": "engineering-trades-operations",
-    "government legal and security": "government-legal-security",
     "public service legal protective services and other": "government-legal-security",
 }
+
+
+def _career_area_label_key(value: Any) -> str:
+    """A slug or label without punctuation or "and": "Engineering, Trades & Operations" -> "engineering trades operations"."""
+    words = re.findall(r"[a-z0-9]+", clean_text(value).lower())
+    return " ".join(word for word in words if word != "and")
+
+
+@lru_cache(maxsize=1)
+def _career_area_keys() -> Dict[str, str]:
+    keys = {}
+    for slug, label in [*CAREER_AREA_LABELS.items(), *LEGACY_CAREER_AREA_LABELS.items()]:
+        keys[_career_area_label_key(slug)] = slug
+        keys[_career_area_label_key(label)] = slug
+    for alias, slug in CAREER_AREA_ALIASES.items():
+        keys[_career_area_label_key(alias)] = slug
+    return keys
 
 
 # ============================================================
@@ -194,10 +235,14 @@ def normalize_category_id(value: Any) -> str:
 
 
 def normalize_career_area(value: Any) -> str:
-    normalized = normalize_for_match(value)
-    if normalized in CAREER_AREA_JOB_CATEGORIES:
-        return normalized
-    return CAREER_AREA_ALIASES.get(normalized, "")
+    """The Step 3 career-area slug for a slug or label, "" when unknown. Legacy slugs are kept."""
+    return _career_area_keys().get(_career_area_label_key(value), "")
+
+
+def preferred_career_areas(value: Any) -> frozenset:
+    """The current career areas a Step 3 answer covers: one, or several for a legacy broad area."""
+    area = normalize_career_area(value)
+    return frozenset(LEGACY_CAREER_AREAS.get(area, (area,) if area else ()))
 
 
 @lru_cache(maxsize=1)
@@ -230,6 +275,9 @@ def job_career_area(job: Dict[str, Any]) -> str:
     """The Step 3 career area a job belongs to, or "" when it cannot be told."""
     category = job.get("job_category", "")
     area = _area_for_category_name(category) or normalize_career_area(category)
+    # A legacy broad area cannot tell which current area the job belongs to.
+    if area in LEGACY_CAREER_AREAS:
+        area = ""
     if area:
         return area
     category_id = normalize_category_id(job.get("category_id_norm") or job.get("category_id") or "")
@@ -1066,7 +1114,7 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
     job_corpus = " ".join([job_category, job_subcategory, job_title, job_description, work_type, experience, salary])
 
     preferred_industry = normalize_for_match(preferences.get("industry", ""))
-    preferred_career_area = normalize_career_area(preferred_industry)
+    preferred_career_areas_set = preferred_career_areas(preferred_industry)
     role_level = normalize_for_match(preferences.get("role_level", ""))
     target_role = normalize_for_match(preferences.get("target_role", ""))
     work_setup = normalize_for_match(preferences.get("work_setup", ""))
@@ -1083,7 +1131,7 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
 
     if specified(preferred_industry):
         total += 0.25
-        category_matches = bool(preferred_career_area) and job_career_area(job) == preferred_career_area
+        category_matches = job_career_area(job) in preferred_career_areas_set
         if category_matches or preferred_industry in job_corpus:
             score += 0.25
         else:
@@ -1287,9 +1335,9 @@ def _score_single_normalized_job(
     )
     # Aspiration follows the career area chosen in Step 3. Unknown on either
     # side (no preference, uncategorised job) falls back to the resume rule.
-    preferred_area = normalize_career_area(preferences.get("industry", ""))
+    preferred_areas = preferred_career_areas(preferences.get("industry", ""))
     area = job_career_area(job)
-    in_preferred_area = (area == preferred_area) if preferred_area and area else None
+    in_preferred_area = (area in preferred_areas) if preferred_areas and area else None
 
     breakdown = score_match(
         float(job.get("semantic_score_raw", job.get("semantic_score", 0.0))),
