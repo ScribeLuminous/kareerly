@@ -11,6 +11,7 @@ import { getCurrentKareerlyUser } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
 import { careerAreaSkillExamples, confirmedSkillsInCareerArea, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { careerAreaPreferenceOptions, jobLevelOptions, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
+import { extractionWarnings } from '../lib/resumeFreshness';
 import StepArrowButton from './StepArrowButton';
 
 type SurveyStepProps = {
@@ -301,6 +302,12 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
             Resume analysis is missing. Go back to Step 1 and analyze your resume first.
           </div>
         )}
+
+        {extractionWarnings(state.resumeAnalysis).map((warning) => (
+          <div key={warning} role="status" className="mb-4 rounded-lg border border-tan bg-tan-l p-3 text-sm font-medium text-dark">
+            {warning}
+          </div>
+        ))}
 
         {!isLoggedIn && (
           <div className="mb-4 rounded-lg border border-bdr bg-bg p-3 text-xs text-mid italic">

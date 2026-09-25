@@ -1,17 +1,26 @@
+const RESUME_TYPES: Record<string, string[]> = {
+  pdf: ['application/pdf'],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  doc: ['application/msword'],
+};
+
 export const validateResumeFile = (file: File | null): { valid: boolean; error?: string } => {
   if (!file) {
     return { valid: false, error: 'No file selected' };
   }
 
-  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-  const ALLOWED_TYPES = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB, the backend limit
+  const extension = getFileExtension(file.name);
 
   if (file.size > MAX_SIZE) {
     return { valid: false, error: 'File is too large. Maximum size is 5MB.' };
   }
 
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return { valid: false, error: 'Please upload a PDF or DOCX file.' };
+  // Browsers report no type (or a generic one) for .doc files on some systems,
+  // so the extension decides; the server checks the file's contents.
+  const allowedTypes = RESUME_TYPES[extension];
+  if (!allowedTypes || (file.type && file.type !== 'application/octet-stream' && !allowedTypes.includes(file.type))) {
+    return { valid: false, error: 'Please upload a PDF, DOCX or DOC file.' };
   }
 
   return { valid: true };
