@@ -52,6 +52,21 @@ class MatchingRegressionTests(unittest.TestCase):
         separate = matching.compute_skill_coverage(["Data Analysis"], ["Data Visualization"])
         self.assertEqual(separate["skill_coverage"], 0)
 
+    def test_named_tools_are_held_despite_spacing_and_product_qualifiers(self):
+        resume = "Customer support through Help Scout, records kept in HubSpot and e-commerce order tracking."
+        result = matching.compute_skill_coverage([], ["HelpScout", "HubSpot CRM", "Ecommerce", "Jira"], resume)
+        self.assertEqual(result["matched_skills"], ["Ecommerce", "HelpScout", "HubSpot CRM"])
+        self.assertEqual(result["missing_skills"], ["Jira"])
+        # Word boundaries still hold, and a qualifier is never the whole name.
+        self.assertEqual(matching.compute_skill_coverage([], ["Java"], "JavaScript developer")["matched_skills"], [])
+        self.assertEqual(matching.compute_skill_coverage([], ["CRM Software"], "Microsoft software")["matched_skills"], [])
+
+    def test_skill_gaps_state_their_share_of_the_compared_matches(self):
+        matches = [{"match_type": "Aspiration", "missing_skills": ["Jira"]}] + [
+            {"match_type": "Aspiration", "missing_skills": []} for _ in range(3)]
+        gap = matching.prioritize_skill_gaps(matches)[0]
+        self.assertEqual((gap["frequency"], gap["matches_compared"], gap["missing_percentage"]), (1, 4, 25.0))
+
     def test_no_forced_fit_now_or_critical_skill_override(self):
         result = self.run_match([{"skill_id": "SK001", "skill_name": "Python Programming"}])
         self.assertEqual([item["job_id"] for item in result["fit_now_matches"]], ["developer"])

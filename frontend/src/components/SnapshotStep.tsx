@@ -52,24 +52,20 @@ function buildSkillNameLookup(
   return lookup;
 }
 
+// The backend already resolves every skill to a readable name, including
+// employer skills with no taxonomy ID; the ID lists are only a fallback, since
+// the lookup cannot name IDs the candidate does not hold.
+function skillText(names: string[] | undefined, ids: string[] | undefined, skillNameLookup: Map<string, string>): string {
+  const labels = toDisplayLabels(names);
+  return (labels.length > 0 ? labels : toSkillLabels(ids, skillNameLookup)).slice(0, 6).join(', ');
+}
+
 function getMatchedSkillText(match: MatchResultItem, skillNameLookup: Map<string, string>): string {
-  if (Array.isArray(match.matched_skill_ids) && match.matched_skill_ids.length > 0) {
-    return toSkillLabels(match.matched_skill_ids, skillNameLookup).slice(0, 6).join(', ');
-  }
-  if (Array.isArray(match.matched_skills) && match.matched_skills.length > 0) {
-    return toDisplayLabels(match.matched_skills).slice(0, 6).join(', ');
-  }
-  return '';
+  return skillText(match.matched_skills, match.matched_skill_ids, skillNameLookup);
 }
 
 function getMissingSkillText(match: MatchResultItem, skillNameLookup: Map<string, string>): string {
-  if (Array.isArray(match.missing_skill_ids) && match.missing_skill_ids.length > 0) {
-    return toSkillLabels(match.missing_skill_ids, skillNameLookup).slice(0, 6).join(', ');
-  }
-  if (Array.isArray(match.missing_skills) && match.missing_skills.length > 0) {
-    return toDisplayLabels(match.missing_skills).slice(0, 6).join(', ');
-  }
-  return '';
+  return skillText(match.missing_skills, match.missing_skill_ids, skillNameLookup);
 }
 
 function buildMatchExplanation(

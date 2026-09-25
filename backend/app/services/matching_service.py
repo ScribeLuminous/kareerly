@@ -676,11 +676,55 @@ def _skill_key(value: str) -> str:
     return skill_id_equivalents().get(key, key)
 
 
+# Trailing words that only say what kind of product a named tool is: an
+# employer asking for "HubSpot CRM" or "Jira software" is asking for HubSpot or
+# Jira, and a resume naming the product holds the requirement.
+TOOL_QUALIFIER_WORDS = {"crm", "software", "platform", "app"}
+# Longest run of resume words compared against one requirement without spaces.
+MAX_COMPACT_WORDS = 4
+
+
+def _compact(value: str) -> str:
+    return re.sub(r"[^a-z0-9+#]", "", value)
+
+
+def _phrase_variants(phrase_norm: str) -> List[str]:
+    words = phrase_norm.split()
+    variants = [phrase_norm]
+    while len(words) > 1 and words[-1] in TOOL_QUALIFIER_WORDS:
+        words = words[:-1]
+        variants.append(" ".join(words))
+    return [variant for variant in variants if len(variant) >= 3]
+
+
+@lru_cache(maxsize=8)
+def _compact_word_runs(text_norm: str) -> frozenset:
+    """Runs of up to MAX_COMPACT_WORDS resume words with the spaces removed.
+
+    Spacing and punctuation differ between spellings of one name ("HelpScout"
+    and "Help Scout", "e-commerce" and "ecommerce"). Runs start and end on word
+    boundaries, so "Java" still never matches "JavaScript".
+    """
+    words = [_compact(word) for word in re.split(r"[\s/-]+", text_norm)]
+    words = [word for word in words if word]
+    return frozenset(
+        "".join(words[start:end])
+        for start in range(len(words))
+        for end in range(start + 1, min(start + MAX_COMPACT_WORDS, len(words)) + 1)
+    )
+
+
 def _phrase_in_text(phrase: str, text_norm: str) -> bool:
     phrase_norm = normalize_for_match(phrase)
     if len(phrase_norm) < 3 or not text_norm:
         return False
-    return re.search(r"(?<![a-z0-9+#])" + re.escape(phrase_norm) + r"(?![a-z0-9+#])", text_norm) is not None
+    for variant in _phrase_variants(phrase_norm):
+        if re.search(r"(?<![a-z0-9+#])" + re.escape(variant) + r"(?![a-z0-9+#])", text_norm):
+            return True
+        compact = _compact(variant)
+        if len(compact) >= 5 and compact in _compact_word_runs(text_norm):
+            return True
+    return False
 
 
 def compute_skill_coverage(
@@ -1501,6 +1545,10 @@ def prioritize_skill_gaps(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]
             "frequency": frequency,
             "priority": priority,
             "appears_in_top_matches": frequency,
+            # Share of the compared matches missing the skill, stated here so
+            # clients never have to guess the denominator.
+            "matches_compared": len(matches),
+            "missing_percentage": round(100 * frequency / len(matches), 1),
             "appears_in_fit_now": item["appears_in_fit_now"],
             "appears_in_aspiration": item["appears_in_aspiration"],
         })

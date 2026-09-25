@@ -756,10 +756,8 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
   const normalizedAspirationMatches = normalizeMatchList(rawResults.aspiration_matches, 'aspiration');
   const normalizedAllFitNowMatches = normalizeMatchList(rawResults.all_fit_now_matches || rawResults.fit_now_matches, 'fit_now');
   const normalizedAllAspirationMatches = normalizeMatchList(rawResults.all_aspiration_matches || rawResults.aspiration_matches, 'aspiration');
-  const topLevelTotalMatches = resolveTotalMatchCount(
-    [normalizedFitNowMatches, normalizedAspirationMatches],
-    rawResults.metadata?.total_jobs_scored,
-  );
+  // Gaps are counted over the returned matches, never over every job scored.
+  const topLevelTotalMatches = resolveTotalMatchCount([normalizedFitNowMatches, normalizedAspirationMatches]);
 
   const normalizedPrioritizedSkillGaps = normalizeSkillGapList(rawResults.prioritized_skill_gaps, topLevelTotalMatches);
   const normalizedSkillGaps = normalizeSkillGapList(
