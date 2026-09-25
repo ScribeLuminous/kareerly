@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
+from backend.app import main
 from backend.app.main import app
 from backend.app.services.matching_service import MatchingModelUnavailable
 import threading
@@ -16,6 +17,8 @@ class ApiRegressionTests(unittest.TestCase):
     def test_health_config_reports_origins_and_model(self):
         payload = self.client.get('/api/health/config').json()
         self.assertEqual(payload['status'], 'ok')
+        # The website compares this with the version it was built for.
+        self.assertEqual(payload['backend_version'], main.BACKEND_VERSION)
         self.assertIn('http://localhost:5173', payload['allowed_origins'])
         # Probing by path must not pull the checkpoint into memory.
         self.assertEqual(payload['model']['missing_files'], [])

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { OnboardingProvider } from './context/OnboardingContext';
 import { useOnboarding } from './hooks/useOnboarding';
+import BackendVersionBanner from './components/BackendVersionBanner';
 import AdminDashboard from './pages/AdminDashboard';
 import CandidateLogin from './pages/CandidateLogin';
 import Dashboard from './pages/Dashboard';
@@ -353,6 +354,7 @@ function AppContent() {
 
   return (
     <>
+      <BackendVersionBanner />
       {view === 'landing' && (
         <Landing
           onHome={showHome}
