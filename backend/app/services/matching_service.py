@@ -60,6 +60,9 @@ SKILL_EVIDENCE_RELATIONS_PATH = os.path.join(DATA_DIR, "skill_evidence_relations
 
 TOP_FIT_NOW = 10
 TOP_ASPIRATION = 10
+# Shown only when no job passes Fit-Now; see select_closest_matches().
+TOP_CLOSEST = 5
+CLOSEST_MATCH = "Closest Match"
 # Skill gaps listed in a report; total_skill_gap_count says how many there are in all.
 MAX_PRIORITIZED_GAPS = 8
 # Matches whose missing skills get learning resources (the dashboard shows up to 10 per type).
@@ -365,8 +368,10 @@ def safe_read_csv(path: str) -> pd.DataFrame:
     df.columns = [str(c).replace("\ufeff", "").strip() for c in df.columns]
 
     for col in df.columns:
-        if df[col].dtype == "object":
-            df[col] = df[col].fillna("").apply(clean_text)
+        # pandas 3 reads text as the "str" dtype rather than "object"; both
+        # must be cleaned, or blank cells stay NaN and titles keep line breaks.
+        if pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col]):
+            df[col] = df[col].fillna("").apply(clean_text).astype(object)
 
     return df
 
@@ -1595,6 +1600,102 @@ def match_resume_to_jobs(
         preferences=preferences, confirmed_skills=confirmed_skills)
 
 
+def _closest_sort_key(item: Dict[str, Any]) -> tuple:
+    return (
+        -float(item.get("match_score") or 0.0),
+        -float(item.get("semantic_score") or 0.0),
+        -float(item.get("required_skill_coverage") or 0.0),
+        str(item.get("job_id", "")),
+    )
+
+
+def _closest_match_reason(item: Dict[str, Any], strength: str, thresholds: MatchThresholds) -> str:
+    """Say plainly why a closest match is not Fit-Now."""
+    breakdown = item.get("match_breakdown") or {}
+    failed = breakdown.get("failed_fit_now_rules") or []
+    held, total = breakdown.get("matched_required_count", 0), breakdown.get("required_skill_count", 0)
+    missing = ", ".join((item.get("missing_skills") or [])[:3])
+    parts = ["Not a Fit-Now match yet."]
+    if "no_required_skills_listed" in failed:
+        parts.append("The posting lists no required skills to compare, so readiness cannot be confirmed.")
+    elif "required_skill_coverage" in failed:
+        parts.append(
+            f"Your resume shows {held} of {total} required skills; Fit-Now needs at least "
+            f"{round(thresholds.fit_now_min_required_coverage * 100)}%."
+        )
+    if "critical_skill_missing" in failed:
+        parts.append("A must-have skill named by the employer is missing.")
+    if "semantic_similarity" in failed:
+        parts.append("The role is only loosely related to the experience on your resume.")
+    if missing:
+        parts.append(f"To close the gap: {missing}.")
+    if strength == "weak":
+        parts.append("No available job shares a required skill with your resume, so this is the nearest role, with little overlap.")
+    return " ".join(parts)
+
+
+def select_closest_matches(
+    results: List[Dict[str, Any]],
+    thresholds: MatchThresholds,
+    limit: int = TOP_CLOSEST,
+) -> List[Dict[str, Any]]:
+    """The jobs nearest to Fit-Now, for a candidate with no Fit-Now job.
+
+    Fit-Now is never relaxed: these jobs failed at least one Fit-Now rule and
+    are labelled ``Closest Match`` with the rules they failed. They are chosen
+    by the resume alone (match score, then role similarity), regardless of the
+    Step 3 career area, so a candidate whose area holds no suitable job still
+    sees the roles their resume is nearest to.
+
+    A job is a related closest match when the resume holds at least one of its
+    required skills and the role similarity reaches the Aspiration floor. When
+    no job qualifies but the catalogue has jobs, the single best-scoring job is
+    returned with ``closest_match_strength: "weak"`` and a reason that says it
+    shares little with the resume, rather than returning nothing.
+    """
+    candidates = [item for item in results if item.get("match_type") != FIT_NOW]
+    related = [
+        item for item in candidates
+        if (item.get("match_breakdown") or {}).get("matched_required_count", 0) >= 1
+        and float(item.get("semantic_score") or 0.0) >= thresholds.aspiration_min_semantic
+    ]
+    if related:
+        chosen, strength = sorted(related, key=_closest_sort_key)[:max(0, limit)], "related"
+    else:
+        chosen, strength = sorted(candidates, key=_closest_sort_key)[:min(1, max(0, limit))], "weak"
+    closest = []
+    for position, item in enumerate(chosen, start=1):
+        reason = _closest_match_reason(item, strength, thresholds)
+        closest.append({
+            **item,
+            "match_type": CLOSEST_MATCH,
+            "match_category": CLOSEST_MATCH,
+            # The category the scoring rules gave the job; kept for audit and feedback.
+            "base_match_category": item.get("match_type", ""),
+            "is_closest_match": True,
+            "closest_match_strength": strength,
+            "rank_position": position,
+            "match_reason": reason,
+            "explanation": reason,
+        })
+    return closest
+
+
+def catalog_status(state: str, jobs_available: int = 0, source: str = "") -> Dict[str, Any]:
+    messages = {
+        "available": "",
+        "empty": (
+            "There are no active job postings to compare with your resume right now, so no matches are shown. "
+            "Your skills are kept; run matching again once new jobs are posted."
+        ),
+        "unavailable": (
+            "The job catalogue could not be loaded, so no matches could be calculated. "
+            "This is a temporary problem on our side; please try again shortly."
+        ),
+    }
+    return {"state": state, "jobs_available": int(jobs_available), "source": source, "message": messages[state]}
+
+
 def match_text_to_jobs(
     resume_text: str,
     *,
@@ -1609,22 +1710,36 @@ def match_text_to_jobs(
     )
     labels, _ = canonical_skill_lookup()
     resume_evidence_text = build_model_input(resume_text, skill_names=candidate_skill_names)
-    jobs_df = load_reference_jobs()
-    scored_jobs = bi_encoder_score_jobs(resume_evidence_text, jobs_df)
-    available_learning_skills = reviewed_learning_skill_ids()
+    try:
+        jobs_df = load_reference_jobs()
+        jobs_source = get_jobs_source()
+    except (OSError, ValueError, pd.errors.ParserError):
+        # Neither Supabase nor the bundled catalogue could be read. Say so
+        # instead of failing the request or inventing results.
+        logger.exception("Job catalogue could not be loaded")
+        jobs_df, jobs_source = pd.DataFrame(), "unavailable"
+        catalog = catalog_status("unavailable", source=jobs_source)
+    else:
+        catalog = catalog_status("available" if len(jobs_df) else "empty", len(jobs_df), jobs_source)
     thresholds = MatchThresholds.from_env()
 
-    results = [
-        _score_single_normalized_job(
-            resume_text=resume_text,
-            job=row.to_dict(),
-            candidate_keys=candidate_keys,
-            preferences=preferences,
-            available_learning_skills=available_learning_skills,
-            thresholds=thresholds,
-        )
-        for _, row in scored_jobs.iterrows()
-    ]
+    if jobs_df.empty:
+        scored_jobs = pd.DataFrame()
+        results: List[Dict[str, Any]] = []
+    else:
+        scored_jobs = bi_encoder_score_jobs(resume_evidence_text, jobs_df)
+        available_learning_skills = reviewed_learning_skill_ids()
+        results = [
+            _score_single_normalized_job(
+                resume_text=resume_text,
+                job=row.to_dict(),
+                candidate_keys=candidate_keys,
+                preferences=preferences,
+                available_learning_skills=available_learning_skills,
+                thresholds=thresholds,
+            )
+            for _, row in scored_jobs.iterrows()
+        ]
 
     results_df = pd.DataFrame(results)
 
@@ -1635,16 +1750,23 @@ def match_text_to_jobs(
     # bounded adjustment to that primary key; see learning/ranking_model.py.
     ranker = active_ranker()
     all_fit_now_matches = rank_category([item for item in results if item["match_type"] == FIT_NOW], FIT_NOW, ranker)
+    # With no Fit-Now job, the jobs nearest to it are shown as Closest Match
+    # (never as Fit-Now), so a non-empty catalogue always yields a recommendation.
+    all_closest_matches = [] if all_fit_now_matches else select_closest_matches(results, thresholds)
+    closest_ids = {item["job_id"] for item in all_closest_matches}
+    # Each job appears in one list only; a closest match leaves the Aspiration list.
     all_aspiration_matches = rank_category(
-        [item for item in results if item["match_type"] == ASPIRATION], ASPIRATION, ranker)
+        [item for item in results if item["match_type"] == ASPIRATION and item["job_id"] not in closest_ids],
+        ASPIRATION, ranker)
     applied_ranker_version = next(
         (item["ranker_version"] for item in all_fit_now_matches + all_aspiration_matches), ranker.version)
     fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
     aspiration_matches = all_aspiration_matches[:TOP_ASPIRATION]
+    closest_matches = all_closest_matches[:TOP_CLOSEST]
 
     # Count every distinct gap before capping the list, so the report can say
     # how many there are rather than how many fit in the list.
-    all_gaps = prioritize_skill_gaps(fit_now_matches + aspiration_matches, limit=None)
+    all_gaps = prioritize_skill_gaps(fit_now_matches + closest_matches + aspiration_matches, limit=None)
     prioritized_gaps = all_gaps[:MAX_PRIORITIZED_GAPS]
     for gap in prioritized_gaps:
         key = _skill_key(gap["skill_name"])
@@ -1652,9 +1774,10 @@ def match_text_to_jobs(
     # Cover every missing skill of the jobs the dashboard can show, so the
     # learning page has resources for whichever job the candidate focuses on.
     learning_recommendations = recommend_learning_resources_for_matches(
-        all_fit_now_matches[:LEARNING_MATCHES_PER_TYPE] + all_aspiration_matches[:LEARNING_MATCHES_PER_TYPE],
+        all_fit_now_matches[:LEARNING_MATCHES_PER_TYPE] + closest_matches
+        + all_aspiration_matches[:LEARNING_MATCHES_PER_TYPE],
         preferences=preferences,
-    )
+    ) if results else []
     top_10_scores = (
         results_df.sort_values("final_score", ascending=False)
         .head(10)
@@ -1682,10 +1805,21 @@ def match_text_to_jobs(
     logger.info(
         "Job matching finished",
         extra={"jobs_scored": len(results), "fit_now": len(all_fit_now_matches),
-            "aspiration": len(all_aspiration_matches), "fit_now_blockers": fit_now_blockers},
+            "closest": len(all_closest_matches), "aspiration": len(all_aspiration_matches),
+            "fit_now_blockers": fit_now_blockers, "catalog_state": catalog["state"]},
     )
 
-    scoring_methods = sorted(set(scored_jobs["semantic_scoring_method"].tolist()))
+    if catalog["state"] != "available":
+        recommendation_notice = catalog["message"]
+    elif not all_fit_now_matches and all_closest_matches:
+        recommendation_notice = (
+            "No job meets every Fit-Now requirement yet. The closest opportunities are labelled "
+            "Closest Match and show which requirements are still missing."
+        )
+    else:
+        recommendation_notice = ""
+
+    scoring_methods = sorted(set(scored_jobs["semantic_scoring_method"].tolist())) if not scored_jobs.empty else []
     return {
         "filename": filename,
         "resume_text_preview": resume_text[:500],
@@ -1694,11 +1828,16 @@ def match_text_to_jobs(
         "confirmed_skills": candidate_skill_names,
         "confirmed_skill_records": final_skill_records,
         "preferences_used": preferences,
+        "catalog_status": catalog,
+        "recommendation_notice": recommendation_notice,
         "fit_now_matches": fit_now_matches,
         "aspiration_matches": aspiration_matches,
+        "closest_matches": closest_matches,
         "all_fit_now_matches": all_fit_now_matches,
         "all_aspiration_matches": all_aspiration_matches,
-        "total_qualifying_matches": len({str(item.get("job_id") or item.get("job_title")) for item in all_fit_now_matches + all_aspiration_matches}),
+        "all_closest_matches": all_closest_matches,
+        "total_qualifying_matches": len({str(item.get("job_id") or item.get("job_title"))
+            for item in all_fit_now_matches + all_closest_matches + all_aspiration_matches}),
         "skill_gaps": prioritized_gaps,
         "total_skill_gap_count": len(all_gaps),
         "prioritized_skill_gaps": prioritized_gaps,
@@ -1711,6 +1850,7 @@ def match_text_to_jobs(
             "total_jobs_loaded": int(len(jobs_df)),
             "total_jobs_scored": int(len(scored_jobs)),
             "fit_now_count": len(all_fit_now_matches),
+            "closest_count": len(all_closest_matches),
             "aspiration_count": len(all_aspiration_matches),
             "low_match_count": int((results_df["match_type"] == LOW_MATCH).sum()) if not results_df.empty else 0,
             "preferred_career_area": normalize_career_area(preferences.get("industry", "")),
@@ -1742,7 +1882,14 @@ def match_text_to_jobs(
                 "min_cosine": thresholds.aspiration_min_semantic,
                 "min_matched_skills": thresholds.aspiration_min_matched_skills,
             },
-            "jobs_source": get_jobs_source(),
+            "closest_match_rules": {
+                "shown_when": "no_fit_now_match",
+                "related_min_matched_required_skills": 1,
+                "related_min_cosine": thresholds.aspiration_min_semantic,
+                "fallback": "single best-scoring job, marked weak",
+                "max_results": TOP_CLOSEST,
+            },
+            "jobs_source": jobs_source,
             "learning_resources_source": get_learning_resources_source(),
             "total_jobs_scored": int(len(scored_jobs)),
         },
@@ -1773,12 +1920,14 @@ def match_jobs(
         )
         result["fit_now_matches"] = result["all_fit_now_matches"][:max(0, top_n_output)]
         result["aspiration_matches"] = result["all_aspiration_matches"][:max(0, top_n_output)]
+        result["closest_matches"] = result["all_closest_matches"][:max(0, top_n_output)]
         return result
 
     records = [{"skill_id": value, "skill_name": labels[value], "source": "confirmed_skill"} for value in ids]
     result = match_text_to_jobs(resume_text_for_matching, preferences=preferences, confirmed_skills=records)
     result["fit_now_matches"] = result["all_fit_now_matches"][:max(0, top_n_output)]
     result["aspiration_matches"] = result["all_aspiration_matches"][:max(0, top_n_output)]
+    result["closest_matches"] = result["all_closest_matches"][:max(0, top_n_output)]
     return result
 
 
@@ -1797,13 +1946,16 @@ def prioritize_skill_gaps(
                     "skill": skill,
                     "frequency": 0,
                     "appears_in_fit_now": 0,
+                    "appears_in_closest": 0,
                     "appears_in_aspiration": 0,
                 }
 
             gap_counts[skill]["frequency"] += 1
 
-            if match_type == "Fit-Now":
+            if match_type == FIT_NOW:
                 gap_counts[skill]["appears_in_fit_now"] += 1
+            elif match_type == CLOSEST_MATCH:
+                gap_counts[skill]["appears_in_closest"] += 1
             else:
                 gap_counts[skill]["appears_in_aspiration"] += 1
 
@@ -1831,6 +1983,7 @@ def prioritize_skill_gaps(
             "matches_compared": len(matches),
             "missing_percentage": round(100 * frequency / len(matches), 1),
             "appears_in_fit_now": item["appears_in_fit_now"],
+            "appears_in_closest": item["appears_in_closest"],
             "appears_in_aspiration": item["appears_in_aspiration"],
         })
 

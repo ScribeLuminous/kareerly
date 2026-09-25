@@ -220,6 +220,11 @@ export interface SurveyAnswers {
 export interface MatchResultItem {
   job_id: string;
   job_title: string;
+  /** Set on Closest Match items: shown when no job passes Fit-Now, never a Fit-Now match. */
+  is_closest_match?: boolean;
+  closest_match_strength?: 'related' | 'weak';
+  /** The category the scoring rules gave a Closest Match job (Aspiration or Low Match). */
+  base_match_category?: string;
   company?: string;
   location?: string;
   job_category?: string;
@@ -376,6 +381,7 @@ export interface MatchAccessControl {
 export interface LimitedReport {
   fit_now_matches: MatchResultItem[];
   aspiration_matches: MatchResultItem[];
+  closest_matches?: MatchResultItem[];
   skill_gaps: PrioritizedSkillGap[];
   learning_recommendations: LearningRecommendation[];
   development_progress?: DevelopmentProgressRecord[];
@@ -392,11 +398,24 @@ export interface ResumeExtractionInfo {
   multi_column_pages: number[];
 }
 
+export interface CatalogStatus {
+  state: 'available' | 'empty' | 'unavailable';
+  jobs_available: number;
+  source?: string;
+  message: string;
+}
+
 export interface JobMatchRunResults {
   fit_now_matches: MatchResultItem[];
   aspiration_matches: MatchResultItem[];
   all_fit_now_matches?: MatchResultItem[];
   all_aspiration_matches?: MatchResultItem[];
+  /** Jobs nearest to Fit-Now; returned only when there is no Fit-Now match. */
+  closest_matches?: MatchResultItem[];
+  all_closest_matches?: MatchResultItem[];
+  catalog_status?: CatalogStatus;
+  /** Plain-language note for an empty Fit-Now list or an empty/unavailable catalogue. */
+  recommendation_notice?: string;
   total_qualifying_matches?: number | string;
   /** Distinct skill gaps across the compared matches; skill_gaps lists at most eight of them. */
   total_skill_gap_count?: number;
@@ -414,6 +433,7 @@ export interface JobMatchRunResults {
     total_jobs_loaded?: number;
     total_jobs_scored?: number;
     fit_now_count?: number;
+    closest_count?: number;
     aspiration_count?: number;
     elapsed_ms?: number;
     top_10_scores?: Array<{

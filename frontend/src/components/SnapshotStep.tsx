@@ -21,6 +21,7 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { JobMatchRunResults, LearningRecommendation, MatchResultItem, PrioritizedSkillGap, ResumeAnalysisResult } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, formatMatchPercentLabel, matchCategoryLabel, parseNumericValue } from '../lib/matchScoring';
+import { CLOSEST_MATCH_LABEL, closestMatchesFor, emptyFitNowText, fitNowSummaryDetail } from '../lib/closestMatches';
 
 type SnapshotStepProps = {
   isLoggedIn: boolean;
@@ -102,13 +103,16 @@ type MatchDescription = {
 };
 
 // One description feeds both the on-screen row and the PDF, so they cannot differ.
+// Closest matches are read like Fit-Now for their percentage but keep their own
+// "Closest Match" label and the backend's reason for not being Fit-Now.
 function describeMatch(
   match: MatchResultItem,
-  matchType: 'fit_now' | 'aspiration',
+  listType: 'fit_now' | 'aspiration' | 'closest',
   skillNameLookup: Map<string, string>,
 ): MatchDescription {
+  const matchType = listType === 'aspiration' ? 'aspiration' : 'fit_now';
   const matchPercent = extractMatchPercent(match, matchType);
-  const categoryLabel = matchCategoryLabel(match, matchType);
+  const categoryLabel = listType === 'closest' ? CLOSEST_MATCH_LABEL : matchCategoryLabel(match, matchType);
   const base = {
     title: match.job_title || 'Untitled role',
     location: match.location || 'Location not listed',
@@ -135,7 +139,9 @@ function describeMatch(
       { tone: 'matched', text: matchedText ? `Matched Skills: ${matchedText}` : 'Matched Skills: None identified yet.' },
       { tone: 'missing', text: missingText ? `Missing Skills: ${missingText}` : 'Missing Skills: No major missing skills identified.' },
     ],
-    explanation: buildMatchExplanation(matchType, matchedText, missingText),
+    explanation: listType === 'closest'
+      ? match.match_reason || 'Not a Fit-Now match yet: some required skills are still missing.'
+      : buildMatchExplanation(matchType, matchedText, missingText),
   };
 }
 
@@ -279,18 +285,21 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
   const reportData = shouldUseLimitedReport
     ? {
         fit_now_matches: (limitedReport?.fit_now_matches || []).slice(0, stepFourLimit),
+        closest_matches: closestMatchesFor(matchResults, limitedReport, stepFourLimit),
         aspiration_matches: (limitedReport?.aspiration_matches || []).slice(0, stepFourLimit),
         skill_gaps: limitedReport?.skill_gaps || [],
         learning_recommendations: (limitedReport?.learning_recommendations || []).slice(0, stepFourLimit),
       }
     : {
         fit_now_matches: matchResults.fit_now_matches || [],
+        closest_matches: closestMatchesFor(matchResults),
         aspiration_matches: matchResults.aspiration_matches || [],
         skill_gaps: matchResults.skill_gaps || [],
         learning_recommendations: matchResults.learning_recommendations || [],
       };
 
   const fitNowMatches = reportData.fit_now_matches;
+  const closestMatches = reportData.closest_matches;
   const aspirationMatches = reportData.aspiration_matches;
   const skillGaps = reportData.skill_gaps;
   const learningRecommendations = reportData.learning_recommendations;
@@ -308,12 +317,14 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
   // The answers this report was generated with; state.surveyAnswers is the fallback for older results.
   const preferenceItems = summarizePreferences(answersFromPreferencesUsed(matchResults.preferences_used) || state.surveyAnswers);
   const fitNowDescriptions = fitNowMatches.map((match) => ({ key: `${match.job_id}-fit`, ...describeMatch(match, 'fit_now', skillNameLookup) }));
+  const closestDescriptions = closestMatches.map((match) => ({ key: `${match.job_id}-closest`, ...describeMatch(match, 'closest', skillNameLookup) }));
   const aspirationDescriptions = aspirationMatches.map((match) => ({ key: `${match.job_id}-asp`, ...describeMatch(match, 'aspiration', skillNameLookup) }));
+  const noFitNowText = emptyFitNowText(matchResults, closestMatches.length);
   const summaryCards = [
     {
       label: 'Fit-Now Matches',
       value: String(fitNowSnapshotCount),
-      detail: `Best match: ${topFitNow?.job_title || 'Not available yet'} ${topFitNow ? `at ${formatMatchPercentLabel(topFitNowPercent)}.` : ''}`.trim(),
+      detail: fitNowSummaryDetail(topFitNow, topFitNowPercent, closestMatches[0]),
     },
     {
       label: 'Skill Gaps Identified',
@@ -336,7 +347,10 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
       summary: summaryCards,
       preferences: preferenceItems,
       sections: [
-        { heading: 'Fit-Now Matches', emptyText: 'No fit-now matches returned yet.', entries: fitNowDescriptions.map(toReportEntry) },
+        { heading: 'Fit-Now Matches', emptyText: noFitNowText, entries: fitNowDescriptions.map(toReportEntry) },
+        ...(closestDescriptions.length > 0
+          ? [{ heading: 'Closest Opportunities (not Fit-Now)', emptyText: '', entries: closestDescriptions.map(toReportEntry) }]
+          : []),
         { heading: 'Aspiration Matches', emptyText: 'No aspiration matches returned yet.', entries: aspirationDescriptions.map(toReportEntry) },
         {
           heading: 'Skill Gaps to Work On',
@@ -442,7 +456,17 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft">No fit-now matches returned yet.</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft" role="status">{noFitNowText}</div>
+        )}
+        {closestDescriptions.length > 0 && (
+          <div className="mt-4">
+            <div className="mb-2 text-sm font-bold text-dark">Closest opportunities (not Fit-Now)</div>
+            <div className="space-y-2.5">
+              {closestDescriptions.map(({ key, ...description }) => (
+                <MatchRow key={key} description={description} />
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
