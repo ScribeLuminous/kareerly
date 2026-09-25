@@ -52,7 +52,7 @@ import { formatFileSize, validateResumeFile } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removeMatchFeedback, removedSkillIds, runJobMatches, saveCandidateAccountSettings, saveMatchFeedback, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
+import { analyzeResume, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removeMatchFeedback, removedSkillIds, runJobMatches, saveCandidateAccountSettings, saveMatchFeedback, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
 import MatchFeedbackControls from '../components/MatchFeedbackControls';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote } from '../lib/matchFeedback';
 import type { MatchFeedbackStatus, MatchVote } from '../lib/matchFeedback';
@@ -1539,7 +1539,12 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       if (!isMounted || !latestResume) return;
 
       setSavedResumeFileName(latestResume.original_filename || 'Saved resume');
-      const freshness = assessSavedResume(latestResume);
+      let freshness = assessSavedResume(latestResume);
+      if (freshness?.stale) {
+        const liveVersion = await fetchLiveResumeParserVersion();
+        if (!isMounted) return;
+        if (liveVersion !== undefined) freshness = assessSavedResume(latestResume, liveVersion);
+      }
       setSavedResumeFreshness(freshness);
       if (freshness?.stale) {
         const located = await locateSavedResumeFile(latestResume);
@@ -2356,7 +2361,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const cleanSkills = Array.from(new Set(skillNames.map((skill) => skill.trim()).filter(Boolean)));
       setSkillNames(cleanSkills);
       await runMatchingWithSkills(savedResume, cleanSkills, answers);
-      showInlineNotice('Preferences and confirmed skills saved. Your matches, skill gaps, recommendations, and progress were refreshed.', 'success');
+      showInlineNotice('Preferences and skills saved. Your dashboard is refreshed.', 'success');
       showToast('Profile recommendations refreshed.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to refresh your profile recommendations.';
@@ -2768,9 +2773,11 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       });
       savedResumeUploadId.current = resumeId;
       setSavedResumeFileName(resumeUploadFile.name);
-      setSavedResumeFreshness(assessSavedResume({ created_at: new Date().toISOString(), extracted_profile_json: resumeAnalyzeData }));
       setSavedResumeFile(null);
     }
+    // A resume analyzed just now was read by the live reader; uploading it again
+    // would not change anything, so it is never flagged as an older analysis.
+    setSavedResumeFreshness(null);
     setResumeFile(resumeUploadFile);
     applyAnalysisResult(resumeAnalyzeData);
     setSavedResumeId(resumeId);
@@ -2794,7 +2801,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, { analysis: resumeAnalyzeData, resumeId });
       setResumeModalOpen(false);
       setResumeStep('upload');
-      showInlineNotice('Resume updated. Matches, skill gaps, recommendations, and progress were refreshed.', 'success');
+      showInlineNotice('Resume updated. Your dashboard is refreshed.', 'success');
       if (resumePostRefreshTarget === 'preferences') {
         setActivePage('preferences');
         showToast('Skills confirmed. Preferences opened so you can review your settings.', 'success');
@@ -2833,7 +2840,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       await runMatchingWithSkills(resumeAnalyzeData.parsedResume, confirmed, prefs, { analysis: resumeAnalyzeData, resumeId });
       setResumeModalOpen(false);
       setResumeStep('upload');
-      showInlineNotice('Resume updated. Matches, skill gaps, recommendations, and progress were refreshed.', 'success');
+      showInlineNotice('Resume updated. Your dashboard is refreshed.', 'success');
       showToast('Resume changes applied to your dashboard.', 'success');
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Please try again.';
