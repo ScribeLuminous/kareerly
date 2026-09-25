@@ -124,3 +124,16 @@ test('hosted requests wait for a sleeping backend and retry once', async () => {
   globalThis.fetch = original;
  }
 });
+
+test('both matching routes keep the total skill gap count beyond the listed gaps', async () => {
+ const original = globalThis.fetch;
+ const gaps = Array.from({ length: 8 }, (_, index) => ({ skill_name: `Skill ${index}`, frequency: 1, missing_percentage: 10 }));
+ try {
+  globalThis.fetch = async () => new Response(JSON.stringify({ fit_now_matches: [], aspiration_matches: [], skill_gaps: gaps, total_skill_gap_count: 11 }), { status: 200 });
+  for (const request of requests) {
+   const result = await request();
+   assert.equal(result.total_skill_gap_count, 11);
+   assert.equal(result.skill_gaps.length, 8);
+  }
+ } finally { globalThis.fetch = original; }
+});

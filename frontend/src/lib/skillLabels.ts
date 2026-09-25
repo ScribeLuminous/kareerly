@@ -2,7 +2,9 @@
 // "SK_CRM" or "SK004" in a match, a gap or a learning recommendation, so every
 // label shown to a user goes through here.
 
-const PRESERVED_ACRONYMS = new Set(['SQL', 'HTML', 'CSS', 'CRM', 'API', 'UI', 'UX', 'HR', 'QA', 'SEO', 'AWS', 'PHP', 'BI', 'ETL']);
+const PRESERVED_ACRONYMS = new Set(['SQL', 'HTML', 'CSS', 'CRM', 'API', 'UI', 'UX', 'HR', 'QA', 'SEO', 'AWS', 'PHP', 'BI', 'ETL', 'VAPT']);
+// Legacy ID words the default casing gets wrong; matches LEGACY_WORD_CASING in the backend.
+const LEGACY_WORD_CASING: Record<string, string> = { AID: 'Aid', OPS: 'Ops', FASTAPI: 'FastAPI', JAVASCRIPT: 'JavaScript' };
 
 /** Canonical taxonomy IDs (SK004), legacy job IDs (SK_CRM) and category codes (K02). */
 const TAXONOMY_ID = /^SK\d+$/i;
@@ -22,7 +24,7 @@ function humanizeLegacyId(value: string): string {
     .replace(/^SK[_-]/i, '')
     .split(/[_-]+/)
     .filter(Boolean)
-    .map((word) => (PRESERVED_ACRONYMS.has(word.toUpperCase()) || word.length <= 2 ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()))
+    .map((word) => LEGACY_WORD_CASING[word.toUpperCase()] || (PRESERVED_ACRONYMS.has(word.toUpperCase()) || word.length <= 2 ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()))
     .join(' ');
 }
 
