@@ -52,6 +52,56 @@ class MatchingRegressionTests(unittest.TestCase):
         separate = matching.compute_skill_coverage(["Data Analysis"], ["Data Visualization"])
         self.assertEqual(separate["skill_coverage"], 0)
 
+    def test_named_tools_are_held_despite_spacing_and_product_qualifiers(self):
+        resume = "Customer support through Help Scout, records kept in HubSpot and e-commerce order tracking."
+        result = matching.compute_skill_coverage([], ["HelpScout", "HubSpot CRM", "Ecommerce", "Jira"], resume)
+        # Every spelling reads as its taxonomy skill.
+        self.assertEqual(result["matched_skills"], ["E-commerce Operations", "Help Scout", "HubSpot"])
+        self.assertEqual(result["missing_skills"], ["Jira"])
+        # Word boundaries still hold, and a qualifier is never the whole name.
+        self.assertEqual(matching.compute_skill_coverage([], ["Java"], "JavaScript developer")["matched_skills"], [])
+        self.assertEqual(matching.compute_skill_coverage([], ["CRM Software"], "Microsoft software")["matched_skills"], [])
+
+    def test_product_qualifier_resolves_to_the_taxonomy_tool(self):
+        _, aliases = matching.canonical_skill_lookup()
+        hubspot = aliases["hubspot"]
+        # A confirmed HubSpot skill meets "HubSpot CRM" even when the resume never names it.
+        self.assertEqual(matching.compute_skill_coverage([hubspot], ["HubSpot CRM"])["skill_coverage"], 1.0)
+        # A resume naming HubSpot meets it even when HubSpot was not among the confirmed skills.
+        self.assertEqual(matching.compute_skill_coverage([], ["HubSpot CRM", "HubSpot"], "Records kept in HubSpot.")["skill_coverage"], 1.0)
+        self.assertEqual(matching.compute_skill_coverage([], ["HubSpot CRM"], "Records kept in Salesforce.")["skill_coverage"], 0.0)
+
+    def test_requirement_wording_and_tool_spellings_match_the_resume(self):
+        resume = ("Built reports in MS Excel and Power BI, edited photos in Photoshop, kept books in QuickBooks, "
+                  "handled live chat and inbound calls, strong communication.")
+        cases = {
+            "Microsoft Excel": True, "Proficiency in Excel": True, "Advanced Excel skills": True,
+            "Adobe Photoshop": True, "Microsoft Power BI": True, "QuickBooks Online": True,
+            "Chat Support": True, "Voice Support": True, "Excellent communication skills": True,
+            "Salesforce experience": False, "Adobe Illustrator": False, "Knowledge of Tableau": False,
+        }
+        for requirement, expected in cases.items():
+            with self.subTest(requirement=requirement):
+                result = matching.compute_skill_coverage([], [requirement], resume)
+                self.assertEqual(result["skill_coverage"], 1.0 if expected else 0.0)
+        # Different wordings of one tool resolve to one taxonomy skill, so a job counts it once.
+        keys = {matching._skill_key(value) for value in ["MS Excel", "Microsoft Excel", "Excel", "Proficiency in Excel"]}
+        self.assertEqual(len(keys), 1)
+        self.assertFalse(next(iter(keys)).startswith("CUSTOM:"))
+
+    def test_workplace_tools_are_extracted_from_resumes(self):
+        resume = ("Executive assistant handling calendar management, inbox management and invoicing. "
+                  "Tools: HubSpot, Help Scout, Zendesk, Jira, Google Workspace, Microsoft 365.")
+        names = {skill["skill_name"] for skill in matching.extract_skills_from_text(resume)}
+        self.assertTrue({"Executive Assistance", "Calendar Management", "Email Management", "Invoicing and Billing",
+            "HubSpot", "Help Scout", "Zendesk", "Jira", "Google Workspace", "Microsoft Office"} <= names, names)
+
+    def test_skill_gaps_state_their_share_of_the_compared_matches(self):
+        matches = [{"match_type": "Aspiration", "missing_skills": ["Jira"]}] + [
+            {"match_type": "Aspiration", "missing_skills": []} for _ in range(3)]
+        gap = matching.prioritize_skill_gaps(matches)[0]
+        self.assertEqual((gap["frequency"], gap["matches_compared"], gap["missing_percentage"]), (1, 4, 25.0))
+
     def test_no_forced_fit_now_or_critical_skill_override(self):
         result = self.run_match([{"skill_id": "SK001", "skill_name": "Python Programming"}])
         self.assertEqual([item["job_id"] for item in result["fit_now_matches"]], ["developer"])

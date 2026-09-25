@@ -1,6 +1,8 @@
 """Offline catalog contract checks. Fixtures are fictional, never seeded."""
 import unittest
+from unittest.mock import patch
 import pandas as pd
+from app.services import learning_recommender
 from app.services.learning_recommender import (
     recommend_learning_resources, recommend_learning_resources_for_gap,
     recommend_learning_resources_for_matches,
@@ -109,5 +111,15 @@ class LearningPathsTests(unittest.TestCase):
         for _, row in frame.iterrows():
             if row.get("status", "").lower() != "active" or row.get("skill_id_mapping_status", "").lower() != "reviewed":
                 self.assertFalse(resource_is_reviewed(row))
+
+    def test_unusable_supabase_catalog_falls_back_to_bundled_csv(self):
+        self.addCleanup(learning_recommender.clear_learning_resources_cache)
+        for rows, source in [([{**self.row, "external_course_or_certification_link": "", "review_status": ""}], "csv"),
+                             ([self.row], "supabase_learning_resources")]:
+            with self.subTest(source=source), patch.object(
+                    learning_recommender, "load_learning_resources_dataframe", return_value=pd.DataFrame(rows)):
+                learning_recommender.clear_learning_resources_cache()
+                learning_recommender.load_learning_resources()
+                self.assertEqual(learning_recommender.get_learning_resources_source(), source)
 
 if __name__ == "__main__": unittest.main()

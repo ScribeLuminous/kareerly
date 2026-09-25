@@ -118,12 +118,14 @@ class SkillCoverageTests(unittest.TestCase):
     def test_legacy_ids_are_met_by_the_named_skill(self):
         result = matching.compute_skill_coverage(["SK004"], ["SK004", "SK_EXCEL", "SK_POWER_BI"],
             resume_text="Built monthly reports in Excel.")
-        self.assertEqual(result["matched_skills"], ["Excel", "SQL"])
+        self.assertEqual(result["matched_skills"], ["Microsoft Excel", "SQL"])
         self.assertEqual(result["missing_skills"], ["Power BI"])
 
-    def test_resume_phrase_never_satisfies_a_taxonomy_skill(self):
-        result = matching.compute_skill_coverage([], ["SK004"], resume_text="I know SQL.")
-        self.assertEqual(result["skill_coverage"], 0.0)
+    def test_resume_naming_a_taxonomy_skill_satisfies_it_but_an_alias_does_not(self):
+        # Step 2 confirms at most 20 skills, so a skill the resume names outright still counts.
+        self.assertEqual(matching.compute_skill_coverage([], ["SK004"], resume_text="I know SQL.")["skill_coverage"], 1.0)
+        # Imported ESCO aliases are too broad to stand in for a confirmed skill.
+        self.assertEqual(matching.compute_skill_coverage([], ["SK029"], resume_text="Provided customer care.")["skill_coverage"], 0.0)
 
 
 class PipelineRegressionTests(unittest.TestCase):
