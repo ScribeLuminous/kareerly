@@ -267,17 +267,127 @@ def career_area_by_category_id() -> Dict[str, str]:
     return areas
 
 
+# Old grouped labels an alias maps to one area for a Step 3 answer, but which
+# cover more than one area when a job carries them.
+GROUPED_JOB_LABEL_AREAS = {
+    "tech business finance": ("technology-data", "business-office"),
+    "technology data business finance": ("technology-data", "business-office"),
+}
+
+# Words too general to tell career areas apart ("Customer Service" and "Social
+# and Community Services" share "service").
+_AREA_WORD_STOPWORDS = frozenset({"and", "the", "of", "other", "general", "service", "services", "related"})
+
+
+def _area_words(value: Any) -> set:
+    return {
+        word[:-1] if len(word) > 4 and word.endswith("s") and not word.endswith("ss") else word
+        for word in re.findall(r"[a-z]+", clean_text(value).lower())
+        if word not in _AREA_WORD_STOPWORDS
+    }
+
+
+@lru_cache(maxsize=1)
+def _career_area_vocabulary() -> Dict[str, set]:
+    """Each area's words: its Step 3 label and the K01-K24 category names it covers."""
+    return {
+        area: _area_words(CAREER_AREA_LABELS[area]) | set().union(*(_area_words(name) for name in categories))
+        for area, categories in CAREER_AREA_JOB_CATEGORIES.items()
+    }
+
+
+def _areas_named_by(value: Any, candidates: Sequence[str]) -> List[str]:
+    """The candidate areas whose words best cover a free-form category label.
+
+    Supabase jobs may carry grouped labels such as "Sales/Marketing/Customer",
+    which name no single K01-K24 category but only one area's words.
+    """
+    words = _area_words(value)
+    if not words:
+        return []
+    vocabulary = _career_area_vocabulary()
+    scores = {area: len(words & vocabulary[area]) for area in candidates}
+    best = max(scores.values(), default=0)
+    return [area for area in candidates if best and scores[area] == best]
+
+
+@lru_cache(maxsize=1)
+def _reference_area_classifier():
+    """TF-IDF centroids of the labelled reference catalogue, one per career area."""
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    jobs = safe_read_csv(REFERENCE_JOBS_PATH)
+    texts, areas = [], []
+    for _, row in jobs.iterrows():
+        area = _area_for_category_name(row.get("job_category", "")) or career_area_by_category_id().get(
+            normalize_category_id(row.get("category_id", "")), "")
+        if area:
+            texts.append(_area_classifier_text(row))
+            areas.append(area)
+    if not texts:
+        return None
+    vectorizer = TfidfVectorizer(stop_words="english", sublinear_tf=True, ngram_range=(1, 2), min_df=1)
+    matrix = vectorizer.fit_transform(texts)
+    labels = np.array(areas)
+    centroids = {}
+    for area in sorted(set(areas)):
+        centroid = np.asarray(matrix[labels == area].mean(axis=0)).ravel()
+        norm = np.linalg.norm(centroid)
+        if norm:
+            centroids[area] = centroid / norm
+    return vectorizer, centroids
+
+
+def _area_classifier_text(job: Any) -> str:
+    title = clean_text(job.get("job_title", ""))
+    # The title and subcategory say most about the kind of work; repeat them.
+    return " ".join([title, title, clean_text(job.get("job_subcategory", "")), clean_text(job.get("job_description", ""))])
+
+
+def _closest_area(job: Dict[str, Any], candidates: Sequence[str]) -> str:
+    """The candidate area whose reference jobs the job reads most like, "" when none is alike."""
+    classifier = _reference_area_classifier()
+    if classifier is None:
+        return ""
+    vectorizer, centroids = classifier
+    vector = vectorizer.transform([_area_classifier_text(job)]).toarray().ravel()
+    norm = np.linalg.norm(vector)
+    if not norm:
+        return ""
+    similarities = {area: float(centroids[area] @ vector) / norm for area in candidates if area in centroids}
+    best = max(similarities, key=similarities.get, default="")
+    return best if best and similarities[best] > 0 else ""
+
+
 def job_career_area(job: Dict[str, Any]) -> str:
-    """The Step 3 career area a job belongs to, or "" when it cannot be told."""
+    """The Step 3 career area a job belongs to, or "" when it cannot be told.
+
+    A K01-K24 category name or code decides. Otherwise the category label is
+    read as words (Supabase jobs use grouped labels such as
+    "Sales/Marketing/Customer" or "Engineering/Trades/Operations"). A label
+    that spans several areas is settled by the subcategory, then by which
+    area's reference jobs the title and description read most like.
+    """
     category = job.get("job_category", "")
-    area = _area_for_category_name(category) or normalize_career_area(category)
-    # A legacy broad area cannot tell which current area the job belongs to.
-    if area in LEGACY_CAREER_AREAS:
-        area = ""
-    if area:
+    grouped = GROUPED_JOB_LABEL_AREAS.get(_career_area_label_key(category), ())
+    area = "" if grouped else (_area_for_category_name(category) or normalize_career_area(category))
+    if area and area not in LEGACY_CAREER_AREAS:
         return area
     category_id = normalize_category_id(job.get("category_id_norm") or job.get("category_id") or "")
-    return career_area_by_category_id().get(category_id, "")
+    by_id = career_area_by_category_id().get(category_id, "")
+    if by_id:
+        return by_id
+
+    candidates = (list(grouped) or (list(LEGACY_CAREER_AREAS[area]) if area else [])
+                  or _areas_named_by(category, list(CAREER_AREA_JOB_CATEGORIES)))
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        return ""
+    narrowed = _areas_named_by(job.get("job_subcategory", ""), candidates)
+    if len(narrowed) == 1:
+        return narrowed[0]
+    return _closest_area(job, narrowed or candidates)
 
 
 # ============================================================
@@ -911,6 +1021,19 @@ def _compact_word_runs(text_norm: str) -> frozenset:
 def _compact_tokens(text_norm: str) -> frozenset:
     """Each space-separated resume word with hyphens and slashes removed ("e-commerce" -> "ecommerce")."""
     return frozenset(word for word in (_compact(token) for token in text_norm.split()) if word)
+
+
+def resume_names_role(job_title: Any, resume_text: str) -> bool:
+    """Whether the resume names the job's title ("Executive Assistant") as written.
+
+    Only titles of two or more words count, without a qualifier in brackets
+    ("Customer Service Representative (Voice)"); a single word such as
+    "Assistant" says nothing about the kind of work.
+    """
+    title = normalize_for_match(re.sub(r"\([^)]*\)", " ", clean_text(job_title)))
+    if len(title.split()) < 2:
+        return False
+    return _phrase_in_text(title, normalize_for_match(resume_text), strip_qualifiers=False)
 
 
 def _phrase_in_text(phrase: str, text_norm: str, strip_qualifiers: bool = True) -> bool:
@@ -1785,6 +1908,7 @@ def _score_single_normalized_job(
         critical_missing_count=len(critical_missing),
         thresholds=thresholds,
         in_preferred_career_area=in_preferred_area,
+        role_held=resume_names_role(job.get("job_title", ""), resume_text),
     )
     match_type = breakdown.match_category
     score = breakdown.match_score

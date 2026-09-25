@@ -433,7 +433,7 @@ create policy "Employers can manage own job posts" on public.employer_job_posts 
 );
 
 drop policy if exists "Anyone can read active learning resources" on public.learning_resources;
-create policy "Anyone can read active learning resources" on public.learning_resources for select using (coalesce(status, 'active') = 'active');
+create policy "Anyone can read active learning resources" on public.learning_resources for select using (lower(coalesce(status, 'active')) not in ('inactive', 'retired', 'archived', 'deprecated', 'removed', 'rejected'));
 
 drop policy if exists "Users can manage own saved jobs" on public.saved_jobs;
 create policy "Users can manage own saved jobs" on public.saved_jobs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

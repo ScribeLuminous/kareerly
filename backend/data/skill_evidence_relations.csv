@@ -25,3 +25,22 @@ SK186,google workspace,named_tool_is_instance,"Google Workspace (Gmail, Docs, Sh
 SK186,g suite,named_tool_is_instance,Former name of Google Workspace.
 SK016,document and records organization,states_skill_definition,"SK016 Document Management is defined as organizing, filing, retrieving and maintaining business documents, so a resume that states document and records organization shows it. A bare mention of documents does not count."
 SK016,document records organization,states_skill_definition,"The phrase above written with an ampersand (""Document & Records Organization""), which matching reads as a space."
+SK015,administrative support,states_skill_definition,"SK015 Office Administration is defined as handling the clerical, document, scheduling and office coordination tasks of an office, which is what administrative support is. A bare mention of an administrator or an admin panel does not count."
+SK015,administrative assistant,holds_role_that_practises_skill,An administrative assistant's work is office administration; a resume naming the role shows the practice.
+SK015,executive assistant,holds_role_that_practises_skill,"An executive assistant handles an executive's office administration (calendar, correspondence, records); a resume naming the role shows the practice. One way: office administration does not show executive support."
+SK015,administrative coordination,states_skill_definition,Office coordination tasks are part of the SK015 definition.
+SK202,inbox management,states_skill_definition,"SK202 Perform clerical duties is defined as filing, typing up reports and maintaining mail correspondence; managing an inbox is maintaining correspondence."
+SK202,inbox and email management,states_skill_definition,The phrase above as resumes list it.
+SK202,inbox email management,states_skill_definition,"The phrase above written with an ampersand (""Inbox & Email Management""), which matching reads as a space."
+SK202,document and records organization,states_skill_definition,Organizing and filing documents and records is the filing named in the SK202 definition.
+SK202,document records organization,states_skill_definition,"The phrase above written with an ampersand (""Document & Records Organization"")."
+SK202,data entry,states_skill_definition,Entering records is routine clerical work of the kind the SK202 definition lists.
+SK020,customer communication,states_skill_definition,"SK020 Business Communication is communicating in the workplace and with external bodies to reach organisational goals; handling customer communication is communicating with external bodies for the business."
+SK020,customer communications,states_skill_definition,Plural of the phrase above.
+SK020,client communication,states_skill_definition,Communication with clients is business communication with external bodies.
+SK020,client communications,states_skill_definition,Plural of the phrase above.
+SK020,phone and email communication,states_skill_definition,Handling phone and email communication for a business is business communication.
+SK030,client support,states_skill_definition,"SK030 Client Handling (ESCO: communicate with customers) is responding to customers so they get the help they need, which is what client support is."
+SK030,client coordination,states_skill_definition,Coordinating clients' requests is responding to and communicating with them.
+SK030,client and patient coordination,states_skill_definition,The phrase above as resumes list it.
+SK030,client patient coordination,states_skill_definition,"The phrase above written with an ampersand (""Client & Patient Coordination"")."
