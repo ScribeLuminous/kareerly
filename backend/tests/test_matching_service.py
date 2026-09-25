@@ -42,7 +42,9 @@ class MatchingRegressionTests(unittest.TestCase):
              patch.object(matching, "score_jobs", return_value=np.asarray(scores)), \
              patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
              patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
-            return matching.match_text_to_jobs("Python developer builds backend applications and reports.",
+            # The resume names no skill, so only the confirmed skills are held.
+            # (A resume that names Python holds Python Programming by its text.)
+            return matching.match_text_to_jobs("Backend developer builds applications and reports.",
                 confirmed_skills=skills, preferences=preferences)
 
     def test_canonical_coverage_is_three_of_four_without_partial_credit(self):

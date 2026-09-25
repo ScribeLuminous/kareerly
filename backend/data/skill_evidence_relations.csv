@@ -17,3 +17,4 @@ SK300,pipedrive,named_tool_is_instance,Pipedrive is customer relationship manage
 SK300,gohighlevel,named_tool_is_instance,GoHighLevel is customer relationship management software.
 SK300,crm systems,states_skill_definition,Using CRM systems is using customer relationship management software.
 SK300,crm system,states_skill_definition,Singular of the phrase above.
+SK017,data entry,same_skill_common_name,"SK017 Data Encoding is defined as accurately entering and updating information in digital systems, which is what Philippine and international job posts call data entry. Step 1 extraction already reads ""data entry"" as Data Encoding, so gap calculation accepts it too."
