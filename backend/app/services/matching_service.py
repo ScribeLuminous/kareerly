@@ -1256,6 +1256,9 @@ def _score_single_normalized_job(
     )
     match_type = breakdown.match_category
     score = breakdown.match_score
+    # With no comparable skill requirement the score is role similarity alone,
+    # and there are no matched or missing skills to report.
+    requirements_available = breakdown.required_skill_count + breakdown.preferred_skill_count > 0
     semantic_score = breakdown.semantic_similarity
     skill_coverage = float(skill_result["skill_coverage"])
     preference_alignment = compute_preference_alignment(job, preferences)
@@ -1286,11 +1289,15 @@ def _score_single_normalized_job(
         "critical_missing_skill_ids": critical_missing, "required_skill_ids": ";".join(required_ids),
         "matched_skills": skill_result["matched_skills"], "missing_skills": skill_result["missing_skills"],
         "matched_preferred_skills": preferred_matched, "missing_preferred_skills": preferred_missing,
+        "related_skill_credit": skill_result["related_skill_credit"],
+        "skill_requirements_available": requirements_available,
+        "score_basis": "semantic_and_skills" if requirements_available else "role_similarity_only",
         "match_reason": match_reason(match_type, skill_result["matched_skills"], skill_result["missing_skills"],
             breakdown.required_skill_count, in_preferred_area),
         "match_breakdown": breakdown.as_dict(),
         "explanation": generate_match_explanation(job.get("job_title", ""), match_type, skill_result["matched_skills"],
-            skill_result["missing_skills"], skill_coverage, preference_alignment, in_preferred_area),
+            skill_result["missing_skills"], skill_coverage, preference_alignment, in_preferred_area,
+            requirements_available=requirements_available),
     }
 
 
@@ -1346,7 +1353,15 @@ def generate_match_explanation(
     skill_coverage: float,
     preference_alignment: float,
     in_preferred_career_area: Optional[bool] = None,
+    *,
+    requirements_available: bool = True,
 ) -> str:
+    if not requirements_available:
+        basis = "is in the career area you chose" if in_preferred_career_area else "is related to your resume"
+        return (
+            f"This role is showing as {match_type} because it {basis}. The posting for {job_title} lists no skills "
+            "Kareerly can compare with your resume, so its score reflects role similarity only and no skill gaps are shown."
+        )
     matched_text = ", ".join(matched_skills[:5]) if matched_skills else "some related resume evidence"
     missing_text = ", ".join(missing_skills[:5]) if missing_skills else "no major required skills"
 
