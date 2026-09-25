@@ -309,6 +309,14 @@ class ConfirmedSkillTests(MatchingFlowCase):
     JOBS = pd.DataFrame([job("support-analyst", "Support Data Analyst", "SQL and Python data reports for support teams.",
         "SK004;SK001;SK029;SK629")])
 
+    def setUp(self):
+        super().setUp()
+        # Rank on resume evidence alone: how often the reference jobs ask for a
+        # skill changes as the catalogue grows (Customer Service is common).
+        patcher = patch.object(matching.get_weighted_skill_extractor(), "job_market_relevance", {})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def step_two(self):
         skills = matching.extract_skills_from_text(self.RESUME, max_skills=None)
         return skills[:matching.MAX_CONFIRMED_SKILLS], skills[matching.MAX_CONFIRMED_SKILLS:]
