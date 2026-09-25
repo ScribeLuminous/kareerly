@@ -262,6 +262,18 @@ async function waitForBackend(): Promise<boolean> {
   return false;
 }
 
+/** The backend's /api/health/config payload, or null when it cannot be read. Never throws. */
+export async function loadBackendHealthConfig(): Promise<unknown> {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/api/health/config`, { cache: 'no-store' }, 'Health check timed out.', REACHABILITY_PROBE_TIMEOUT_MS);
+    // A backend too old to have the endpoint answers 404: reachable, but no version.
+    if (response.status === 404) return {};
+    return response.ok ? await response.json() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** fetchWithTimeout for the hosted backend: waits out a cold start once, then explains the failure. */
 async function fetchBackend(url: string, options: RequestInit, timeoutMessage: string, timeoutMs?: number): Promise<Response> {
   try {
