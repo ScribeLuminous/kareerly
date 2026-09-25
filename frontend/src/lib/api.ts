@@ -626,6 +626,21 @@ export const updateAdminJob = (token: string, input: { job_id: string; job_title
 export const deleteAdminJob = (token: string, jobId: string) => adminMutation(token, `/api/admin/jobs/${encodeURIComponent(jobId)}`, 'DELETE');
 export const updateAdminApplication = (token: string, input: { application_id: string; status: string }) => adminMutation(token, '/api/admin/applications', 'PATCH', input);
 
+/**
+ * The resume reader version the backend runs: null when it predates version
+ * reporting, undefined when the backend could not be reached.
+ */
+export async function fetchLiveResumeParserVersion(): Promise<string | null | undefined> {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/api/health/config`, {}, 'Backend check timed out.', 10000);
+    if (!response.ok) return undefined;
+    const data = await response.json() as { resume_readers?: { parser_version?: string } };
+    return data.resume_readers?.parser_version || null;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function analyzeResume(resumeFile: File, _legacySurveyAnswers?: Partial<SurveyAnswers>): Promise<ResumeAnalysisResult> {
   const formData = new FormData();
   formData.append('resume', resumeFile);
