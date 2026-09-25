@@ -1,0 +1,37 @@
+skill_id,variant,exact_case,not_after,not_before,note
+SK645,Help-Scout,false,,,hyphenated spelling
+SK642,HubSpot CRM,false,,,product qualifier
+SK644,Zen Desk,false,,,spaced spelling of Zendesk
+SK646,Fresh Desk,false,,,spaced spelling of Freshdesk
+SK652,QBO,false,,,QuickBooks Online abbreviation
+SK643,SFDC,false,,,common Salesforce abbreviation; "Sales Force" is left out because it is ordinary English ("a sales force of 12")
+SK630,Air Table,false,,,spaced spelling of Airtable
+SK002,JS,true,,,uppercase abbreviation only
+SK627,GWorkspace,false,,,joined abbreviation of Google Workspace
+SK627,G Workspace,false,,,abbreviation of Google Workspace
+SK627,Google Suite,false,,,older product name
+SK627,Google Apps,false,,,older product name (G Suite before 2016)
+SK197,GSheets,false,,,abbreviation of Google Sheets
+SK197,G Sheets,false,,,abbreviation of Google Sheets
+SK628,MS PowerPoint,false,,,
+SK628,Microsoft PowerPoint,false,,,
+SK628,Microsoft Word,false,,,
+SK628,O365,false,,,Office 365 abbreviation
+SK628,M365,false,,,Microsoft 365 abbreviation
+SK628,MS 365,false,,,Microsoft 365 abbreviation
+SK628,MS365,false,,,Microsoft 365 abbreviation
+SK276,CRM,false,,,"the practice; CRM software use (SK300) needs a named tool or ""CRM systems"", see skill_evidence_relations.csv"
+SK029,CS,true,"(?i)(?:\b(?:BS|B\.S\.?|BSc|MS|M\.S\.?|MSc|AB|BA|PhD|degree in|major in|bachelor(?:'s)?(?: of science)?(?: in)?|master(?:'s)?(?: of science)?(?: in)?)\s*)$","(?i)^\s*(?:degree|student|graduate|major|department|dept\b|engineering|program|course|club|society|teacher|instructor)","uppercase only; not in a degree (""BS CS"", ""CS graduate"") where it means Computer Science"
+SK029,CX,true,,,"uppercase only; customer experience support, the closest taxonomy skill"
+SK029,CS/CX,false,,,
+SK029,CX/CS,false,,,
+SK690,Non-voice,false,,,non-voice (chat and email) support account
+SK690,Non voice,false,,,
+SK626,VA,true,,(?:^\s*\d{5}),"uppercase only; not a US state before a ZIP code (""Arlington, VA 22201"")"
+SK027,SMM,false,,,social media management abbreviation
+SK197,Google Sheets,false,,,"listed by ESCO for this skill, but only reviewed ESCO labels are trusted as names"
+SK628,Power Point,true,,,"Title Case only; ""power points"" are also electrical outlets"
+SK662,Photo Shop,true,,,"Title Case only; ""a photo shop"" is a store"
+SK662,Adobe Photo Shop,false,,,
+SK636,Click Up,true,,,"Title Case only; ""click up"" is an ordinary phrase"
+SK642,Hub-Spot,false,,,"hyphenated or spaced; ""hub spot"" is not ordinary English"

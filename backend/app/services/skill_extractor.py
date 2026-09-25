@@ -4,6 +4,7 @@ from typing import Any, Optional, Union
 
 import pandas as pd
 
+from .skill_variants import any_case_variants, exact_case_matches, merge_variants_into_rows
 from .split_words import build_split_word_vocabulary
 from .taxonomy_additions import merge_reference_rows
 
@@ -25,6 +26,8 @@ def _normalize_alias(value: str) -> str:
     value = re.sub(r"[\-_/]+", " ", value)
     value = re.sub(r"[^a-z0-9+#.'\s]", " ", value)
     value = re.sub(r"\s+", " ", value)
+    # "E-mail" and "E mail" are "email" ("E-mail Support", "e-mail management").
+    value = re.sub(r"\be mail", "email", value)
 
     return value.strip()
 
@@ -196,6 +199,9 @@ class SkillExtractor:
                 self.rows.append(skill_row)
 
         self.rows = merge_reference_rows(self.rows, self.extra_rows)
+        # Reviewed spellings ("Zen Desk", "GWorkspace", "O365"); see skill_variants.py.
+        merge_variants_into_rows(self.rows)
+        self._row_by_skill_id = {row["skill_id"].upper(): index for index, row in enumerate(self.rows)}
 
     def _category_label_terms(self) -> set[str]:
         """Words that only name a taxonomy category, such as "data" or "business".
@@ -269,6 +275,15 @@ class SkillExtractor:
                 flags=re.IGNORECASE,
             )
 
+        # A multi-word name typed as one word ("MSExcel", "PowerBI", "HelpScout"):
+        # one resume token equal to the name without its spaces. Separate
+        # resume words are never joined here ("a sales force" stays apart).
+        self._joined_alias_map: dict[str, str] = {}
+        for alias in self.ordered_aliases:
+            compact_alias = _compact_alias(alias)
+            if " " in alias and len(compact_alias) >= 5 and compact_alias not in self.alias_map:
+                self._joined_alias_map.setdefault(compact_alias, alias)
+
         for alias in self.ordered_aliases:
             compact_alias = _compact_alias(alias)
             if len(compact_alias) >= 5 or compact_alias in SHORT_ALIAS_ALLOWLIST:
@@ -300,8 +315,13 @@ class SkillExtractor:
         return self._split_word_vocabulary
 
     def known_phrases(self) -> set[str]:
-        """Normalised aliases; a spaced form that is itself an alias is never joined."""
-        return set(self.alias_map.keys())
+        """Normalised aliases; a spaced form that is itself an alias is never joined.
+
+        Spaced spellings from skill_name_variants.csv ("Zen Desk") are spellings
+        of the joined name, not separate phrases, so they do not stop a join.
+        """
+        spellings = {_normalize_alias(value) for values in any_case_variants().values() for value in values}
+        return {alias for alias in self.alias_map if alias not in spellings or " " not in alias}
 
     def _build_job_market_relevance(self) -> dict[str, float]:
         counts: dict[str, int] = {}
@@ -435,6 +455,29 @@ class SkillExtractor:
 
                     seen.add(key)
                     matches.append((row_index, alias, matched_text, match.start()))
+
+        # 1b. A multi-word name written as one token ("MSExcel", "GSheets").
+        for token in re.finditer(r"[a-z0-9+#.']+", normalized_text):
+            alias = self._joined_alias_map.get(re.sub(r"[^a-z0-9+#]+", "", token.group(0)))
+            if not alias:
+                continue
+            for row_index in self.alias_map.get(alias, []):
+                key = (row_index, alias, token.start())
+                if key not in seen:
+                    seen.add(key)
+                    matches.append((row_index, alias, token.group(0), token.start()))
+
+        # 1c. Upper-case abbreviations ("CS", "CX", "VA", "JS"), read from the
+        # text as written, with the contexts each one excludes.
+        for skill_id, variant, _ in exact_case_matches(text):
+            row_index = self._row_by_skill_id.get(skill_id)
+            if row_index is None:
+                continue
+            position = max(normalized_text.find(variant.lower()), 0)
+            key = (row_index, variant, "exact_case", position)
+            if key not in seen:
+                seen.add(key)
+                matches.append((row_index, variant.lower(), variant, position))
 
         # 2. Compact fallback.
         # Handles:
