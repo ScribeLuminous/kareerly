@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowRight, faChevronRight, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
-import { SkeletonRows } from '../../components/ui';
+import { faArrowRight, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+import { NextStepCard, SkeletonRows, type NextStep } from '../../components/ui';
 import { JobCard } from './JobCard';
 import { PageHeader, SectionHead, StatusBadge } from './common';
 import {
@@ -15,7 +15,7 @@ import {
   type DashboardJob,
 } from './model';
 
-export type NextStep = { id: string; title: string; detail?: string; actionLabel: string; onAction: () => void };
+export type { NextStep } from '../../components/ui';
 export type ProfileTask = { label: string; done: boolean; onAction: () => void };
 
 type HomePageProps = {
@@ -61,7 +61,6 @@ export function HomePage({
   onOpenApplications,
   profileTasks,
 }: HomePageProps) {
-  const [primary, ...moreSteps] = nextSteps;
   const hasMatches = fitNowCount + aspirationCount > 0;
   const openTasks = profileTasks.filter((task) => !task.done);
   const completion = profileTasks.length ? Math.round(((profileTasks.length - openTasks.length) / profileTasks.length) * 100) : 100;
@@ -71,34 +70,7 @@ export function HomePage({
       <PageHeader title="Home" />
       <div className="grid gap-7 lg:grid-cols-12 lg:gap-8">
         <div className="min-w-0 space-y-7 lg:col-span-8 lg:space-y-8">
-          {primary && (
-            <section className="k-card border-l-4 border-l-rust" aria-labelledby="next-step-title">
-              <p className="k-eyebrow">Next step</p>
-              <h2 id="next-step-title" className="k-section-title mt-1">{primary.title}</h2>
-              {primary.detail && <p className="k-secondary mt-1">{primary.detail}</p>}
-              <div className="mt-4">
-                <button className="k-btn k-btn-primary" type="button" onClick={primary.onAction}>{primary.actionLabel}</button>
-              </div>
-              {moreSteps.length > 0 && (
-                <details className="mt-4 border-t border-bdr pt-3">
-                  <summary className="k-link cursor-pointer">{moreSteps.length} more step{moreSteps.length === 1 ? '' : 's'}</summary>
-                  <ul className="mt-2">
-                    {moreSteps.map((step) => (
-                      <li key={step.id}>
-                        <button className="k-row -mx-4 w-[calc(100%+2rem)] rounded-none px-4" type="button" onClick={step.onAction}>
-                          <span className="k-row-main">
-                            <span className="k-label block">{step.title}</span>
-                            {step.detail && <span className="k-meta mt-0.5 block">{step.detail}</span>}
-                          </span>
-                          <FontAwesomeIcon className="k-row-chevron" icon={faChevronRight} aria-hidden="true" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </section>
-          )}
+          <NextStepCard steps={nextSteps} />
 
           {isLoading && !hasMatches ? (
             <section aria-label="Loading matches">
