@@ -363,8 +363,10 @@
   white-space: nowrap;
 }
 
+/* Rust text is under 4.5:1 on the page background, so hover darkens the underline instead. */
 .k-link:hover {
-  color: var(--rust);
+  text-decoration-color: var(--rust);
+  text-decoration-thickness: 3px;
 }
 
 .k-link svg {

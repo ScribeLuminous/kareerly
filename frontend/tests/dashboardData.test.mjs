@@ -23,6 +23,13 @@ const deps = {
   ...await loadUtility('../src/lib/jobDescription.ts'),
   React,
 };
+// Names a module re-exports from elsewhere (`export { A } from './x'`).
+function reexportedNames(parsed) {
+  return parsed.statements
+    .filter((node) => ts.isExportDeclaration(node) && node.moduleSpecifier && !node.isTypeOnly && node.exportClause && ts.isNamedExports(node.exportClause))
+    .flatMap((node) => node.exportClause.elements.filter((el) => !el.isTypeOnly).map((el) => el.name.text));
+}
+
 function importedNames(parsed) {
   return parsed.statements.filter(ts.isImportDeclaration).flatMap((node) => {
     const clause = node.importClause;
@@ -41,11 +48,13 @@ async function loadModule(path, exposed = '', defaultName = '') {
   globalThis.__dashboardDataTestDeps = deps;
   const source = readFileSync(new URL(path, import.meta.url), 'utf8');
   const parsed = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const names = importedNames(parsed);
+  const reexports = reexportedNames(parsed);
+  const names = [...importedNames(parsed), ...reexports];
   const declarations = [...new Set(['React', ...names])].map((name) => `const ${name} = globalThis.__dashboardDataTestDeps.${name};`).join('\n');
-  const { outputText } = ts.transpileModule(`${declarations}\n${source}\n${exposed ? `export { ${exposed} };` : ''}`, {
+  const exportList = [exposed, reexports.join(', ')].filter(Boolean).join(', ');
+  const { outputText } = ts.transpileModule(`${declarations}\n${source}\n${exportList ? `export { ${exportList} };` : ''}`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.React },
-    transformers: { before: [() => (node) => ts.factory.updateSourceFile(node, node.statements.filter((statement) => !ts.isImportDeclaration(statement)))] },
+    transformers: { before: [() => (node) => ts.factory.updateSourceFile(node, node.statements.filter((statement) => !ts.isImportDeclaration(statement) && !(ts.isExportDeclaration(statement) && statement.moduleSpecifier)))] },
   });
   const module = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
   delete globalThis.__dashboardDataTestDeps;
@@ -73,12 +82,13 @@ const page = await loadPage([
   ui('controls.tsx'),
   ui('feedback.tsx'),
   [ui('Modal.tsx'), 'Modal'],
+  ui('page.tsx'),
   candidate('common.tsx'),
   candidate('JobCard.tsx'),
   candidate('HomePage.tsx'),
   candidate('JobDetailModal.tsx'),
 ]);
-const employerPage = await loadPage(['../src/pages/EmployerDashboard.tsx'], 'toEmployerJob, toCandidateApplication, emptyJobForm, getMatchBucket');
+const employerPage = await loadPage(['../src/pages/employer/model.ts']);
 
 test('unmatched job listings do not invent work setup, level, employer, or missing skills', () => {
   const job = page.mapAvailableJob({ job_id: 'role-1', job_title: 'Senior Data Engineer', required_skills: ['SQL'] });
