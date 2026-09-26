@@ -629,14 +629,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
+  min-width: 0;
   min-height: 38px;
-  padding: 0 12px;
+  padding: 0 6px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--mid);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -650,6 +651,14 @@
 
 .k-seg-btn .k-num {
   color: var(--soft-text);
+}
+
+@media (min-width: 360px) {
+  .k-seg-btn {
+    gap: 6px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
 }
 
 @media (min-width: 640px) {

@@ -2,7 +2,6 @@ import { prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } f
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
-import * as mammoth from 'mammoth';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
@@ -208,6 +207,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       try {
         const response = await fetch(resumePreview.url);
         if (!response.ok) throw new Error(`Unable to load resume (${response.status}).`);
+        // Loaded only when a Word resume is previewed; it is large.
+        const mammoth = await import('mammoth');
         const result = await mammoth.convertToHtml({ arrayBuffer: await response.arrayBuffer() });
         if (!cancelled) setDocxPreviewResult({ url: resumePreview.url, html: DOMPurify.sanitize(result.value), error: '' });
       } catch (error) {
