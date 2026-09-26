@@ -168,5 +168,5 @@ test('each match list keeps the backend order so feedback ranking is visible', (
   const legacy = [{ id: 'a', matchScore: 90 }, { id: 'b', matchScore: 80, rankPosition: 1 }];
   assert.deepEqual(orderByBackendRank(legacy).map((job) => job.id), ['a', 'b']);
   assert.match(dashboard, /rankPosition: typeof dynamic\.rank_position === 'number'/);
-  assert.equal((dashboard.match(/orderByBackendRank\(jobs\.filter\(\(job\) => job\.matchCategory === '(fit-now|aspiration)'\)\)/g) || []).length, 4);
+  assert.equal((dashboard.match(/orderByBackendRank\(jobs\.filter\(\(job\) => job\.matchCategory === '(fit-now|aspiration)'\)\)/g) || []).length, 5);
 });
