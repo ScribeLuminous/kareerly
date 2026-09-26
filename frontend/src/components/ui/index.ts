@@ -5,3 +5,7 @@ export type { TabItem, SegmentOption, MenuItem } from './controls';
 export { Banner, EmptyState, SkeletonRows, ToastRegion } from './feedback';
 export type { ToastState } from './feedback';
 export { useMediaQuery, useDismiss, DESKTOP_QUERY } from './hooks';
+export { default as AppShell } from './AppShell';
+export type { ShellNavItem, ShellNotification, ShellMenuItem } from './AppShell';
+export { PageHeader, FormField, SectionHead, SeeAllLink, NextStepCard } from './page';
+export type { NextStep } from './page';
