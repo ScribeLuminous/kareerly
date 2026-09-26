@@ -55,6 +55,23 @@ def _canonical_skills(values: list[str]) -> tuple[list[str], list[str]]:
     return names, ids
 
 
+def _requirement_names(values: list[str]) -> tuple[list[str], list[str]]:
+    """Every requirement as a name the matcher compares, and the taxonomy IDs among them.
+
+    A name with no taxonomy skill ("Node.js", "Canva") stays a requirement,
+    compared by name like an internal job's custom skill. Dropping it would
+    leave coverage computed over fewer requirements than the posting lists,
+    so a candidate could look ready for a job that asks for skills the resume
+    does not show.
+    """
+    labels = get_skill_labels_by_id()
+    names: dict[str, str] = {}
+    for value in _clean_list(values):
+        key = _skill_key(value)
+        names.setdefault(key, labels.get(key, value))
+    return list(names.values()), [key for key in names if key in labels]
+
+
 def _deterministic_extraction(description: str, title: str, company: str) -> ExternalJobExtraction:
     extracted = extract_skills_from_text(description, max_skills=40)
     skills = _clean_list([item.get("skill_name", "") for item in extracted])
@@ -67,8 +84,15 @@ def _deterministic_extraction(description: str, title: str, company: str) -> Ext
 
 
 def _normalize_extraction(extraction: ExternalJobExtraction, description: str, title: str, company: str) -> dict[str, Any]:
-    required_names, required_ids = _canonical_skills(extraction.required_skills)
-    preferred_names, preferred_ids = _canonical_skills(extraction.preferred_skills)
+    required_names, required_ids = _requirement_names(extraction.required_skills)
+    preferred_names, preferred_ids = _requirement_names(extraction.preferred_skills)
+    # With a named-only requirement among them the names are compared instead of
+    # the IDs (the matcher reads IDs first and would skip the named ones); each
+    # name still resolves to its taxonomy skill when it has one.
+    if len(required_ids) < len(required_names):
+        required_ids = []
+    if len(preferred_ids) < len(preferred_names):
+        preferred_ids = []
     normalized_title = clean_text(extraction.job_title or title) or "External job"
     normalized_company = clean_text(extraction.company_name or company)
     return {
@@ -153,7 +177,7 @@ def analyze_external_job(
         explanation = fallback_explanation
 
     warnings = []
-    if not normalized_job["required_skill_ids"]:
+    if not normalized_job["required_skills_for_eval"]:
         warnings.append("Kareerly could not identify enough explicit canonical skills from this job description for a complete skill-gap analysis.")
 
     return {

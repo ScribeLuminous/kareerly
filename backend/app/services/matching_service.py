@@ -43,7 +43,9 @@ from .resume_parser import (
     resume_extension,
 )
 from .skill_extractor import SkillExtractor
-from .skill_variants import any_case_variants, exact_case_skill_ids, load_skill_variants, merge_variants_into_rows
+from .skill_variants import (
+    any_case_variants, exact_case_skill_ids, load_skill_variants, merge_variants_into_rows, remove_excluded_aliases,
+)
 from .supabase_jobs import load_internal_jobs_dataframe
 from .ph_regions import RegionPreference, region_preference, regions_in_location
 from . import taxonomy_additions
@@ -485,7 +487,8 @@ def load_skills_reference() -> pd.DataFrame:
     else:
         rows = base.to_dict(orient="records")
     # Reviewed spellings ("Zen Desk", "GWorkspace", "O365"); see skill_variants.py.
-    skills = pd.DataFrame(merge_variants_into_rows(rows)).fillna("")
+    # Labels that name something else ("XPath" on SQL) are removed; see skill_alias_exclusions.csv.
+    skills = pd.DataFrame(remove_excluded_aliases(merge_variants_into_rows(rows))).fillna("")
     if taxonomy_additions.APPROVED_ALIASES_FIELD not in skills.columns:
         skills[taxonomy_additions.APPROVED_ALIASES_FIELD] = ""
 
@@ -826,12 +829,22 @@ def _programming_language_names(row: Any) -> List[str]:
     """
     if clean_text(row.get("mapping_status", "")) not in REVIEWED_MAPPING_STATUSES:
         return []
+    # The stripped name must itself be a label of the skill ("Python" is an
+    # ESCO label of Python). "Web programming" is a paradigm, not a language
+    # called "Web": reading "web" as Web Development credited any resume that
+    # mentions the web, and "use scripting" is not a name at all.
+    own_labels = {
+        normalize_for_match(label)
+        for label in [row.get("skill_name", ""), row.get("esco_preferred_label", ""),
+                      *split_skill_list(row.get("esco_alternative_labels", "")),
+                      *split_skill_list(row.get(taxonomy_additions.APPROVED_ALIASES_FIELD, ""))]
+    }
     names = []
     for value in (row.get("skill_name", ""), row.get("esco_preferred_label", "")):
         match = PROGRAMMING_LANGUAGE_LABEL.match(clean_text(value))
-        if match and len(match.group("name")) >= 3:
+        if match and len(match.group("name")) >= 3 and normalize_for_match(match.group("name")) in own_labels:
             names.append(match.group("name"))
-    return names
+    return list(dict.fromkeys(names))
 
 
 @lru_cache(maxsize=1)
@@ -880,7 +893,9 @@ def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
         if not skill_id or not label:
             continue
         labels[skill_id] = label
-        aliases = [label, *_curated_aliases(row)]
+        # A reviewed language's bare name ("Python") names it in a requirement or
+        # a typed skill as it does in resume text.
+        aliases = [label, *_curated_aliases(row), *_programming_language_names(row)]
         if clean_text(row.get("mapping_status", "")) == "mapped":
             aliases += [clean_text(row.get("esco_preferred_label", ""))]
             aliases += split_skill_list(row.get("esco_alternative_labels", ""))
@@ -1067,6 +1082,37 @@ def _phrase_in_text(phrase: str, text_norm: str, strip_qualifiers: bool = True) 
     return False
 
 
+@lru_cache(maxsize=1)
+def _spaced_spellings() -> Tuple[Tuple[str, str], ...]:
+    """(skill ID, normalized spelling) for reviewed spellings that split a one-word name.
+
+    "Java Script" is JavaScript and "Zen Desk" is Zendesk; their parts mean
+    nothing on their own. A qualified name ("HubSpot CRM") is not listed: its
+    "CRM" still names the practice.
+    """
+    phrases = skill_evidence_phrases()
+    spellings = set()
+    for skill_id, values in any_case_variants().items():
+        one_word_names = {_compact(normalize_for_match(name)) for name in phrases.get(skill_id, []) if " " not in name.strip()}
+        for value in values:
+            spelling = normalize_for_match(value)
+            if re.search(r"[\s/-]", spelling) and _compact(spelling) in one_word_names:
+                spellings.add((skill_id, spelling))
+    return tuple(sorted(spellings, key=lambda item: -len(item[1])))
+
+
+def _without_other_spellings(text_norm: str, key: str) -> str:
+    """The text with other skills' spaced spellings blanked out.
+
+    "Java Script" is a reviewed spelling of JavaScript, so its "java" does not
+    show the Java language, just as resume extraction reads the longer name.
+    """
+    for skill_id, spelling in _spaced_spellings():
+        if skill_id != key and spelling in text_norm:
+            text_norm = re.sub(r"(?<![a-z0-9+#])" + re.escape(spelling) + r"(?![a-z0-9+#])", " | ", text_norm)
+    return text_norm
+
+
 def compute_skill_coverage(
     candidate_skills: List[str],
     required_skills: List[str],
@@ -1118,7 +1164,7 @@ def compute_skill_coverage(
         phrases = skill_evidence_phrases().get(key) or [required[key]]
         # A requirement with no taxonomy ID is matched by name, which a held
         # skill can carry: "Customer Onboarding" shows a legacy SK_ONBOARDING.
-        search_norm = profile_norm if key.startswith("CUSTOM:") else text_norm
+        search_norm = _without_other_spellings(profile_norm if key.startswith("CUSTOM:") else text_norm, key)
         # A custom requirement name may carry wording ("Salesforce experience");
         # a taxonomy skill's names are matched whole.
         custom = key.startswith("CUSTOM:")
