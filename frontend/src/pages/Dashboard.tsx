@@ -1225,6 +1225,34 @@ function getPreferenceLabel(table: Record<string, string>, key: string): string 
   return table[key] || key;
 }
 
+function preferenceKeyForLabel(table: Record<string, string>, label: string | null | undefined): string {
+  const value = (label || '').trim();
+  if (!value) return '';
+  if (table[value]) return value;
+  return Object.keys(table).find((key) => table[key].toLowerCase() === value.toLowerCase()) || value;
+}
+
+// The Preferences page saves labels to the candidate profile; map them back to answers.
+async function loadProfilePreferences(userId: string): Promise<SurveyAnswers | null> {
+  const { data, error } = await supabase
+    .from('candidate_profiles')
+    .select('preferred_industry,target_role,preferred_work_setup,expected_salary,skill_to_develop')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) {
+    console.warn('Unable to load saved preferences:', error.message);
+    return null;
+  }
+  if (!data?.preferred_industry) return null;
+  return {
+    industry: normalizeCareerAreaValue(data.preferred_industry),
+    role: data.target_role || '',
+    setup: preferenceKeyForLabel(setupLabels, data.preferred_work_setup),
+    salary: preferenceKeyForLabel({ ...legacySalaryLabels, ...salaryLabels }, data.expected_salary),
+    skill: data.skill_to_develop || '',
+  };
+}
+
 function statusKey(status: ApplicationStatus): 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn' {
   return status.toLowerCase() as 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn';
 }
@@ -1534,50 +1562,67 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     return { bucket: storageBucket, path: storagePath, name, mimeType, size };
   };
 
+  // Restore the saved resume, its latest matches and the preferences once per
+  // sign-in. This must not re-run on the state it restores: each re-run cancelled
+  // the one before it, so a fresh login never got its matches or preferences back.
+  const restoredForUser = useRef<string | null>(null);
   useEffect(() => {
-    let isMounted = true;
+    const userId = currentUser.id;
+    if (!userId || restoredForUser.current === userId) return;
+    restoredForUser.current = userId;
+    let cancelled = false;
+    const hasSessionResume = Boolean(state.resumeAnalysis || state.resumeFile || state.savedResumeId);
+    const hasSessionPreferences = Boolean(state.surveyAnswers);
     void (async () => {
-      if (!currentUser.id) return;
-      if ((state.resumeAnalysis || state.savedResumeId) && savedResumeFileName) return;
-      const latestResume = await loadLatestResume({ userId: currentUser.id });
-      if (!isMounted || !latestResume) return;
+      const latestResume = await loadLatestResume({ userId });
+      if (cancelled) return;
+      let savedPreferences: SurveyAnswers | null = null;
 
-      setSavedResumeFileName(latestResume.original_filename || 'Saved resume');
-      let freshness = assessSavedResume(latestResume);
-      if (freshness?.stale) {
-        const liveVersion = await fetchLiveResumeParserVersion();
-        if (!isMounted) return;
-        if (liveVersion !== undefined) freshness = assessSavedResume(latestResume, liveVersion);
+      if (latestResume) {
+        setSavedResumeFileName(latestResume.original_filename || 'Saved resume');
+        let freshness = assessSavedResume(latestResume);
+        if (freshness?.stale) {
+          const liveVersion = await fetchLiveResumeParserVersion();
+          if (cancelled) return;
+          if (liveVersion !== undefined) freshness = assessSavedResume(latestResume, liveVersion);
+        }
+        setSavedResumeFreshness(freshness);
+        if (freshness?.stale) {
+          const located = await locateSavedResumeFile(latestResume);
+          if (cancelled) return;
+          setSavedResumeFile(located);
+        }
+
+        if (hasSessionResume) {
+          if (!state.savedResumeId) setSavedResumeId(latestResume.id);
+        } else {
+          const analysis = normalizeSavedResumeAnalysis(latestResume);
+          if (analysis) {
+            applyAnalysisResult(analysis);
+            setSavedResumeId(latestResume.id);
+            const restoredSkills = extractSkillsFromResume(analysis.parsedResume);
+            if (restoredSkills.length > 0) setSkillNames(restoredSkills);
+
+            const savedRun = await loadLatestMatchRun({ userId, resumeId: latestResume.id });
+            if (cancelled) return;
+            if (savedRun) setMatchResults(savedRun.results);
+            savedPreferences = savedRun?.preferences || null;
+          }
+        }
       }
-      setSavedResumeFreshness(freshness);
-      if (freshness?.stale) {
-        const located = await locateSavedResumeFile(latestResume);
-        if (isMounted) setSavedResumeFile(located);
-      }
-      if (!isMounted) return;
-      if (state.resumeAnalysis || state.resumeFile || state.savedResumeId) {
-        if (!state.savedResumeId) setSavedResumeId(latestResume.id);
-        return;
-      }
 
-      const analysis = normalizeSavedResumeAnalysis(latestResume);
-      if (!analysis) return;
-
-      applyAnalysisResult(analysis);
-      setSavedResumeId(latestResume.id);
-      const restoredSkills = extractSkillsFromResume(analysis.parsedResume);
-      if (restoredSkills.length > 0) setSkillNames(restoredSkills);
-
-      const savedRun = await loadLatestMatchRun({ userId: currentUser.id, resumeId: latestResume.id });
-      if (!isMounted || !savedRun) return;
-      setMatchResults(savedRun.results);
-      if (savedRun.preferences && !state.surveyAnswers) setSurveyAnswers(savedRun.preferences);
+      if (hasSessionPreferences) return;
+      // Preferences saved without a match run (no resume yet, or a failed
+      // refresh) only live on the candidate profile.
+      if (!savedPreferences) savedPreferences = await loadProfilePreferences(userId);
+      if (!cancelled && savedPreferences) setSurveyAnswers(savedPreferences);
     })();
 
     return () => {
-      isMounted = false;
+      cancelled = true;
+      restoredForUser.current = null;
     };
-  }, [currentUser.id, savedResumeFileName, state.resumeAnalysis, state.resumeFile, state.savedResumeId]);
+  }, [currentUser.id]);
 
   const saveCandidateProfile = async () => {
     if (!currentUser.id) return;
