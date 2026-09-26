@@ -69,12 +69,12 @@ export default function AdminDeletionRequestsPanel({ getToken, notify }: AdminPa
             </button>
           ))}
         </div>
-        <p className="text-xs text-soft">Approving deletes the account immediately.</p>
+        <p className="text-xs text-soft-text">Approving deletes the account immediately.</p>
       </div>
       {loading && !data ? <PanelMessage>Loading deletion requests...</PanelMessage> : requests.length === 0 ? <PanelMessage>No {status === 'all' ? '' : status} deletion requests.</PanelMessage> : (
         <div className="overflow-x-auto border-t border-bdr">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-bg text-xs uppercase text-soft">
+            <thead className="bg-bg text-xs uppercase text-soft-text">
               <tr>
                 <th className="px-4 py-3 font-extrabold">Account</th>
                 <th className="px-4 py-3 font-extrabold">Reason</th>
@@ -88,14 +88,14 @@ export default function AdminDeletionRequestsPanel({ getToken, notify }: AdminPa
                 <tr key={request.id} className="bg-card align-top">
                   <td className="px-4 py-3">
                     <div className="font-bold text-dark">{request.user?.name || request.user_email}</div>
-                    <div className="text-xs text-soft">{request.user_email} · <span className="capitalize">{request.user_role}</span></div>
+                    <div className="text-xs text-soft-text">{request.user_email} · <span className="capitalize">{request.user_role}</span></div>
                   </td>
-                  <td className="max-w-[320px] whitespace-pre-wrap break-words px-4 py-3 text-mid">{request.reason || <span className="text-soft">No reason given</span>}</td>
+                  <td className="max-w-[320px] whitespace-pre-wrap break-words px-4 py-3 text-mid">{request.reason || <span className="text-soft-text">No reason given</span>}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-mid">{dateText(request.requested_at)}</td>
                   <td className="px-4 py-3">
                     <Pill tone={tone(request.status)}><span className="capitalize">{request.status}</span></Pill>
-                    {request.reviewed_at && <div className="mt-1 text-xs text-soft">{dateText(request.reviewed_at)}</div>}
-                    {request.admin_note && <p className="mt-1 max-w-[200px] text-xs text-soft">{request.admin_note}</p>}
+                    {request.reviewed_at && <div className="mt-1 text-xs text-soft-text">{dateText(request.reviewed_at)}</div>}
+                    {request.admin_note && <p className="mt-1 max-w-[200px] text-xs text-soft-text">{request.admin_note}</p>}
                   </td>
                   <td className="px-4 py-3">
                     {request.status === 'pending' ? (
@@ -103,7 +103,7 @@ export default function AdminDeletionRequestsPanel({ getToken, notify }: AdminPa
                         <button className={dangerButtonClass} type="button" disabled={busyId === request.id} onClick={() => void decide(request, 'approve')}>Approve &amp; delete</button>
                         <button className={buttonClass} type="button" disabled={busyId === request.id} onClick={() => void decide(request, 'reject')}>Reject</button>
                       </div>
-                    ) : <span className="text-xs text-soft">-</span>}
+                    ) : <span className="text-xs text-soft-text">-</span>}
                   </td>
                 </tr>
               ))}

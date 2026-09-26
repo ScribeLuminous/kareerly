@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
+import { readCandidateSource } from './helpers/candidateSource.mjs';
 
 function moduleUrl(source) {
   return 'data:text/javascript;base64,' + Buffer.from(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText).toString('base64');
@@ -106,13 +107,14 @@ test('rating controls are accessible toggle buttons with a live status', () => {
   assert.match(component, /Try again/);
 });
 
-test('job match cards render the controls and do not present scores as hiring odds', () => {
-  const dashboard = read('../src/pages/Dashboard.tsx');
-  const cardStart = dashboard.indexOf('const renderJobCard = (job: DashboardJob) =>');
-  const cardEnd = dashboard.indexOf('return (', dashboard.indexOf('</div>\n    );\n  };', cardStart));
-  const card = dashboard.slice(cardStart, cardEnd);
-  assert.match(card, /<MatchFeedbackControls/);
-  assert.match(card, /matchFeedbackKey\(job\.id, job\.jobSource\)/);
+test('job details render the rating controls and do not present scores as hiring odds', () => {
+  const dashboard = readCandidateSource();
+  // Ratings live in the job detail (shown beside the list on desktop, as a dialog on phones).
+  const detailStart = dashboard.indexOf('export function JobDetailBody');
+  const detail = dashboard.slice(detailStart, dashboard.indexOf('\nexport function ', detailStart + 10));
+  assert.match(detail, /<MatchFeedbackControls/);
+  assert.match(detail, /job\.hasMatchScore && !job\.closestMatch/);
+  assert.match(dashboard, /matchFeedbackKey\(job\.id, job\.jobSource\)/);
   assert.match(dashboard, /not your chance of being hired/);
   // A failed save restores the previous choice instead of showing a vote that was not saved.
   assert.match(dashboard, /withMatchVote\(current, key, previous\)/);
@@ -158,7 +160,7 @@ test('admin panel confirms rollbacks and states that proposals need approval', (
 });
 
 test('each match list keeps the backend order so feedback ranking is visible', () => {
-  const dashboard = read('../src/pages/Dashboard.tsx');
+  const dashboard = readCandidateSource();
   const start = dashboard.indexOf('function orderByBackendRank');
   const helper = dashboard.slice(start, dashboard.indexOf('\n}\n', start) + 2).replace('jobs: DashboardJob[]): DashboardJob[]', 'jobs)');
   const orderByBackendRank = new Function(`${ts.transpile(helper)}; return orderByBackendRank;`)();
@@ -168,5 +170,5 @@ test('each match list keeps the backend order so feedback ranking is visible', (
   const legacy = [{ id: 'a', matchScore: 90 }, { id: 'b', matchScore: 80, rankPosition: 1 }];
   assert.deepEqual(orderByBackendRank(legacy).map((job) => job.id), ['a', 'b']);
   assert.match(dashboard, /rankPosition: typeof dynamic\.rank_position === 'number'/);
-  assert.equal((dashboard.match(/orderByBackendRank\(jobs\.filter\(\(job\) => job\.matchCategory === '(fit-now|aspiration)'\)\)/g) || []).length, 5);
+  assert.equal((dashboard.match(/orderByBackendRank\(jobs\.filter\(\(job\) => job\.matchCategory === '(fit-now|aspiration)'\)\)/g) || []).length, 3);
 });

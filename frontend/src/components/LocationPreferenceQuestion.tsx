@@ -105,7 +105,7 @@ export default function LocationPreferenceQuestion({
       return regionSelect('Select your current region');
     }
     if (profileLocation === undefined || lookup.status === 'loading' || lookup.status === 'idle') {
-      return <p className="mt-3 text-xs text-soft">Finding your region from your profile location…</p>;
+      return <p className="mt-3 text-xs text-soft-text">Finding your region from your profile location…</p>;
     }
     if (lookup.status === 'resolved') {
       return (
@@ -131,7 +131,7 @@ export default function LocationPreferenceQuestion({
   return (
     <div className="rounded-xl border border-bdr bg-card p-5 transition-all hover:border-rust-m">
       <span className="mb-1 block text-sm font-semibold text-dark">Where do you want to work?</span>
-      <p className="mb-3.5 text-xs text-soft">
+      <p className="mb-3.5 text-xs text-soft-text">
         This limits on-site and hybrid jobs to a region. Your work setup answer is kept separately.
       </p>
       <div className="space-y-2.5" role="radiogroup">
@@ -150,7 +150,7 @@ export default function LocationPreferenceQuestion({
             />
             <span>
               <span className="block text-sm font-medium text-mid">{option.label}</span>
-              <span className="block text-xs text-soft">{option.description}</span>
+              <span className="block text-xs text-soft-text">{option.description}</span>
             </span>
           </label>
         ))}

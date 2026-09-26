@@ -12,7 +12,7 @@ export function Pill({ children, tone = 'neutral' }: { children: ReactNode; tone
 }
 
 export function PanelMessage({ children }: { children: ReactNode }) {
-  return <div className="border-t border-bdr px-4 py-8 text-center text-sm text-soft">{children}</div>;
+  return <div className="border-t border-bdr px-4 py-8 text-center text-sm text-soft-text">{children}</div>;
 }
 
 export function SearchBox({ value, onChange, onSubmit, placeholder }: { value: string; onChange: (value: string) => void; onSubmit: () => void; placeholder: string }) {
@@ -33,7 +33,7 @@ export function SearchBox({ value, onChange, onSubmit, placeholder }: { value: s
 export function Pager({ offset, limit, hasMore, onPage }: { offset: number; limit: number; hasMore: boolean; onPage: (offset: number) => void }) {
   if (offset === 0 && !hasMore) return null;
   return (
-    <div className="flex items-center justify-end gap-2 border-t border-bdr px-4 py-3 text-xs text-soft">
+    <div className="flex items-center justify-end gap-2 border-t border-bdr px-4 py-3 text-xs text-soft-text">
       <button className={buttonClass} type="button" disabled={offset === 0} onClick={() => onPage(Math.max(0, offset - limit))}>Previous</button>
       <span>Showing {offset + 1}-{offset + limit}</span>
       <button className={buttonClass} type="button" disabled={!hasMore} onClick={() => onPage(offset + limit)}>Next</button>

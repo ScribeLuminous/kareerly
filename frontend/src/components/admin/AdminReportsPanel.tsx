@@ -18,11 +18,11 @@ const reasonLabels: Record<string, string> = {
 };
 
 function PersonCell({ person, role }: { person: AdminPerson | null; role: string }) {
-  if (!person) return <span className="text-soft">Unknown {role}</span>;
+  if (!person) return <span className="text-soft-text">Unknown {role}</span>;
   return (
     <div>
       <div className="font-bold text-dark">{person.company_name || person.name}</div>
-      <div className="text-xs text-soft">{person.email} · <span className="capitalize">{person.role}</span></div>
+      <div className="text-xs text-soft-text">{person.email} · <span className="capitalize">{person.role}</span></div>
     </div>
   );
 }
@@ -93,12 +93,12 @@ export default function AdminReportsPanel({ getToken, notify }: AdminPanelProps)
             </button>
           ))}
         </div>
-        <p className="text-xs text-soft">Reports filed by candidates and employers from message threads.</p>
+        <p className="text-xs text-soft-text">Reports filed by candidates and employers from message threads.</p>
       </div>
       {loading && !data ? <PanelMessage>Loading reports...</PanelMessage> : reports.length === 0 ? <PanelMessage>No {status === 'all' ? '' : status} reports.</PanelMessage> : (
         <div className="overflow-x-auto border-t border-bdr">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-bg text-xs uppercase text-soft">
+            <thead className="bg-bg text-xs uppercase text-soft-text">
               <tr>
                 <th className="px-4 py-3 font-extrabold">Reason</th>
                 <th className="px-4 py-3 font-extrabold">Reported by</th>
@@ -114,19 +114,19 @@ export default function AdminReportsPanel({ getToken, notify }: AdminPanelProps)
                   <td className="max-w-[300px] px-4 py-3">
                     <div className="font-bold text-dark">{reasonLabels[report.reason || ''] || report.reason || 'No reason'}</div>
                     {report.details && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-mid">{report.details}</p>}
-                    <div className="mt-1 text-xs text-soft">{dateText(report.created_at)}</div>
+                    <div className="mt-1 text-xs text-soft-text">{dateText(report.created_at)}</div>
                   </td>
                   <td className="px-4 py-3"><PersonCell person={report.reporter} role={report.actor_role} /></td>
                   <td className="px-4 py-3"><PersonCell person={report.reported} role={report.actor_role === 'candidate' ? 'employer' : 'candidate'} /></td>
                   <td className="px-4 py-3 text-mid">
                     <div>{report.application.job_title || '-'}</div>
-                    <div className="text-xs text-soft">{report.application.company_name}</div>
+                    <div className="text-xs text-soft-text">{report.application.company_name}</div>
                   </td>
                   <td className="px-4 py-3">
                     <Pill tone={report.review_status === 'open' ? 'warn' : report.review_status === 'resolved' ? 'good' : 'neutral'}>
                       <span className="capitalize">{report.review_status}</span>
                     </Pill>
-                    {report.admin_note && <p className="mt-1 max-w-[200px] text-xs text-soft">{report.admin_note}</p>}
+                    {report.admin_note && <p className="mt-1 max-w-[200px] text-xs text-soft-text">{report.admin_note}</p>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">

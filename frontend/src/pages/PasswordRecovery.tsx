@@ -1,5 +1,8 @@
 import AuthShell from '../components/AuthShell';
 import { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { Banner } from '../components/ui';
 import { requestPasswordReset } from '../lib/auth';
 
 type PasswordRecoveryProps = {
@@ -42,68 +45,56 @@ export default function PasswordRecovery({ onBackToLogin, onHome }: PasswordReco
 
   return (
     <AuthShell
-      title="Reset your password"
-      subtitle="We'll send you a link to reset your password"
-      panelTitle="Password recovery"
-      panelSubtitle="Don't worry, we'll help you get back into your account"
-      panelItems={['Enter your email to receive reset link', 'Check your inbox for instructions', 'Create a new password']}
+      title={isSent ? 'Check your email' : 'Reset your password'}
+      subtitle={isSent ? undefined : "Enter your account email and we'll send you a reset link."}
+      panelTitle="Back into your account in a minute"
+      panelItems={['Enter the email you signed up with', 'Open the link we send you', 'Choose a new password']}
       onHome={onHome}
+      footer={(
+        <button className="k-link" type="button" onClick={onBackToLogin}>
+          <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />Back to log in
+        </button>
+      )}
     >
       {!isSent ? (
-        <>
-          <form onSubmit={handleSubmit}>
-            <label className="form-label" htmlFor="recovery-email">Email address</label>
+        <form onSubmit={handleSubmit} noValidate>
+          {error && <div role="alert"><Banner tone="error" className="mb-4">{error}</Banner></div>}
+          <div className="k-field">
+            <label className="k-label block" htmlFor="recovery-email">Email</label>
             <input
               id="recovery-email"
               name="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="input-base mb-3 border-2 bg-bg py-4 text-base outline-none focus:border-rust focus:bg-card"
-              placeholder="email@email.com"
+              className="k-input"
               required
               type="email"
+              inputMode="email"
+              autoComplete="email"
             />
-
-            {error && <div className="mb-4 rounded-lg border border-red bg-red-l px-3 py-2 text-sm font-semibold text-red">{error}</div>}
-
+          </div>
+          <button className="k-btn k-btn-primary k-btn-block mt-6" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Sending…' : 'Send reset link'}
+          </button>
+        </form>
+      ) : (
+        <div role="status">
+          <Banner tone="success">
+            If an account exists for <strong className="[overflow-wrap:anywhere]">{email.trim()}</strong>, a reset link is on its way.
+          </Banner>
+          <div className="mt-6 grid gap-2">
+            <button className="k-btn k-btn-primary k-btn-block" type="button" onClick={onBackToLogin}>Back to log in</button>
             <button
-              className="w-full rounded-xl bg-rust px-5 py-4 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              type="submit"
-              disabled={isSubmitting}
+              className="k-btn k-btn-ghost k-btn-block"
+              type="button"
+              onClick={() => {
+                setIsSent(false);
+                setError(null);
+              }}
             >
-              {isSubmitting ? 'Sending reset link...' : 'Send reset link'}
-            </button>
-          </form>
-
-          <div className="mt-8 border-t border-bdr pt-6 text-center">
-            <button className="font-bold text-rust hover:underline" type="button" onClick={onBackToLogin}>
-              ← Back to login
+              Send another link
             </button>
           </div>
-        </>
-      ) : (
-        <div className="rounded-xl border border-forest-m bg-forest-l p-5">
-          <div className="mb-2 text-sm font-bold text-forest">Reset link sent</div>
-          <p className="text-sm text-mid">
-            If an account exists for <span className="font-semibold text-dark">{email.trim()}</span>, a password reset link has been sent.
-          </p>
-          <button
-            className="mt-4 w-full rounded-xl bg-rust px-5 py-3 text-base font-bold text-white transition-opacity hover:opacity-90"
-            type="button"
-            onClick={onBackToLogin}
-          >
-            Back to login
-          </button>
-          <button
-            className="mt-3 w-full rounded-xl border border-bdr bg-bg px-5 py-3 text-base font-bold text-mid transition-all hover:border-rust hover:text-rust"
-            type="button"
-            onClick={() => {
-              setIsSent(false);
-              setError(null);
-            }}
-          >
-            Send another link
-          </button>
         </div>
       )}
     </AuthShell>
