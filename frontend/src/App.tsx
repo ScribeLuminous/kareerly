@@ -17,7 +17,7 @@ import SignUp from './pages/SignUp';
 import SignUpDefault from './pages/SignUpDefault';
 import { getAuthStatus, getCurrentKareerlyUser, signOutCurrentUser } from './lib/auth';
 import { clearGuestOnboarding, stashGuestOnboarding } from './lib/guestOnboarding';
-import { saveMatchHistory, saveResumeAnalysis } from './lib/userData';
+import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/userData';
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 import './index.css';
@@ -273,12 +273,19 @@ function AppContent() {
     }
     setView('dashboard');
   };
-  const handleCandidateLoginAuthenticated = (user: AuthUser) => {
+  const handleCandidateLoginAuthenticated = async (user: AuthUser) => {
     guestReportSaveFor.current = null;
     setCurrentUser(user);
     // A guest who left the report (Home, reload) still has it in storage.
     if (hasOnboardingSessionData || restoreGuestReport()) {
       setView('onboarding');
+      return;
+    }
+    // A returning candidate goes to the dashboard, which restores their saved
+    // resume, matches and preferences; only a new candidate starts at Step 1.
+    if (await loadLatestResume({ userId: user.id })) {
+      setView('dashboard');
+      navigate('/candidate/dashboard', { replace: true });
       return;
     }
     startOnboarding();
@@ -338,7 +345,7 @@ function AppContent() {
       handleEmployerAuthenticated({ ...user, company: user.company || 'Employer Workspace' });
       return;
     }
-    handleCandidateLoginAuthenticated(user);
+    void handleCandidateLoginAuthenticated(user);
   };
 
   if (isRestoringSession) {
