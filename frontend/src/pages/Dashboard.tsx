@@ -52,7 +52,7 @@ import { formatFileSize, validateResumeFile } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
 import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removeMatchFeedback, removedSkillIds, runJobMatches, saveCandidateAccountSettings, saveMatchFeedback, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
+import { analyzeResume, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removeMatchFeedback, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, saveMatchFeedback, sendApplicationMessage, submitMessageModeration, validateCertificateFile } from '../lib/api';
 import MatchFeedbackControls from '../components/MatchFeedbackControls';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote } from '../lib/matchFeedback';
 import type { MatchFeedbackStatus, MatchVote } from '../lib/matchFeedback';
@@ -3472,12 +3472,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         <ConfirmModal
           title="Delete Profile"
           description="Deleting your profile will remove your candidate account and related candidate records from Kareerly where applicable. This action may affect your saved matches, applications, and progress records."
-          footnote="This is a deletion request. A confirmation email will be sent before any account data is removed."
+          footnote="This sends a deletion request to the Kareerly administrators. Your account stays active until an administrator approves it."
           danger
           onCancel={() => setDeleteModalOpen(false)}
           onConfirm={() => {
             setDeleteModalOpen(false);
-            showToast('Profile deletion request submitted. Confirmation email sent.', 'success');
+            requestAccountDeletion()
+              .then(() => showToast('Profile deletion request sent. An administrator will review it.', 'success'))
+              .catch((error) => showToast(error instanceof Error ? error.message : 'Unable to submit your deletion request.', 'danger'));
           }}
           confirmLabel="Request Profile Deletion"
         />

@@ -30,6 +30,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError
 
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, RunMatchesRequest
+from .services.admin_stats import summarize_match_feedback
 from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
@@ -192,6 +193,23 @@ class AdminJobUpdateRequest(BaseModel):
 class AdminApplicationUpdateRequest(BaseModel):
     application_id: str
     status: str
+
+
+class AdminSuspendRequest(BaseModel):
+    suspended: bool
+
+
+class AdminReviewRequest(BaseModel):
+    status: str
+    note: Optional[str] = None
+
+
+class AdminDecisionRequest(BaseModel):
+    note: Optional[str] = None
+
+
+class DeletionRequestCreate(BaseModel):
+    reason: Optional[str] = None
 
 
 def _message_cipher() -> AESGCM:
@@ -1360,6 +1378,470 @@ def admin_update_application(payload: AdminApplicationUpdateRequest, authorizati
     if not isinstance(rows, list) or not rows:
         raise HTTPException(status_code=404, detail="Application was not found.")
     return {"application": rows[0]}
+
+
+# ---------------------------------------------------------------------------
+# Admin: users, resumes, message reports, match quality and account deletion
+# ---------------------------------------------------------------------------
+
+ADMIN_PAGE_LIMIT = 100
+SUSPEND_DURATION = "876000h"  # Supabase Auth ban length; about 100 years.
+REPORT_REVIEW_STATUSES = {"open", "resolved", "dismissed"}
+DELETION_REQUEST_STATUSES = {"pending", "approved", "rejected", "cancelled"}
+RESUME_TEXT_PREVIEW_CHARS = 20_000
+
+
+def _quote(value: str) -> str:
+    return urllib.parse.quote(str(value), safe="")
+
+
+def _in_filter(values) -> str:
+    return "in.(" + ",".join(sorted({str(value) for value in values if value})) + ")"
+
+
+def _rest_rows(table: str, params: dict) -> list[dict]:
+    rows = _supabase_request(f"/rest/v1/{table}?{urllib.parse.urlencode(params)}", service_role=True)
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+def _profiles_by_id(user_ids) -> dict[str, dict]:
+    ids = [value for value in set(user_ids) if value]
+    if not ids:
+        return {}
+    rows = _rest_rows("profiles", {"id": _in_filter(ids), "select": "id,role,first_name,last_name,email"})
+    return {str(row["id"]): row for row in rows}
+
+
+def _person(profile: dict | None) -> dict | None:
+    if not profile:
+        return None
+    name = f"{profile.get('first_name') or ''} {profile.get('last_name') or ''}".strip()
+    return {"id": profile.get("id"), "email": profile.get("email"), "name": name or profile.get("email"), "role": profile.get("role")}
+
+
+def _search_term(q: str | None) -> str:
+    # PostgREST `or` filters use commas, parentheses and * as syntax.
+    return re.sub(r"[,()*\\:]", " ", (q or "")).strip()[:100]
+
+
+def _admin_page(limit: int, offset: int) -> tuple[int, int]:
+    return max(1, min(limit, ADMIN_PAGE_LIMIT)), max(0, offset)
+
+
+def _banned_until_by_user() -> dict[str, str | None]:
+    try:
+        data = _supabase_request("/auth/v1/admin/users?page=1&per_page=1000", service_role=True)
+    except HTTPException as exc:
+        logger.warning("Unable to read suspension state from Supabase Auth: %s", exc.detail)
+        return {}
+    users = data.get("users") if isinstance(data, dict) else data
+    return {str(user.get("id")): user.get("banned_until") for user in users or [] if isinstance(user, dict)}
+
+
+def _is_suspended(banned_until: str | None) -> bool:
+    if not banned_until:
+        return False
+    try:
+        until = datetime.fromisoformat(str(banned_until).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    return until > datetime.now(timezone.utc)
+
+
+def _require_manageable_user(user_id: str, admin_id: str) -> dict:
+    if user_id == admin_id:
+        raise HTTPException(status_code=400, detail="You cannot change your own admin account here.")
+    rows = _rest_rows("profiles", {"id": f"eq.{user_id}", "select": "id,role,email,first_name,last_name", "limit": "1"})
+    if not rows:
+        raise HTTPException(status_code=404, detail="User was not found.")
+    if rows[0].get("role") == "admin":
+        raise HTTPException(status_code=403, detail="Administrator accounts cannot be suspended or deleted from the dashboard.")
+    return rows[0]
+
+
+def _remove_storage_objects(rows: list[dict]) -> None:
+    by_bucket: dict[str, list[str]] = {}
+    for row in rows:
+        if row.get("storage_bucket") and row.get("storage_path"):
+            by_bucket.setdefault(str(row["storage_bucket"]), []).append(str(row["storage_path"]))
+    for bucket, paths in by_bucket.items():
+        try:
+            _supabase_request(f"/storage/v1/object/{_quote(bucket)}", method="DELETE", service_role=True, body={"prefixes": paths})
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+
+
+def _delete_user_account(user_id: str) -> None:
+    """Remove stored resume files, then the auth user; table rows cascade from it."""
+    _remove_storage_objects(_rest_rows("resumes", {"user_id": f"eq.{user_id}", "select": "storage_bucket,storage_path"}))
+    try:
+        _supabase_request(f"/auth/v1/admin/users/{_quote(user_id)}", method="DELETE", service_role=True)
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise
+
+
+@app.get("/api/admin/users")
+def admin_list_users(
+    role: str = "candidate",
+    q: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    authorization: Annotated[Optional[str], Header()] = None,
+) -> dict:
+    _require_admin_user(authorization)
+    if role not in {"candidate", "employer", "admin"}:
+        raise HTTPException(status_code=400, detail="Role must be candidate, employer or admin.")
+    limit, offset = _admin_page(limit, offset)
+    params = {
+        "role": f"eq.{role}", "select": "id,role,first_name,last_name,email,created_at",
+        "order": "created_at.desc", "limit": str(limit + 1), "offset": str(offset),
+    }
+    term = _search_term(q)
+    if term:
+        params["or"] = f"(email.ilike.*{term}*,first_name.ilike.*{term}*,last_name.ilike.*{term}*)"
+    rows = _rest_rows("profiles", params)
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    banned = _banned_until_by_user()
+    extra: dict[str, dict] = {}
+    ids = [row["id"] for row in rows]
+    if ids and role == "employer":
+        for row in _rest_rows("employer_profiles", {"user_id": _in_filter(ids), "select": "user_id,company_name"}):
+            extra[str(row["user_id"])] = {"company_name": row.get("company_name")}
+    if ids and role == "candidate":
+        counts: dict[str, int] = {}
+        for row in _rest_rows("resumes", {"user_id": _in_filter(ids), "select": "user_id", "limit": "5000"}):
+            counts[str(row["user_id"])] = counts.get(str(row["user_id"]), 0) + 1
+        extra = {user_id: {"resume_count": count} for user_id, count in counts.items()}
+    pending: set[str] = set()
+    if ids:
+        try:
+            pending = {str(row["user_id"]) for row in _rest_rows(
+                "account_deletion_requests", {"user_id": _in_filter(ids), "status": "eq.pending", "select": "user_id"})}
+        except HTTPException:
+            pass  # The deletion-requests migration has not been applied yet.
+    users = [{
+        **row,
+        **extra.get(str(row["id"]), {}),
+        "banned_until": banned.get(str(row["id"])),
+        "suspended": _is_suspended(banned.get(str(row["id"]))),
+        "deletion_requested": str(row["id"]) in pending,
+    } for row in rows]
+    return {"users": users, "has_more": has_more, "offset": offset, "limit": limit}
+
+
+@app.post("/api/admin/users/{user_id}/suspend")
+def admin_suspend_user(user_id: str, payload: AdminSuspendRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    admin_id = _require_admin_user(authorization)
+    _require_manageable_user(user_id, admin_id)
+    body = {"ban_duration": SUSPEND_DURATION if payload.suspended else "none"}
+    updated = _supabase_request(f"/auth/v1/admin/users/{_quote(user_id)}", method="PUT", service_role=True, body=body)
+    banned_until = updated.get("banned_until") if isinstance(updated, dict) else None
+    return {"user_id": user_id, "suspended": payload.suspended, "banned_until": banned_until}
+
+
+@app.delete("/api/admin/users/{user_id}")
+def admin_delete_user(user_id: str, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    admin_id = _require_admin_user(authorization)
+    _require_manageable_user(user_id, admin_id)
+    try:
+        _supabase_request(
+            f"/rest/v1/account_deletion_requests?user_id=eq.{_quote(user_id)}&status=eq.pending",
+            method="PATCH", service_role=True,
+            body={"status": "approved", "reviewed_at": _safe_timestamp(), "reviewed_by": admin_id, "admin_note": "Deleted directly by an administrator."},
+        )
+    except HTTPException:
+        pass  # The deletion-requests migration has not been applied yet.
+    _delete_user_account(user_id)
+    return {"deleted": True, "user_id": user_id}
+
+
+RESUME_LIST_SELECT = "id,user_id,original_filename,storage_bucket,storage_path,file_mime_type,file_size_bytes,created_at"
+
+
+@app.get("/api/admin/resumes")
+def admin_list_resumes(
+    q: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    authorization: Annotated[Optional[str], Header()] = None,
+) -> dict:
+    _require_admin_user(authorization)
+    limit, offset = _admin_page(limit, offset)
+    params = {"select": RESUME_LIST_SELECT, "order": "created_at.desc", "limit": str(limit + 1), "offset": str(offset)}
+    term = _search_term(q)
+    if term:
+        owners = _rest_rows("profiles", {
+            "select": "id", "limit": "500",
+            "or": f"(email.ilike.*{term}*,first_name.ilike.*{term}*,last_name.ilike.*{term}*)",
+        })
+        if not owners:
+            return {"resumes": [], "has_more": False, "offset": offset, "limit": limit}
+        params["user_id"] = _in_filter(row["id"] for row in owners)
+    rows = _rest_rows("resumes", params)
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    owners_by_id = _profiles_by_id(row.get("user_id") for row in rows)
+    resumes = [{**row, "has_file": bool(row.get("storage_bucket") and row.get("storage_path")),
+        "owner": _person(owners_by_id.get(str(row.get("user_id"))))} for row in rows]
+    return {"resumes": resumes, "has_more": has_more, "offset": offset, "limit": limit}
+
+
+def _get_resume(resume_id: str, select: str) -> dict:
+    rows = _rest_rows("resumes", {"id": f"eq.{resume_id}", "select": select, "limit": "1"})
+    if not rows:
+        raise HTTPException(status_code=404, detail="Resume was not found.")
+    return rows[0]
+
+
+@app.get("/api/admin/resumes/{resume_id}")
+def admin_view_resume(resume_id: str, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    row = _get_resume(resume_id, f"{RESUME_LIST_SELECT},parsed_text")
+    download_url = None
+    if row.get("storage_bucket") and row.get("storage_path"):
+        try:
+            signed = _supabase_request(
+                f"/storage/v1/object/sign/{_quote(row['storage_bucket'])}/{urllib.parse.quote(str(row['storage_path']))}",
+                method="POST", service_role=True, body={"expiresIn": 300},
+            )
+        except HTTPException as exc:
+            if exc.status_code not in {400, 404}:
+                raise
+            signed = None
+        path = signed.get("signedURL") or signed.get("signedUrl") if isinstance(signed, dict) else None
+        if path:
+            download_url = path if path.startswith("http") else f"{SUPABASE_URL}/storage/v1{path}"
+    text = str(row.pop("parsed_text", None) or "")
+    owner = _person(_profiles_by_id([row.get("user_id")]).get(str(row.get("user_id"))))
+    return {
+        "resume": {**row, "owner": owner, "download_url": download_url,
+            "parsed_text": text[:RESUME_TEXT_PREVIEW_CHARS], "parsed_text_truncated": len(text) > RESUME_TEXT_PREVIEW_CHARS},
+    }
+
+
+@app.delete("/api/admin/resumes/{resume_id}")
+def admin_delete_resume(resume_id: str, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    row = _get_resume(resume_id, "id,storage_bucket,storage_path")
+    _remove_storage_objects([row])
+    _supabase_request(f"/rest/v1/resumes?id=eq.{_quote(resume_id)}", method="DELETE", service_role=True)
+    return {"deleted": True, "resume_id": resume_id}
+
+
+def _thread_participants(application_ids) -> dict[str, dict]:
+    """Candidate and employer user IDs for each application's message thread."""
+    ids = [value for value in set(application_ids) if value]
+    if not ids:
+        return {}
+    threads = _rest_rows("message_threads", {"application_id": _in_filter(ids), "select": "application_id,candidate_id,employer_id"})
+    candidate_ids = {str(row.get("candidate_id")) for row in threads if row.get("candidate_id")}
+    employer_ids = {str(row.get("employer_id")) for row in threads if row.get("employer_id")}
+    candidate_users = {str(row["id"]): str(row["user_id"]) for row in _rest_rows(
+        "candidate_profiles", {"id": _in_filter(candidate_ids), "select": "id,user_id"})} if candidate_ids else {}
+    employers = {str(row["id"]): row for row in _rest_rows(
+        "employer_profiles", {"id": _in_filter(employer_ids), "select": "id,user_id,company_name"})} if employer_ids else {}
+    participants: dict[str, dict] = {}
+    for row in threads:
+        candidate_id, employer_id = str(row.get("candidate_id") or ""), str(row.get("employer_id") or "")
+        employer = employers.get(employer_id, {})
+        participants[str(row["application_id"])] = {
+            # Some deployments store auth user IDs directly in the thread columns.
+            "candidate": candidate_users.get(candidate_id, candidate_id or None),
+            "employer": str(employer.get("user_id") or employer_id) or None,
+            "company_name": employer.get("company_name"),
+        }
+    return participants
+
+
+@app.get("/api/admin/reports")
+def admin_list_reports(status: str = "open", authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    if status != "all" and status not in REPORT_REVIEW_STATUSES:
+        raise HTTPException(status_code=400, detail="Status must be open, resolved, dismissed or all.")
+    params = {
+        "action": "eq.report", "order": "created_at.desc", "limit": "200",
+        "select": "id,application_id,actor_user_id,actor_role,reason,details,created_at,review_status,reviewed_at,reviewed_by,admin_note",
+    }
+    if status != "all":
+        params["review_status"] = f"eq.{status}"
+    rows = _rest_rows("message_moderation_actions", params)
+    application_ids = [row.get("application_id") for row in rows]
+    applications = {str(row["id"]): row for row in _rest_rows(
+        "job_applications", {"id": _in_filter(application_ids), "select": "id,job_title,company_name,status"})} if rows else {}
+    participants = _thread_participants(application_ids)
+    reported_ids: dict[str, str | None] = {}
+    for row in rows:
+        other_role = "employer" if row.get("actor_role") == "candidate" else "candidate"
+        reported_ids[str(row["id"])] = participants.get(str(row.get("application_id")), {}).get(other_role)
+    people = _profiles_by_id([row.get("actor_user_id") for row in rows] + list(reported_ids.values()))
+    reports = []
+    for row in rows:
+        application = applications.get(str(row.get("application_id")), {})
+        reported = _person(people.get(str(reported_ids.get(str(row["id"])))))
+        if reported and reported.get("role") == "employer":
+            reported["company_name"] = participants.get(str(row.get("application_id")), {}).get("company_name")
+        reports.append({
+            **row,
+            "reporter": _person(people.get(str(row.get("actor_user_id")))),
+            "reported": reported,
+            "application": {"job_title": application.get("job_title"), "company_name": application.get("company_name"),
+                "status": application.get("status")},
+        })
+    counts = {name: 0 for name in REPORT_REVIEW_STATUSES}
+    for row in _rest_rows("message_moderation_actions", {"action": "eq.report", "select": "review_status", "limit": "10000"}):
+        if row.get("review_status") in counts:
+            counts[row["review_status"]] += 1
+    return {"reports": reports, "counts": counts}
+
+
+@app.patch("/api/admin/reports/{report_id}")
+def admin_review_report(report_id: str, payload: AdminReviewRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    admin_id = _require_admin_user(authorization)
+    status = payload.status.strip().lower()
+    if status not in REPORT_REVIEW_STATUSES:
+        raise HTTPException(status_code=400, detail="Status must be open, resolved or dismissed.")
+    note = (payload.note or "").strip() or None
+    if note and len(note) > 2000:
+        raise HTTPException(status_code=400, detail="Admin notes must be 2000 characters or fewer.")
+    reopened = status == "open"
+    body = {"review_status": status, "admin_note": note,
+        "reviewed_at": None if reopened else _safe_timestamp(), "reviewed_by": None if reopened else admin_id}
+    rows = _supabase_request(
+        f"/rest/v1/message_moderation_actions?id=eq.{_quote(report_id)}&action=eq.report",
+        method="PATCH", service_role=True, body=body, prefer="return=representation",
+    )
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=404, detail="Report was not found.")
+    return {"report": rows[0]}
+
+
+@app.get("/api/admin/match-feedback/stats")
+def admin_match_feedback_stats(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    rows = _rest_rows("match_feedback", {
+        "select": "user_id,job_id,job_source,vote,match_category,match_score,ranker_version,created_at,updated_at",
+        "order": "updated_at.desc", "limit": "20000",
+    })
+    summary = summarize_match_feedback(rows)
+    flagged = summary["most_downvoted_jobs"]
+    titles: dict[tuple[str, str], dict] = {}
+    for source, table in (("internal", "internal_jobs"), ("employer", "employer_job_posts")):
+        job_ids = [item["job_id"] for item in flagged if item["job_source"] == source]
+        if job_ids:
+            for row in _rest_rows(table, {"job_id": _in_filter(job_ids), "select": "job_id,job_title,company_name"}):
+                titles[(source, str(row["job_id"]))] = row
+    for item in flagged:
+        job = titles.get((item["job_source"], item["job_id"]), {})
+        item["job_title"] = job.get("job_title")
+        item["company_name"] = job.get("company_name")
+    return summary
+
+
+def _profile_for_session(authorization: str | None) -> dict:
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Sign in to manage your account.")
+    rows = _rest_rows("profiles", {"id": f"eq.{user_id}", "select": "id,role,email", "limit": "1"})
+    if not rows:
+        raise HTTPException(status_code=404, detail="Your profile was not found.")
+    return rows[0]
+
+
+def _latest_deletion_request(user_id: str) -> dict | None:
+    rows = _rest_rows("account_deletion_requests", {
+        "user_id": f"eq.{user_id}", "select": "id,status,reason,requested_at,reviewed_at,admin_note",
+        "order": "requested_at.desc", "limit": "1",
+    })
+    return rows[0] if rows else None
+
+
+@app.get("/api/account/deletion-request")
+def get_account_deletion_request(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    profile = _profile_for_session(authorization)
+    return {"request": _latest_deletion_request(str(profile["id"]))}
+
+
+@app.post("/api/account/deletion-request")
+def create_account_deletion_request(payload: DeletionRequestCreate, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    profile = _profile_for_session(authorization)
+    if profile.get("role") not in {"candidate", "employer"}:
+        raise HTTPException(status_code=400, detail="Administrator accounts cannot request deletion here.")
+    reason = (payload.reason or "").strip() or None
+    if reason and len(reason) > 2000:
+        raise HTTPException(status_code=400, detail="Please keep the reason to 2000 characters or fewer.")
+    latest = _latest_deletion_request(str(profile["id"]))
+    if latest and latest.get("status") == "pending":
+        return {"request": latest}
+    rows = _supabase_request("/rest/v1/account_deletion_requests", method="POST", service_role=True, body={
+        "user_id": profile["id"], "user_email": profile.get("email") or "", "user_role": profile["role"], "reason": reason,
+    }, prefer="return=representation")
+    return {"request": rows[0] if isinstance(rows, list) and rows else None}
+
+
+@app.delete("/api/account/deletion-request")
+def cancel_account_deletion_request(authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    profile = _profile_for_session(authorization)
+    _supabase_request(
+        f"/rest/v1/account_deletion_requests?user_id=eq.{_quote(profile['id'])}&status=eq.pending",
+        method="PATCH", service_role=True, body={"status": "cancelled"},
+    )
+    return {"request": _latest_deletion_request(str(profile["id"]))}
+
+
+@app.get("/api/admin/deletion-requests")
+def admin_list_deletion_requests(status: str = "pending", authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    _require_admin_user(authorization)
+    if status != "all" and status not in DELETION_REQUEST_STATUSES:
+        raise HTTPException(status_code=400, detail="Unknown deletion request status.")
+    params = {"select": "*", "order": "requested_at.desc", "limit": "200"}
+    if status != "all":
+        params["status"] = f"eq.{status}"
+    rows = _rest_rows("account_deletion_requests", params)
+    people = _profiles_by_id(row.get("user_id") for row in rows)
+    counts = {name: 0 for name in DELETION_REQUEST_STATUSES}
+    for row in _rest_rows("account_deletion_requests", {"select": "status", "limit": "10000"}):
+        if row.get("status") in counts:
+            counts[row["status"]] += 1
+    return {"requests": [{**row, "user": _person(people.get(str(row.get("user_id"))))} for row in rows], "counts": counts}
+
+
+def _pending_deletion_request(request_id: str) -> dict:
+    rows = _rest_rows("account_deletion_requests", {"id": f"eq.{request_id}", "select": "*", "limit": "1"})
+    if not rows:
+        raise HTTPException(status_code=404, detail="Deletion request was not found.")
+    if rows[0].get("status") != "pending":
+        raise HTTPException(status_code=409, detail=f"This request was already {rows[0].get('status')}.")
+    return rows[0]
+
+
+def _close_deletion_request(request_id: str, status: str, admin_id: str, note: str | None) -> dict:
+    rows = _supabase_request(
+        f"/rest/v1/account_deletion_requests?id=eq.{_quote(request_id)}", method="PATCH", service_role=True,
+        body={"status": status, "reviewed_at": _safe_timestamp(), "reviewed_by": admin_id, "admin_note": (note or "").strip() or None},
+        prefer="return=representation",
+    )
+    return rows[0] if isinstance(rows, list) and rows else {"id": request_id, "status": status}
+
+
+@app.post("/api/admin/deletion-requests/{request_id}/approve")
+def admin_approve_deletion_request(request_id: str, payload: AdminDecisionRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    admin_id = _require_admin_user(authorization)
+    request = _pending_deletion_request(request_id)
+    user_id = request.get("user_id")
+    if user_id:
+        _require_manageable_user(str(user_id), admin_id)
+        _delete_user_account(str(user_id))
+    return {"request": _close_deletion_request(request_id, "approved", admin_id, payload.note)}
+
+
+@app.post("/api/admin/deletion-requests/{request_id}/reject")
+def admin_reject_deletion_request(request_id: str, payload: AdminDecisionRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    admin_id = _require_admin_user(authorization)
+    _pending_deletion_request(request_id)
+    return {"request": _close_deletion_request(request_id, "rejected", admin_id, payload.note)}
 
 
 @app.get("/api/jobs/list")

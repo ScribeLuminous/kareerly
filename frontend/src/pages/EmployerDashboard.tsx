@@ -47,6 +47,7 @@ import Logo from '../components/Logo';
 import {
   loadApplicationMessages,
   loadEmployerAccountSettings,
+  requestAccountDeletion,
   saveEmployerAccountSettings,
   sendApplicationMessage,
   updateEmployerApplicationStatus,
@@ -1538,7 +1539,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const requestDeleteEmployerProfile = () => {
     setDeleteProfileModalOpen(false);
-    showToast('Profile deletion request submitted. A confirmation email will be sent.', 'success');
+    requestAccountDeletion()
+      .then(() => showToast('Profile deletion request sent. An administrator will review it.', 'success'))
+      .catch((error) => showToast(error instanceof Error ? error.message : 'Unable to submit your deletion request.', 'danger'));
   };
 
   const handleLogout = () => {
@@ -3389,7 +3392,7 @@ function DeleteProfileModal({ onCancel, onConfirm }: { onCancel: () => void; onC
         <div className="emp-danger-notice">
           <UIIcon name="times-circle" />
           <span>
-            This is a deletion request. You will receive an email confirmation before any employer data is removed.
+            This sends a deletion request to the Kareerly administrators. Your account stays active until an administrator approves it.
           </span>
         </div>
         <p className="mt-3 text-sm text-soft">
