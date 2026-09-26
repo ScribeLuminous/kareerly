@@ -5,6 +5,7 @@ import { answersFromPreferencesUsed, summarizePreferences } from '../lib/prefere
 import type { PreferenceSummaryItem } from '../lib/preferenceOptions';
 import { downloadCareerReportPdf } from '../lib/reportPdf';
 import type { CareerReportContent, ReportMatchEntry } from '../lib/reportPdf';
+import RegionFilterNotice from './RegionFilterNotice';
 import StepArrowButton from './StepArrowButton';
 import {
   faBookOpen,
@@ -258,7 +259,7 @@ function resolveSnapshotCount(metadataCount: unknown, fallbackItems: unknown[] |
 }
 
 export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: SnapshotStepProps) {
-  const { state, goToStep } = useOnboarding();
+  const { state, goToStep, setSurveyAnswers } = useOnboarding();
   const [pdfStatus, setPdfStatus] = useState<'idle' | 'working' | 'failed'>('idle');
   const resumeAnalysis = state.resumeAnalysis;
   const matchResults = state.matchResults;
@@ -448,6 +449,17 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
       </div>
 
       <PreferenceSummary items={preferenceItems} />
+
+      <RegionFilterNotice
+        filter={matchResults.location_filter}
+        hasMatches={fitNowMatches.length + aspirationMatches.length + closestMatches.length > 0}
+        onChangeRegion={() => goToStep(3)}
+        onRemoveFilter={() => {
+          // Step 3 opens with the filter removed; generating the report again applies it.
+          if (state.surveyAnswers) setSurveyAnswers({ ...state.surveyAnswers, locationScope: 'anywhere', region: '' });
+          goToStep(3);
+        }}
+      />
 
       <div className="bg-card border border-bdr rounded-xl p-6 mb-4">
         <div className="text-base font-bold text-dark mb-4 flex items-center gap-2">

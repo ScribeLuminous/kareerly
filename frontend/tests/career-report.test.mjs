@@ -13,7 +13,8 @@ function load(path, replacements = {}) {
 }
 
 const careerAreas = load('../src/lib/careerAreas.ts');
-const preferences = await import(load('../src/lib/preferenceOptions.ts', { './careerAreas': careerAreas }));
+const regionPreference = load('../src/lib/regionPreference.ts');
+const preferences = await import(load('../src/lib/preferenceOptions.ts', { './careerAreas': careerAreas, './regionPreference': regionPreference }));
 const reportPdf = await import(load('../src/lib/reportPdf.ts', { jspdf: import.meta.resolve('jspdf') }));
 const snapshotSource = readFileSync(new URL('../src/components/SnapshotStep.tsx', import.meta.url), 'utf8');
 

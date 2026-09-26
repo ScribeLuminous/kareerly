@@ -67,9 +67,13 @@ import { assessSavedResume, extractionWarnings, RESUME_FILE_ACCEPT, staleResumeM
 import type { LearningRecommendation as RunLearningRecommendation } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
 import { formatJobDescription } from '../lib/jobDescription';
-import type { CredentialType, CourseRecommendation, JobMatch, MatchResultItem, ParsedResume, PrioritizedSkillGap, SelectedSkill, SkillGap, SurveyAnswers } from '../types';
+import type { CredentialType, CourseRecommendation, JobMatch, JobMatchRunResults, MatchResultItem, ParsedResume, PrioritizedSkillGap, SelectedSkill, SkillGap, SurveyAnswers } from '../types';
 import './candidate-dashboard-v5.css';
 import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
+import LocationPreferenceQuestion from '../components/LocationPreferenceQuestion';
+import type { LocationPreferenceValue } from '../components/LocationPreferenceQuestion';
+import RegionFilterNotice from '../components/RegionFilterNotice';
+import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
 
 type DashboardProps = {
   currentUser: { id?: string; name: string; email: string } | null;
@@ -350,6 +354,8 @@ const defaultSurveyAnswers: SurveyAnswers = {
   setup: '',
   salary: '',
   skill: '',
+  locationScope: 'anywhere',
+  region: '',
 };
 
 const setupLabels: Record<string, string> = {
@@ -1236,7 +1242,7 @@ function preferenceKeyForLabel(table: Record<string, string>, label: string | nu
 async function loadProfilePreferences(userId: string): Promise<SurveyAnswers | null> {
   const { data, error } = await supabase
     .from('candidate_profiles')
-    .select('preferred_industry,target_role,preferred_work_setup,expected_salary,skill_to_develop')
+    .select('preferred_industry,target_role,preferred_work_setup,expected_salary,skill_to_develop,preferred_location_scope,preferred_region')
     .eq('user_id', userId)
     .maybeSingle();
   if (error) {
@@ -1250,6 +1256,8 @@ async function loadProfilePreferences(userId: string): Promise<SurveyAnswers | n
     setup: preferenceKeyForLabel(setupLabels, data.preferred_work_setup),
     salary: preferenceKeyForLabel({ ...legacySalaryLabels, ...salaryLabels }, data.expected_salary),
     skill: data.skill_to_develop || '',
+    locationScope: normalizeLocationScope(data.preferred_location_scope),
+    region: data.preferred_region || '',
   };
 }
 
@@ -1392,6 +1400,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [accountIdentity, setAccountIdentity] = useState({ name: currentUser.name, email: currentUser.email });
   const [accountPassword, setAccountPassword] = useState({ current: '', next: '', confirm: '' });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  // The profile location decides the current region; wait for it before saying there is none.
+  const [accountSettingsLoaded, setAccountSettingsLoaded] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [profileSaveNotice, setProfileSaveNotice] = useState<string | null>(null);
 
@@ -1465,8 +1475,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   useEffect(() => {
     let isMounted = true;
     void (async () => {
-      const data = await loadCandidateAccountSettings();
-      if (!isMounted || !data) return;
+      const data = await loadCandidateAccountSettings().catch((error) => {
+        if (isMounted) setAccountSettingsLoaded(true);
+        throw error;
+      });
+      if (!isMounted) return;
+      setAccountSettingsLoaded(true);
+      if (!data) return;
       setAccountIdentity({ name: data.full_name || currentUser.name, email: data.email || currentUser.email });
       setCandidatePublicId(String(data.public_id || ''));
       setProfileForm((current) => ({
@@ -2206,6 +2221,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         work_setup: preferencePayload.work_setup,
         salary_expectation: preferencePayload.salary_expectation,
         skill_to_develop: preferencePayload.skill_to_develop,
+        // The saved region choice; "current" also sends the profile location so
+        // the backend resolves the region with the same mapping it uses for jobs.
+        ...locationPreferencePayload(answers, profileForm.location),
       },
     });
 
@@ -2233,6 +2251,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   const handlePreferencesSave = async (answers: SurveyAnswers) => {
+    if (!isLocationPreferenceComplete(answers)) {
+      showToast('Please choose a region, or pick "Anywhere in the Philippines".', 'warn');
+      return;
+    }
     setSurveyAnswers(answers);
     if (currentUser?.id) {
       await updateCandidateProfile({
@@ -2242,6 +2264,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         preferredWorkSetup: getPreferenceLabel(setupLabels, answers.setup),
         expectedSalary: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
         skillToDevelop: answers.skill,
+        preferredLocationScope: normalizeLocationScope(answers.locationScope),
+        preferredRegion: locationPreferencePayload(answers).region,
       }).catch((error) => {
         console.warn('Unable to save preferences to Supabase:', error);
       });
@@ -3180,6 +3204,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               matchFeedback={matchFeedback}
               matchFeedbackStatus={matchFeedbackStatus}
               onRateMatch={submitMatchFeedback}
+              locationFilter={state.matchResults?.location_filter}
+              reportHasMatches={Boolean(
+                (state.matchResults?.all_fit_now_matches || state.matchResults?.fit_now_matches || []).length
+                || (state.matchResults?.all_aspiration_matches || state.matchResults?.aspiration_matches || []).length,
+              )}
+              isBusy={state.isLoading}
+              onChangeRegion={() => setActivePage('preferences')}
+              onRemoveRegionFilter={() => void handlePreferencesSave({ ...surveyAnswers, locationScope: 'anywhere', region: '' })}
               onVisitSite={(job) => {
                 const fallbackQuery = encodeURIComponent(`${job.title} ${job.company} jobs`);
                 const targetUrl = job.externalUrl || `https://www.google.com/search?q=${fallbackQuery}`;
@@ -3242,6 +3274,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           {activePage === 'preferences' && (
             <PreferencesPage
               surveyAnswers={surveyAnswers}
+              profileLocation={accountSettingsLoaded ? profileForm.location : undefined}
               extraPreferences={extraPreferences}
               skillNames={skillNames}
               isLoading={state.isLoading}
@@ -3803,6 +3836,11 @@ function JobMatchesPage({
   matchFeedback,
   matchFeedbackStatus,
   onRateMatch,
+  locationFilter,
+  reportHasMatches,
+  isBusy,
+  onChangeRegion,
+  onRemoveRegionFilter,
 }: {
   jobs: DashboardJob[];
   topMatchesCount: number;
@@ -3823,6 +3861,11 @@ function JobMatchesPage({
   matchFeedback: Record<string, MatchVote>;
   matchFeedbackStatus: Record<string, MatchFeedbackStatus>;
   onRateMatch: (job: DashboardJob, vote: MatchVote) => void;
+  locationFilter: JobMatchRunResults['location_filter'];
+  reportHasMatches: boolean;
+  isBusy: boolean;
+  onChangeRegion: () => void;
+  onRemoveRegionFilter: () => void;
 }) {
   // Each column is sized to its tallest first card so one whole match, down to
   // its Apply/View/Save buttons, is visible before the column needs scrolling.
@@ -4002,6 +4045,16 @@ function JobMatchesPage({
           <FilterTab active={jobFilter === 'saved'} onClick={() => onFilter('saved')}><UIIcon name="bookmark" className="cand-tab-icon" />Saved Jobs ({savedJobs.size})</FilterTab>
         </div>
       </div>
+
+      {jobFilter !== 'saved' && (
+        <RegionFilterNotice
+          filter={locationFilter}
+          hasMatches={reportHasMatches}
+          onChangeRegion={onChangeRegion}
+          onRemoveFilter={onRemoveRegionFilter}
+          isBusy={isBusy}
+        />
+      )}
 
       {jobFilter === 'saved' ? (
         savedTableRows.length > 0 ? (
@@ -4620,6 +4673,7 @@ function ApplicationsPage({
 
 function PreferencesPage({
   surveyAnswers,
+  profileLocation,
   extraPreferences,
   skillNames,
   isLoading,
@@ -4629,6 +4683,8 @@ function PreferencesPage({
   onReset,
 }: {
   surveyAnswers: SurveyAnswers;
+  /** The saved profile location; undefined until account settings have loaded. */
+  profileLocation: string | undefined;
   extraPreferences: { jobLevel: string; preferredLocation: string };
   skillNames: string[];
   isLoading: boolean;
@@ -4643,6 +4699,10 @@ function PreferencesPage({
   useEffect(() => {
     setDraft(surveyAnswers);
   }, [surveyAnswers]);
+
+  const updateLocation = useCallback((next: LocationPreferenceValue) => {
+    setDraft((current) => ({ ...current, locationScope: next.locationScope, region: next.region }));
+  }, []);
 
   const addSkill = () => {
     const next = skillInput.trim();
@@ -4700,13 +4760,6 @@ function PreferencesPage({
               ))}
             </select>
           </FormField>
-          <FormField label="Preferred Location">
-            <input
-              className="cand-form-input"
-              value={extraPreferences.preferredLocation}
-              onChange={(event) => onUpdateExtra({ ...extraPreferences, preferredLocation: event.target.value })}
-            />
-          </FormField>
           <FormField label="Salary Expectation">
             <select className="cand-form-select" value={draft.salary} onChange={(event) => setDraft((current) => ({ ...current, salary: event.target.value }))}>
               {Object.entries(salaryLabels).map(([value, label]) => (
@@ -4714,6 +4767,17 @@ function PreferencesPage({
               ))}
             </select>
           </FormField>
+        </div>
+
+        <div className="mb-4">
+          <LocationPreferenceQuestion
+            scope={draft.locationScope}
+            region={draft.region}
+            onChange={updateLocation}
+            isSignedIn
+            profileLocation={profileLocation}
+            name="dashboard-location-scope"
+          />
         </div>
 
         <FormField label="Skill Development Interest">
@@ -4753,7 +4817,7 @@ function PreferencesPage({
         </div>
 
         <div className="cand-form-actions">
-          <button className="cand-btn-primary" type="button" disabled={isLoading} onClick={() => onSave(draft)}>
+          <button className="cand-btn-primary" type="button" disabled={isLoading || !isLocationPreferenceComplete(draft)} onClick={() => onSave(draft)}>
             {isLoading ? 'Saving and Refreshing...' : 'Save Preferences'}
           </button>
           <button className="cand-btn-secondary" type="button" onClick={onReset}>

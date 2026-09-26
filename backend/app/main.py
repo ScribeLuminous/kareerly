@@ -35,6 +35,7 @@ from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.skill_variants import load_skill_variants
+from .services.ph_regions import region_name, region_options, resolve_single_region, regions_in_location
 from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
@@ -732,6 +733,11 @@ def _sync_match_results_to_supabase(
         "skill_to_develop": str(preferences.get("skill_to_develop") or "") or None,
         "updated_at": now,
     }
+    # Sent only by clients that ask the region question, so older clients keep
+    # syncing while the region columns' migration has not run.
+    if preferences.get("location_scope"):
+        candidate_profile_payload["preferred_location_scope"] = str(preferences.get("location_scope")) or None
+        candidate_profile_payload["preferred_region"] = str(preferences.get("region") or "") or None
     _supabase_request(
         "/rest/v1/candidate_profiles?on_conflict=user_id",
         method="POST",
@@ -1549,6 +1555,25 @@ async def validate_certificate_file(
         "verification_status": "pending_verification",
         "authenticity_verified": False,
         "message": "File checks passed. Pending Verification: certificate authenticity and completion have not been verified.",
+    }
+
+
+@app.get("/api/locations/regions")
+def list_regions(location: str = "") -> dict:
+    """The Philippine regions, and the region a location resolves to.
+
+    The frontend shows the candidate's current region from this answer so the
+    region used for filtering is always the one the backend would compute.
+    ``current_region`` is empty when the location names no region, or more
+    than one ("Philippines", "Laguna / Metro Manila"): the candidate chooses.
+    """
+    current = resolve_single_region(location) if location.strip() else None
+    return {
+        "regions": region_options(),
+        "location": location,
+        "current_region": current or "",
+        "current_region_name": region_name(current) if current else "",
+        "location_regions": sorted(regions_in_location(location)) if location.strip() else [],
     }
 
 

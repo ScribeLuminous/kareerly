@@ -320,6 +320,8 @@ export async function updateCandidateProfile(input: {
   expectedSalary?: string;
   targetRole?: string;
   skillToDevelop?: string;
+  preferredLocationScope?: string;
+  preferredRegion?: string;
 }) {
   const payload: Record<string, unknown> = {};
   if (typeof input.location === 'string') payload.location = input.location;
@@ -330,10 +332,21 @@ export async function updateCandidateProfile(input: {
   if (typeof input.expectedSalary === 'string') payload.expected_salary = input.expectedSalary;
   if (typeof input.targetRole === 'string') payload.target_role = input.targetRole;
   if (typeof input.skillToDevelop === 'string') payload.skill_to_develop = input.skillToDevelop;
+  if (typeof input.preferredLocationScope === 'string') payload.preferred_location_scope = input.preferredLocationScope || null;
+  if (typeof input.preferredRegion === 'string') payload.preferred_region = input.preferredRegion || null;
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from('candidate_profiles')
     .upsert({ user_id: input.userId, ...payload }, { onConflict: 'user_id' });
+  if (error && /preferred_location_scope|preferred_region/i.test(error.message || '')) {
+    // The region columns are added by a migration; until it runs, keep saving the other answers.
+    const { preferred_location_scope: _scope, preferred_region: _region, ...rest } = payload;
+    void _scope;
+    void _region;
+    ({ error } = await supabase
+      .from('candidate_profiles')
+      .upsert({ user_id: input.userId, ...rest }, { onConflict: 'user_id' }));
+  }
   if (error) throw error;
 }
 
