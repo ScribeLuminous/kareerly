@@ -1416,7 +1416,8 @@ a.k-row:hover {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* "Applications" is the longest label; give it room on 320px screens. */
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.25fr);
   padding-bottom: env(safe-area-inset-bottom);
   border-top: 1px solid var(--bdr);
 }
@@ -1479,6 +1480,12 @@ a.k-row:hover {
 
 .k-nav-extra {
   display: none;
+}
+
+@media (min-width: 360px) {
+  .k-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 /* Tablets: icon rail. */
