@@ -18,7 +18,7 @@ import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/us
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { isCandidateWorkspacePath } from './pages/candidate/routes';
-import { isEmployerWorkspacePath } from './pages/employer/model';
+import { isEmployerWorkspacePath } from './pages/employer/routes';
 
 // Each workspace loads on demand so phones only download the one they use.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
