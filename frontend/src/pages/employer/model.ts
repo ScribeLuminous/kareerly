@@ -1,7 +1,9 @@
 import { savedMatchScore } from '../../lib/uiData';
 import { splitJobContent } from '../../lib/jobDescription';
 
-export type EmployerPage = 'dashboard' | 'jobs' | 'candidates' | 'messages' | 'account';
+export type { EmployerPage } from './routes';
+export { EMPLOYER_PAGE_PATHS, employerPageFromPath, isEmployerWorkspacePath } from './routes';
+export { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from '../../lib/employerOptions';
 
 export type JobStatus = 'open' | 'draft' | 'closed';
 
@@ -486,24 +488,6 @@ export function statusActionMessage(action: ReviewAction, candidateId: string): 
 
 // ---------- Display helpers for the redesigned employer views ----------
 
-export const EMPLOYER_PAGE_PATHS: Record<EmployerPage, string> = {
-  dashboard: '/employer/dashboard',
-  jobs: '/employer/jobs',
-  candidates: '/employer/candidates',
-  messages: '/employer/messages',
-  account: '/employer/account',
-};
-
-export function employerPageFromPath(pathname: string): EmployerPage {
-  const path = pathname.replace(/\/+$/, '');
-  const match = (Object.entries(EMPLOYER_PAGE_PATHS) as Array<[EmployerPage, string]>).find(([, value]) => value === path);
-  return match ? match[0] : 'dashboard';
-}
-
-export function isEmployerWorkspacePath(pathname: string): boolean {
-  return Object.values(EMPLOYER_PAGE_PATHS).includes(pathname.replace(/\/+$/, ''));
-}
-
 /** The name an employer may see: masked until Interviewing. */
 export function candidateDisplayName(candidate: Pick<CandidateApplication, 'status' | 'fullName'>): string {
   return shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName);
@@ -559,23 +543,6 @@ export function daysUntil(dateIso: string, today = todayIso()): number | null {
   return Math.round((target.getTime() - base.getTime()) / 86_400_000);
 }
 
-// One list for sign-up and the account page. A saved value outside the list is
-// kept as its own option so it is never silently replaced.
-export const EMPLOYER_INDUSTRIES = [
-  'Technology & Software',
-  'Data & Analytics',
-  'BPO & Customer Service',
-  'Finance & Banking',
-  'Healthcare',
-  'Education & Training',
-  'Retail & E-commerce',
-  'Manufacturing & Logistics',
-  'Hospitality & Tourism',
-  'Government & Public Sector',
-  'Other',
-];
-
-export const EMPLOYER_COMPANY_SIZES = ['1-10 employees', '11-50 employees', '51-200 employees', '201-500 employees', '500+ employees'];
 
 // Stored as the full sentence; the label is what the employer picks from.
 export const REJECTION_REASONS: Array<{ value: string; label: string }> = [
