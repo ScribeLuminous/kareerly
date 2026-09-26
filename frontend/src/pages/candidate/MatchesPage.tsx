@@ -153,7 +153,7 @@ export function JobMatchesPage({
       />
 
       <div className="k-toolbar mt-3">
-        <SearchField value={search} onChange={onSearch} label="Search matches" placeholder="Search title, company or skill" />
+        <SearchField value={search} onChange={onSearch} label="Search matches" placeholder="Search title or skill" />
         <div className="k-toolbar-controls">
           <FilterPanel open={filtersOpen} onOpenChange={setFiltersOpen} activeCount={activeFilters.length} onClear={resetFilters}>
             {setups.length > 1 && (
@@ -176,7 +176,7 @@ export function JobMatchesPage({
           <label className="k-sort">
             <span className="sr-only">Sort matches</span>
             <select className="k-select" value={sort} onChange={(event) => setSort(event.target.value as SortOrder)}>
-              <option value="recommended">Recommended</option>
+              <option value="recommended">Best match</option>
               <option value="score">Highest match</option>
               <option value="title">Title A–Z</option>
             </select>
