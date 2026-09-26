@@ -125,8 +125,8 @@ export function JobEditorModal({
       fullOnMobile
       closeLabel="Cancel"
       footer={(
-        <div className="k-button-row w-full justify-end">
-          <button className="k-btn k-btn-ghost" type="button" onClick={onCancel} disabled={saving}>Cancel</button>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:justify-end">
+          <button className="k-btn k-btn-ghost hidden sm:inline-flex" type="button" onClick={onCancel} disabled={saving}>Cancel</button>
           <button className="k-btn k-btn-secondary" type="button" onClick={onSaveDraft} disabled={saving}>Save draft</button>
           <button className="k-btn k-btn-primary" type="submit" form="job-editor-form" disabled={saving}>
             {saving ? 'Saving…' : editing && form.status === 'closed' ? 'Save' : 'Post job'}
