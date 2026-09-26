@@ -46,7 +46,8 @@ export function UpskillingPage({ courses, jobs, gaps, focusSkill, focusJobId, co
   const firstJobWithSkill = focusSkill
     ? jobs.find((job) => [...job.missingSkills, ...(job.missingPreferredSkills || [])].some((skill) => normalizeSkill(skill) === normalizeSkill(focusSkill)))
     : undefined;
-  const initialJobId = focusJobId || firstJobWithSkill?.id || jobGroups[0]?.items[0]?.id || '';
+  const firstJobWithGaps = jobGroups.flatMap((group) => group.items).find((job) => job.missingSkills.length > 0 || (job.missingPreferredSkills || []).length > 0);
+  const initialJobId = focusJobId || firstJobWithSkill?.id || firstJobWithGaps?.id || jobGroups[0]?.items[0]?.id || '';
   const [selectedJobId, setSelectedJobId] = useState(initialJobId);
   const [selectedSkill, setSelectedSkill] = useState(focusSkill ? cleanSkillDisplayName(focusSkill) : 'all');
 

@@ -63,6 +63,9 @@ export const FILIPINO_UI: Record<string, string> = {
   'User-Uploaded Evidence': 'Mga Sertipikasyon at Na-upload na Katibayan',
   'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Delete: 'Tanggalin',
   'Delete Profile': 'Tanggalin ang Profile',
+  'Update resume': 'I-update ang resume', 'Upload proof': 'Mag-upload ng katibayan', 'Personal details': 'Personal na detalye',
+  'Password and security': 'Password at seguridad', 'Delete profile': 'Tanggalin ang profile', 'Request deletion': 'Humiling na tanggalin',
+  'Certificates and proof': 'Mga sertipiko at katibayan', 'Save changes': 'I-save ang mga pagbabago', 'Change password': 'Palitan ang password',
   Home: 'Home', Matches: 'Mga Tugma', Skills: 'Mga Kasanayan', 'Profile & resume': 'Profile at resume', 'Request Profile Deletion': 'Humiling na Tanggalin ang Profile',
 };
 
@@ -573,7 +576,7 @@ export const SKILL_STATUS_LABEL: Record<SkillProgressStatus, string> = {
 };
 
 export function skillNextStep(status: SkillProgressStatus, skill: string): string {
-  if (status === 'missing') return `Pick a course for ${skill} in Learning Recommendations. Mark it as taken when you finish.`;
+  if (status === 'missing') return `Pick a course for ${skill} in Learning, and mark it as taken when you finish.`;
   if (status === 'started' || status === 'in_progress') return `Keep going with your ${skill} course, then mark it as taken on its card.`;
   if (status === 'completed') return `Upload your certificate or proof of completion for ${skill}.`;
   if (status === 'evidenced') return 'Your proof is on file and pending verification. Nothing else is needed for now.';

@@ -139,7 +139,7 @@ export function ApplicationsPage({ loadStatus, applications, onViewJob, onWithdr
                       {filtered.map((application) => (
                         <tr key={application.id} className={application.status === 'Withdrawn' ? 'opacity-70' : undefined}>
                           <td className="px-4 py-3">
-                            <button className="k-card-link text-left" type="button" onClick={() => onViewJob(application)}>
+                            <button className="min-h-[32px] text-left" type="button" onClick={() => onViewJob(application)}>
                               <span className="k-label block hover:underline">{application.jobTitle}</span>
                             </button>
                             {knownValue(application.company) && <span className="k-meta block">{application.company}</span>}

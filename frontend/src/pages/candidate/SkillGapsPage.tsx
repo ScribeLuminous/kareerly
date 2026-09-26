@@ -148,7 +148,7 @@ export function SkillGapsPage({
             {row.status !== 'missing' && <span className="font-semibold text-green">{SKILL_STATUS_LABEL[row.status]}</span>}
           </span>
         </span>
-        <span className={severityBadgeClass(row.gap.severity)}>{row.gap.severity}</span>
+        <span className="sr-only">, {row.gap.severity} priority</span>
         <FontAwesomeIcon className="k-row-chevron" icon={faChevronRight} aria-hidden="true" />
       </button>
     </li>

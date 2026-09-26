@@ -39,7 +39,7 @@ function SkillList({ items, kind, emptyLabel }: { items: string[]; kind: 'match'
       {visibleItems.length > 0 ? (
         <div className="external-skill-list">
           {visibleItems.map((skill, index) => (
-            <span className={kind === 'match' ? 'cand-skill-match' : 'cand-skill-miss'} key={`${kind}-${skill}-${index}`}>{skill}</span>
+            <span className={kind === 'match' ? 'k-skill k-skill-have' : 'k-skill k-skill-missing'} key={`${kind}-${skill}-${index}`}>{skill}</span>
           ))}
         </div>
       ) : <p className="external-empty-copy">{emptyLabel}</p>}
@@ -259,51 +259,57 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
   };
 
   return (
-    <div className="external-analysis-page">
-      <div className="cand-page-header external-page-heading">
-        <h1 className="cand-page-title">Analyze External Job</h1>
-        <p className="cand-page-subtitle">Paste a job description to see how it matches your profile.</p>
+    <div className="k-page external-analysis-page">
+      <div className="k-page-header">
+        <div>
+          <h1 className="k-page-title">Analyze a job</h1>
+          <p className="k-secondary mt-1">Paste a job post from any site to see how well it fits you.</p>
+        </div>
       </div>
 
       <div className="external-analysis-layout">
         <main className="external-analysis-main">
           {!result && (
             <form className="external-input-surface" onSubmit={submit} noValidate ref={formRef} aria-busy={isLoading}>
-              <div className="external-form-grid">
-                <label>
-                  <span>Job Title <small>Optional</small></span>
-                  <input className="cand-form-input" value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} maxLength={200} disabled={isLoading} />
-                </label>
-                <label>
-                  <span>Company <small>Optional</small></span>
-                  <input className="cand-form-input" value={companyName} onChange={(event) => setCompanyName(event.target.value)} maxLength={200} disabled={isLoading} />
-                </label>
-              </div>
-              <label className="external-description-label" htmlFor="external-job-description">
-                <span>Job Description <small className="required">Required</small></span>
+              <label className="external-description-label k-field block" htmlFor="external-job-description">
+                <span className="k-label">Job description</span>
                 <textarea
                   id="external-job-description"
-                  className="cand-form-input"
+                  className="k-textarea mt-1.5 min-h-[220px]"
                   value={jobDescription}
                   onChange={(event) => setJobDescription(event.target.value)}
                   maxLength={30000}
                   required
                   disabled={isLoading}
+                  placeholder="Paste the full job post here"
                   aria-invalid={Boolean(analysisError)}
                   aria-describedby="external-job-description-help external-analysis-error"
                 />
               </label>
-              <div id="external-job-description-help" className="external-form-help">
-                <span>Paste the role text. Kareerly will not visit links in it.</span>
-                <span>{jobDescription.length.toLocaleString()} / 30,000</span>
+              <div id="external-job-description-help" className="k-help flex justify-between gap-3">
+                <span>Kareerly won't open links in the text.</span>
+                <span className="k-num">{jobDescription.length.toLocaleString()} / 30,000</span>
               </div>
-              {analysisError && <div id="external-analysis-error" className="external-inline-error" role="alert">{analysisError}</div>}
+              <details className="mt-4" open={Boolean(jobTitle || companyName)}>
+                <summary className="k-link cursor-pointer">Add job title and company (optional)</summary>
+                <div className="k-form-grid mt-3">
+                  <label className="k-field block">
+                    <span className="k-label">Job title</span>
+                    <input className="k-input mt-1.5" value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} maxLength={200} disabled={isLoading} />
+                  </label>
+                  <label className="k-field block">
+                    <span className="k-label">Company</span>
+                    <input className="k-input mt-1.5" value={companyName} onChange={(event) => setCompanyName(event.target.value)} maxLength={200} disabled={isLoading} autoComplete="organization" />
+                  </label>
+                </div>
+              </details>
+              {analysisError && <p id="external-analysis-error" className="k-error" role="alert">{analysisError}</p>}
               <div className="external-form-submit">
-                <button className="cand-btn-primary" type="submit" disabled={isLoading}>
+                <button className="k-btn k-btn-primary" type="submit" disabled={isLoading}>
                   {isLoading && <FontAwesomeIcon className="fa-spin" icon={faSpinner} aria-hidden="true" />}
                   {isLoading ? loadingSteps[loadingStep] : 'Analyze Job'}
                 </button>
-                {isLoading && <span role="status" aria-live="polite">This can take a moment while Kareerly compares your profile.</span>}
+                {isLoading && <span className="k-meta" role="status" aria-live="polite">This takes a few seconds.</span>}
               </div>
             </form>
           )}
@@ -313,27 +319,27 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
               <section className="external-result-header" aria-labelledby="external-result-title">
                 <div className="external-result-eyebrow-row">
                   <span>External Job Analysis</span>
-                  <button className="external-tertiary-btn" type="button" onClick={reset}>
+                  <button className="k-btn k-btn-ghost k-btn-sm" type="button" onClick={reset}>
                     <FontAwesomeIcon icon={faRotateRight} aria-hidden="true" /> Analyze another job
                   </button>
                 </div>
                 <h2 id="external-result-title">{result.job.title?.trim() || 'External Job'}</h2>
                 {result.job.company_name?.trim() && <p className="external-result-company">{result.job.company_name}</p>}
-                <div className="external-result-badges">
-                  <strong>{Math.round(Number(result.match.match_percentage) || 0)}% Match</strong>
-                  <span>{result.match.match_type}</span>
-                  <small>Skill coverage {Math.round((Number(result.match.skill_coverage) || 0) * 100)}%</small>
+                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="k-score k-score-lg">{Math.round(Number(result.match.match_percentage) || 0)}%</span>
+                  <span className={/fit/i.test(result.match.match_type || '') ? 'k-badge k-badge-fit' : 'k-badge k-badge-aspiration'}>{result.match.match_type}</span>
+                  <span className="k-meta">Skill coverage {Math.round((Number(result.match.skill_coverage) || 0) * 100)}%</span>
                 </div>
                 <div className="external-why">
                   <h3>Why this matches</h3>
                   <p>{result.match.explanation}</p>
                 </div>
                 <div className="external-result-actions">
-                  <button className={savedCurrentId ? 'external-saved-state' : 'cand-btn-primary'} type="button" onClick={saveCurrentResult} disabled={isSaving || Boolean(savedCurrentId) || (savedMatches.length >= 5 && !savedCurrentId)}>
+                  <button className={savedCurrentId ? 'k-btn k-btn-secondary' : 'k-btn k-btn-primary'} type="button" onClick={saveCurrentResult} disabled={isSaving || Boolean(savedCurrentId) || (savedMatches.length >= 5 && !savedCurrentId)}>
                     <FontAwesomeIcon icon={savedCurrentId ? faCheck : faBookmark} aria-hidden="true" />
                     {savedCurrentId ? 'Saved' : isSaving ? 'Saving…' : 'Save Match'}
                   </button>
-                  <button className="cand-btn-secondary" type="button" onClick={downloadCurrentResult} disabled={isDownloading}>
+                  <button className="k-btn k-btn-secondary" type="button" onClick={downloadCurrentResult} disabled={isDownloading}>
                     <FontAwesomeIcon className={isDownloading ? 'fa-spin' : ''} icon={isDownloading ? faSpinner : faDownload} aria-hidden="true" />
                     {isDownloading ? 'Generating…' : 'Download'}
                   </button>
@@ -360,9 +366,8 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
                 <div className="external-section-heading-row">
                   <div>
                     <h3 id="external-learning-heading">What to Learn Next</h3>
-                    <p>Recommended resources based on your identified skill gaps.</p>
                   </div>
-                  <button className="external-link-btn" type="button" onClick={onOpenLearning}>View recommendations <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" /></button>
+                  <button className="k-link" type="button" onClick={onOpenLearning}>View recommendations <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" /></button>
                 </div>
                 {recommendations.length > 0 ? (
                   <div className="external-resource-list">
@@ -381,11 +386,11 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
                 ) : <p className="external-empty-copy">No curated learning resource is available for these skills yet.</p>}
               </section>
 
-              {result.warnings?.map((warning) => <div className="cand-notice warn external-warning" role="status" key={warning}>{warning}</div>)}
+              {result.warnings?.map((warning) => <div className="k-banner k-banner-warn mt-4" role="status" key={warning}>{warning}</div>)}
 
               <div className="external-info-notice" aria-label="External job notice">
                 <FontAwesomeIcon icon={faInfoCircle} aria-hidden="true" />
-                <span>This job was analyzed from a description you provided. Applications to external jobs are not tracked by Kareerly.</span>
+                <span>Applications on other sites aren't tracked in Kareerly.</span>
               </div>
             </div>
           )}

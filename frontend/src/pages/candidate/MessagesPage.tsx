@@ -73,7 +73,7 @@ export function MessagesPage({
         {applications.length === 0 ? (
           <EmptyState icon={faComments} title="No messages yet" text="Employers can message you once your application reaches Interviewing." />
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
             {showList && (
               <ul className="k-list self-start" aria-label="Conversations">
                 {applications.map((app) => {

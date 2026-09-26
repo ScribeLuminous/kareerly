@@ -135,7 +135,7 @@ export function ResumeUpdateModal({
               <li key={skill}>
                 <span className="k-skill pr-1">
                   {skill}
-                  <button className="inline-flex h-7 w-7 items-center justify-center rounded-full text-mid hover:bg-cream-d hover:text-dark" type="button" onClick={() => onRemoveSkill(skill)} aria-label={`Remove ${skill}`}>
+                  <button className="inline-flex h-8 w-8 items-center justify-center rounded-full text-mid hover:bg-cream-d hover:text-dark" type="button" onClick={() => onRemoveSkill(skill)} aria-label={`Remove ${skill}`}>
                     <FontAwesomeIcon icon={faXmark} className="h-3 w-3" aria-hidden="true" />
                   </button>
                 </span>
