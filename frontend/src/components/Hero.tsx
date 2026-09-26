@@ -1,21 +1,11 @@
-import { faFlag } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-
 export default function Hero() {
   return (
-    <section className="text-center pt-16 pb-10 px-6 max-w-xl mx-auto">
-      <div className="inline-flex items-center gap-1.5 bg-forest-l text-forest text-xs font-bold py-1 px-3.5 rounded-full mb-5">
-        <FontAwesomeIcon icon={faFlag} aria-hidden="true" />
-        <span>Made for Filipino job seekers</span>
-      </div>
-
-      <h1 className="font-display text-[42px] sm:text-[42px] font-extrabold leading-tight mb-4">
-        Find the job<br />
-        that <em className="text-rust not-italic">fits you</em>
+    <section className="mx-auto max-w-lg px-4 pb-6 pt-8 text-center sm:px-6 sm:pt-12">
+      <h1 className="font-display text-[30px] font-extrabold leading-tight text-dark sm:text-[38px]">
+        Find the job that <em className="not-italic text-rust">fits you</em>
       </h1>
-
-      <p className="text-lg text-mid font-normal leading-relaxed">
-        Upload your resume. We'll show you which jobs match your skills, what's holding you back, and how to get there.
+      <p className="mt-3 text-[15px] leading-relaxed text-mid sm:text-base">
+        Upload your resume to see matching jobs, the skills you're missing, and how to learn them.
       </p>
     </section>
   );

@@ -10,11 +10,8 @@ import StepArrowButton from './StepArrowButton';
 import {
   faBookOpen,
   faBriefcase,
-  faBullseye,
-  faChartLine,
   faCircleCheck,
   faFilePdf,
-  faGraduationCap,
   faLightbulb,
   faRocket,
   faSliders,
@@ -150,17 +147,17 @@ function describeMatch(
 }
 
 function MatchRow({ description }: { description: MatchDescription }) {
-  const toneClass = { matched: 'text-green', missing: 'text-soft', note: 'text-soft' };
+  const toneClass = { matched: 'text-green', missing: 'text-soft-text', note: 'text-soft-text' };
   return (
     <div className="rounded-lg bg-bg px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="font-semibold text-dark">{description.title}</div>
-          <div className="text-xs text-soft">{description.location}</div>
+          <div className="text-xs text-soft-text">{description.location}</div>
         </div>
         <div
           className={`rounded-md px-3 py-1 text-xs font-extrabold ${
-            description.matchPercent === null ? 'bg-bdr text-soft' : 'bg-rust text-white'
+            description.matchPercent === null ? 'bg-bdr text-soft-text' : 'bg-rust text-white'
           }`}
         >
           {description.scoreLabel}
@@ -171,7 +168,12 @@ function MatchRow({ description }: { description: MatchDescription }) {
           <div key={line.text} className={toneClass[line.tone]}>{line.text}</div>
         ))}
       </div>
-      <div className="mt-2 text-xs leading-relaxed text-soft">{description.explanation}</div>
+      {description.explanation && (
+        <details className="mt-2">
+          <summary className="k-link cursor-pointer text-[13px]">Why this match</summary>
+          <p className="mt-1 text-[13px] leading-relaxed text-mid">{description.explanation}</p>
+        </details>
+      )}
     </div>
   );
 }
@@ -195,9 +197,9 @@ function SkillGapRow({ gap }: { gap: PrioritizedSkillGap }) {
     <div className="rounded-lg bg-bg px-4 py-3 text-sm">
       <div className="flex items-center justify-between gap-3">
         <span className="font-semibold text-dark">{cleanSkillLabel(gap.skill_name)}</span>
-        <span className="text-xs text-soft">{gap.severity || 'To work on'}</span>
+        <span className="text-xs text-soft-text">{gap.severity || 'To work on'}</span>
       </div>
-      <div className="mt-1 text-xs text-soft">{gapText}</div>
+      <div className="mt-1 text-xs text-soft-text">{gapText}</div>
     </div>
   );
 }
@@ -207,11 +209,11 @@ function LearningRow({ recommendation }: { recommendation: LearningRecommendatio
     <div className="flex items-center justify-between gap-3 rounded-lg bg-bg px-4 py-3">
       <div className="min-w-0">
         <div className="truncate font-semibold text-dark">{recommendation.title || 'Untitled course or certification'}</div>
-        <div className="truncate text-xs text-soft">{recommendation.provider || 'Provider not listed'}</div>
+        <div className="truncate text-xs text-soft-text">{recommendation.provider || 'Provider not listed'}</div>
       </div>
       <div
         className={`flex-shrink-0 rounded-lg px-3 py-1 text-xs font-bold ${
-          String(recommendation.cost_type || '').toLowerCase() === 'free' ? 'bg-green-l text-green' : 'bg-bg text-soft'
+          String(recommendation.cost_type || '').toLowerCase() === 'free' ? 'bg-green-l text-green' : 'bg-bg text-soft-text'
         }`}
       >
         {recommendation.cost_type || 'Cost unknown'}
@@ -222,24 +224,26 @@ function LearningRow({ recommendation }: { recommendation: LearningRecommendatio
 
 function PreferenceSummary({ items }: { items: PreferenceSummaryItem[] }) {
   return (
-    <div className="bg-card border border-bdr rounded-xl p-6 mb-4">
-      <div className="text-base font-bold text-dark mb-4 flex items-center gap-2">
+    <details className="k-card mb-4">
+      <summary className="flex min-h-[28px] cursor-pointer items-center gap-2 text-base font-bold text-dark">
         <FontAwesomeIcon className="text-rust" icon={faSliders} aria-hidden="true" />
-        <span>Your Preferences</span>
-      </div>
+        <span>Your preferences</span>
+      </summary>
+      <div className="mt-4">
       {items.length > 0 ? (
         <dl className="grid gap-2.5 sm:grid-cols-2">
           {items.map((item) => (
             <div key={item.label} className="rounded-lg bg-bg px-4 py-3">
-              <dt className="text-xs text-soft">{item.label}</dt>
+              <dt className="text-xs text-soft-text">{item.label}</dt>
               <dd className="text-sm font-semibold text-dark">{item.value}</dd>
             </div>
           ))}
         </dl>
       ) : (
-        <div className="rounded-lg bg-bg p-4 text-sm text-soft">No preferences were recorded for this report.</div>
+        <div className="rounded-lg bg-bg p-4 text-sm text-soft-text">No preferences were recorded for this report.</div>
       )}
-    </div>
+      </div>
+    </details>
   );
 }
 
@@ -273,7 +277,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
       <div className="max-w-lg mx-auto px-6 py-12">
         <div className="bg-card border border-bdr rounded-lg p-6 text-center">
           <h2 className="font-display text-2xl font-bold text-dark mb-2">No report yet</h2>
-          <p className="text-sm text-soft mb-5">Upload a resume and complete the survey to generate your career snapshot.</p>
+          <p className="text-sm text-soft-text mb-5">Upload a resume and complete the survey to generate your career snapshot.</p>
           <button
             onClick={() => goToStep(1)}
             className="w-full px-5 py-3 rounded-lg bg-rust text-white font-semibold hover:opacity-90 transition-opacity duration-150"
@@ -349,7 +353,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
     const content: CareerReportContent = {
       title: 'Kareerly Career Report',
       generatedAt: new Date(),
-      accessNote: isGuestReport ? 'Guest report: showing the top results only. Sign up to save this report and view your full dashboard.' : '',
+      accessNote: isGuestReport ? 'Guest report: showing the top results only. Sign up to save this report and track your progress.' : '',
       summary: summaryCards,
       preferences: preferenceItems,
       sections: [
@@ -390,64 +394,70 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
     }
   };
 
-  return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-10">
-      <div className="mb-8">
-        <div className="inline-flex items-center gap-1.5 bg-green-l text-green text-xs font-bold py-1.5 px-3.5 rounded-full mb-4">
-          <FontAwesomeIcon icon={faCircleCheck} aria-hidden="true" />
-          <span>Analysis complete</span>
+  // Shown under the header and again after the report, so saving is never a scroll away.
+  const saveReportCallout = (
+    <>
+      {isLoggedIn ? (
+        <div className="k-card mb-6 flex flex-col gap-3 border-rust-m bg-rust-l sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-[15px] font-semibold text-dark">
+            {isSavingReport ? 'Saving to your account…' : 'Keep this as your latest report?'}
+          </div>
+          {state.error && <div className="mb-3 text-sm font-semibold text-red">{state.error}</div>}
+          <button
+            onClick={onViewDashboard}
+            disabled={isSavingReport}
+            className="k-btn k-btn-primary"
+          >
+            Save and open dashboard
+          </button>
         </div>
+      ) : isGuestReport ? (
+        <div className="k-card mb-6 flex flex-col gap-3 border-rust-m bg-rust-l sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-[15px] font-semibold text-dark">Sign up to save this report and track your progress.</div>
+          <button
+            type="button"
+            onClick={onSignUp}
+            className="k-btn k-btn-primary"
+          >
+            Sign up to save
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="font-display text-2xl font-bold text-dark mb-2">Step 4: Your Career Report</h2>
-            <p className="text-sm text-soft">Based on your resume and preferences, here is your current Kareerly snapshot.</p>
+            <p className="mb-1 inline-flex items-center gap-1.5 text-[13px] font-semibold text-green">
+              <FontAwesomeIcon icon={faCircleCheck} aria-hidden="true" />
+              Analysis complete
+            </p>
+            <h2 className="k-page-title">Your career report</h2>
           </div>
           <button
             type="button"
             onClick={handleDownloadPdf}
             disabled={pdfStatus === 'working'}
-            className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-lg border border-rust bg-white px-4 py-2.5 text-sm font-bold text-rust transition-colors hover:bg-rust-l disabled:cursor-wait disabled:opacity-60"
+            className="k-btn k-btn-secondary self-start sm:self-auto"
           >
             <FontAwesomeIcon icon={faFilePdf} aria-hidden="true" />
             <span>{pdfStatus === 'working' ? 'Preparing PDF…' : 'Download PDF'}</span>
           </button>
         </div>
         {pdfStatus === 'failed' && (
-          <div className="mt-3 rounded-lg border border-red bg-red-l p-3 text-sm font-medium text-red" role="alert">
+          <div className="k-banner k-banner-error mt-3" role="alert">
             The PDF could not be created. Please try again.
           </div>
         )}
+        <p className="k-secondary mt-3">
+          <strong className="k-num text-dark">{summaryCards[0].value}</strong> Fit-Now matches · <strong className="k-num text-dark">{summaryCards[1].value}</strong> skill gaps · <strong className="k-num text-dark">{summaryCards[2].value}</strong> learning suggestions
+        </p>
+        <p className="k-meta mt-1">{summaryCards[0].detail}</p>
       </div>
-
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
-        <div className="bg-card border border-bdr rounded-xl p-6">
-          <div className="mb-3 text-2xl text-rust">
-            <FontAwesomeIcon icon={faBullseye} aria-hidden="true" />
-          </div>
-          <div className="text-sm font-bold text-dark mb-2">Fit-Now Matches</div>
-          <div className="text-4xl font-bold text-rust mb-1">{summaryCards[0].value}</div>
-          <div className="text-xs text-soft leading-relaxed">{summaryCards[0].detail}</div>
-        </div>
-
-        <div className="bg-card border border-bdr rounded-xl p-6">
-          <div className="mb-3 text-2xl text-rust">
-            <FontAwesomeIcon icon={faChartLine} aria-hidden="true" />
-          </div>
-          <div className="text-sm font-bold text-dark mb-2">Skill Gaps Identified</div>
-          <div className="text-4xl font-bold text-rust mb-1">{summaryCards[1].value}</div>
-          <div className="text-xs text-soft leading-relaxed">{summaryCards[1].detail}</div>
-        </div>
-
-        <div className="bg-card border border-bdr rounded-xl p-6">
-          <div className="mb-3 text-2xl text-rust">
-            <FontAwesomeIcon icon={faGraduationCap} aria-hidden="true" />
-          </div>
-          <div className="text-sm font-bold text-dark mb-2">Learning Recommendations</div>
-          <div className="text-4xl font-bold text-rust mb-1">{summaryCards[2].value}</div>
-          <div className="text-xs text-soft leading-relaxed">{summaryCards[2].detail}</div>
-        </div>
-      </div>
-
+      {saveReportCallout}
       <PreferenceSummary items={preferenceItems} />
 
       <RegionFilterNotice
@@ -473,7 +483,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft" role="status">{noFitNowText}</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft-text" role="status">{noFitNowText}</div>
         )}
         {closestDescriptions.length > 0 && (
           <div className="mt-4">
@@ -499,7 +509,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft">No aspiration matches returned yet.</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft-text">No aspiration matches returned yet.</div>
         )}
       </div>
 
@@ -515,7 +525,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft">No skill gaps returned yet.</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft-text">No skill gaps returned yet.</div>
         )}
       </div>
 
@@ -531,37 +541,11 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft">No learning recommendations available yet.</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft-text">No learning recommendations available yet.</div>
         )}
       </div>
 
-      {isLoggedIn ? (
-        <div className="bg-rust-l border border-rust rounded-xl p-4 mb-6 text-center">
-          <div className="text-sm font-bold text-rust mb-3">
-            {isSavingReport ? 'Saving this report to your account...' : 'Ready to keep this as your latest report?'}
-          </div>
-          {state.error && <div className="mb-3 text-sm font-semibold text-red">{state.error}</div>}
-          <button
-            onClick={onViewDashboard}
-            disabled={isSavingReport}
-            className="inline-flex items-center justify-center gap-1.5 bg-rust text-white font-bold py-3 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Save and View Dashboard
-          </button>
-        </div>
-      ) : isGuestReport ? (
-        <div className="bg-rust-l border border-rust rounded-xl p-4 mb-6 text-center">
-          <div className="text-sm font-bold text-rust mb-3">Sign up to save this report and view your full dashboard.</div>
-          <button
-            type="button"
-            onClick={onSignUp}
-            className="inline-flex items-center justify-center gap-1.5 bg-rust text-white font-bold py-3 px-6 rounded-lg hover:opacity-90 transition-opacity duration-150"
-          >
-            Sign up to Save Report
-          </button>
-        </div>
-      ) : null}
-
+      {saveReportCallout}
       <div className="mt-8">
         <StepArrowButton direction="back" label="Back to career preferences" onClick={() => goToStep(3)} />
       </div>

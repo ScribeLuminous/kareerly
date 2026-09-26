@@ -55,7 +55,7 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
         <input
           id={emailInputId}
           name="email"
-          className="input-base mb-2 border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card"
+          className="k-input mb-2"
           placeholder="email@email.com"
           required
           type="email"
@@ -66,7 +66,7 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
         <input
           id={passwordInputId}
           name="password"
-          className="input-base mb-2 border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card"
+          className="k-input mb-2"
           placeholder="••••••••"
           required
           type="password"
@@ -83,13 +83,13 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
           <label className="cursor-pointer" htmlFor="remember-me">Remember me</label>
         </div>
 
-        <button className="mb-4 w-full rounded-xl bg-rust px-5 py-3 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isSubmitting}>
+        <button className="mb-4 k-btn k-btn-primary k-btn-block" type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Logging in...' : 'Log in'}
         </button>
       </form>
 
       <div className="text-center">
-        <button className="text-sm text-soft hover:text-rust" type="button" onClick={onResetPassword}>Forgot your password?</button>
+        <button className="text-sm text-soft-text hover:text-rust" type="button" onClick={onResetPassword}>Forgot your password?</button>
       </div>
 
       {onSwitchRole && (

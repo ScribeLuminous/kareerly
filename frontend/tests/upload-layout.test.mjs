@@ -41,7 +41,7 @@ test('selected resume keeps the full filename in a shrinking, wrapping container
   assert.match(html, /aria-label="Remove resume"/);
 });
 
-test('analyze action remains circular and centered with its caption', () => {
+test('analyze action keeps its circular arrow, centered, with a visible label', () => {
   const html = renderToStaticMarkup(createElement(UploadZone));
   assert.match(html, /class="flex flex-col items-center gap-2"><button/);
   assert.match(html, /class="step-arrow-button"/);
