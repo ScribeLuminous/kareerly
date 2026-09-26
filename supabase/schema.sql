@@ -32,6 +32,11 @@ create table if not exists public.candidate_profiles (
 );
 
 alter table public.candidate_profiles add column if not exists public_id text;
+alter table public.candidate_profiles add column if not exists preferred_location_scope text;
+alter table public.candidate_profiles add column if not exists preferred_region text;
+alter table public.candidate_profiles drop constraint if exists candidate_profiles_preferred_location_scope_check;
+alter table public.candidate_profiles add constraint candidate_profiles_preferred_location_scope_check
+  check (preferred_location_scope is null or preferred_location_scope in ('anywhere', 'current', 'region'));
 create unique index if not exists candidate_profiles_public_id_key on public.candidate_profiles(public_id) where public_id is not null;
 
 create table if not exists public.employer_profiles (
