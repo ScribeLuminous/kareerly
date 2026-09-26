@@ -61,11 +61,11 @@ export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProp
 
         <label className="form-label mt-2" htmlFor="signup-birthday">Birthday</label>
         <input id="signup-birthday" name="birthday" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" required type="date" />
-        <div className="mt-1.5 text-sm text-soft">You must be at least 18 years old to create an account.</div>
+        <div className="mt-1.5 text-sm text-soft-text">You must be at least 18 years old to create an account.</div>
 
         <label className="form-label mt-2" htmlFor="signup-password">Password</label>
         <input id="signup-password" name="password" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="••••••••" required minLength={14} pattern="^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{14,}$" type="password" />
-        <div className="mt-1.5 text-sm text-soft">● At least 14 characters, with uppercase, number, and special character</div>
+        <div className="mt-1.5 text-sm text-soft-text">● At least 14 characters, with uppercase, number, and special character</div>
 
         <div className="my-3 flex items-start gap-3 text-sm text-mid">
           <input id="agree-terms" className="mt-0.5 h-5 w-5 cursor-pointer rounded accent-rust" required type="checkbox" />

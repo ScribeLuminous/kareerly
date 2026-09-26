@@ -1,31 +1,4 @@
-.cand-dashboard {
-  --rust: #c4531a;
-  --rust-l: #fbf0e8;
-  --rust-m: #e8813d;
-  --forest: #2d4a3e;
-  --forest-l: #e8f0ec;
-  --forest-m: #4a7a65;
-  --brown: #3d2314;
-  --tan: #c4956a;
-  --tan-l: #f5ead8;
-  --mauve: #9b4f5c;
-  --mauve-l: #f5e8ea;
-  --cream: #f5efe0;
-  --cream-d: #e8dfc8;
-  --bg: #faf7f2;
-  --card: #ffffff;
-  --bdr: #eae3d6;
-  --dark: #2a1f14;
-  --mid: #5c4a38;
-  --soft: #9a8878;
-  --green: #2d6a4f;
-  --green-l: #e8f3ee;
-  --red: #c0392b;
-  --red-l: #fdecea;
-  --amber: #b7700a;
-  --amber-l: #fef5e4;
-}
-
+/* Palette variables (--rust, --soft-text, …) come from tailwind.config.js on :root. */
 .cand-dashboard {
   min-height: 100vh;
   background: var(--bg);
@@ -33,7 +6,7 @@
 }
 
 .cand-dashboard :is(button, input, select, textarea):focus-visible {
-  outline: 3px solid rgba(196, 83, 26, 0.32);
+  outline: 3px solid rgba(196, 83, 26, 0.45);
   outline-offset: 2px;
 }
 
@@ -277,7 +250,7 @@
 
 .cand-notif-time {
   font-size: 11px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-profile-menu {
@@ -521,7 +494,7 @@
 
 .cand-page-subtitle {
   font-size: 14px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-metrics-grid {
@@ -588,7 +561,7 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--soft);
+  color: var(--soft-text);
   letter-spacing: 0.4px;
 }
 
@@ -667,7 +640,7 @@
 
 .cand-sdp-disclaimer {
   font-size: 11px;
-  color: var(--soft);
+  color: var(--soft-text);
   padding: 8px 12px;
   background: var(--bg);
   border-radius: 8px;
@@ -704,7 +677,7 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--soft);
+  color: var(--soft-text);
   width: 14px;
   height: 14px;
   pointer-events: none;
@@ -991,7 +964,7 @@
 
 .cand-job-meta {
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-match-badge {
@@ -1025,7 +998,7 @@
 }
 
 .cand-match-badge.friendly.develop {
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-match-cat {
@@ -1213,7 +1186,7 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--soft);
+  color: var(--soft-text);
   letter-spacing: 0.5px;
 }
 
@@ -1229,7 +1202,7 @@
   margin-top: 6px;
   font-size: 11px;
   line-height: 1.45;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-gap-insight.critical .cand-gap-insight-value {
@@ -1276,7 +1249,7 @@
   width: 18px;
   height: 18px;
   margin-top: 2px;
-  color: var(--soft);
+  color: var(--soft-text);
   flex: 0 0 auto;
 }
 
@@ -1289,7 +1262,7 @@
 
 .cand-gap-empty-description {
   margin: 5px 0 0;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 13px;
   line-height: 1.55;
 }
@@ -1401,7 +1374,7 @@
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-bottom: 2px;
 }
 
@@ -1517,7 +1490,7 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--soft);
+  color: var(--soft-text);
   letter-spacing: 0.5px;
   border-bottom: 1px solid var(--bdr);
 }
@@ -1800,7 +1773,7 @@
   flex-wrap: wrap;
   gap: 12px;
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-bottom: 12px;
 }
 
@@ -1895,7 +1868,7 @@
 }
 
 .cand-learning-section-heading span {
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -1912,7 +1885,7 @@
 }
 
 .cand-learning-focus select:disabled {
-  color: var(--soft);
+  color: var(--soft-text);
   cursor: not-allowed;
   opacity: 0.8;
 }
@@ -1973,7 +1946,7 @@
 
 .cand-learning-filter-row {
   margin-top: 10px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
 }
 
@@ -2025,7 +1998,7 @@
 }
 
 .cand-course-label {
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.5px;
@@ -2101,12 +2074,12 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 5px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
 }
 
 .cand-learning-no-resource {
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 12px;
 }
 
@@ -2115,7 +2088,7 @@
   align-items: flex-start;
   gap: 6px;
   margin: 18px 0 0;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
   line-height: 1.55;
 }
@@ -2141,7 +2114,7 @@
 .cand-learning-empty p {
   max-width: 620px;
   margin-top: 6px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -2176,7 +2149,7 @@
   padding: 16px;
   text-align: center;
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -2198,7 +2171,7 @@
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-bottom: 10px;
 }
 
@@ -2237,7 +2210,7 @@
   gap: 10px;
   margin-top: 6px;
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-evidence-card-note {
@@ -2335,7 +2308,7 @@
 
 .cand-msg-badge.ignored {
   background: #f0ede8;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-msg-lock {
@@ -2344,7 +2317,7 @@
   background: var(--bg);
   border-radius: 10px;
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-msg-composer {
@@ -2466,14 +2439,14 @@
 
 .msg-bubble-sender {
   margin-bottom: 3px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
   font-weight: 700;
 }
 
 .msg-bubble-time {
   margin-top: 4px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 10px;
 }
 
@@ -2519,7 +2492,7 @@
 
 .cand-modal-subtitle {
   font-size: 13px;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-top: 4px;
 }
 
@@ -2527,7 +2500,7 @@
   background: none;
   border: none;
   font-size: 20px;
-  color: var(--soft);
+  color: var(--soft-text);
   cursor: pointer;
 }
 
@@ -2555,7 +2528,7 @@
 .cand-upload-icon {
   width: 32px;
   height: 32px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-upload-inline-icon {
@@ -2678,7 +2651,7 @@
   border-radius: 14px;
   padding: 26px;
   text-align: center;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 @media (max-width: 900px) {
@@ -2786,7 +2759,7 @@
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-profile-location-icon {
@@ -2798,7 +2771,7 @@
   margin-left: auto;
   width: 13px;
   height: 13px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 /* Candidate shell density pass. Keep hit areas accessible while reducing the
@@ -2993,7 +2966,7 @@
 }
 
 .cand-mark-read-btn:disabled {
-  color: var(--soft);
+  color: var(--soft-text);
   cursor: default;
 }
 
@@ -3043,7 +3016,7 @@
 
 .external-form-grid small,
 .external-description-label small {
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
   font-weight: 500;
 }
@@ -3068,7 +3041,7 @@
   justify-content: space-between;
   gap: 16px;
   margin-top: 6px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
 }
 
@@ -3080,7 +3053,7 @@
 }
 
 .external-form-submit > span {
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
 }
 
@@ -3118,7 +3091,7 @@
 }
 
 .external-saved-header span {
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
   font-weight: 700;
 }
@@ -3126,7 +3099,7 @@
 .external-rail-status,
 .external-rail-empty {
   padding: 12px 2px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
 }
 
@@ -3188,7 +3161,7 @@
 
 .external-saved-open small {
   margin-top: 2px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 10px;
 }
 
@@ -3296,7 +3269,7 @@
 
 .external-result-company {
   margin: 3px 0 0;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 12px;
 }
 
@@ -3327,7 +3300,7 @@
 }
 
 .external-result-badges small {
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 10px;
 }
 
@@ -3374,7 +3347,7 @@
 
 .external-action-hint {
   margin: 8px 0 0;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 10px;
 }
 
@@ -3415,7 +3388,7 @@
 
 .external-section-heading-row > div > p {
   margin: 3px 0 0;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
 }
 
@@ -3449,7 +3422,7 @@
 }
 
 .external-resource span {
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 10px;
 }
 
@@ -3466,7 +3439,7 @@
 
 .external-empty-copy {
   margin: 9px 0 0;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
 }
 
@@ -3642,7 +3615,7 @@
 }
 
 .cand-filter-panel:focus-visible {
-  outline: 3px solid rgba(196, 83, 26, 0.32);
+  outline: 3px solid rgba(196, 83, 26, 0.45);
   outline-offset: 3px;
 }
 
@@ -3663,7 +3636,7 @@
 
 .cand-filter-panel-subtitle {
   margin-top: 3px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-size: 11px;
 }
 
@@ -3676,7 +3649,7 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--soft);
+  color: var(--soft-text);
   cursor: pointer;
 }
 
@@ -3847,7 +3820,7 @@
   flex-wrap: wrap;
   gap: 10px;
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-top: 2px;
 }
 
@@ -3904,7 +3877,7 @@
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
-  color: var(--soft);
+  color: var(--soft-text);
   letter-spacing: 0.4px;
   margin-bottom: 6px;
 }
@@ -4001,7 +3974,7 @@
 
 .status-withdrawn {
   background: #f0ede8;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-covered-panel {
@@ -4021,7 +3994,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-bottom: 6px;
 }
 
@@ -4050,7 +4023,7 @@
 
 .cand-covered-empty {
   font-size: 11px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-gap-kanban {
@@ -4143,7 +4116,7 @@
 
 .cand-gap-meta {
   font-size: 11px;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-bottom: 8px;
   display: flex;
   flex-direction: column;
@@ -4177,13 +4150,13 @@
 
 .cand-gap-progress-text {
   font-size: 10px;
-  color: var(--soft);
+  color: var(--soft-text);
   font-weight: 700;
 }
 
 .cand-gap-empty {
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
   text-align: center;
   padding: 16px 10px;
 }
@@ -4209,7 +4182,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--soft);
+  color: var(--soft-text);
   border-bottom: 1px solid var(--bdr);
   background: var(--bg);
   font-weight: 700;
@@ -4274,7 +4247,7 @@
 
 .cand-sdp-row-counts {
   font-size: 10px;
-  color: var(--soft);
+  color: var(--soft-text);
   white-space: nowrap;
 }
 
@@ -4328,7 +4301,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-sdp-next-action {
@@ -4442,7 +4415,7 @@
   display: block;
   font-size: 10px;
   font-weight: 700;
-  color: var(--soft);
+  color: var(--soft-text);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-bottom: 2px;
@@ -4501,7 +4474,7 @@
   margin-top: 16px;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-kareer-detail-list {
@@ -4887,7 +4860,7 @@
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-bottom: 2px;
 }
 
@@ -4920,7 +4893,7 @@
 .cand-jd-sublabel {
   font-size: 11px;
   font-weight: 600;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-top: 4px;
 }
 
@@ -4942,7 +4915,7 @@
 .cand-jd-empty {
   font-size: 12.5px;
   font-style: italic;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-jd-chip {
@@ -5072,7 +5045,7 @@
   align-items: center;
   gap: 4px 10px;
   font-size: 13px;
-  color: var(--soft);
+  color: var(--soft-text);
   margin-bottom: 14px;
 }
 
@@ -5107,7 +5080,7 @@
 .cand-kd-subheading {
   font-size: 12px;
   font-weight: 700;
-  color: var(--soft);
+  color: var(--soft-text);
   margin: 12px 0 6px;
 }
 
@@ -5118,7 +5091,7 @@
 }
 
 .cand-kd-muted {
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-kd-next {
@@ -5156,7 +5129,7 @@
   border: 1px solid var(--bdr);
   border-radius: 999px;
   background: var(--card);
-  color: var(--soft);
+  color: var(--soft-text);
   cursor: pointer;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
@@ -5194,7 +5167,7 @@
 
 .cand-course-unreviewed {
   font-size: 10px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 /* Report / Block controls in the message thread header. */
@@ -5220,7 +5193,7 @@
   border: 1px solid var(--bdr);
   border-radius: 999px;
   background: var(--card);
-  color: var(--soft);
+  color: var(--soft-text);
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
@@ -5260,7 +5233,7 @@
   margin-top: 4px;
   max-width: 72ch;
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-feedback {
@@ -5323,7 +5296,7 @@
 
 .cand-feedback-status {
   font-size: 12px;
-  color: var(--soft);
+  color: var(--soft-text);
 }
 
 .cand-feedback-error {

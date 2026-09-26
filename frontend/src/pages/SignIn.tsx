@@ -89,7 +89,7 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
       </form>
 
       <div className="text-center">
-        <button className="text-sm text-soft hover:text-rust" type="button" onClick={onResetPassword}>Forgot your password?</button>
+        <button className="text-sm text-soft-text hover:text-rust" type="button" onClick={onResetPassword}>Forgot your password?</button>
       </div>
 
       {onSwitchRole && (

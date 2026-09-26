@@ -171,7 +171,7 @@ export default function UploadZone() {
     <div className="max-w-lg mx-auto px-6 py-12">
       <div className="mb-8">
         <h2 className="font-display text-2xl font-bold text-dark mb-2">Step 1: Upload Your Resume</h2>
-        <p className="text-sm text-soft">Upload your resume to extract skills and continue to skills review.</p>
+        <p className="text-sm text-soft-text">Upload your resume to extract skills and continue to skills review.</p>
       </div>
 
       {!state.resumeFile ? (
@@ -192,7 +192,7 @@ export default function UploadZone() {
             <div className="dz-title">
               <h3 className="font-display text-xl font-bold text-dark">Upload your resume</h3>
             </div>
-            <p className="text-soft text-sm leading-relaxed">Drop it here, or tap the button below</p>
+            <p className="text-soft-text text-sm leading-relaxed">Drop it here, or tap the button below</p>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -202,7 +202,7 @@ export default function UploadZone() {
             >
               Choose file
             </button>
-            <div className="flex items-center gap-2 text-xs text-soft">
+            <div className="flex items-center gap-2 text-xs text-soft-text">
               <span className="bg-bg border border-bdr rounded px-2 py-1 font-bold text-mid">PDF</span>
               <span className="text-bdr">·</span>
               <span className="bg-bg border border-bdr rounded px-2 py-1 font-bold text-mid">DOCX</span>
@@ -228,7 +228,7 @@ export default function UploadZone() {
               </div>
               <div>
                 <div className="font-bold text-sm text-dark">Job matches just for you</div>
-                <div className="text-xs text-soft leading-relaxed mt-0.5">
+                <div className="text-xs text-soft-text leading-relaxed mt-0.5">
                   We compare your skills to real jobs in the Philippines
                 </div>
               </div>
@@ -239,7 +239,7 @@ export default function UploadZone() {
               </div>
               <div>
                 <div className="font-bold text-sm text-dark">See exactly what you're missing</div>
-                <div className="text-xs text-soft leading-relaxed mt-0.5">
+                <div className="text-xs text-soft-text leading-relaxed mt-0.5">
                   We identify the skills holding you back
                 </div>
               </div>
@@ -250,14 +250,14 @@ export default function UploadZone() {
               </div>
               <div>
                 <div className="font-bold text-sm text-dark">Learning resources to close the gap</div>
-                <div className="text-xs text-soft leading-relaxed mt-0.5">
+                <div className="text-xs text-soft-text leading-relaxed mt-0.5">
                   We point you to relevant learning options based on your skill gaps
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 text-xs text-soft mt-6">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-soft-text mt-6">
             <FontAwesomeIcon icon={faLock} aria-hidden="true" />
             <span>Your resume is processed securely. Logged-in users can keep their latest analysis on the dashboard.</span>
           </div>
@@ -277,7 +277,7 @@ export default function UploadZone() {
             </div>
             <button
               onClick={handleRemoveFile}
-              className="text-soft hover:text-red transition-colors text-xl px-1 flex-shrink-0"
+              className="text-soft-text hover:text-red transition-colors text-xl px-1 flex-shrink-0"
               title="Remove"
               aria-label="Remove resume"
             >
@@ -290,7 +290,7 @@ export default function UploadZone() {
             <span className="text-xs font-semibold text-mid" aria-live="polite">{state.isLoading ? 'Analyzing resume…' : 'Analyze resume'}</span>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 text-xs text-soft mt-6">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-soft-text mt-6">
             <FontAwesomeIcon icon={faLock} aria-hidden="true" />
             <span>Your resume is processed securely. Logged-in users can keep their latest analysis on the dashboard.</span>
           </div>
