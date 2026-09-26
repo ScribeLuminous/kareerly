@@ -87,6 +87,61 @@ def merge_variants_into_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     return rows
 
 
+EXCLUSIONS_PATH = VARIANTS_PATH.with_name("skill_alias_exclusions.csv")
+# Taxonomy fields whose ';'-separated entries are read as names of the skill.
+ALIAS_LIST_FIELDS = ("related_skills", "esco_alternative_labels", APPROVED_ALIASES_FIELD)
+
+
+def _alias_key(value: str) -> str:
+    """Case, punctuation and spacing do not make a different alias."""
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+#.]+", " ", str(value).lower())).strip()
+
+
+@lru_cache(maxsize=1)
+def alias_exclusions() -> Dict[str, frozenset]:
+    """Skill ID -> labels that must not identify that skill (data/skill_alias_exclusions.csv).
+
+    The imported ESCO labels and related_skills lists include words that name
+    something else: a different technology ("XPath" on SQL, "Mocha" on
+    JavaScript), a related but different skill ("data analysis" on Statistics)
+    or an everyday word ("conduct", "survey", "scratch"). Each row is a
+    reviewed decision with its reason. The skill keeps its other names.
+    """
+    if not EXCLUSIONS_PATH.is_file():
+        return {}
+    result: Dict[str, set] = {}
+    with EXCLUSIONS_PATH.open(encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            skill_id = (row.get("skill_id") or "").strip().upper()
+            alias = _alias_key(row.get("alias") or "")
+            if skill_id and alias:
+                result.setdefault(skill_id, set()).add(alias)
+    return {skill_id: frozenset(aliases) for skill_id, aliases in result.items()}
+
+
+def remove_excluded_aliases(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Drop excluded labels from each taxonomy row's alias lists, in place.
+
+    Resume extraction, skill search and requirement matching all read these
+    lists, so removing an entry here removes it everywhere. The skill's own
+    name and ESCO preferred label are never removed.
+    """
+    exclusions = alias_exclusions()
+    if not exclusions:
+        return rows
+    for row in rows:
+        excluded = exclusions.get(str(row.get("skill_id", "")).strip().upper())
+        if not excluded:
+            continue
+        for field_name in ALIAS_LIST_FIELDS:
+            value = row.get(field_name)
+            if not isinstance(value, str) or not value:
+                continue
+            parts = [part.strip() for part in re.split(r"[;|\n]", value) if part.strip()]
+            row[field_name] = "; ".join(part for part in parts if _alias_key(part) not in excluded)
+    return rows
+
+
 @lru_cache(maxsize=1)
 def _exact_case_patterns() -> Tuple[Tuple[SkillVariant, re.Pattern], ...]:
     return tuple(

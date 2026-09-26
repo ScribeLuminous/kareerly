@@ -112,9 +112,12 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertEqual(onboarding["missing_skills"], ["Customer Service", "Customer relationship management"])
         self.assertIn("Onboarding", onboarding["matched_skills"])
         react = matching.compute_skill_coverage(["SK678"], ["SK_REACT"], "Built user interfaces in ReactJS.")
-        self.assertEqual(react["matched_skills"], ["React"])
+        # "React" is a reviewed spelling of React.js, so the legacy ID resolves to it.
+        self.assertEqual(react["matched_skills"], ["React.js"])
         # Whole words only, and nothing held means nothing credited.
-        self.assertEqual(matching.compute_skill_coverage(["SK002"], ["SK_JAVA"], "")["missing_skills"], ["Java"])
+        # SK_JAVA names the Java language (SK133); JavaScript never meets it.
+        self.assertEqual(matching.compute_skill_coverage(["SK002"], ["SK_JAVA"], "")["missing_skills"],
+            ["Java (computer programming)"])
         self.assertEqual(matching.compute_skill_coverage([], ["SK_ONBOARDING"], "Handled customer inquiries.")["missing_skills"],
             ["Onboarding"])
 

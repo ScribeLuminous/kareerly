@@ -44,3 +44,17 @@ SK030,client support,states_skill_definition,"SK030 Client Handling (ESCO: commu
 SK030,client coordination,states_skill_definition,Coordinating clients' requests is responding to and communicating with them.
 SK030,client and patient coordination,states_skill_definition,The phrase above as resumes list it.
 SK030,client patient coordination,states_skill_definition,"The phrase above written with an ampersand (""Client & Patient Coordination"")."
+SK197,microsoft excel,named_tool_is_instance,"SK197 Use spreadsheets software is using spreadsheet programs; Microsoft Excel is one, so a resume that uses it shows the skill. One way: using spreadsheet software does not show Microsoft Excel (SK629), and Microsoft Office or Microsoft 365 alone does not show spreadsheet use."
+SK197,ms excel,named_tool_is_instance,Common abbreviation of Microsoft Excel.
+SK197,excel,named_tool_is_instance,Microsoft Excel as resumes usually name it.
+SK197,google sheets,named_tool_is_instance,Google Sheets is spreadsheet software (also an ESCO label of SK197).
+SK624,coordinated patient appointments,states_skill_definition,"SK624 Appointment Scheduling is booking, confirming and rescheduling appointments with clients or patients; coordinating patients' appointments is that work."
+SK624,coordinate patient appointments,states_skill_definition,Present tense of the phrase above.
+SK624,coordinated appointments,states_skill_definition,The phrase above without the kind of client.
+SK624,coordinate appointments,states_skill_definition,Present tense of the phrase above.
+SK624,booked appointments,states_skill_definition,Booking appointments is appointment scheduling.
+SK624,book appointments,states_skill_definition,Present tense of the phrase above.
+SK624,booking appointments,states_skill_definition,Gerund form of the phrase above.
+SK624,appointment booking,states_skill_definition,Noun form of the phrase above.
+SK624,scheduled appointments,states_skill_definition,Scheduling appointments is the skill's own name.
+SK624,schedule appointments,states_skill_definition,Present tense of the phrase above.
