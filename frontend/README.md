@@ -23,8 +23,10 @@ Run authentication regression checks with `node --test tests/auth.test.mjs`.
 # UI system
 
 - Colours: `tailwind.config.js` is the only palette definition; it also exposes each colour as a CSS variable (`--rust`, `--soft-text`, …). Use `soft-text` for small secondary text (`soft` is for icons and borders only).
-- Primitives: `src/styles/ui.css` (mobile-first classes prefixed `k-`) and `src/components/ui/` (Modal/ConfirmDialog, FilterPanel, Tabs, Segmented, SearchField, InfoTip, Menu, Banner, EmptyState, SkeletonRows, ToastRegion).
+- Primitives: `src/styles/ui.css` (mobile-first classes prefixed `k-`) and `src/components/ui/` (Modal/ConfirmDialog, FilterPanel, Tabs, Segmented, SearchField, InfoTip, Menu, Banner, EmptyState, SkeletonRows, ToastRegion), plus the shared `AppShell` (top bar, sidebar, bottom nav) and page pieces (`PageHeader`, `FormField`, `SectionHead`, `NextStepCard`).
 - Candidate workspace: `src/pages/Dashboard.tsx` holds state and data flow; pages, the shell and job components are in `src/pages/candidate/`. Each page has a URL (`src/pages/candidate/routes.ts`).
+- Employer workspace: `src/pages/EmployerDashboard.tsx` holds state and data flow; pages and dialogs are in `src/pages/employer/`, with URLs in `src/pages/employer/routes.ts`.
+- Sign-in and sign-up pages share `src/components/AuthShell.tsx` (frame, password field and rule checklist).
 - Breakpoints: Tailwind's `sm` 640, `md` 768 (icon rail), `lg` 1024 (sidebar and list + detail split views), `xl` 1280.
 
 # React + TypeScript + Vite
