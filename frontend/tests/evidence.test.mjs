@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
+import { readCandidateSource } from './helpers/candidateSource.mjs';
 const source = fs.readFileSync(new URL('../src/lib/evidence.ts', import.meta.url), 'utf8');
 const { prepareEvidenceUpload } = await import('data:text/javascript;base64,' + Buffer.from(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText).toString('base64'));
 const draft = { title: 'Course', evidenceType: 'Certificate', relatedSkill: 'SQL', category: 'Technical', file: null };
@@ -28,7 +29,7 @@ test('failed validation preserves existing records, including replacement attemp
   URL.revokeObjectURL(existing.fileUrl);
 });
 test('dashboard has no resume-driven evidence setter or alternate unvalidated upload path', () => {
-  const dashboard = fs.readFileSync(new URL('../src/pages/Dashboard.tsx', import.meta.url), 'utf8');
+  const dashboard = readCandidateSource();
   const ast = ts.createSourceFile('Dashboard.tsx', dashboard, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const calls = [];
   function visit(node) {
