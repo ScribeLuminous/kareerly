@@ -78,7 +78,7 @@ const page = await loadPage([
   candidate('HomePage.tsx'),
   candidate('JobDetailModal.tsx'),
 ]);
-const employerPage = await loadPage(['../src/pages/EmployerDashboard.tsx'], 'toEmployerJob, toCandidateApplication, emptyJobForm, getMatchBucket');
+const employerPage = await loadPage(['../src/pages/employer/model.ts']);
 
 test('unmatched job listings do not invent work setup, level, employer, or missing skills', () => {
   const job = page.mapAvailableJob({ job_id: 'role-1', job_title: 'Senior Data Engineer', required_skills: ['SQL'] });
