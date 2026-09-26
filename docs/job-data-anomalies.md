@@ -315,3 +315,6 @@ area.
 **Not changed**
 
 - Section 5 (Supabase jobs) needs the live tables and is not covered here.
+  `backend/scripts/sync_reviewed_job_skills.py` writes guarded SQL that brings
+  live jobs with a reviewed reference row in line with it, and lists live jobs
+  that use unknown or unreviewed skill IDs. See `docs/skill-match-accuracy.md`.
