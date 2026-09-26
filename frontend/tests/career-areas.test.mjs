@@ -118,7 +118,7 @@ test('career areas show in two columns on wider screens and one column on phones
   assert.ok(classes.includes('sm:grid-cols-2'), 'two columns from the sm breakpoint');
   assert.ok(!classes.some((name) => /^grid-cols-[2-9]$/.test(name)), 'never two columns without a breakpoint');
   // The Step 3 section is wide enough for two readable columns.
-  assert.match(surveySource, /<section className="[^"]*max-w-3xl[^"]*">\s*<div className="mb-7">\s*<h2[^>]*>Step 3/);
+  assert.match(surveySource, /<section className="[^"]*max-w-3xl[^"]*">\s*<div className="mb-7">\s*<h2[^>]*>Your career goals/);
   // A saved legacy choice spans the full row instead of squeezing into one column.
   assert.match(surveySource, /\(saved choice\)`\} checked onChange=\{onChange\} className="sm:col-span-2"/);
 });
