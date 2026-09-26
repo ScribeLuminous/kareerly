@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import Logo from '../components/Logo';
 import AdminLearningPanel from '../components/AdminLearningPanel';
-import { deleteAdminJob, fetchAdminOverview, resetAdminApplication, updateAdminApplication, updateAdminJob, updateAdminUser } from '../lib/api';
+import AdminDeletionRequestsPanel from '../components/admin/AdminDeletionRequestsPanel';
+import AdminMatchQualityPanel from '../components/admin/AdminMatchQualityPanel';
+import AdminReportsPanel from '../components/admin/AdminReportsPanel';
+import AdminResumesPanel from '../components/admin/AdminResumesPanel';
+import AdminUsersPanel from '../components/admin/AdminUsersPanel';
+import { deleteAdminJob, fetchAdminOverview, resetAdminApplication, updateAdminApplication, updateAdminJob } from '../lib/api';
 import type { AdminOverview } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import type { KareerlyUser } from '../lib/auth';
@@ -13,11 +18,15 @@ type AdminDashboardProps = {
   onLogout: () => void;
 };
 
-type AdminTab = 'users' | 'jobs' | 'applications' | 'messages' | 'evidence' | 'learning';
-type UserFilter = 'candidate' | 'employer' | 'admin';
+type AdminTab = 'users' | 'resumes' | 'reports' | 'deletion' | 'match-quality' | 'jobs' | 'applications' | 'messages' | 'evidence' | 'learning';
+type TableTab = 'jobs' | 'applications' | 'messages' | 'evidence';
 
 const tabs: Array<{ id: AdminTab; label: string }> = [
   { id: 'users', label: 'Users' },
+  { id: 'resumes', label: 'Resumes' },
+  { id: 'reports', label: 'Reports' },
+  { id: 'deletion', label: 'Deletion Requests' },
+  { id: 'match-quality', label: 'Match Quality' },
   { id: 'jobs', label: 'Job Posts' },
   { id: 'applications', label: 'Applications' },
   { id: 'messages', label: 'Messages' },
@@ -109,7 +118,7 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
-  const [userFilter, setUserFilter] = useState<UserFilter>('candidate');
+  const [resumeSearch, setResumeSearch] = useState('');
 
   const runAdminAction = async (action: (token: string) => Promise<void>, success: string) => {
     setError(null);
@@ -185,33 +194,20 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
     ];
   }, [overview]);
 
-  const unfilteredRows = activeTab === 'learning' ? [] : overview?.recent[
-    activeTab === 'users' ? 'profiles' : activeTab === 'jobs' ? 'job_posts' : activeTab
-  ] || [];
-  const currentRows = activeTab === 'users' ? unfilteredRows.filter((row) => row.role === userFilter) : unfilteredRows;
+  const notify = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    if (type === 'error') {
+      setActionMessage(null);
+      setError(message);
+    } else {
+      setError(null);
+      setActionMessage(message);
+    }
+  }, []);
+
+  const tableTab: TableTab | null = activeTab === 'jobs' || activeTab === 'applications' || activeTab === 'messages' || activeTab === 'evidence' ? activeTab : null;
+  const currentRows = tableTab ? overview?.recent[tableTab === 'jobs' ? 'job_posts' : tableTab] || [] : [];
 
   const columns = useMemo(() => {
-    if (activeTab === 'users') {
-      return [
-        { key: 'email', label: 'Email' },
-        { key: 'role', label: 'Role', render: (row: Record<string, unknown>) => <StatusPill value={row.role} /> },
-        { key: 'first_name', label: 'First Name' },
-        { key: 'last_name', label: 'Last Name' },
-        { key: 'created_at', label: 'Created', render: (row: Record<string, unknown>) => dateText(row.created_at) },
-        { key: 'actions', label: 'Manage', render: (row: Record<string, unknown>) => (
-          <div className="flex flex-wrap gap-1">
-            <button className="rounded border border-bdr px-2 py-1 text-xs font-bold hover:border-rust" type="button" onClick={() => {
-              const email = window.prompt('New email address', String(row.email || ''));
-              if (email && email !== row.email) void runAdminAction((token) => updateAdminUser(token, { user_id: String(row.id), email }), 'User email updated.');
-            }}>Email</button>
-            <button className="rounded border border-bdr px-2 py-1 text-xs font-bold hover:border-rust" type="button" onClick={() => {
-              const password = window.prompt('New password (minimum 8 characters)');
-              if (password) void runAdminAction((token) => updateAdminUser(token, { user_id: String(row.id), password }), 'User password updated.');
-            }}>Password</button>
-          </div>
-        ) },
-      ];
-    }
     if (activeTab === 'jobs') {
       return [
         { key: 'job_title', label: 'Title' },
@@ -303,7 +299,7 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
       <section className="mx-auto max-w-7xl px-5 py-6">
         <div className="mb-5">
           <h1 className="font-display text-3xl font-extrabold">Admin Panel</h1>
-          <p className="mt-1 text-sm text-soft">Monitor accounts, employer jobs, applications, messages, and candidate evidence records.</p>
+          <p className="mt-1 text-sm text-soft">Manage accounts and resumes, review reports and deletion requests, and track match quality.</p>
         </div>
 
         {error && (
@@ -337,31 +333,27 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
               key={tab.id}
               className={`rounded-lg border px-3 py-2 text-sm font-bold ${activeTab === tab.id ? 'border-rust bg-rust text-white' : 'border-bdr bg-card text-mid hover:border-rust hover:text-rust'}`}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { if (tab.id === 'resumes') setResumeSearch(''); setActiveTab(tab.id); }}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
-        {activeTab === 'users' && (
-          <div className="mb-4 flex flex-wrap gap-2" aria-label="User role filter">
-            {(['candidate', 'employer', 'admin'] as UserFilter[]).map((role) => (
-              <button key={role} className={`rounded-lg border px-3 py-2 text-sm font-bold capitalize ${userFilter === role ? 'border-dark bg-dark text-white' : 'border-bdr bg-card text-mid'}`} type="button" onClick={() => setUserFilter(role)}>
-                {role === 'candidate' ? 'Candidates' : role === 'employer' ? 'Employers' : 'Admins'}
-              </button>
-            ))}
-          </div>
-        )}
-
         <div className="rounded-lg border border-bdr bg-card">
           <div className="flex items-center justify-between px-4 py-3">
             <h2 className="text-base font-extrabold">{tabs.find((tab) => tab.id === activeTab)?.label}</h2>
-            {activeTab !== 'learning' && <span className="text-xs font-semibold text-soft">{currentRows.length} records</span>}
+            {tableTab && <span className="text-xs font-semibold text-soft">{currentRows.length} records</span>}
           </div>
-          {activeTab === 'learning'
-            ? <AdminLearningPanel getToken={getAdminToken} />
-            : <AdminTable rows={currentRows} columns={columns} empty={`No ${activeTab} records found.`} />}
+          {activeTab === 'users' && (
+            <AdminUsersPanel getToken={getAdminToken} notify={notify} onViewResumes={(email) => { setResumeSearch(email); setActiveTab('resumes'); }} />
+          )}
+          {activeTab === 'resumes' && <AdminResumesPanel key={resumeSearch} getToken={getAdminToken} notify={notify} initialSearch={resumeSearch} />}
+          {activeTab === 'reports' && <AdminReportsPanel getToken={getAdminToken} notify={notify} />}
+          {activeTab === 'deletion' && <AdminDeletionRequestsPanel getToken={getAdminToken} notify={notify} />}
+          {activeTab === 'match-quality' && <AdminMatchQualityPanel getToken={getAdminToken} notify={notify} />}
+          {activeTab === 'learning' && <AdminLearningPanel getToken={getAdminToken} />}
+          {tableTab && <AdminTable rows={currentRows} columns={columns} empty={`No ${tableTab} records found.`} />}
         </div>
       </section>
     </main>
