@@ -1,56 +1,91 @@
-import type { EvidenceUploadRecord } from '../../lib/evidence';
 import { useMemo, useState } from 'react';
-import { UIIcon, type IconName } from './icons';
-import { SKILL_PROGRESS_PERCENT, SKILL_STATUS_LABEL, cleanSkillDisplayName, formatGapMissingCount, learningResourceUrl, normalizeProgressLabel, normalizeSkill, severityClass, skillNextStep, type DashboardCourse, type DashboardGap, type DashboardJob, type SeverityLevel, type SkillProgressRecord, type SkillProgressStatus } from './model';
+import type { ReactNode } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowRight, faArrowUpRightFromSquare, faCheck, faChevronRight, faPuzzlePiece, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { EmptyState, InfoTip, Modal, Tabs } from '../../components/ui';
+import { PageHeader } from './common';
+import {
+  cleanSkillDisplayName,
+  knownValue,
+  learningResourceUrl,
+  normalizeSkill,
+  severityBadgeClass,
+  SKILL_PROGRESS_PERCENT,
+  SKILL_STATUS_LABEL,
+  skillNextStep,
+  type DashboardCourse,
+  type DashboardGap,
+  type DashboardJob,
+  type SeverityLevel,
+  type SkillProgressRecord,
+  type SkillProgressStatus,
+} from './model';
 
-export function SkillGapEmptyState() {
+export type SkillsTab = 'gaps' | 'learning';
+
+/** Shared header for the two Skills views. */
+export function SkillsHeader({ tab, onTab, gapCount }: { tab: SkillsTab; onTab: (tab: SkillsTab) => void; gapCount?: number }) {
   return (
-    <div className="cand-gap-empty-state">
-      <UIIcon name="puzzle" className="cand-gap-empty-icon" />
-      <div>
-        <h3 className="cand-gap-empty-title">No skills to develop yet</h3>
-        <p className="cand-gap-empty-description">Your skill gaps will appear here after Kareerly identifies missing skills from your job matches.</p>
-      </div>
-    </div>
+    <>
+      <PageHeader title="Skills" />
+      <Tabs<SkillsTab>
+        label="Skills views"
+        idPrefix="skills"
+        value={tab}
+        onChange={onTab}
+        items={[
+          { id: 'gaps', label: 'Gaps', count: gapCount },
+          { id: 'learning', label: 'Learning' },
+        ]}
+      />
+    </>
   );
 }
+
+const PROGRESS_NOTE = 'Progress is a guide you update yourself. It is not a verified skill score, and it does not change your match scores. Kareerly does not verify course completion.';
+
+type Priority = 'all' | SeverityLevel;
+
+type SkillRow = {
+  key: string;
+  gap: DashboardGap;
+  status: SkillProgressStatus;
+  percent: number;
+  resource?: DashboardCourse;
+};
+
+type SkillGapsPageProps = {
+  gaps: DashboardGap[];
+  jobs: DashboardJob[];
+  courses: DashboardCourse[];
+  skillProgressRecords: Record<string, SkillProgressRecord>;
+  onUpdateSkillProgress: (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => void;
+  onUploadSkillEvidence: () => void;
+  onOpenLearning: (skill?: string) => void;
+  onTab: (tab: SkillsTab) => void;
+  isDesktop: boolean;
+  hasMatches: boolean;
+  onOpenMatches: () => void;
+};
+
+const PRIORITIES: SeverityLevel[] = ['Critical', 'High', 'Moderate'];
 
 export function SkillGapsPage({
   gaps,
   jobs,
   courses,
-  evidenceRecords,
   skillProgressRecords,
   onUpdateSkillProgress,
   onUploadSkillEvidence,
-  onOpenUpskilling,
-}: {
-  gaps: DashboardGap[];
-  jobs: DashboardJob[];
-  courses: DashboardCourse[];
-  evidenceRecords: EvidenceUploadRecord[];
-  skillProgressRecords: Record<string, SkillProgressRecord>;
-  onUpdateSkillProgress: (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => void;
-  onUploadSkillEvidence: () => void;
-  onOpenUpskilling: () => void;
-}) {
-  const [activeSkillGapView, setActiveSkillGapView] = useState<'board' | 'progress'>('board');
-  const [selectedSkillKey, setSelectedSkillKey] = useState('');
-  const skillGapTabOrder = ['board', 'progress'] as const;
-  const selectSkillGapView = (view: 'board' | 'progress') => setActiveSkillGapView(view);
-  const handleSkillGapTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    const currentIndex = skillGapTabOrder.indexOf(activeSkillGapView);
-    const nextIndex = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? skillGapTabOrder.length - 1
-        : (currentIndex + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + skillGapTabOrder.length) % skillGapTabOrder.length;
-    const nextView = skillGapTabOrder[nextIndex];
-    selectSkillGapView(nextView);
-    window.setTimeout(() => document.getElementById(`skill-gap-tab-${nextView}`)?.focus(), 0);
-  };
+  onOpenLearning,
+  onTab,
+  isDesktop,
+  hasMatches,
+  onOpenMatches,
+}: SkillGapsPageProps) {
+  const [priority, setPriority] = useState<Priority>('all');
+  const [selectedKey, setSelectedKey] = useState('');
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Skills the resume already shows for the matched jobs.
   const coveredSkills = useMemo(() => {
@@ -62,18 +97,7 @@ export function SkillGapsPage({
     return Array.from(seen.values());
   }, [jobs]);
 
-  const boardGaps = useMemo(() => gaps.map((gap) => ({ ...gap, boardSeverity: gap.severity })), [gaps]);
-
-  const critical = boardGaps.filter((gap) => gap.boardSeverity === 'Critical');
-  const high = boardGaps.filter((gap) => gap.boardSeverity === 'High');
-  const moderate = boardGaps.filter((gap) => gap.boardSeverity === 'Moderate');
-  const totalCoveredSkills = coveredSkills.length;
-  const progressEntries = Object.values(skillProgressRecords);
-  const activeMissingCount = progressEntries.filter((record) => ['missing', 'started', 'in_progress'].includes(record.status)).length || gaps.length;
-  const inProgressCount = progressEntries.filter((record) => ['started', 'in_progress'].includes(record.status)).length;
-  const completedCount = progressEntries.filter((record) => ['completed', 'evidenced', 'covered'].includes(record.status)).length;
-  const evidenceUploadedCount = progressEntries.filter((record) => Boolean(record.evidenceFilename)).length || evidenceRecords.length;
-  const recommendedResourceByGap = useMemo(() => {
+  const resourceByGap = useMemo(() => {
     const map = new Map<string, DashboardCourse>();
     gaps.forEach((gap) => {
       const match = [...(gap.topResources || []), ...courses].find((course) =>
@@ -82,291 +106,218 @@ export function SkillGapsPage({
     });
     return map;
   }, [courses, gaps]);
+
   // One row per missing skill: required gaps first, then by severity, then least progress.
-  const skillRows = useMemo(() => {
-    const severityRank: Record<SeverityLevel, number> = { Critical: 0, High: 1, Moderate: 2 };
+  const rows = useMemo<SkillRow[]>(() => {
+    const rank: Record<SeverityLevel, number> = { Critical: 0, High: 1, Moderate: 2 };
     return gaps.map((gap) => {
       const key = (gap.skillId || normalizeSkill(gap.skill)).toUpperCase();
       const record = skillProgressRecords[key];
       const status: SkillProgressStatus = record?.status || 'missing';
-      return {
-        key,
-        gap,
-        status,
-        percent: record?.progressPercent ?? SKILL_PROGRESS_PERCENT[status],
-        evidenceFilename: record?.evidenceFilename,
-        resource: recommendedResourceByGap.get(gap.skill),
-      };
+      return { key, gap, status, percent: record?.progressPercent ?? SKILL_PROGRESS_PERCENT[status], resource: resourceByGap.get(gap.skill) };
     }).sort((a, b) => Number(Boolean(a.gap.optional)) - Number(Boolean(b.gap.optional))
-      || severityRank[a.gap.severity] - severityRank[b.gap.severity]
+      || rank[a.gap.severity] - rank[b.gap.severity]
       || a.percent - b.percent
       || a.gap.skill.localeCompare(b.gap.skill));
-  }, [gaps, recommendedResourceByGap, skillProgressRecords]);
-  const activeGapKeys = new Set(skillRows.map((row) => row.key));
+  }, [gaps, resourceByGap, skillProgressRecords]);
+
+  const activeKeys = new Set(rows.map((row) => row.key));
   const closedGaps = Object.entries(skillProgressRecords)
-    .filter(([key, record]) => record.status === 'covered' && !activeGapKeys.has(key))
+    .filter(([key, record]) => record.status === 'covered' && !activeKeys.has(key))
     .map(([, record]) => cleanSkillDisplayName(record.skillName));
-  const selectedRow = skillRows.find((row) => row.key === selectedSkillKey) || skillRows[0] || null;
-  const hasAnyProgressData = gaps.length > 0;
-  const summaryCards = [
-    { label: 'Missing Skills', value: activeMissingCount, tone: 'critical', icon: 'puzzle' as IconName, subtitle: 'Still missing from top matches' },
-    { label: 'In Progress', value: inProgressCount, tone: 'high', icon: 'graduation' as IconName, subtitle: 'Active learning underway' },
-    { label: 'Completed / Covered', value: Math.max(totalCoveredSkills, completedCount), tone: 'progress', icon: 'check-circle' as IconName, subtitle: 'Covered by skills or learning' },
-    { label: 'Evidence Uploaded', value: evidenceUploadedCount, tone: 'evidence', icon: 'upload' as IconName, subtitle: 'Supporting documents on file' },
-  ] as const;
+  const inProgress = rows.filter((row) => row.status === 'started' || row.status === 'in_progress').length;
+  const done = rows.filter((row) => row.status === 'completed' || row.status === 'evidenced').length + closedGaps.length;
+  const toBuild = rows.length - rows.filter((row) => row.status === 'completed' || row.status === 'evidenced').length;
+  const counts = Object.fromEntries(PRIORITIES.map((level) => [level, rows.filter((row) => row.gap.severity === level).length])) as Record<SeverityLevel, number>;
+  const visibleRows = priority === 'all' ? rows : rows.filter((row) => row.gap.severity === priority);
+  const selected = visibleRows.find((row) => row.key === selectedKey) || (isDesktop ? visibleRows[0] : null) || null;
+
+  const openRow = (row: SkillRow) => {
+    setSelectedKey(row.key);
+    if (!isDesktop) setSheetOpen(true);
+  };
+
+  const renderRow = (row: SkillRow) => (
+    <li key={row.key}>
+      <button className="k-row" type="button" onClick={() => openRow(row)} aria-current={isDesktop && selected?.key === row.key ? 'true' : undefined}>
+        <span className="k-row-main">
+          <span className="k-label block">{cleanSkillDisplayName(row.gap.skill)}</span>
+          <span className="k-meta k-dot-sep mt-0.5 block">
+            <span>{row.gap.optional ? 'Nice to have' : 'Required'}</span>
+            {row.gap.affectedCount !== null && <span>Needed by {row.gap.affectedCount} match{row.gap.affectedCount === 1 ? '' : 'es'}</span>}
+            {row.status !== 'missing' && <span className="font-semibold text-green">{SKILL_STATUS_LABEL[row.status]}</span>}
+          </span>
+        </span>
+        <span className={severityBadgeClass(row.gap.severity)}>{row.gap.severity}</span>
+        <FontAwesomeIcon className="k-row-chevron" icon={faChevronRight} aria-hidden="true" />
+      </button>
+    </li>
+  );
+
+  const detail = selected && (
+    <GapDetail
+      row={selected}
+      onStatus={(status) => onUpdateSkillProgress(selected.key, status, selected.resource?.id)}
+      onUploadProof={onUploadSkillEvidence}
+      onOpenLearning={() => onOpenLearning(cleanSkillDisplayName(selected.gap.skill))}
+    />
+  );
+
+  return (
+    <div className="k-page">
+      <SkillsHeader tab="gaps" onTab={onTab} gapCount={rows.length} />
+      <div id="skills-panel" role="tabpanel" aria-labelledby="skills-tab-gaps">
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={faPuzzlePiece}
+            title={hasMatches ? 'No skill gaps right now' : 'No skill gaps yet'}
+            text={hasMatches ? 'Your matches show no missing skills.' : 'Skill gaps appear once you have job matches.'}
+            actions={!hasMatches ? <button className="k-btn k-btn-primary" type="button" onClick={onOpenMatches}>Go to Matches</button> : undefined}
+          />
+        ) : (
+          <>
+            <p className="k-secondary mb-3 flex flex-wrap items-center gap-x-1">
+              <span><strong className="k-num text-dark">{toBuild}</strong> to build</span>
+              <span aria-hidden="true">·</span>
+              <span><strong className="k-num text-dark">{inProgress}</strong> in progress</span>
+              <span aria-hidden="true">·</span>
+              <span><strong className="k-num text-dark">{done}</strong> done</span>
+              <InfoTip label="About skill progress">{PROGRESS_NOTE}</InfoTip>
+            </p>
+            <div className="k-chip-scroller mb-4" role="group" aria-label="Filter by priority">
+              <button className="k-chip" type="button" aria-pressed={priority === 'all'} onClick={() => setPriority('all')}>
+                All <span className="k-chip-count">{rows.length}</span>
+              </button>
+              {PRIORITIES.filter((level) => counts[level] > 0).map((level) => (
+                <button key={level} className="k-chip" type="button" aria-pressed={priority === level} onClick={() => setPriority(level)}>
+                  {level} <span className="k-chip-count">{counts[level]}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className={isDesktop ? 'k-split' : undefined}>
+              <div className="space-y-5">
+                {(priority === 'all' ? PRIORITIES : [priority]).map((level) => {
+                  const group = visibleRows.filter((row) => row.gap.severity === level);
+                  if (group.length === 0) return null;
+                  return (
+                    <section key={level} aria-labelledby={`gap-group-${level}`}>
+                      <h2 id={`gap-group-${level}`} className="k-eyebrow mb-2">{level}</h2>
+                      <ul className="k-list">{group.map(renderRow)}</ul>
+                    </section>
+                  );
+                })}
+
+                {(coveredSkills.length > 0 || closedGaps.length > 0) && (
+                  <details className="k-card">
+                    <summary className="k-label flex min-h-[28px] cursor-pointer items-center justify-between">
+                      Skills you already have
+                      <span className="k-meta">{coveredSkills.length + closedGaps.length}</span>
+                    </summary>
+                    <div className="k-chip-row mt-3 gap-1.5">
+                      {[...closedGaps, ...coveredSkills].map((skill) => (
+                        <span key={`have-${skill}`} className="k-skill k-skill-have"><FontAwesomeIcon icon={faCheck} aria-hidden="true" />{skill}</span>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+              {isDesktop && detail && (
+                <article className="k-split-detail k-detail" aria-label={`${cleanSkillDisplayName(selected.gap.skill)} details`}>
+                  <div className="k-detail-scroll pt-5">{detail}</div>
+                </article>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      {!isDesktop && sheetOpen && selected && (
+        <Modal title={cleanSkillDisplayName(selected.gap.skill)} onClose={() => setSheetOpen(false)}>
+          {detail}
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function GapDetail({ row, onStatus, onUploadProof, onOpenLearning }: {
+  row: SkillRow;
+  onStatus: (status: SkillProgressStatus) => void;
+  onUploadProof: () => void;
+  onOpenLearning: () => void;
+}) {
+  const { gap, resource, status } = row;
+  const name = cleanSkillDisplayName(gap.skill);
+  const url = resource ? learningResourceUrl(resource) : undefined;
+  const progressValue: 'missing' | 'in_progress' | 'completed' = status === 'completed' || status === 'evidenced' || status === 'covered'
+    ? 'completed'
+    : status === 'started' || status === 'in_progress' ? 'in_progress' : 'missing';
+  const section = (title: string, body: ReactNode) => (
+    <section className="mt-5 first:mt-0">
+      <h3 className="k-label mb-2">{title}</h3>
+      {body}
+    </section>
+  );
   return (
     <div>
-      <div className="cand-page-header">
-        <div className="cand-learning-header-row">
-          <div>
-            <h1 className="cand-page-title">Skill Gaps & Development Progress</h1>
-            <p className="cand-page-subtitle">Missing skills identified from your job matches with guided development tracking</p>
-          </div>
-          <button className="cand-inline-link" type="button" onClick={onOpenUpskilling}>Explore Learning Recommendations →</button>
-        </div>
+      <div className="mb-4 hidden flex-wrap items-center gap-2 lg:flex">
+        <h2 className="k-section-title mr-1">{name}</h2>
+      </div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <span className={severityBadgeClass(gap.severity)}>{gap.severity} priority</span>
+        <span className="k-badge">{gap.optional ? 'Nice to have' : 'Required'}</span>
       </div>
 
-      <div className="cand-gap-insights-bar">
-        {summaryCards.map((card) => (
-          <div key={card.label} className={`cand-gap-insight ${card.tone}`}>
-            <div className="cand-gap-insight-label"><UIIcon name={card.icon} className="cand-mini-icon" />{card.label}</div>
-            <div className="cand-gap-insight-value">{card.value}</div>
-            <div className="cand-gap-insight-subtitle">{card.subtitle}</div>
-          </div>
-        ))}
-      </div>
+      {section('Needed by', gap.relatedJobs.length > 0 ? (
+        <div className="k-chip-row gap-1.5">{gap.relatedJobs.map((title) => <span key={title} className="k-skill">{title}</span>)}</div>
+      ) : <p className="k-secondary">{gap.affectedCount !== null ? `${gap.affectedCount} of your matches.` : 'Job details unavailable.'}</p>)}
 
-      <div className="cand-tab-row cand-gap-view-tabs cand-skill-gap-tabs" role="tablist" aria-label="Skill gaps views">
-          <button
-            id="skill-gap-tab-board"
-            className={`cand-tab-btn ${activeSkillGapView === 'board' ? 'active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={activeSkillGapView === 'board'}
-            aria-controls="skill-gap-board-panel"
-            tabIndex={activeSkillGapView === 'board' ? 0 : -1}
-            onClick={() => selectSkillGapView('board')}
-            onKeyDown={handleSkillGapTabKeyDown}
-          >
-            <UIIcon name="columns" className="cand-tab-icon" />Skill Gap Board
-          </button>
-          <button
-            id="skill-gap-tab-progress"
-            className={`cand-tab-btn ${activeSkillGapView === 'progress' ? 'active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={activeSkillGapView === 'progress'}
-            aria-controls="skill-gap-progress-panel"
-            tabIndex={activeSkillGapView === 'progress' ? 0 : -1}
-            onClick={() => selectSkillGapView('progress')}
-            onKeyDown={handleSkillGapTabKeyDown}
-          >
-            <UIIcon name="chart" className="cand-tab-icon" />Development Progress
-          </button>
-      </div>
-
-      {activeSkillGapView === 'board' ? (
-        <div id="skill-gap-board-panel" role="tabpanel" aria-labelledby="skill-gap-tab-board" tabIndex={0}>
-          <h2 className="cand-card-title cand-gap-content-title mb-3"><UIIcon name="columns" className="cand-title-icon" />Skills to Develop</h2>
-          {!hasAnyProgressData ? (
-            <SkillGapEmptyState />
-          ) : (
-          <div className="cand-gap-kanban">
-            {[
-              { key: 'critical', title: 'Critical', icon: 'shield' as IconName, severity: 'Critical' as SeverityLevel, items: critical },
-              { key: 'high', title: 'High Priority', icon: 'lightbulb' as IconName, severity: 'High' as SeverityLevel, items: high },
-              { key: 'moderate', title: 'Moderate', icon: 'list' as IconName, severity: 'Moderate' as SeverityLevel, items: moderate },
-            ].map((column) => (
-              <div key={column.key} className="cand-gap-col">
-                <div className={`cand-gap-col-head ${column.key}`}>
-                  <UIIcon name={column.icon} className="cand-gap-col-icon" />
-                  {column.title}
-                  <span className="cand-gap-col-count">{column.items.length}</span>
-                </div>
-                <div className="cand-gap-col-body">
-                  {column.items.length > 0 ? column.items.map((gap) => {
-                    const progressKey = (gap.skillId || normalizeSkill(gap.skill)).toUpperCase();
-                    const recommendedResource = recommendedResourceByGap.get(gap.skill);
-                    return (
-                      <div key={`${column.key}-${gap.skill}`} className="cand-gap-k-card">
-                        <div className="cand-gap-top">
-                          <span className="cand-gap-name">{cleanSkillDisplayName(gap.skill)}</span>
-                          <span className={`cand-gap-priority ${severityClass(column.severity)}`}>{column.title}</span>
-                        </div>
-                        <div className="cand-gap-meta">
-                          <span><UIIcon name="briefcase" className="cand-mini-icon" />{formatGapMissingCount(gap)}</span>
-                          <span><UIIcon name="target" className="cand-mini-icon" />{gap.category}</span>
-                        </div>
-                        <div className="text-[11px] text-soft-text">
-                          {gap.affectedCount === null
-                            ? 'This skill was identified as a gap in your matching results.'
-                            : gap.optional
-                              ? `A nice-to-have skill, not found in your resume, for ${gap.affectedCount} of your recommended roles.`
-                              : `This skill is prioritized because it is a required skill not found in your resume for ${gap.affectedCount} of your recommended roles.`}
-                        </div>
-                        <div className="cand-gap-jobs">
-                          {gap.relatedJobs.map((jobTitle) => (
-                            <span key={`${gap.skill}-${jobTitle}`} className="cand-gap-chip">{jobTitle}</span>
-                          ))}
-                        </div>
-                        <div className="cand-gap-learning">
-                          <div className="cand-gap-label">Recommended Learning Resource</div>
-                          <div className="cand-gap-value">
-                            {recommendedResource ? `${recommendedResource.title} (${recommendedResource.provider})` : 'No recommended learning resource available yet.'}
-                          </div>
-                          {gap.topResources && gap.topResources.length > 1 ? (
-                            <div className="mt-2 text-[11px] text-soft-text">
-                              More options: {gap.topResources.slice(1, 3).map((resource) => resource.title).join(' · ')}
-                            </div>
-                          ) : null}
-                        </div>
-                        <p className="mt-2 text-xs text-soft-text">Learning and certificates are managed by the provider. Kareerly does not verify completion. Opening a resource does not change skill coverage, readiness, or match scores.</p>
-                        <div className="cand-gap-actions">
-                          <button className="cand-gap-start" type="button" disabled={!recommendedResource || !learningResourceUrl(recommendedResource)} onClick={() => {
-                            const url = recommendedResource && learningResourceUrl(recommendedResource);
-                            if (url) window.open(url, '_blank', 'noopener,noreferrer');
-                          }}>
-                            <UIIcon name="graduation" className="cand-btn-icon" />{recommendedResource?.urlLabel || 'Start learning'}
-                          </button>
-                          <button className="cand-gap-resource" type="button" onClick={() => onUpdateSkillProgress(progressKey, 'completed', recommendedResource?.id)}>
-                            Mark Completed
-                          </button>
-                          <button className="cand-gap-resource cand-gap-upload" type="button" onClick={onUploadSkillEvidence}>
-                            Upload Evidence
-                          </button>
-                          <button className="cand-gap-resource" type="button" onClick={onOpenUpskilling}>
-                            View resources
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }) : <div className="cand-gap-empty">No items in this column.</div>}
-                </div>
+      {section('Start with', resource ? (
+        <div className="k-list">
+          <div className="k-row">
+            <div className="k-row-main">
+              <div className="k-label">{resource.title}</div>
+              <div className="k-meta k-dot-sep mt-0.5">
+                {[resource.provider, resource.level, resource.duration, resource.isFree ? 'Free' : ''].map((value) => knownValue(value)).filter(Boolean).map((value) => <span key={value}>{value}</span>)}
               </div>
+            </div>
+            {url && (
+              <a className="k-btn k-btn-primary k-btn-sm" href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${resource.title} (opens in a new tab)`}>
+                Open<FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" />
+              </a>
+            )}
+          </div>
+        </div>
+      ) : <p className="k-secondary">No resource is listed for {name} yet.</p>)}
+      <button className="k-link mt-3" type="button" onClick={onOpenLearning}>
+        All resources for {name}<FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+      </button>
+
+      {section('Your progress', (
+        <>
+          <div className="k-seg" role="radiogroup" aria-label={`Progress on ${name}`}>
+            {([['missing', 'Not started'], ['in_progress', 'In progress'], ['completed', 'Done']] as const).map(([value, label]) => (
+              <button
+                key={value}
+                className="k-seg-btn"
+                type="button"
+                role="radio"
+                aria-checked={progressValue === value}
+                onClick={() => { if (progressValue !== value) onStatus(value); }}
+              >
+                {label}
+              </button>
             ))}
           </div>
+          <p className="k-meta mt-2">{skillNextStep(status, name)}</p>
+          {(status === 'completed' || status === 'in_progress' || status === 'started') && (
+            <button className="k-btn k-btn-ghost k-btn-sm mt-2 -ml-3" type="button" onClick={onUploadProof}>
+              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />Add proof
+            </button>
           )}
-        </div>
-      ) : (
-        <div id="skill-gap-progress-panel" role="tabpanel" aria-labelledby="skill-gap-tab-progress" tabIndex={0}>
-          <h2 className="cand-card-title cand-gap-content-title mb-2"><UIIcon name="chart" className="cand-title-icon" />Your Development Progress</h2>
-          <p className="mb-3 text-xs text-soft-text">
-            Progress is an explainable career-guidance indicator, not a mastery-verification score.
-          </p>
-
-          {skillRows.length === 0 ? (
-            <SkillGapEmptyState />
-          ) : (
-          <div className="cand-sdp-dual">
-            <div className="cand-sdp-list">
-              <div className="cand-sdp-list-head">Skills to Develop ({skillRows.length})</div>
-              {skillRows.map((row) => {
-                const chip = normalizeProgressLabel(row.percent);
-                return (
-                  <button key={`sdp-skill-${row.key}`} type="button" className={`cand-sdp-row-item ${selectedRow?.key === row.key ? 'active' : ''}`} onClick={() => setSelectedSkillKey(row.key)} aria-pressed={selectedRow?.key === row.key}>
-                    <div className="cand-sdp-row-left">
-                      <div className="cand-sdp-row-name">{row.gap.skill}</div>
-                      <div className="cand-sdp-row-counts">
-                        {row.gap.optional ? 'Nice to have' : 'Required'} · {row.gap.severity} · needed by {row.gap.relatedJobs.length || row.gap.affectedCount || 0} match{(row.gap.relatedJobs.length || row.gap.affectedCount || 0) === 1 ? '' : 'es'}
-                      </div>
-                      <div className={chip.className}>{SKILL_STATUS_LABEL[row.status]}</div>
-                      <div className="cand-sdp-mini-bar">
-                        <div className="cand-sdp-mini-fill" style={{ width: `${row.percent}%`, background: 'var(--rust)' }} />
-                      </div>
-                    </div>
-                    <div className="cand-sdp-row-right">
-                      <div className="cand-sdp-row-pct">{row.percent}%</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="cand-sdp-detail">
-              {selectedRow && (
-                <>
-                  <div className="cand-sdp-detail-head">
-                    <h3 className="cand-sdp-detail-title">{selectedRow.gap.skill}</h3>
-                    <span className={normalizeProgressLabel(selectedRow.percent).className}>{SKILL_STATUS_LABEL[selectedRow.status]}</span>
-                  </div>
-                  <div className="cand-sdp-detail-bar-row">
-                    <div className="cand-sdp-detail-bar">
-                      <div className="cand-sdp-detail-fill" style={{ width: `${selectedRow.percent}%`, background: 'var(--rust)' }} />
-                    </div>
-                    <span className="cand-sdp-detail-pct">{selectedRow.percent}%</span>
-                  </div>
-
-                  <div className="cand-sdp-detail-section">Needed By</div>
-                  <div className="cand-skill-row">
-                    {selectedRow.gap.relatedJobs.length > 0
-                      ? selectedRow.gap.relatedJobs.map((title) => <span key={`needed-${selectedRow.key}-${title}`} className="cand-gap-chip">{title}</span>)
-                      : <span className="cand-covered-empty">Job details unavailable.</span>}
-                  </div>
-                  <div className="cand-sdp-row-counts">{selectedRow.gap.optional
-                    ? 'Nice to have for these jobs: learning it strengthens your match but is not required.'
-                    : 'Required by at least one of these jobs.'}</div>
-
-                  <div className="cand-sdp-detail-section">Suggested Resource</div>
-                  {selectedRow.resource ? (
-                    <div className="cand-sdp-next-action">
-                      <strong>{selectedRow.resource.title}</strong> · {selectedRow.resource.provider}
-                      {selectedRow.resource.url && (
-                        <> · <a href={selectedRow.resource.url} target="_blank" rel="noopener noreferrer">{selectedRow.resource.urlLabel}</a></>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="cand-sdp-next-action">No resource is listed for this skill yet. Browse Learning Recommendations for related training.</div>
-                  )}
-
-                  <div className="cand-sdp-detail-section">Next Step</div>
-                  <div className="cand-sdp-next-action">{skillNextStep(selectedRow.status, selectedRow.gap.skill)}</div>
-                  <div className="cand-sdp-action-row">
-                    {selectedRow.status === 'missing' && (
-                      <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onUpdateSkillProgress(selectedRow.key, 'started', selectedRow.resource?.id)}>
-                        <UIIcon name="graduation" className="cand-btn-icon" />Mark as Started
-                      </button>
-                    )}
-                    {selectedRow.status === 'completed' ? (
-                      <button className="cand-btn-primary cand-btn-sm" type="button" onClick={onUploadSkillEvidence}>
-                        <UIIcon name="upload" className="cand-btn-icon" />Upload Proof
-                      </button>
-                    ) : (
-                      <button className="cand-btn-primary cand-btn-sm" type="button" onClick={onOpenUpskilling}>
-                        <UIIcon name="graduation" className="cand-btn-icon" />Open Learning Recommendations
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          )}
-
-          {(coveredSkills.length > 0 || closedGaps.length > 0) && (
-            <div className="cand-sdp-detail mt-3">
-              {closedGaps.length > 0 && (
-                <>
-                  <div className="cand-sdp-detail-section">Gaps You Closed</div>
-                  <div className="cand-skill-row">
-                    {closedGaps.map((skill) => <span key={`closed-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>)}
-                  </div>
-                </>
-              )}
-              {coveredSkills.length > 0 && (
-                <>
-                  <div className="cand-sdp-detail-section">Skills You Already Have</div>
-                  <div className="cand-skill-row">
-                    {coveredSkills.map((skill) => <span key={`covered-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>)}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-          <div className="cand-sdp-disclaimer">
-            Skill Development Progress remains an explainable indicator for guidance and does not certify verified competency or guarantee employment.
-          </div>
-        </div>
-      )}
+          {status === 'evidenced' && <p className="k-badge k-badge-info mt-2">Proof uploaded · pending review</p>}
+        </>
+      ))}
     </div>
   );
 }

@@ -22,7 +22,7 @@ export type DashboardPage =
   | 'upskilling'
   | 'messages';
 
-export type JobFilter = 'top' | 'fit-now' | 'aspiration' | 'all' | 'internal' | 'external' | 'saved';
+export type MatchView = 'fit-now' | 'aspiration' | 'saved';
 
 export type UpskillTab = 'recommended' | 'by-gap';
 
@@ -62,7 +62,8 @@ export const FILIPINO_UI: Record<string, string> = {
   'Enter graduation year': 'Ilagay ang taon ng pagtatapos', 'Save Education': 'I-save ang Edukasyon',
   'User-Uploaded Evidence': 'Mga Sertipikasyon at Na-upload na Katibayan',
   'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Delete: 'Tanggalin',
-  'Delete Profile': 'Tanggalin ang Profile', 'Request Profile Deletion': 'Humiling na Tanggalin ang Profile',
+  'Delete Profile': 'Tanggalin ang Profile',
+  Home: 'Home', Matches: 'Mga Tugma', Skills: 'Mga Kasanayan', 'Profile & resume': 'Profile at resume', 'Request Profile Deletion': 'Humiling na Tanggalin ang Profile',
 };
 
 export function tr(language: UiLanguage, english: string): string {
@@ -1145,3 +1146,56 @@ export const MESSAGE_REPORT_REASONS: Array<{ value: MessageReportReason; label: 
   { value: 'impersonation', label: 'Fake company or impersonation' },
   { value: 'other', label: 'Something else' },
 ];
+
+// ---------- Display helpers for the redesigned views ----------
+
+/** A job field worth showing, or '' for placeholders such as "Not specified". */
+export function knownValue(value?: string | null): string {
+  const trimmed = (value || '').trim();
+  if (!trimmed || PLACEHOLDER_VALUE_PATTERN.test(trimmed)) return '';
+  if (/^unknown company$|not specified$|^not available$/i.test(trimmed)) return '';
+  return trimmed;
+}
+
+/** Company · location · work setup, leaving out anything unknown. */
+export function jobMetaParts(job: Pick<DashboardJob, 'company' | 'location' | 'setup'>): string[] {
+  return [job.company, job.location, job.setup].map(knownValue).filter(Boolean);
+}
+
+export function jobScore(job: Pick<DashboardJob, 'hasMatchScore' | 'matchScore'>): number | null {
+  return job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : null;
+}
+
+/** "4 of 5 skills" and the first missing skills, for compact job rows. */
+export function jobSkillSummary(job: Pick<DashboardJob, 'matchedSkills' | 'missingSkills'>): { matched: number; total: number; missing: string[] } {
+  const matched = splitSkillList(job.matchedSkills);
+  const missing = splitSkillList(job.missingSkills);
+  return { matched: matched.length, total: matched.length + missing.length, missing };
+}
+
+export function categoryBadgeClass(job: Pick<DashboardJob, 'matchCategory' | 'closestMatch' | 'hasMatchScore'>): string {
+  if (!job.hasMatchScore) return 'k-badge';
+  return job.matchCategory === 'fit-now' ? 'k-badge k-badge-fit' : 'k-badge k-badge-aspiration';
+}
+
+export function severityBadgeClass(severity: SeverityLevel): string {
+  if (severity === 'Critical') return 'k-badge k-badge-critical';
+  if (severity === 'High') return 'k-badge k-badge-high';
+  return 'k-badge';
+}
+
+export const WITHDRAWABLE_STATUSES: ApplicationStatus[] = ['Pending', 'Shortlisted', 'Interviewing'];
+export const MESSAGING_STATUSES: ApplicationStatus[] = ['Interviewing', 'Hired'];
+
+export function applicationBadgeClass(status: ApplicationStatus): string {
+  if (status === 'Hired') return 'k-badge k-badge-success';
+  if (status === 'Interviewing' || status === 'Shortlisted') return 'k-badge k-badge-info';
+  if (status === 'Rejected') return 'k-badge k-badge-danger';
+  if (status === 'Withdrawn') return 'k-badge k-badge-outline';
+  return 'k-badge k-badge-high';
+}
+
+/** Opens a job's external posting, or a web search for it when no link is stored. */
+export function externalJobUrl(job: Pick<DashboardJob, 'externalUrl' | 'title' | 'company'>): string {
+  return job.externalUrl || `https://www.google.com/search?q=${encodeURIComponent(`${job.title} ${knownValue(job.company)} jobs`)}`;
+}

@@ -107,13 +107,14 @@ test('rating controls are accessible toggle buttons with a live status', () => {
   assert.match(component, /Try again/);
 });
 
-test('job match cards render the controls and do not present scores as hiring odds', () => {
+test('job details render the rating controls and do not present scores as hiring odds', () => {
   const dashboard = readCandidateSource();
-  const cardStart = dashboard.indexOf('const renderJobCard = (job: DashboardJob) =>');
-  const cardEnd = dashboard.indexOf('return (', dashboard.indexOf('</div>\n    );\n  };', cardStart));
-  const card = dashboard.slice(cardStart, cardEnd);
-  assert.match(card, /<MatchFeedbackControls/);
-  assert.match(card, /matchFeedbackKey\(job\.id, job\.jobSource\)/);
+  // Ratings live in the job detail (shown beside the list on desktop, as a dialog on phones).
+  const detailStart = dashboard.indexOf('export function JobDetailBody');
+  const detail = dashboard.slice(detailStart, dashboard.indexOf('\nexport function ', detailStart + 10));
+  assert.match(detail, /<MatchFeedbackControls/);
+  assert.match(detail, /job\.hasMatchScore && !job\.closestMatch/);
+  assert.match(dashboard, /matchFeedbackKey\(job\.id, job\.jobSource\)/);
   assert.match(dashboard, /not your chance of being hired/);
   // A failed save restores the previous choice instead of showing a vote that was not saved.
   assert.match(dashboard, /withMatchVote\(current, key, previous\)/);
@@ -169,5 +170,5 @@ test('each match list keeps the backend order so feedback ranking is visible', (
   const legacy = [{ id: 'a', matchScore: 90 }, { id: 'b', matchScore: 80, rankPosition: 1 }];
   assert.deepEqual(orderByBackendRank(legacy).map((job) => job.id), ['a', 'b']);
   assert.match(dashboard, /rankPosition: typeof dynamic\.rank_position === 'number'/);
-  assert.equal((dashboard.match(/orderByBackendRank\(jobs\.filter\(\(job\) => job\.matchCategory === '(fit-now|aspiration)'\)\)/g) || []).length, 5);
+  assert.equal((dashboard.match(/orderByBackendRank\(jobs\.filter\(\(job\) => job\.matchCategory === '(fit-now|aspiration)'\)\)/g) || []).length, 3);
 });

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
 import * as mammoth from 'mammoth';
-import Logo from '../components/Logo';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
@@ -15,10 +14,13 @@ import { assessSavedResume, extractionWarnings, staleResumeMessage, type SavedRe
 import type { ParsedResume, SelectedSkill, SurveyAnswers } from '../types';
 import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
-import { SKILL_PROGRESS_PERCENT, TOP_MATCHES_PER_CATEGORY, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getMatchScoreBadge, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, severityPriority, tr, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type JobFilter, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, type UpskillTab, withExtractedEducation, withMatchVote } from './candidate/model';
-import { UIIcon, type IconName } from './candidate/icons';
-import { NavItem } from './candidate/common';
-import { DashboardOverview } from './candidate/HomePage';
+import { cleanSkillDisplayName, externalJobUrl, formatGapMissingCount, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, severityPriority, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Banner, ConfirmDialog, DESKTOP_QUERY, Modal, ToastRegion, useMediaQuery, type ToastState } from '../components/ui';
+import { CandidateShell } from './candidate/Shell';
+import { PAGE_PATHS, pageFromPath } from './candidate/routes';
+import { HomePage, type NextStep, type ProfileTask } from './candidate/HomePage';
+import { JobDetailPanel } from './candidate/JobDetailModal';
 import { JobMatchesPage } from './candidate/MatchesPage';
 import { SkillGapsPage } from './candidate/SkillGapsPage';
 import { ApplicationsPage } from './candidate/ApplicationsPage';
@@ -28,7 +30,7 @@ import { KareersPage } from './candidate/KareersPage';
 import { UpskillingPage } from './candidate/LearningPage';
 import { MessagesPage } from './candidate/MessagesPage';
 import { JobDetailModal } from './candidate/JobDetailModal';
-import { ConfirmModal, EvidenceFormModal, ReportConversationModal, ResumeUpdateModal } from './candidate/modals';
+import { EvidenceFormModal, ReportConversationModal, ResumeUpdateModal } from './candidate/modals';
 import './candidate-dashboard-v5.css';
 
 type DashboardProps = {
@@ -72,20 +74,28 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setError,
   } = useOnboarding();
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth < 900);
-  const [activePage, setActivePage] = useState<DashboardPage>('dashboard');
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Each page has its own URL, so Back, refresh and shared links work.
+  const activePage = pageFromPath(location.pathname);
+  const setActivePage = useCallback((page: DashboardPage) => {
+    if (PAGE_PATHS[page] !== location.pathname) navigate(PAGE_PATHS[page]);
+  }, [location.pathname, navigate]);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [activePage]);
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [jobSearch, setJobSearch] = useState('');
-  const [jobFilter, setJobFilter] = useState<JobFilter>('top');
-  const [upskillTab, setUpskillTab] = useState<UpskillTab>('recommended');
-  const [selectedKareerId, setSelectedKareerId] = useState<string>('');
+  const [matchView, setMatchView] = useState<MatchView>('fit-now');
+  const [learningFocus, setLearningFocus] = useState<{ skill?: string; jobId?: string }>({});
+  const [applyTarget, setApplyTarget] = useState<DashboardJob | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
   const [savedJobs, setSavedJobs] = useState<Set<string>>(() => new Set());
   const [applications, setApplications] = useState<DashboardApplication[]>([]);
   const [applicationLoadStatus, setApplicationLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [notifications, setNotifications] = useState<CandidateNotification[]>([]);
   const [notificationLoadStatus, setNotificationLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
   const [inlineNotice, setInlineNotice] = useState<{ message: string; type: ToastType } | null>(null);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(() => {
     const saved = window.localStorage.getItem('kareerly.uiLanguage');
@@ -180,7 +190,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const candidateProfile = state.resumeAnalysis?.candidate_profile;
   const educationIndicators = candidateProfile?.education_indicators || [];
   const experienceIndicators = candidateProfile?.experience_indicators || [];
-  const matchedLocation = profileForm.location || extraPreferences.preferredLocation || '';
 
   useEffect(() => {
     const extracted = extractSkillsFromResume(state.resume);
@@ -604,59 +613,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     });
   }, [gaps]);
 
-  const metricCards = useMemo(() => {
-    const hasMatchingResults = Boolean(state.matchResults || state.results);
-    const fitNowCount = jobs.filter((job) => job.matchCategory === 'fit-now').length;
-    const aspirationCount = jobs.filter((job) => job.matchCategory === 'aspiration').length;
-    const topFitNowCount = Math.min(fitNowCount, TOP_MATCHES_PER_CATEGORY);
-    const topAspirationCount = Math.min(aspirationCount, TOP_MATCHES_PER_CATEGORY);
-    const hasResumeUploaded = Boolean(state.resumeFile || state.resume || state.resumeAnalysis);
-    const confirmedSkillsCount = skillNames.length || state.resumeAnalysis?.normalized_for_matching?.skill_ids?.length || 0;
-    const hasPreferencesCompleted = Boolean(surveyAnswers.industry && surveyAnswers.role && surveyAnswers.setup && surveyAnswers.salary);
-    const hasProfileDetails = Boolean(profileForm.location || profileForm.highestEducationalAttainment || profileForm.degreeProgram || profileForm.schoolUniversity || profileForm.yearGraduated);
-    const profileCompletion =
-      (hasResumeUploaded ? 30 : 0) +
-      (confirmedSkillsCount > 0 ? 30 : 0) +
-      (hasPreferencesCompleted ? 25 : 0) +
-      (hasProfileDetails || educationIndicators.length > 0 || experienceIndicators.length > 0 ? 15 : 0);
-    return [
-      {
-        label: 'Profile Completion',
-        value: `${profileCompletion}%`,
-        detail: hasResumeUploaded ? `${confirmedSkillsCount} skills confirmed · ${hasPreferencesCompleted ? 'preferences saved' : 'preferences incomplete'}` : 'Resume not uploaded yet',
-        iconClass: 'green',
-        valueColor: 'var(--green)',
-        icon: 'check-circle' as IconName,
-      },
-      {
-        label: 'Job Matches',
-        value: hasMatchingResults ? String(fitNowCount + aspirationCount) : '—',
-        detail: hasMatchingResults ? `Showing top ${topFitNowCount} Fit-Now · ${topAspirationCount} Aspiration` : state.isLoading ? 'Matching in progress' : 'Run matching to see your results',
-        iconClass: 'amber',
-        valueColor: 'var(--amber)',
-        icon: 'briefcase' as IconName,
-      },
-      {
-        label: 'Skill Gaps',
-        value: hasMatchingResults ? String(gaps.length) : '—',
-        detail: hasMatchingResults ? `${gaps.filter((gap) => gap.severity === 'Critical').length} critical · ${gaps.filter((gap) => gap.severity === 'High').length} high` : 'Run matching to identify skill gaps',
-        iconClass: 'mauve',
-        valueColor: 'var(--mauve)',
-        icon: 'puzzle' as IconName,
-      },
-      {
-        label: 'Applications',
-        value: applicationLoadStatus === 'ready' ? String(applications.length) : '—',
-        detail: applicationLoadStatus === 'ready' ? `${applications.filter((app) => app.status === 'Interviewing').length} interviewing · ${applications.filter((app) => app.status === 'Shortlisted').length} shortlisted` : applicationLoadStatus === 'error' ? 'Applications unavailable' : 'Loading applications',
-        iconClass: 'forest',
-        valueColor: 'var(--forest)',
-        icon: 'layers' as IconName,
-      },
-    ];
-  }, [applicationLoadStatus, state.matchResults, state.results, state.isLoading, applications, educationIndicators.length, experienceIndicators.length, gaps, jobs, profileForm.degreeProgram, profileForm.highestEducationalAttainment, profileForm.location, profileForm.schoolUniversity, profileForm.yearGraduated, skillNames.length, state.resume, state.resumeAnalysis, state.resumeFile, surveyAnswers.industry, surveyAnswers.role, surveyAnswers.salary, surveyAnswers.setup]);
-
-  const topJobHighlights = useMemo(() => jobs.slice(0, 3), [jobs]);
-
   const recentApplications = useMemo(
     () =>
       applications
@@ -666,22 +622,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     [applications],
   );
 
-  const topMissingSkills = useMemo(() => gaps.slice(0, 4), [gaps]);
+  const topMissingSkills = useMemo(() => gaps.slice(0, 3), [gaps]);
 
-  const recommendedSteps = useMemo(() => {
-    const steps: string[] = [];
-    const firstCriticalGap = gaps.find((gap) => gap.severity === 'Critical');
-    const firstFitNow = jobs.find((job) => job.matchCategory === 'fit-now');
-    const interviewingApp = applications.find((app) => app.status === 'Interviewing');
-
-    if (firstCriticalGap) steps.push(`Complete ${firstCriticalGap.skill} learning resources to reduce critical gaps.`);
-    if (firstFitNow) steps.push(`Apply to ${firstFitNow.title} at ${firstFitNow.company} (${getMatchScoreBadge(firstFitNow)} match).`);
-    if (interviewingApp) steps.push(interviewingApp.messageRequestState === 'pending' || interviewingApp.messageRequestState === 'accepted' ? `Check ${interviewingApp.company} interview-stage updates in Messages.` : `Review your ${interviewingApp.jobTitle} application at ${interviewingApp.company}.`);
-    if (steps.length === 0) steps.push('Upload a resume and confirm skills to generate personalized next steps.');
-    return steps.slice(0, 3);
-  }, [applications, gaps, jobs]);
-
-  const courseRecommendations = useMemo(() => courses.slice(0, 3), [courses]);
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.read_at).length, [notifications]);
   const loadNotifications = useCallback(async () => {
     if (!currentUser.id) return;
@@ -713,37 +655,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const fitNowJobs = useMemo(() => orderByBackendRank(jobs.filter((job) => job.matchCategory === 'fit-now')), [jobs]);
   const aspirationJobs = useMemo(() => orderByBackendRank(jobs.filter((job) => job.matchCategory === 'aspiration')), [jobs]);
-  const topFitNowJobs = useMemo(() => fitNowJobs.slice(0, TOP_MATCHES_PER_CATEGORY), [fitNowJobs]);
-  const topAspirationJobs = useMemo(() => aspirationJobs.slice(0, TOP_MATCHES_PER_CATEGORY), [aspirationJobs]);
-  const topMatches = useMemo(() => [...topFitNowJobs, ...topAspirationJobs], [topAspirationJobs, topFitNowJobs]);
-  const topFitNowMatchesCount = topFitNowJobs.length;
-  const topAspirationMatchesCount = topAspirationJobs.length;
-  const topAllMatchesCount = topMatches.length;
-  const totalQualifyingMatchesCount = jobs.length;
-
-  const filteredJobs = useMemo(() => {
-    const query = jobSearch.trim().toLowerCase();
-    const visiblePool =
-      jobFilter === 'top'
-        ? topMatches
-        : jobFilter === 'fit-now'
-          ? topFitNowJobs
-          : jobFilter === 'aspiration'
-            ? topAspirationJobs
-            : jobs;
-
-    return visiblePool.filter((job) => {
-      if (jobFilter === 'internal' && job.sourceType !== 'internal') return false;
-      if (jobFilter === 'external' && job.sourceType !== 'external') return false;
-      if (jobFilter === 'saved' && !savedJobs.has(job.id)) return false;
-      if (!query) return true;
-      return [job.title, job.company, job.location, job.category || '', job.subCategory || '', job.jobLevel || '', job.matchedSkills.join(' '), job.missingSkills.join(' '), job.explanation]
-        .join(' ')
-        .toLowerCase()
-        .includes(query);
-    });
-  }, [jobFilter, jobSearch, jobs, savedJobs, topAspirationJobs, topFitNowJobs, topMatches]);
-
   const kareersList = useMemo(() => {
     const map = new Map<string, DashboardJob>();
     const catalogJobs = availableJobs.map(mapAvailableJob);
@@ -760,11 +671,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   }, [availableJobs, jobs]);
   const savedJobRows = useMemo(() => kareersList.filter((job) => savedJobs.has(job.id)), [kareersList, savedJobs]);
 
-  useEffect(() => {
-    if (!selectedKareerId && kareersList.length > 0) setSelectedKareerId(kareersList[0].id);
-  }, [kareersList, selectedKareerId]);
-
-  const selectedKareer = kareersList.find((item) => item.id === selectedKareerId) || null;
 
   const eligibleMessageApps = useMemo(
     () => applications.filter((app) =>
@@ -839,20 +745,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     };
   }, []);
 
-  const showToast = (message: string, type: ToastType = '') => {
+  const showToast = (message: string, type: ToastType = '', action?: { label: string; onClick: () => void }) => {
     if (!message) return;
-    setToast({ message, type });
+    setToast({ message, type, action });
     if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = window.setTimeout(() => setToast(null), 3600);
+    toastTimeoutRef.current = window.setTimeout(() => setToast(null), action ? 6000 : 4000);
   };
 
   const showInlineNotice = (message: string, type: ToastType = 'success') => {
     setInlineNotice({ message, type });
-  };
-
-  const clearPanels = () => {
-    setNotifOpen(false);
-    setProfileOpen(false);
   };
 
   const markNotificationRead = async (notification: CandidateNotification) => {
@@ -1061,17 +962,23 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
-  const openJobDetails = async (job: DashboardJob) => {
-    let hydratedJob = job;
+  // One job selection serves the desktop split views and the job detail dialog.
+  const detailRequest = useRef(0);
+  const selectJob = useCallback(async (job: DashboardJob, openDialog: boolean) => {
+    const request = ++detailRequest.current;
+    setSelectedJob(job);
+    if (openDialog) setJobDetailOpen(true);
     try {
       const detail = await fetchJobDetails(job.id, job.jobSource);
-      hydratedJob = mergeSupabaseJobDetails(job, detail.job);
+      if (request === detailRequest.current) setSelectedJob(mergeSupabaseJobDetails(job, detail.job));
     } catch (error) {
       console.warn('Unable to refresh job details from Supabase:', error);
     }
-    setSelectedJob(hydratedJob);
-    setJobDetailOpen(true);
-  };
+  }, []);
+  const hasSplitView = isDesktop && (activePage === 'jobmatches' || activePage === 'kareers');
+  const openJobDetails = useCallback((job: DashboardJob) => {
+    void selectJob(job, !hasSplitView);
+  }, [hasSplitView, selectJob]);
 
   const toggleSaved = async (jobId: string) => {
     const alreadySaved = savedJobs.has(jobId);
@@ -1141,17 +1048,30 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
     const savedApplication = mapApplicationRow(data as JobApplicationRow, jobs);
     setApplications((current) => [savedApplication, ...current.filter((app) => app.id !== savedApplication.id)]);
-    showToast('Application submitted.', 'success');
+    showToast('Application sent.', 'success', { label: 'View', onClick: () => setActivePage('applications') });
     return true;
   };
 
-  const applyToJob = async (jobId: string): Promise<boolean> => {
-    const job = kareersList.find((item) => item.id === jobId) || jobs.find((item) => item.id === jobId) || null;
-    if (!job) {
-      showToast('Job details could not be found for application.', 'warn');
-      return false;
+  const requestApply = (job: DashboardJob) => {
+    if (job.sourceType === 'external') {
+      window.open(externalJobUrl(job), '_blank', 'noopener,noreferrer');
+      return;
     }
-    return applyToInternalJob(job);
+    if (getApplicationStatus(job.id, job.jobSource)) {
+      showToast('You have already applied for this job.', 'warn');
+      return;
+    }
+    setApplyTarget(job);
+  };
+
+  const confirmApply = async () => {
+    if (!applyTarget) return;
+    setIsApplying(true);
+    try {
+      if (await applyToInternalJob(applyTarget)) setApplyTarget(null);
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const getApplicationStatus = (jobId: string, jobSource: 'internal' | 'employer'): ApplicationStatus | null => {
@@ -1281,7 +1201,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   const openResumeModal = () => {
-    clearPanels();
     setResumeModalOpen(true);
     setResumeStep('upload');
     setResumeDragOver(false);
@@ -1698,467 +1617,355 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     showToast('Evidence record deleted.', 'success');
   };
 
-  const closeModal = () => {
+  const matchesExist = fitNowJobs.length + aspirationJobs.length > 0;
+  const hasResume = Boolean(state.resumeFile || state.resume || state.resumeAnalysis || savedResumeFileName);
+  const confirmedSkillsCount = skillNames.length || state.resumeAnalysis?.normalized_for_matching?.skill_ids?.length || 0;
+  const hasPreferencesCompleted = Boolean(surveyAnswers.industry && surveyAnswers.role && surveyAnswers.setup && surveyAnswers.salary);
+  const hasProfileDetails = Boolean(profileForm.location || profileForm.highestEducationalAttainment || profileForm.degreeProgram || profileForm.schoolUniversity || profileForm.yearGraduated || educationIndicators.length || experienceIndicators.length);
+  const applicationStatusFor = (job: DashboardJob) => getApplicationStatus(job.id, job.jobSource);
+  const openLearning = (focus: { skill?: string; jobId?: string } = {}) => {
+    setLearningFocus(focus);
     setJobDetailOpen(false);
-    setWithdrawModalOpen(false);
-    setDeleteModalOpen(false);
-    setResumeModalOpen(false);
-    setEvidenceModalOpen(false);
-    setEditingEvidence(null);
-    setEvidenceCourseTarget(null);
-    setDeleteEvidenceTarget(null);
-    closeResumePreview();
+    setActivePage('upskilling');
   };
+  const pendingMessageApp = eligibleMessageApps.find((app) => app.messageRequestState === 'pending');
+  const nextFitNow = fitNowJobs.find((job) => job.sourceType === 'internal' && !getApplicationStatus(job.id, job.jobSource));
+  const firstGap = gaps.find((gap) => gap.severity === 'Critical') || gaps[0];
 
-  const hasData = Boolean(state.matchResults || state.results || state.resumeAnalysis || applications.length);
+  // The Home page answers "what should I do now?": most useful action first.
+  const nextSteps: NextStep[] = [
+    ...(!hasResume ? [{ id: 'resume', title: 'Upload your resume', detail: 'Kareerly reads your skills and finds jobs that fit.', actionLabel: 'Upload resume', onAction: () => openResumeModal() }] : []),
+    ...(pendingMessageApp ? [{ id: 'message', title: `Reply to ${pendingMessageApp.company}`, detail: `Message request about ${pendingMessageApp.jobTitle}`, actionLabel: 'Open messages', onAction: () => setActivePage('messages') }] : []),
+    ...(nextFitNow ? [{
+      id: 'apply',
+      title: `Apply to ${nextFitNow.title}`,
+      detail: [knownValue(nextFitNow.company), nextFitNow.hasMatchScore ? `${nextFitNow.matchScore}% Fit Now` : ''].filter(Boolean).join(' · '),
+      actionLabel: 'View job',
+      onAction: () => void selectJob(nextFitNow, true),
+    }] : []),
+    ...(firstGap ? [{ id: 'learn', title: `Learn ${cleanSkillDisplayName(firstGap.skill)}`, detail: `${firstGap.severity} gap · ${formatGapMissingCount(firstGap)}`, actionLabel: 'See resources', onAction: () => openLearning({ skill: firstGap.skill }) }] : []),
+    ...(hasResume && !matchesExist && !state.isLoading ? [{ id: 'refresh', title: 'Refresh your matches', detail: 'Check your preferences, then save to run matching again.', actionLabel: 'Open preferences', onAction: () => setActivePage('preferences') }] : []),
+  ];
+  const profileTasks: ProfileTask[] = [
+    { label: 'Upload your resume', done: hasResume, onAction: () => openResumeModal() },
+    { label: 'Confirm your skills', done: confirmedSkillsCount > 0, onAction: () => setActivePage('preferences') },
+    { label: 'Set your preferences', done: hasPreferencesCompleted, onAction: () => setActivePage('preferences') },
+    { label: 'Add education and contact details', done: hasProfileDetails, onAction: () => setActivePage('account') },
+  ];
+
+  const activeApplicationFor = (job: DashboardJob) => applications.find((app) => app.jobId === job.id && app.jobSource === job.jobSource && app.status !== 'Withdrawn') || null;
+  const feedbackKeyFor = (job: DashboardJob) => matchFeedbackKey(job.id, job.jobSource);
+  const hasLearningFor = (job: DashboardJob) => job.missingSkills.length > 0 || (job.missingPreferredSkills || []).length > 0;
+  const withdrawFromDetail = (application: DashboardApplication) => {
+    setJobDetailOpen(false);
+    openWithdraw(application);
+  };
+  const viewApplicationFromDetail = () => {
+    setJobDetailOpen(false);
+    setActivePage('applications');
+  };
+  const renderDetailPanel = (job: DashboardJob) => {
+    const current = selectedJob && selectedJob.id === job.id ? selectedJob : job;
+    return (
+      <JobDetailPanel
+        key={`${current.jobSource}-${current.id}`}
+        job={current}
+        application={activeApplicationFor(current)}
+        courses={courses}
+        isSaved={savedJobs.has(current.id)}
+        onApply={() => requestApply(current)}
+        onWithdraw={withdrawFromDetail}
+        onSave={() => void toggleSaved(current.id)}
+        onOpenLearning={hasLearningFor(current) ? () => openLearning({ jobId: current.id }) : undefined}
+        onViewApplication={viewApplicationFromDetail}
+        feedback={{ vote: matchFeedback[feedbackKeyFor(current)] ?? null, status: matchFeedbackStatus[feedbackKeyFor(current)] ?? { state: 'idle' }, onVote: (vote) => submitMatchFeedback(current, vote) }}
+      />
+    );
+  };
+  const pendingMessageCount = eligibleMessageApps.filter((app) => app.messageRequestState === 'pending').length;
+  const hasBanners = Boolean((savedResumeFreshness?.stale && !resumeModalOpen) || inlineNotice || state.error);
 
   return (
-    <div className="cand-dashboard">
-      <header className="cand-topbar">
-        <div className="cand-topbar-left">
-          <button className="cand-menu-toggle" type="button" onClick={() => setSidebarCollapsed((value) => !value)}>
-            <UIIcon name="menu" />
-          </button>
-          <Logo size="module" onClick={onHome} />
-        </div>
-        <div className="cand-topbar-right">
-          <div className="cand-greeting">
-            Good day, <span>{displayName}</span>
-          </div>
-          <button className="cand-btn-update" type="button" onClick={openResumeModal} aria-label="Update resume" title="Update resume">
-            <UIIcon name="upload" className="cand-btn-icon" />
-          </button>
-          <div className="cand-notif-wrap">
-            <button
-              className="cand-notif-btn"
-              type="button"
-              aria-label="Notifications"
-              title="Notifications"
-              aria-expanded={notifOpen}
-              onClick={(event) => {
-                event.stopPropagation();
-                setNotifOpen((value) => {
-                  if (!value) void loadNotifications();
-                  return !value;
-                });
-                setProfileOpen(false);
-              }}
-            >
-              <UIIcon name="bell" />
-              {unreadNotificationCount > 0 && <span className="cand-notif-badge">{unreadNotificationCount}</span>}
-            </button>
-            {notifOpen && (
-              <div className="cand-notif-dropdown" onClick={(event) => event.stopPropagation()}>
-                <div className="cand-notif-header">
-                  <strong>Notifications</strong>
-                  <button className="cand-mark-read-btn" type="button" onClick={() => void markAllNotificationsRead()} disabled={unreadNotificationCount === 0}>
-                    Mark all read
-                  </button>
-                </div>
-                {notificationLoadStatus === 'loading' ? (
-                  <div className="cand-notif-item"><div className="cand-notif-text">Loading notifications…</div></div>
-                ) : notificationLoadStatus === 'error' ? (
-                  <div className="cand-notif-item"><div className="cand-notif-text">Notifications could not be loaded. Try again shortly.</div></div>
-                ) : notifications.length > 0 ? (
-                  notifications.map((row) => {
-                    const isUnread = !row.read_at;
-                    const isMessage = row.event_type === 'message_request';
-                    return (
-                    <div key={row.id} className={`cand-notif-item ${isUnread ? 'unread' : ''}`}>
-                      <div className={`cand-notif-icon ${isMessage ? 'msg' : 'app'}`}>
-                        <UIIcon name={isMessage ? 'message' : 'layers'} />
-                      </div>
-                      <div className="cand-notif-copy">
-                        <div className="cand-notif-text">
-                          <strong>{row.title}</strong>
-                          {row.message}
-                        </div>
-                        <div className="cand-notif-time">{new Date(row.created_at).toLocaleString()}</div>
-                      </div>
-                      {isUnread && (
-                        <button
-                          className="cand-notif-read-one"
-                          type="button"
-                          aria-label="Mark notification as read"
-                          title="Mark as read"
-                          onClick={() => void markNotificationRead(row)}
-                        >
-                          <UIIcon name="check-circle" />
-                        </button>
-                      )}
-                    </div>
-                    );
-                  })
-                ) : (
-                  <div className="cand-notif-item">
-                    <div className="cand-notif-text">No notifications yet.</div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="cand-profile-wrap">
-            <button
-              className="cand-profile-menu"
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setProfileOpen((value) => !value);
-                setNotifOpen(false);
-              }}
-            >
-              <div className="cand-profile-avatar">{initials}</div>
-              <UIIcon name="chevron-down" className="cand-chevron-icon text-soft-text" />
-            </button>
-            {profileOpen && (
-              <div className="cand-profile-dropdown" onClick={(event) => event.stopPropagation()}>
-                <div className="border-b border-bdr px-4 py-3">
-                  <div className="text-sm font-bold text-dark">{displayName}</div>
-                  <div className="text-xs text-soft-text">{displayEmail}</div>
-                </div>
-                <button
-                  className="cand-profile-dd-item"
-                  type="button"
-                  onClick={() => {
-                    setActivePage('account');
-                    setProfileOpen(false);
-                  }}
-                >
-                  <UIIcon name="user" className="cand-dd-icon" />
-                    {tr(uiLanguage, 'Account Settings')}
-                </button>
-                <button
-                  className="cand-profile-dd-item"
-                  type="button"
-                  onClick={() => {
-                    setActivePage('preferences');
-                    setProfileOpen(false);
-                  }}
-                >
-                  <UIIcon name="sliders" className="cand-dd-icon" />
-                  {tr(uiLanguage, 'Preferences')}
-                </button>
-                <div className="border-t border-bdr px-4 py-2 text-[10px] font-bold uppercase tracking-[0.5px] text-soft-text">{tr(uiLanguage, 'Language')}</div>
-                <div className="cand-lang-row">
-                  <button className={`cand-lang-pill ${uiLanguage === 'en' ? 'active' : ''}`} type="button" onClick={() => setUiLanguage('en')}>
-                    {tr(uiLanguage, 'English')}
-                  </button>
-                  <button className={`cand-lang-pill ${uiLanguage === 'fil' ? 'active' : ''}`} type="button" onClick={() => setUiLanguage('fil')}>
-                    {tr(uiLanguage, 'Filipino')}
-                  </button>
-                </div>
-                <div className="border-t border-bdr">
-                  <button
-                    className="cand-profile-dd-item"
-                    type="button"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      onLogout();
-                    }}
-                  >
-                    <UIIcon name="logout" className="cand-dd-icon" />
-                    {tr(uiLanguage, 'Logout')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <div className={`cand-main ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`} onClick={clearPanels}>
-        <aside className={`cand-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} onClick={(event) => event.stopPropagation()}>
-            <div className="cand-sidebar-inner">
-              <div className="cand-sidebar-section">
-                <div className="cand-sidebar-title">{tr(uiLanguage, 'My Career')}</div>
-                <NavItem icon="dashboard" active={activePage === 'dashboard'} onClick={() => setActivePage('dashboard')}>{tr(uiLanguage, 'Dashboard')}</NavItem>
-                <NavItem icon="briefcase" active={activePage === 'jobmatches'} onClick={() => setActivePage('jobmatches')}>{tr(uiLanguage, 'Job Matches')}</NavItem>
-                <NavItem icon="clipboard" active={activePage === 'external-job'} onClick={() => setActivePage('external-job')}>Analyze External Job</NavItem>
-                <NavItem icon="puzzle" active={activePage === 'skillgaps'} onClick={() => setActivePage('skillgaps')}>{tr(uiLanguage, 'Skill Gaps')}</NavItem>
-                <NavItem icon="layers" active={activePage === 'applications'} onClick={() => setActivePage('applications')}>{tr(uiLanguage, 'Applications')}</NavItem>
-              </div>
-              <div className="cand-sidebar-section border-t border-bdr pt-5">
-                <div className="cand-sidebar-title">{tr(uiLanguage, 'Explore')}</div>
-                <NavItem icon="compass" active={activePage === 'kareers'} onClick={() => setActivePage('kareers')}>{tr(uiLanguage, 'Kareers')}</NavItem>
-                <NavItem icon="graduation" active={activePage === 'upskilling'} onClick={() => setActivePage('upskilling')}>{tr(uiLanguage, 'Learning Recommendations')}</NavItem>
-                <button className={`cand-nav-item ${activePage === 'messages' ? 'active' : ''}`} type="button" onClick={() => setActivePage('messages')}>
-                  <UIIcon name="message" className="cand-nav-icon" />
-                  {tr(uiLanguage, 'Messages')}
-                  {eligibleMessageApps.length > 0 && <span className="cand-nav-badge">{eligibleMessageApps.length}</span>}
-                </button>
-              </div>
-            </div>
-            <div className="cand-sidebar-bottom">
-              <button className="cand-profile-card" type="button" onClick={() => setActivePage('account')}>
-                <div className="cand-profile-avatar">{initials}</div>
-                <div className="text-left">
-                  <div className="text-[13px] font-bold text-dark">{displayName}</div>
-                  <div className="cand-profile-location">
-                    <UIIcon name="location" className="cand-profile-location-icon" />
-                    {matchedLocation || tr(uiLanguage, 'Location not set')}
-                  </div>
-                </div>
-                <UIIcon name="sliders" className="cand-profile-setting-icon" />
-              </button>
-            </div>
-          </aside>
-
-        <main className={`cand-content ${sidebarCollapsed ? 'expanded' : ''}`}>
+    <CandidateShell
+      activePage={activePage}
+      onNavigate={setActivePage}
+      onHome={onHome}
+      onLogout={onLogout}
+      displayName={displayName}
+      displayEmail={displayEmail}
+      initials={initials}
+      uiLanguage={uiLanguage}
+      onLanguage={setUiLanguage}
+      notifications={notifications}
+      notificationStatus={notificationLoadStatus}
+      unreadCount={unreadNotificationCount}
+      onOpenNotifications={() => void loadNotifications()}
+      onMarkAllRead={() => void markAllNotificationsRead()}
+      onMarkRead={(row) => void markNotificationRead(row)}
+      applicationsBadge={pendingMessageCount}
+    >
+      {hasBanners && (
+        <div className="k-page !pb-0">
           {savedResumeFreshness?.stale && !resumeModalOpen && (
-            <div className="cand-notice warn" role="status">
-              <span>{staleResumeMessage(savedResumeFreshness, Boolean(savedResumeFile))}</span>
-              <button
-                className="cand-btn-secondary"
-                type="button"
-                disabled={state.isLoading}
-                onClick={() => (savedResumeFile ? void reanalyzeSavedResume() : openResumeModal())}
-              >
-                {savedResumeFile ? 'Re-scan saved resume' : 'Upload resume again'}
-              </button>
-            </div>
+            <Banner
+              tone="warn"
+              actions={(
+                <button className="k-btn k-btn-secondary k-btn-sm" type="button" disabled={state.isLoading} onClick={() => (savedResumeFile ? void reanalyzeSavedResume() : openResumeModal())}>
+                  {savedResumeFile ? 'Re-scan resume' : 'Upload again'}
+                </button>
+              )}
+            >
+              {staleResumeMessage(savedResumeFreshness, Boolean(savedResumeFile))}
+            </Banner>
           )}
           {inlineNotice && (
-            <div className={`cand-notice ${inlineNotice.type === 'danger' ? 'error' : inlineNotice.type === 'warn' ? 'warn' : 'info'}`}>
-              <span>{inlineNotice.message}</span>
-              <button className="cand-notice-close" type="button" onClick={() => setInlineNotice(null)} aria-label="Dismiss notification">
-                <UIIcon name="close" />
-              </button>
-            </div>
+            <Banner tone={inlineNotice.type === 'danger' ? 'error' : inlineNotice.type === 'warn' ? 'warn' : 'info'} onDismiss={() => setInlineNotice(null)}>
+              {inlineNotice.message}
+            </Banner>
           )}
-          {state.error && (
-            <div className="cand-notice error">
-              <span>{state.error}</span>
-              <button className="cand-notice-close" type="button" onClick={() => setError(null)} aria-label="Dismiss error">
-                <UIIcon name="close" />
-              </button>
-            </div>
-          )}
+          {state.error && <Banner tone="error" onDismiss={() => setError(null)}>{state.error}</Banner>}
+        </div>
+      )}
 
-          {activePage === 'dashboard' && (
-            <DashboardOverview
-              hasData={hasData}
-              metrics={metricCards}
-              topJobHighlights={topJobHighlights}
-              recentApplications={recentApplications}
-              topMissingSkills={topMissingSkills}
-              recommendedSteps={recommendedSteps}
-              courseRecommendations={courseRecommendations}
-              onOpenMatches={() => setActivePage('jobmatches')}
-              onOpenGaps={() => setActivePage('skillgaps')}
-              onOpenUpskilling={() => setActivePage('upskilling')}
-              onOpenMessages={() => setActivePage('messages')}
-            />
-          )}
+      {activePage === 'dashboard' && (
+        <HomePage
+          isLoading={state.isLoading}
+          nextSteps={nextSteps}
+          fitNowCount={fitNowJobs.length}
+          aspirationCount={aspirationJobs.length}
+          topMatches={[...fitNowJobs, ...aspirationJobs].slice(0, 3)}
+          getApplicationStatus={applicationStatusFor}
+          onOpenJob={(job) => void selectJob(job, true)}
+          onOpenMatches={() => setActivePage('jobmatches')}
+          topGaps={topMissingSkills}
+          gapCount={gaps.length}
+          onOpenSkills={() => setActivePage('skillgaps')}
+          recentApplications={recentApplications}
+          applicationLoadStatus={applicationLoadStatus}
+          activeApplicationCount={applications.filter((app) => ['Pending', 'Shortlisted', 'Interviewing'].includes(app.status)).length}
+          onOpenApplications={() => setActivePage('applications')}
+          profileTasks={profileTasks}
+        />
+      )}
 
-          {activePage === 'jobmatches' && (
-            <JobMatchesPage
-              jobs={filteredJobs}
-              topMatchesCount={topAllMatchesCount}
-              allMatchesCount={totalQualifyingMatchesCount}
-              jobSearch={jobSearch}
-              jobFilter={jobFilter}
-              applications={applications}
-              savedJobs={savedJobs}
-              savedJobRows={savedJobRows}
-              fitNowCount={topFitNowMatchesCount}
-              aspirationCount={topAspirationMatchesCount}
-              onSearch={setJobSearch}
-              onFilter={setJobFilter}
-              onSave={toggleSaved}
-              onApply={applyToInternalJob}
-              onView={openJobDetails}
-              matchFeedback={matchFeedback}
-              matchFeedbackStatus={matchFeedbackStatus}
-              onRateMatch={submitMatchFeedback}
-              locationFilter={state.matchResults?.location_filter}
-              reportHasMatches={Boolean(
-                (state.matchResults?.all_fit_now_matches || state.matchResults?.fit_now_matches || []).length
-                || (state.matchResults?.all_aspiration_matches || state.matchResults?.aspiration_matches || []).length,
-              )}
-              isBusy={state.isLoading}
-              onChangeRegion={() => setActivePage('preferences')}
-              onRemoveRegionFilter={() => void handlePreferencesSave({ ...surveyAnswers, locationScope: 'anywhere', region: '' })}
-              onVisitSite={(job) => {
-                const fallbackQuery = encodeURIComponent(`${job.title} ${job.company} jobs`);
-                const targetUrl = job.externalUrl || `https://www.google.com/search?q=${fallbackQuery}`;
-                window.open(targetUrl, '_blank', 'noopener,noreferrer');
-                showToast('Opening external opportunity in a new tab.', 'success');
-              }}
-            />
+      {activePage === 'jobmatches' && (
+        <JobMatchesPage
+          fitNowJobs={fitNowJobs}
+          aspirationJobs={aspirationJobs}
+          savedJobRows={savedJobRows}
+          view={matchView}
+          onView={setMatchView}
+          search={jobSearch}
+          onSearch={setJobSearch}
+          savedJobs={savedJobs}
+          getApplicationStatus={applicationStatusFor}
+          onSave={(jobId) => void toggleSaved(jobId)}
+          onApply={requestApply}
+          onOpenJob={openJobDetails}
+          isDesktop={isDesktop}
+          selectedJobId={selectedJob?.id ?? null}
+          renderDetail={renderDetailPanel}
+          onAnalyze={() => setActivePage('external-job')}
+          isLoading={state.isLoading}
+          hasResume={hasResume}
+          onUploadResume={openResumeModal}
+          locationFilter={state.matchResults?.location_filter}
+          reportHasMatches={Boolean(
+            (state.matchResults?.all_fit_now_matches || state.matchResults?.fit_now_matches || []).length
+            || (state.matchResults?.all_aspiration_matches || state.matchResults?.aspiration_matches || []).length,
           )}
+          isBusy={state.isLoading}
+          onChangeRegion={() => setActivePage('preferences')}
+          onRemoveRegionFilter={() => void handlePreferencesSave({ ...surveyAnswers, locationScope: 'anywhere', region: '' })}
+        />
+      )}
 
-          {activePage === 'external-job' && (
-            <ExternalJobAnalysisPage onOpenLearning={() => setActivePage('upskilling')} />
-          )}
+      {activePage === 'external-job' && (
+        <ExternalJobAnalysisPage onOpenLearning={() => openLearning()} />
+      )}
 
-          {activePage === 'skillgaps' && (
-            <SkillGapsPage
-              gaps={gaps}
-              jobs={jobs}
-              courses={courses}
-              evidenceRecords={evidenceRecords}
-              skillProgressRecords={skillProgressRecords}
-              onUpdateSkillProgress={updateSkillProgressStatus}
-              onUploadSkillEvidence={openEvidenceUploadModal}
-              onOpenUpskilling={() => setActivePage('upskilling')}
-            />
-          )}
+      {activePage === 'skillgaps' && (
+        <SkillGapsPage
+          gaps={gaps}
+          jobs={jobs}
+          courses={courses}
+          skillProgressRecords={skillProgressRecords}
+          onUpdateSkillProgress={updateSkillProgressStatus}
+          onUploadSkillEvidence={openEvidenceUploadModal}
+          onOpenLearning={(skill) => openLearning({ skill })}
+          onTab={(tab) => (tab === 'learning' ? openLearning() : setActivePage('skillgaps'))}
+          isDesktop={isDesktop}
+          hasMatches={matchesExist}
+          onOpenMatches={() => setActivePage('jobmatches')}
+        />
+      )}
 
-          {activePage === 'applications' && (
-            <ApplicationsPage
-              loadStatus={applicationLoadStatus}
-              applications={applications}
-              onViewJob={(application) => {
-                const knownJob = jobs.find((item) => item.id === application.jobId && item.jobSource === application.jobSource);
-                const applicationJob: DashboardJob = knownJob || {
-                  id: application.jobId,
-                  jobSource: application.jobSource,
-                  title: application.jobTitle,
-                  company: application.company,
-                  location: 'Location not specified',
-                  setup: 'Work setup not specified',
-                  employmentType: 'Not specified',
-                  salary: 'Salary not specified',
-                  matchScore: application.matchScore ?? 0,
-                  hasMatchScore: application.matchScore !== null,
-                  matchCategory: (application.matchScore ?? 0) >= 60 ? 'fit-now' : 'aspiration',
-                  sourceType: 'internal',
-                  requiredSkills: [],
-                  preferredSkills: [],
-                  responsibilities: [],
-                  matchedSkills: [],
-                  missingSkills: [],
-                  explanation: '',
-                };
-                void openJobDetails(applicationJob);
-              }}
-              onWithdraw={openWithdraw}
-              onOpenMessages={() => setActivePage('messages')}
-            />
-          )}
+      {activePage === 'upskilling' && (
+        <UpskillingPage
+          key={`${learningFocus.skill || ''}|${learningFocus.jobId || ''}`}
+          courses={courses}
+          jobs={jobs}
+          gaps={gaps}
+          focusSkill={learningFocus.skill}
+          focusJobId={learningFocus.jobId}
+          courseCompletions={courseCompletions}
+          onMarkCourseTaken={markCourseTaken}
+          onUnmarkCourseTaken={unmarkCourseTaken}
+          onUploadCourseEvidence={openCourseEvidenceUpload}
+          onTab={(tab) => setActivePage(tab === 'gaps' ? 'skillgaps' : 'upskilling')}
+          onOpenJobMatches={() => setActivePage('jobmatches')}
+        />
+      )}
 
-          {activePage === 'preferences' && (
-            <PreferencesPage
-              surveyAnswers={surveyAnswers}
-              profileLocation={accountSettingsLoaded ? profileForm.location : undefined}
-              extraPreferences={extraPreferences}
-              skillNames={skillNames}
-              isLoading={state.isLoading}
-              onUpdateExtra={setExtraPreferences}
-              onUpdateSkills={setSkillNames}
-              onSave={handlePreferencesSave}
-              onReset={() => {
-                setSurveyAnswers(defaultSurveyAnswers);
-                setExtraPreferences({ jobLevel: '', preferredLocation: '' });
-                showToast('Changes reset.', 'success');
-              }}
-            />
-          )}
+      {activePage === 'applications' && (
+        <ApplicationsPage
+          loadStatus={applicationLoadStatus}
+          applications={applications}
+          onViewJob={(application) => {
+            const knownJob = jobs.find((item) => item.id === application.jobId && item.jobSource === application.jobSource)
+              || kareersList.find((item) => item.id === application.jobId && item.jobSource === application.jobSource);
+            const applicationJob: DashboardJob = knownJob || {
+              id: application.jobId,
+              jobSource: application.jobSource,
+              title: application.jobTitle,
+              company: application.company,
+              location: 'Location not specified',
+              setup: 'Work setup not specified',
+              employmentType: 'Not specified',
+              salary: 'Salary not specified',
+              matchScore: application.matchScore ?? 0,
+              hasMatchScore: application.matchScore !== null,
+              matchCategory: (application.matchScore ?? 0) >= 60 ? 'fit-now' : 'aspiration',
+              sourceType: 'internal',
+              requiredSkills: [],
+              preferredSkills: [],
+              responsibilities: [],
+              matchedSkills: [],
+              missingSkills: [],
+              explanation: '',
+            };
+            void selectJob(applicationJob, true);
+          }}
+          onWithdraw={openWithdraw}
+          onOpenMessages={() => setActivePage('messages')}
+          onOpenMatches={() => setActivePage('jobmatches')}
+          onTab={(tab) => setActivePage(tab === 'messages' ? 'messages' : 'applications')}
+          messageCount={pendingMessageCount}
+        />
+      )}
 
-          {activePage === 'account' && (
-            <AccountSettingsPage
-              user={{ name: displayName, email: displayEmail, publicId: candidatePublicId }}
-              uiLanguage={uiLanguage}
-              evidenceRecords={evidenceRecords}
-              profile={profileForm}
-              password={accountPassword}
-              savedResumeFileName={savedResumeFileName}
-              isSavingProfile={isSavingProfile}
-              isUpdatingPassword={isUpdatingPassword}
-              profileSaveNotice={profileSaveNotice}
-              onLanguage={setUiLanguage}
-              onOpenDelete={() => setDeleteModalOpen(true)}
-              onOpenResume={openResumeModal}
-              onViewResume={() => void viewSavedResume()}
-              onOpenEvidenceUpload={openEvidenceUploadModal}
-              onViewEvidence={handleViewEvidence}
-              onReplaceEvidence={handleReplaceEvidence}
-              onDeleteEvidence={handleDeleteEvidence}
-              onProfileChange={setProfileForm}
-              onIdentityChange={setAccountIdentity}
-              onPasswordChange={setAccountPassword}
-              onUpdatePassword={updateCandidatePassword}
-              onSave={saveCandidateProfile}
-            />
-          )}
+      {activePage === 'messages' && (
+        <MessagesPage
+          applications={eligibleMessageApps}
+          selectedJobId={selectedThreadJobId}
+          requestStates={persistedMessageStates}
+          requestTexts={messageRequests}
+          replies={messageReplies}
+          draft={messageDraft}
+          onSelect={setSelectedThreadJobId}
+          onAccept={acceptMessageRequest}
+          onDecline={declineMessageRequest}
+          onIgnore={ignoreMessageRequest}
+          onDraftChange={setMessageDraft}
+          onSend={sendMessageReply}
+          canReply={acceptedMessageReplyEnabled}
+          moderation={messageModeration}
+          onReport={setReportTarget}
+          onBlock={setBlockTarget}
+          onUnblock={(app) => void unblockEmployer(app)}
+          onTab={(tab) => setActivePage(tab === 'messages' ? 'messages' : 'applications')}
+          messageCount={pendingMessageCount}
+          isDesktop={isDesktop}
+        />
+      )}
 
-          {activePage === 'kareers' && (
-            <KareersPage
-              kareers={kareersList}
-              selectedId={selectedKareerId}
-              selected={selectedKareer}
-              applications={applications}
-              onSelect={setSelectedKareerId}
-              onApply={applyToJob}
-              onWithdraw={openWithdraw}
-              onGetApplicationStatus={getApplicationStatus}
-              onSave={toggleSaved}
-              onOpenMatches={() => setActivePage('jobmatches')}
-              onOpenApplications={() => setActivePage('applications')}
-              onOpenUpskilling={() => setActivePage('upskilling')}
-              isLoading={isLoadingKareers}
-              error={kareersError}
-              onRetry={() => void loadKareers()}
-            />
-          )}
+      {activePage === 'kareers' && (
+        <KareersPage
+          kareers={kareersList}
+          isLoading={isLoadingKareers}
+          error={kareersError}
+          onRetry={() => void loadKareers()}
+          savedJobs={savedJobs}
+          getApplicationStatus={applicationStatusFor}
+          onSave={(jobId) => void toggleSaved(jobId)}
+          onApply={requestApply}
+          onOpenJob={openJobDetails}
+          isDesktop={isDesktop}
+          selectedJobId={selectedJob?.id ?? null}
+          renderDetail={renderDetailPanel}
+        />
+      )}
 
-          {activePage === 'upskilling' && (
-            <UpskillingPage
-              tab={upskillTab}
-              courses={courses}
-              jobs={jobs}
-              gaps={gaps}
-              skillProgressRecords={skillProgressRecords}
-              courseCompletions={courseCompletions}
-              onMarkCourseTaken={markCourseTaken}
-              onUnmarkCourseTaken={unmarkCourseTaken}
-              onUploadCourseEvidence={openCourseEvidenceUpload}
-              onTab={setUpskillTab}
-              onOpenSkillGaps={() => setActivePage('skillgaps')}
-              onOpenJobMatches={() => setActivePage('jobmatches')}
-            />
-          )}
+      {activePage === 'preferences' && (
+        <PreferencesPage
+          key={JSON.stringify(surveyAnswers)}
+          surveyAnswers={surveyAnswers}
+          profileLocation={accountSettingsLoaded ? profileForm.location : undefined}
+          extraPreferences={extraPreferences}
+          skillNames={skillNames}
+          isLoading={state.isLoading}
+          onUpdateExtra={setExtraPreferences}
+          onUpdateSkills={setSkillNames}
+          onSave={handlePreferencesSave}
+          onReset={() => {
+            setSurveyAnswers(defaultSurveyAnswers);
+            setExtraPreferences({ jobLevel: '', preferredLocation: '' });
+            showToast('Changes reset.', 'success');
+          }}
+        />
+      )}
 
-          {activePage === 'messages' && (
-            <MessagesPage
-              applications={eligibleMessageApps}
-              selectedJobId={selectedThreadJobId}
-              requestStates={persistedMessageStates}
-              requestTexts={messageRequests}
-              replies={messageReplies}
-              draft={messageDraft}
-              onSelect={setSelectedThreadJobId}
-              onAccept={acceptMessageRequest}
-              onDecline={declineMessageRequest}
-              onIgnore={ignoreMessageRequest}
-              onDraftChange={setMessageDraft}
-              onSend={sendMessageReply}
-              canReply={acceptedMessageReplyEnabled}
-              moderation={messageModeration}
-              onReport={setReportTarget}
-              onBlock={setBlockTarget}
-              onUnblock={(app) => void unblockEmployer(app)}
-            />
-          )}
-        </main>
-      </div>
+      {activePage === 'account' && (
+        <AccountSettingsPage
+          user={{ name: displayName, email: displayEmail, publicId: candidatePublicId }}
+          uiLanguage={uiLanguage}
+          evidenceRecords={evidenceRecords}
+          profile={profileForm}
+          password={accountPassword}
+          savedResumeFileName={savedResumeFileName}
+          isSavingProfile={isSavingProfile}
+          isUpdatingPassword={isUpdatingPassword}
+          profileSaveNotice={profileSaveNotice}
+          onLanguage={setUiLanguage}
+          onOpenDelete={() => setDeleteModalOpen(true)}
+          onOpenResume={openResumeModal}
+          onViewResume={() => void viewSavedResume()}
+          onOpenEvidenceUpload={openEvidenceUploadModal}
+          onViewEvidence={handleViewEvidence}
+          onReplaceEvidence={handleReplaceEvidence}
+          onDeleteEvidence={handleDeleteEvidence}
+          onProfileChange={setProfileForm}
+          onIdentityChange={setAccountIdentity}
+          onPasswordChange={setAccountPassword}
+          onUpdatePassword={updateCandidatePassword}
+          onSave={saveCandidateProfile}
+        />
+      )}
 
       {jobDetailOpen && selectedJob && (
         <JobDetailModal
           job={selectedJob}
-          application={applications.find((app) => app.jobId === selectedJob.id && app.jobSource === selectedJob.jobSource && app.status !== 'Withdrawn') || null}
+          application={activeApplicationFor(selectedJob)}
           courses={courses}
-          onClose={() => setJobDetailOpen(false)}
-          onApply={async () => {
-            const applied = await applyToInternalJob(selectedJob);
-            if (applied) setJobDetailOpen(false);
-          }}
-          onWithdraw={(application) => {
-            setJobDetailOpen(false);
-            openWithdraw(application);
-          }}
-          onSave={() => toggleSaved(selectedJob.id)}
           isSaved={savedJobs.has(selectedJob.id)}
+          onApply={() => requestApply(selectedJob)}
+          onWithdraw={withdrawFromDetail}
+          onSave={() => void toggleSaved(selectedJob.id)}
+          onOpenLearning={hasLearningFor(selectedJob) ? () => openLearning({ jobId: selectedJob.id }) : undefined}
+          onViewApplication={viewApplicationFromDetail}
+          feedback={{ vote: matchFeedback[feedbackKeyFor(selectedJob)] ?? null, status: matchFeedbackStatus[feedbackKeyFor(selectedJob)] ?? { state: 'idle' }, onVote: (vote) => submitMatchFeedback(selectedJob, vote) }}
+          onClose={() => setJobDetailOpen(false)}
+        />
+      )}
+
+      {applyTarget && (
+        <ConfirmDialog
+          title={`Apply to ${applyTarget.title}?`}
+          message={knownValue(applyTarget.company) ? `${applyTarget.company} will see your profile and resume.` : 'The employer will see your profile and resume.'}
+          confirmLabel={isApplying ? 'Sending…' : 'Apply'}
+          busy={isApplying}
+          onCancel={() => setApplyTarget(null)}
+          onConfirm={confirmApply}
         />
       )}
 
@@ -2195,7 +2002,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onClose={() => {
             setEvidenceModalOpen(false);
             setEditingEvidence(null);
-            if (evidenceCourseTarget) showToast('Marked as taken. You can add proof later from the course card.', 'success');
+            if (evidenceCourseTarget) showToast('Marked as taken. Add proof later from the course.', 'success');
             setEvidenceCourseTarget(null);
           }}
           onSave={handleEvidenceSave}
@@ -2212,10 +2019,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       )}
 
       {blockTarget && (
-        <ConfirmModal
+        <ConfirmDialog
           title={`Block ${blockTarget.company}?`}
-          description={`${blockTarget.company} will no longer be able to message you in this conversation, and you won't be able to reply. Your application is not affected.`}
-          footnote="You can unblock them later from this conversation."
+          message="They won't be able to message you here, and you won't be able to reply. Your application isn't affected. You can unblock them later."
           danger
           confirmLabel="Block"
           onCancel={() => setBlockTarget(null)}
@@ -2224,78 +2030,64 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       )}
 
       {withdrawModalOpen && withdrawTarget && (
-        <ConfirmModal
-          title="Withdraw Application?"
-          description={`This will remove your application for ${withdrawTarget.jobTitle} from active employer review. This action cannot be undone.`}
+        <ConfirmDialog
+          title="Withdraw application?"
+          message={`Your application for ${withdrawTarget.jobTitle} leaves employer review. This can't be undone.`}
           danger
+          confirmLabel="Withdraw"
           onCancel={() => setWithdrawModalOpen(false)}
           onConfirm={confirmWithdraw}
-          confirmLabel="Confirm Withdrawal"
         />
       )}
 
       {deleteModalOpen && (
-        <ConfirmModal
-          title="Delete Profile"
-          description="Deleting your profile will remove your candidate account and related candidate records from Kareerly where applicable. This action may affect your saved matches, applications, and progress records."
-          footnote="This is a deletion request. A confirmation email will be sent before any account data is removed."
+        <ConfirmDialog
+          title="Delete your profile?"
+          message="This removes your candidate account, saved matches, applications and progress. We'll email you to confirm before anything is deleted."
           danger
+          confirmLabel="Request deletion"
           onCancel={() => setDeleteModalOpen(false)}
           onConfirm={() => {
             setDeleteModalOpen(false);
-            showToast('Profile deletion request submitted. Confirmation email sent.', 'success');
+            showToast('Deletion requested. Check your email to confirm.', 'success');
           }}
-          confirmLabel="Request Profile Deletion"
         />
       )}
 
       {deleteEvidenceTarget && (
-        <ConfirmModal
-          title="Delete Evidence?"
-          description="Are you sure you want to delete this evidence? This may reduce your Skill Development Progress score if the evidence supports an active skill gap."
+        <ConfirmDialog
+          title="Delete this proof?"
+          message="If it supports an active skill gap, that skill's progress may go down."
           danger
+          confirmLabel="Delete"
           onCancel={() => setDeleteEvidenceTarget(null)}
           onConfirm={confirmDeleteEvidence}
-          confirmLabel="Delete Evidence"
         />
       )}
 
       {resumePreview && (
-        <div className="cand-modal-overlay" onClick={closeResumePreview}>
-          <div className="cand-modal-box lg cand-resume-preview-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="cand-modal-header">
-              <div>
-                <div className="cand-modal-title">Resume Preview</div>
-                <div className="cand-modal-subtitle">{resumePreview.name}</div>
-              </div>
-              <button className="cand-modal-close" type="button" onClick={closeResumePreview} aria-label="Close resume preview">×</button>
-            </div>
-            {resumePreview.mimeType.includes('pdf') || resumePreview.name.toLowerCase().endsWith('.pdf') ? (
-              <iframe className="cand-resume-preview-frame" src={resumePreview.url} title={`Preview of ${resumePreview.name}`} />
-            ) : resumePreview.mimeType.includes('msword') || resumePreview.name.toLowerCase().endsWith('.doc') ? (
-              <div className="cand-notice info m-4">
-                <span>Old Word (.doc) files cannot be previewed in the browser. <a href={resumePreview.url} download={resumePreview.name}>Download the resume</a> to view it.</span>
-              </div>
-            ) : docxPreviewResult?.url !== resumePreview.url ? (
-              <div className="cand-resume-preview-status" role="status">Preparing DOCX preview…</div>
-            ) : docxPreviewResult.error ? (
-              <div className="cand-notice info m-4"><span>{docxPreviewResult.error}</span></div>
-            ) : (
-              <div
-                className="cand-resume-preview-document"
-                aria-label={`Preview of ${resumePreview.name}`}
-                dangerouslySetInnerHTML={{ __html: docxPreviewResult.html }}
-              />
-            )}
-          </div>
-        </div>
+        <Modal title="Resume" subtitle={<span className="[overflow-wrap:anywhere]">{resumePreview.name}</span>} onClose={closeResumePreview} size="lg" fullOnMobile>
+          {resumePreview.mimeType.includes('pdf') || resumePreview.name.toLowerCase().endsWith('.pdf') ? (
+            <iframe className="cand-resume-preview-frame" src={resumePreview.url} title={`Preview of ${resumePreview.name}`} />
+          ) : resumePreview.mimeType.includes('msword') || resumePreview.name.toLowerCase().endsWith('.doc') ? (
+            <Banner>
+              Older Word (.doc) files can't be previewed here. <a className="k-link" href={resumePreview.url} download={resumePreview.name}>Download the resume</a>
+            </Banner>
+          ) : docxPreviewResult?.url !== resumePreview.url ? (
+            <p className="k-secondary py-8 text-center" role="status">Preparing preview…</p>
+          ) : docxPreviewResult.error ? (
+            <Banner>{docxPreviewResult.error}</Banner>
+          ) : (
+            <div
+              className="cand-resume-preview-document"
+              aria-label={`Preview of ${resumePreview.name}`}
+              dangerouslySetInnerHTML={{ __html: docxPreviewResult.html }}
+            />
+          )}
+        </Modal>
       )}
 
-      {toast && <div className={`cand-toast ${toast.type}`}>{toast.message}</div>}
-
-      {(jobDetailOpen || resumeModalOpen || withdrawModalOpen || deleteModalOpen || evidenceModalOpen || Boolean(deleteEvidenceTarget) || Boolean(resumePreview)) && (
-        <button type="button" className="fixed inset-0 z-[450] h-0 w-0 opacity-0" aria-label="close modal by background" onClick={closeModal} />
-      )}
-    </div>
+      <ToastRegion toast={toast} onClose={() => setToast(null)} />
+    </CandidateShell>
   );
 }

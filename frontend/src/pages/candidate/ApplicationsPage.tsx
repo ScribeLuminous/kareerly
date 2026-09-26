@@ -1,167 +1,164 @@
-import { scoreLabel } from '../../lib/uiData';
 import { useMemo, useState } from 'react';
-import { APPLICATION_STATUS_FILTERS, formatDateLabel, statusKey, type DashboardApplication } from './model';
-import { UIIcon } from './icons';
-import { ActiveFilterChip, FilterPanel, StatusBadge } from './common';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faComments, faEllipsisVertical, faEye, faLayerGroup, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
+import { EmptyState, Menu, SearchField, SkeletonRows, Tabs, type MenuItem } from '../../components/ui';
+import { PageHeader, StatusBadge } from './common';
+import { formatDateLabel, knownValue, MESSAGING_STATUSES, WITHDRAWABLE_STATUSES, type ApplicationStatus, type DashboardApplication } from './model';
+import { scoreLabel } from '../../lib/uiData';
 
-export function ApplicationsPage({
-  loadStatus,
-  applications,
-  onViewJob,
-  onWithdraw,
-  onOpenMessages,
-}: {
+export type ApplicationsTab = 'applications' | 'messages';
+
+export function ApplicationsHeader({ tab, onTab, messageCount }: { tab: ApplicationsTab; onTab: (tab: ApplicationsTab) => void; messageCount: number }) {
+  return (
+    <>
+      <PageHeader title="Applications" />
+      <Tabs<ApplicationsTab>
+        label="Applications views"
+        idPrefix="applications"
+        value={tab}
+        onChange={onTab}
+        items={[
+          { id: 'applications', label: 'Applications' },
+          { id: 'messages', label: 'Messages', count: messageCount || undefined, alert: messageCount > 0 },
+        ]}
+      />
+    </>
+  );
+}
+
+const STATUS_ORDER: ApplicationStatus[] = ['Pending', 'Shortlisted', 'Interviewing', 'Hired', 'Rejected', 'Withdrawn'];
+
+type ApplicationsPageProps = {
   loadStatus: 'loading' | 'ready' | 'error';
   applications: DashboardApplication[];
   onViewJob: (application: DashboardApplication) => void;
   onWithdraw: (application: DashboardApplication) => void;
   onOpenMessages: () => void;
-}) {
-  const [searchValue, setSearchValue] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn'>('all');
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const hasInterviewing = applications.some((app) => app.status === 'Interviewing');
-  const activeFilterCount = statusFilter === 'all' ? 0 : 1;
-  const filteredApplications = useMemo(() => {
-    const query = searchValue.trim().toLowerCase();
+  onOpenMatches: () => void;
+  onTab: (tab: ApplicationsTab) => void;
+  messageCount: number;
+};
+
+export function ApplicationsPage({ loadStatus, applications, onViewJob, onWithdraw, onOpenMessages, onOpenMatches, onTab, messageCount }: ApplicationsPageProps) {
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<ApplicationStatus | 'all'>('all');
+  const statusCounts = useMemo(() => STATUS_ORDER
+    .map((value) => ({ value, count: applications.filter((application) => application.status === value).length }))
+    .filter((item) => item.count > 0), [applications]);
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
     return applications.filter((application) => {
-      if (statusFilter !== 'all' && statusKey(application.status) !== statusFilter) return false;
+      if (status !== 'all' && application.status !== status) return false;
       if (!query) return true;
-      return `${application.jobTitle} ${application.company} ${application.status} ${scoreLabel(application.matchScore)}`
-        .toLowerCase()
-        .includes(query);
+      return `${application.jobTitle} ${application.company} ${application.status}`.toLowerCase().includes(query);
     });
-  }, [applications, searchValue, statusFilter]);
+  }, [applications, search, status]);
+
+  const menuItems = (application: DashboardApplication): MenuItem[] => {
+    const canWithdraw = WITHDRAWABLE_STATUSES.includes(application.status);
+    const items: MenuItem[] = [{ label: 'View job', icon: faEye, onSelect: () => onViewJob(application) }];
+    if (MESSAGING_STATUSES.includes(application.status)) items.push({ label: 'Messages', icon: faComments, onSelect: onOpenMessages });
+    items.push({
+      label: 'Withdraw',
+      icon: faRotateLeft,
+      danger: true,
+      disabled: !canWithdraw,
+      hint: canWithdraw ? undefined : `${application.status} applications can't be withdrawn.`,
+      onSelect: () => onWithdraw(application),
+    });
+    return items;
+  };
 
   return (
-    <div>
-      <div className="cand-sticky-controls">
-        <div className="cand-page-header cand-page-header-inline">
-          <h1 className="cand-page-title">My Applications</h1>
-          <p className="cand-page-subtitle">Track your internal Kareerly job applications and their current statuses</p>
-        </div>
-        <div className="cand-toolbar cand-app-toolbar">
-          <div className="cand-app-search">
-            <UIIcon name="search" className="cand-search-icon" />
-            <input
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              placeholder="Search by job title, company, status, or match %..."
-            />
-          </div>
-          <div className="cand-filter-control">
-            <button
-              className={`cand-filter-button ${activeFilterCount > 0 ? 'active' : ''}`}
-              type="button"
-              aria-expanded={filterPanelOpen}
-              aria-controls="applications-filter-panel"
-              onClick={() => setFilterPanelOpen((current) => !current)}
-            >
-              <UIIcon name="filter" className="cand-btn-icon" />
-              Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-            </button>
-            <FilterPanel
-              open={filterPanelOpen}
-              panelId="applications-filter-panel"
-              title="Application filters"
-              labelledBy="applications-filter-panel-title"
-              onClose={() => setFilterPanelOpen(false)}
-              onApply={() => setFilterPanelOpen(false)}
-              onClear={() => { setStatusFilter('all'); setFilterPanelOpen(false); }}
-            >
-              <fieldset className="cand-filter-section">
-                <legend className="cand-filter-section-title">Status</legend>
-                <label className="cand-filter-radio">
-                  <input type="radio" name="application-status" checked={statusFilter === 'all'} onChange={() => setStatusFilter('all')} />
-                  <span>All statuses</span>
-                </label>
-                {APPLICATION_STATUS_FILTERS.map(([value, label]) => (
-                  <label key={value} className="cand-filter-radio">
-                    <input type="radio" name="application-status" checked={statusFilter === value} onChange={() => setStatusFilter(value)} />
-                    <span>{label}</span>
-                  </label>
+    <div className="k-page">
+      <ApplicationsHeader tab="applications" onTab={onTab} messageCount={messageCount} />
+      <div id="applications-panel" role="tabpanel" aria-labelledby="applications-tab-applications">
+        {loadStatus === 'loading' ? (
+          <SkeletonRows count={3} label="Loading applications" />
+        ) : loadStatus === 'error' ? (
+          <EmptyState title="Applications couldn't load" text="Check your connection and refresh the page." />
+        ) : applications.length === 0 ? (
+          <EmptyState
+            icon={faLayerGroup}
+            title="No applications yet"
+            text="Apply to a Kareerly job and track it here."
+            actions={<button className="k-btn k-btn-primary" type="button" onClick={onOpenMatches}>Browse matches</button>}
+          />
+        ) : (
+          <>
+            <div className="k-toolbar">
+              <SearchField value={search} onChange={setSearch} label="Search applications" placeholder="Search job or company" />
+            </div>
+            {statusCounts.length > 1 && (
+              <div className="k-chip-scroller mb-4" role="group" aria-label="Filter by status">
+                <button className="k-chip" type="button" aria-pressed={status === 'all'} onClick={() => setStatus('all')}>
+                  All <span className="k-chip-count">{applications.length}</span>
+                </button>
+                {statusCounts.map((item) => (
+                  <button key={item.value} className="k-chip" type="button" aria-pressed={status === item.value} onClick={() => setStatus(item.value)}>
+                    {item.value} <span className="k-chip-count">{item.count}</span>
+                  </button>
                 ))}
-              </fieldset>
-            </FilterPanel>
-          </div>
-        </div>
-        {activeFilterCount > 0 && (
-          <div className="cand-active-filter-chips" aria-label="Active application filters">
-            <ActiveFilterChip label={APPLICATION_STATUS_FILTERS.find(([value]) => value === statusFilter)?.[1] || statusFilter} onRemove={() => setStatusFilter('all')} />
-            <button className="cand-filter-reset-link" type="button" onClick={() => setStatusFilter('all')}>Clear all</button>
-          </div>
-        )}
-        </div>
+              </div>
+            )}
 
-      <div className="cand-notice info">
-        <span>
-          Only internal Kareerly applications are tracked here. External opportunities are link-outs only. Messaging is available only at Interviewing or Hired stage after employer request and candidate acceptance.
-        </span>
-      </div>
-
-      {filteredApplications.length > 0 ? (
-        <div className="cand-table-wrap">
-          <table className="cand-table">
-            <thead>
-              <tr>
-                <th>Job & Company</th>
-                <th>Match</th>
-                <th>Date Applied</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredApplications.map((application) => {
-                const canWithdraw = ['Pending', 'Shortlisted', 'Interviewing'].includes(application.status);
-                const canMessage = application.status === 'Interviewing' || application.status === 'Hired';
-                return (
-                  <tr key={application.id} className={application.status === 'Withdrawn' ? 'cand-row-closed' : ''}>
-                    <td>
-                      <div className="text-sm font-bold text-dark">{application.jobTitle}</div>
-                      <div className="text-xs text-soft-text">{application.company}</div>
-                    </td>
-                    <td>
-                      <span className="font-display text-sm font-extrabold text-rust">{scoreLabel(application.matchScore)}</span>
-                    </td>
-                    <td className="text-xs text-soft-text">{formatDateLabel(application.dateApplied)}</td>
-                    <td><StatusBadge status={application.status} /></td>
-                    <td>
-                      <div className="flex flex-wrap gap-2">
-                        <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onViewJob(application)}>
-                          <UIIcon name="eye" className="cand-btn-icon" />View
-                        </button>
-                        <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onWithdraw(application)} disabled={!canWithdraw}>
-                          <UIIcon name="trash" className="cand-btn-icon" />Withdraw
-                        </button>
-                        {canMessage && (
-                          <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenMessages}>
-                            <UIIcon name="message" className="cand-btn-icon" />Message
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="cand-empty">
-          {loadStatus === 'loading' ? 'Loading applications…' : loadStatus === 'error' ? 'Applications could not be loaded. Please try again later.' : applications.length > 0 ? 'No applications match the selected filter/search.' : 'No internal applications yet. Apply from Job Matches to start tracking.'}
-        </div>
-      )}
-
-      <div className="cand-card mt-4">
-        <div className="text-sm font-bold text-dark">Application Rules</div>
-        <p className="mt-2 text-sm text-soft-text">
-          Allowed statuses are Pending, Shortlisted, Interviewing, Hired, Rejected, and Withdrawn. Withdraw is enabled only for Pending, Shortlisted, and Interviewing. Hired, Rejected, and Withdrawn are final and read-only.
-        </p>
-        {hasInterviewing && (
-          <button className="cand-btn-secondary mt-3" type="button" onClick={onOpenMessages}>
-            Open Interview Messaging
-          </button>
+            {filtered.length === 0 ? (
+              <EmptyState title="No applications match" actions={<button className="k-btn k-btn-secondary" type="button" onClick={() => { setSearch(''); setStatus('all'); }}>Reset</button>} />
+            ) : (
+              <>
+                {/* Phones and tablets: rows. */}
+                <ul className="k-list md:hidden">
+                  {filtered.map((application) => (
+                    <li key={application.id} className={`k-row pr-1 ${application.status === 'Withdrawn' ? 'opacity-70' : ''}`}>
+                      <button className="k-row-main min-h-[44px] text-left" type="button" onClick={() => onViewJob(application)}>
+                        <span className="k-label block">{application.jobTitle}</span>
+                        <span className="k-meta k-dot-sep mt-0.5 block">
+                          {knownValue(application.company) && <span>{application.company}</span>}
+                          <span>Applied {formatDateLabel(application.dateApplied)}</span>
+                        </span>
+                        <span className="mt-1.5 block"><StatusBadge status={application.status} /></span>
+                      </button>
+                      <Menu label={`Actions for ${application.jobTitle}`} trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />} items={menuItems(application)} />
+                    </li>
+                  ))}
+                </ul>
+                {/* Tablet and up: a table. */}
+                <div className="k-list hidden md:block">
+                  <table className="w-full text-left">
+                    <caption className="sr-only">Your applications</caption>
+                    <thead className="bg-bg">
+                      <tr className="k-meta">
+                        <th scope="col" className="rounded-tl-[11px] px-4 py-3 font-semibold">Job</th>
+                        <th scope="col" className="px-4 py-3 font-semibold">Match</th>
+                        <th scope="col" className="px-4 py-3 font-semibold">Applied</th>
+                        <th scope="col" className="px-4 py-3 font-semibold">Status</th>
+                        <th scope="col" className="w-12 rounded-tr-[11px] px-2 py-3"><span className="sr-only">Actions</span></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-bdr border-t border-bdr">
+                      {filtered.map((application) => (
+                        <tr key={application.id} className={application.status === 'Withdrawn' ? 'opacity-70' : undefined}>
+                          <td className="px-4 py-3">
+                            <button className="k-card-link text-left" type="button" onClick={() => onViewJob(application)}>
+                              <span className="k-label block hover:underline">{application.jobTitle}</span>
+                            </button>
+                            {knownValue(application.company) && <span className="k-meta block">{application.company}</span>}
+                          </td>
+                          <td className="k-secondary k-num px-4 py-3">{scoreLabel(application.matchScore)}</td>
+                          <td className="k-secondary whitespace-nowrap px-4 py-3">{formatDateLabel(application.dateApplied)}</td>
+                          <td className="px-4 py-3"><StatusBadge status={application.status} /></td>
+                          <td className="px-2 py-1 text-right">
+                            <Menu label={`Actions for ${application.jobTitle}`} trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />} items={menuItems(application)} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            <p className="k-meta mt-4">Only applications made on Kareerly appear here.</p>
+          </>
         )}
       </div>
     </div>

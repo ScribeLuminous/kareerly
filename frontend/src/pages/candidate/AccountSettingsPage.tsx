@@ -1,8 +1,46 @@
+import { useMemo, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEllipsisVertical, faEye, faFileLines, faTrash, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { Banner, EmptyState, Menu } from '../../components/ui';
 import type { EvidenceUploadRecord } from '../../lib/evidence';
-import { useMemo } from 'react';
+import { FormField, PageHeader } from './common';
 import { cleanSkillDisplayName, formatDateLabel, tr } from './model';
-import { FormField } from './common';
-import { UIIcon } from './icons';
+
+type ProfileForm = {
+  contactNumber: string;
+  birthday: string;
+  address: string;
+  location: string;
+  highestEducationalAttainment: string;
+  degreeProgram: string;
+  schoolUniversity: string;
+  yearGraduated: string;
+};
+
+type AccountSettingsPageProps = {
+  user: { name: string; email: string; publicId: string };
+  uiLanguage: 'en' | 'fil';
+  evidenceRecords: EvidenceUploadRecord[];
+  savedResumeFileName: string;
+  profile: ProfileForm;
+  password: { current: string; next: string; confirm: string };
+  isSavingProfile: boolean;
+  isUpdatingPassword: boolean;
+  profileSaveNotice: string | null;
+  onLanguage: (lang: 'en' | 'fil') => void;
+  onOpenDelete: () => void;
+  onOpenResume: () => void;
+  onViewResume: () => void;
+  onOpenEvidenceUpload: () => void;
+  onViewEvidence: (record: EvidenceUploadRecord) => void;
+  onReplaceEvidence: (record: EvidenceUploadRecord) => void;
+  onDeleteEvidence: (record: EvidenceUploadRecord) => void;
+  onProfileChange: (profile: ProfileForm) => void;
+  onIdentityChange: (identity: { name: string; email: string }) => void;
+  onPasswordChange: (password: { current: string; next: string; confirm: string }) => void;
+  onUpdatePassword: () => void;
+  onSave: () => void;
+};
 
 export function AccountSettingsPage({
   user,
@@ -27,216 +65,185 @@ export function AccountSettingsPage({
   onPasswordChange,
   onUpdatePassword,
   onSave,
-}: {
-  user: { name: string; email: string; publicId: string };
-  uiLanguage: 'en' | 'fil';
-  evidenceRecords: EvidenceUploadRecord[];
-  savedResumeFileName: string;
-  profile: {
-    contactNumber: string;
-    birthday: string;
-    address: string;
-    location: string;
-    highestEducationalAttainment: string;
-    degreeProgram: string;
-    schoolUniversity: string;
-    yearGraduated: string;
-  };
-  password: { current: string; next: string; confirm: string };
-  isSavingProfile: boolean;
-  isUpdatingPassword: boolean;
-  profileSaveNotice: string | null;
-  onLanguage: (lang: 'en' | 'fil') => void;
-  onOpenDelete: () => void;
-  onOpenResume: () => void;
-  onViewResume: () => void;
-  onOpenEvidenceUpload: () => void;
-  onViewEvidence: (record: EvidenceUploadRecord) => void;
-  onReplaceEvidence: (record: EvidenceUploadRecord) => void;
-  onDeleteEvidence: (record: EvidenceUploadRecord) => void;
-  onProfileChange: (profile: {
-    contactNumber: string;
-    birthday: string;
-    address: string;
-    location: string;
-    highestEducationalAttainment: string;
-    degreeProgram: string;
-    schoolUniversity: string;
-    yearGraduated: string;
-  }) => void;
-  onIdentityChange: (identity: { name: string; email: string }) => void;
-  onPasswordChange: (password: { current: string; next: string; confirm: string }) => void;
-  onUpdatePassword: () => void;
-  onSave: () => void;
-}) {
+}: AccountSettingsPageProps) {
   const t = (text: string) => tr(uiLanguage, text);
-  const groupedEvidence = useMemo(() => {
-    const groups = new Map<string, EvidenceUploadRecord[]>();
-    evidenceRecords.forEach((record) => {
-      const key = record.category?.trim() || 'Other';
-      const current = groups.get(key) || [];
-      current.push(record);
-      groups.set(key, current);
-    });
-    return Array.from(groups.entries()).sort(([left], [right]) => left.localeCompare(right));
-  }, [evidenceRecords]);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const sortedEvidence = useMemo(
+    () => [...evidenceRecords].sort((left, right) => (left.category || 'Other').localeCompare(right.category || 'Other') || left.title.localeCompare(right.title)),
+    [evidenceRecords],
+  );
+  const set = (key: keyof ProfileForm) => (event: React.ChangeEvent<HTMLInputElement>) => onProfileChange({ ...profile, [key]: event.target.value });
 
   return (
-    <div>
-      <div className="cand-page-header">
-        <h1 className="cand-page-title">{t('Account Settings')}</h1>
-        <p className="cand-page-subtitle">{t('Manage personal details, resume, education, and account controls')}</p>
-      </div>
+    <div className="k-page k-page-narrow">
+      <PageHeader title={t('Profile & resume')}>
+        {user.publicId && <p className="k-meta mt-1">{t('Candidate ID')}: <span className="k-num">{user.publicId}</span></p>}
+      </PageHeader>
 
-      <div className="cand-acct-section">
-        <div className="cand-acct-title">{t('Language Preference')}</div>
-        <p className="mb-3 text-xs text-soft-text">
-          {uiLanguage === 'fil'
-            ? 'Gagamitin ang Filipino sa mga label at tagubilin ng Kareerly. Mananatili sa orihinal na wika ang nilalaman ng resume at mga trabahong ipinaskil ng employer.'
-            : 'Choose the language used for Kareerly labels and instructions. Resume content and employer-provided job posts remain in their original language.'}
-        </p>
-        <div className="flex gap-2">
-          <button className={`cand-tab-btn ${uiLanguage === 'en' ? 'active' : ''}`} type="button" onClick={() => onLanguage('en')}>
-            {t('English')}
-          </button>
-          <button className={`cand-tab-btn ${uiLanguage === 'fil' ? 'active' : ''}`} type="button" onClick={() => onLanguage('fil')}>
-            {t('Filipino')}
-          </button>
-        </div>
-      </div>
-
-      <div className="cand-acct-grid">
-        <div className="cand-acct-section">
-          <div className="cand-acct-title">{t('Personal Details')}</div>
-          {profileSaveNotice && (
-            <div className="cand-notice info mb-3">
-              <span>{profileSaveNotice}</span>
-            </div>
-          )}
-          <div className="space-y-3">
-            <FormField label={t('Full Name')}><input className="cand-form-input" value={user.name} onChange={(event) => onIdentityChange({ name: event.target.value, email: user.email })} /></FormField>
-            <FormField label={t('Email Address')}><input className="cand-form-input" type="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} /></FormField>
-            <FormField label={t('Candidate ID')}><input className="cand-form-input" value={user.publicId || t('Not available')} readOnly /></FormField>
-            <FormField label={t('Contact Number')}><input className="cand-form-input" value={profile.contactNumber} onChange={(event) => onProfileChange({ ...profile, contactNumber: event.target.value })} placeholder={t('Enter contact number')} /></FormField>
-            <FormField label={t('Birthday')}><input className="cand-form-input" value={profile.birthday} onChange={(event) => onProfileChange({ ...profile, birthday: event.target.value })} type="date" /></FormField>
-            <FormField label={t('Address')}><input className="cand-form-input" value={profile.address} onChange={(event) => onProfileChange({ ...profile, address: event.target.value })} placeholder={t('Enter your address')} /></FormField>
-            <FormField label={t('Location / Region')}><input className="cand-form-input" value={profile.location} onChange={(event) => onProfileChange({ ...profile, location: event.target.value })} placeholder={t('Enter your region')} /></FormField>
+      <section className="k-section" aria-labelledby="profile-resume">
+        <h2 id="profile-resume" className="k-section-title mb-3">{t('Resume')}</h2>
+        <div className="k-card flex flex-wrap items-center gap-3">
+          <FontAwesomeIcon icon={faFileLines} className="h-5 w-5 text-soft" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="k-label [overflow-wrap:anywhere]">{savedResumeFileName || t('No resume saved yet')}</p>
+            <p className="k-meta">Updating it refreshes your matches, gaps and learning.</p>
           </div>
-          <button className="cand-btn-primary mt-4" type="button" onClick={onSave} disabled={isSavingProfile}>
-            {isSavingProfile ? `${t('Saving')}...` : t('Save Details')}
-          </button>
-        </div>
-
-        <div>
-          <div className="cand-acct-section">
-            <div className="cand-acct-title">{t('Password & Security')}</div>
-            <div className="space-y-3">
-              <FormField label={t('Current Password')}><input className="cand-form-input" type="password" value={password.current} onChange={(event) => onPasswordChange({ ...password, current: event.target.value })} /></FormField>
-              <FormField label={t('New Password')}><input className="cand-form-input" type="password" value={password.next} onChange={(event) => onPasswordChange({ ...password, next: event.target.value })} /></FormField>
-              <FormField label={t('Confirm New Password')}><input className="cand-form-input" type="password" value={password.confirm} onChange={(event) => onPasswordChange({ ...password, confirm: event.target.value })} /></FormField>
-            </div>
-            <button className="cand-btn-primary mt-4" type="button" onClick={onUpdatePassword} disabled={isUpdatingPassword}>
-              {isUpdatingPassword ? `${t('Updating')}...` : t('Update Password')}
+          <div className="k-button-row w-full sm:w-auto">
+            <button className="k-btn k-btn-secondary flex-1 sm:flex-none" type="button" onClick={onViewResume} disabled={!savedResumeFileName}>
+              <FontAwesomeIcon icon={faEye} aria-hidden="true" />{t('View')}
+            </button>
+            <button className="k-btn k-btn-primary flex-1 sm:flex-none" type="button" onClick={onOpenResume}>
+              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Update Resume')}
             </button>
           </div>
-
-          <div className="cand-acct-section">
-            <div className="cand-acct-title">{t('Resume')}</div>
-            <div className="cand-notice info mb-3">
-              <span>{uiLanguage === 'fil' ? 'Tingnan o i-upload ang pinakabagong resume. Ang pag-update nito ay magre-refresh ng mga tugmang trabaho, kakulangan sa kasanayan, at rekomendasyon.' : 'View or upload your latest resume. Updating resume refreshes matches, gaps, and recommendations.'}</span>
-            </div>
-            <div className="mb-3 text-sm text-mid">
-              {t('Saved resume:')} <strong>{savedResumeFileName || t('No resume saved yet')}</strong>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button className="cand-btn-secondary flex-1 justify-center" type="button" onClick={onViewResume} disabled={!savedResumeFileName}>
-                <UIIcon name="eye" className="cand-btn-icon" />{t('View Resume')}
-              </button>
-              <button className="cand-btn-secondary flex-1 justify-center" type="button" onClick={onOpenResume}>
-                <UIIcon name="upload" className="cand-btn-icon" />{t('Update Resume')}
-              </button>
-            </div>
-          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="cand-acct-section">
-          <div className="cand-acct-title">Education</div>
-          <div className="cand-form-grid">
-          <FormField label="Highest Educational Attainment"><input className="cand-form-input" value={profile.highestEducationalAttainment} onChange={(event) => onProfileChange({ ...profile, highestEducationalAttainment: event.target.value })} placeholder="Enter highest educational attainment" /></FormField>
-          <FormField label="Degree / Program"><input className="cand-form-input" value={profile.degreeProgram} onChange={(event) => onProfileChange({ ...profile, degreeProgram: event.target.value })} placeholder="Enter degree or program" /></FormField>
-          <FormField label="School / University"><input className="cand-form-input" value={profile.schoolUniversity} onChange={(event) => onProfileChange({ ...profile, schoolUniversity: event.target.value })} placeholder="Enter school or university" /></FormField>
-          <FormField label="Year Graduated"><input className="cand-form-input" value={profile.yearGraduated} onChange={(event) => onProfileChange({ ...profile, yearGraduated: event.target.value })} placeholder="Enter graduation year" /></FormField>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave();
+        }}
+      >
+        <section className="k-section" aria-labelledby="profile-details">
+          <h2 id="profile-details" className="k-section-title mb-3">{t('Personal Details')}</h2>
+          {profileSaveNotice && <Banner>{profileSaveNotice}</Banner>}
+          <div className="k-form-grid">
+            <FormField label={t('Full Name')} className="k-span-2">
+              <input className="k-input" value={user.name} autoComplete="name" onChange={(event) => onIdentityChange({ name: event.target.value, email: user.email })} />
+            </FormField>
+            <FormField label={t('Email Address')}>
+              <input className="k-input" type="email" inputMode="email" autoComplete="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} />
+            </FormField>
+            <FormField label={t('Contact Number')}>
+              <input className="k-input" type="tel" inputMode="tel" autoComplete="tel" value={profile.contactNumber} onChange={set('contactNumber')} placeholder="09XX XXX XXXX" />
+            </FormField>
+            <FormField label={t('Birthday')}>
+              <input className="k-input" type="date" autoComplete="bday" value={profile.birthday} onChange={set('birthday')} />
+            </FormField>
+            <FormField label={t('Location / Region')}>
+              <input className="k-input" autoComplete="address-level2" value={profile.location} onChange={set('location')} placeholder="e.g. Quezon City" />
+            </FormField>
+            <FormField label={t('Address')} className="k-span-2">
+              <input className="k-input" autoComplete="street-address" value={profile.address} onChange={set('address')} />
+            </FormField>
           </div>
-        <button className="cand-btn-primary mt-3" type="button" onClick={onSave} disabled={isSavingProfile}>
-          {isSavingProfile ? 'Saving...' : 'Save Education'}
-        </button>
-      </div>
+        </section>
 
-      <div className="cand-acct-section">
-        <div className="cand-acct-title">User-Uploaded Evidence</div>
-        <p className="mb-3 text-xs text-soft-text">
-          Parsed resume information is used for your profile and job matching. Only PDFs submitted through Upload Evidence appear here. File checks do not confirm issuer authenticity, completion, or certificate validity. Uploads remain Pending Verification.
-        </p>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs text-soft-text">Upload certificates, course completion files, portfolio outputs, or project samples to support your Skill Development Progress.</div>
-          <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenEvidenceUpload}>
-            <UIIcon name="upload" className="cand-btn-icon" />Upload Evidence
+        <section className="k-section" aria-labelledby="profile-education">
+          <h2 id="profile-education" className="k-section-title mb-3">{t('Education')}</h2>
+          <div className="k-form-grid">
+            <FormField label={t('Highest Educational Attainment')} className="k-span-2">
+              <input className="k-input" value={profile.highestEducationalAttainment} onChange={set('highestEducationalAttainment')} placeholder="e.g. Bachelor's degree" />
+            </FormField>
+            <FormField label={t('Degree / Program')}>
+              <input className="k-input" value={profile.degreeProgram} onChange={set('degreeProgram')} />
+            </FormField>
+            <FormField label={t('School / University')}>
+              <input className="k-input" value={profile.schoolUniversity} onChange={set('schoolUniversity')} />
+            </FormField>
+            <FormField label={t('Year Graduated')}>
+              <input className="k-input" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={profile.yearGraduated} onChange={set('yearGraduated')} />
+            </FormField>
+          </div>
+          <div className="mt-5">
+            <button className="k-btn k-btn-primary" type="submit" disabled={isSavingProfile}>
+              {isSavingProfile ? `${t('Saving')}…` : 'Save changes'}
+            </button>
+          </div>
+        </section>
+      </form>
+
+      <section className="k-section" aria-labelledby="profile-evidence">
+        <div className="k-section-head">
+          <h2 id="profile-evidence" className="k-section-title">Certificates & proof</h2>
+          <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={onOpenEvidenceUpload}>
+            <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Upload Evidence')}
           </button>
         </div>
-        <div className="mt-4 space-y-4">
-          {groupedEvidence.length > 0 ? (
-            groupedEvidence.map(([category, records]) => (
-              <div key={category} className="cand-evidence-group">
-                <div className="cand-evidence-group-title">{category}</div>
-                <div className="space-y-3">
-                  {records.map((record) => (
-                    <div key={record.id} className="cand-evidence-card">
-                      <div className="cand-evidence-card-main">
-                        <div className="cand-evidence-card-title-row">
-                          <div className="cand-evidence-card-title">{record.title}</div>
-                          <span className={`cand-msg-badge ${record.status === 'Verified' ? 'accepted' : 'pending'}`}>{record.status}</span>
-                        </div>
-                        <div className="cand-evidence-card-meta">
-                          <span>{cleanSkillDisplayName(record.relatedSkill || '') || 'Related skill not set'}</span>
-                          <span>{record.evidenceType}</span>
-                          <span>Uploaded {formatDateLabel(record.uploadedAt)}</span>
-                        </div>
-                        {record.notes ? <div className="cand-evidence-card-note">{record.notes}</div> : null}
-                      </div>
-                      <div className="cand-evidence-card-actions">
-                        <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onViewEvidence(record)}>
-                          <UIIcon name="eye" className="cand-btn-icon" />View
-                        </button>
-                        <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onReplaceEvidence(record)}>
-                          <UIIcon name="upload" className="cand-btn-icon" />Replace
-                        </button>
-                        <button className="cand-btn-danger cand-btn-sm" type="button" onClick={() => onDeleteEvidence(record)}>
-                          <UIIcon name="trash" className="cand-btn-icon" />Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+        {sortedEvidence.length === 0 ? (
+          <div className="k-card"><EmptyState className="py-4" title="Nothing uploaded yet" text="Add certificates or project samples to back up your skill progress." /></div>
+        ) : (
+          <ul className="k-list">
+            {sortedEvidence.map((record) => (
+              <li key={record.id} className="k-row pr-1">
+                <div className="k-row-main">
+                  <p className="k-label [overflow-wrap:anywhere]">{record.title}</p>
+                  <p className="k-meta k-dot-sep mt-0.5">
+                    <span>{cleanSkillDisplayName(record.relatedSkill || '') || 'No skill set'}</span>
+                    <span>{record.evidenceType}</span>
+                    <span>{formatDateLabel(record.uploadedAt)}</span>
+                  </p>
                 </div>
-              </div>
-            ))
-          ) : (
-            <div className="cand-gap-empty-state">
-              No evidence uploaded yet. Upload certificates, course completion files, portfolio outputs, or project samples to support your Skill Development Progress.
-            </div>
-          )}
-        </div>
-      </div>
+                <span className={record.status === 'Verified' ? 'k-badge k-badge-success' : 'k-badge k-badge-high'}>{record.status}</span>
+                <Menu
+                  label={`Actions for ${record.title}`}
+                  trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />}
+                  items={[
+                    { label: t('View'), icon: faEye, onSelect: () => onViewEvidence(record) },
+                    { label: t('Replace'), icon: faUpload, onSelect: () => onReplaceEvidence(record) },
+                    { label: t('Delete'), icon: faTrash, danger: true, onSelect: () => onDeleteEvidence(record) },
+                  ]}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="k-meta mt-2">PDF only. Uploads stay pending until reviewed; Kareerly does not confirm issuer authenticity.</p>
+      </section>
 
-      <div className="cand-acct-section border border-red">
-        <div className="cand-acct-title border-b border-red-l text-red">Delete Profile</div>
-        <p className="text-sm text-mid">
-          Requesting profile deletion may affect your saved matches, applications, and progress records.
+      <section className="k-section" aria-labelledby="profile-security">
+        <h2 id="profile-security" className="k-section-title mb-3">{t('Password & Security')}</h2>
+        {!passwordOpen ? (
+          <button className="k-btn k-btn-secondary" type="button" onClick={() => setPasswordOpen(true)}>Change password</button>
+        ) : (
+          <form
+            className="k-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onUpdatePassword();
+            }}
+          >
+            <div className="k-form-grid">
+              <FormField label={t('Current Password')} className="k-span-2">
+                <input className="k-input" type="password" autoComplete="current-password" value={password.current} onChange={(event) => onPasswordChange({ ...password, current: event.target.value })} />
+              </FormField>
+              <FormField label={t('New Password')}>
+                <input className="k-input" type="password" autoComplete="new-password" value={password.next} onChange={(event) => onPasswordChange({ ...password, next: event.target.value })} />
+              </FormField>
+              <FormField label={t('Confirm New Password')}>
+                <input className="k-input" type="password" autoComplete="new-password" value={password.confirm} onChange={(event) => onPasswordChange({ ...password, confirm: event.target.value })} />
+              </FormField>
+            </div>
+            <div className="k-button-row mt-4">
+              <button className="k-btn k-btn-primary" type="submit" disabled={isUpdatingPassword}>
+                {isUpdatingPassword ? `${t('Updating')}…` : t('Update Password')}
+              </button>
+              <button className="k-btn k-btn-ghost" type="button" onClick={() => { setPasswordOpen(false); onPasswordChange({ current: '', next: '', confirm: '' }); }}>Cancel</button>
+            </div>
+          </form>
+        )}
+      </section>
+
+      <section className="k-section" aria-labelledby="profile-language">
+        <h2 id="profile-language" className="k-section-title mb-1">{t('Language')}</h2>
+        <p className="k-meta mb-3">
+          {uiLanguage === 'fil' ? 'Para sa mga label ng Kareerly. Hindi isinasalin ang resume at mga job post.' : 'For Kareerly labels. Resumes and job posts stay in their original language.'}
         </p>
-        <button className="cand-btn-danger mt-4" type="button" onClick={onOpenDelete}>
-          Request Profile Deletion
-        </button>
-      </div>
+        <div className="k-seg sm:w-auto" role="radiogroup" aria-label={t('Language')}>
+          {(['en', 'fil'] as const).map((language) => (
+            <button key={language} className="k-seg-btn" type="button" role="radio" aria-checked={uiLanguage === language} onClick={() => onLanguage(language)}>
+              {t(language === 'en' ? 'English' : 'Filipino')}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="k-section border-t border-bdr pt-6" aria-labelledby="profile-delete">
+        <h2 id="profile-delete" className="k-section-title text-red">{t('Delete Profile')}</h2>
+        <p className="k-secondary mb-3 mt-1">Removes your candidate account, matches, applications and progress.</p>
+        <button className="k-btn k-btn-danger-outline" type="button" onClick={onOpenDelete}>{t('Request Profile Deletion')}</button>
+      </section>
     </div>
   );
 }

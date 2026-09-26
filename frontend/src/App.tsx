@@ -20,6 +20,7 @@ import { clearGuestOnboarding, stashGuestOnboarding } from './lib/guestOnboardin
 import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/userData';
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
+import { isCandidateWorkspacePath } from './pages/candidate/routes';
 
 type AppView =
   | 'landing'
@@ -85,7 +86,11 @@ function AppContent() {
     setCurrentUser(user);
     if (!options?.preserveView) {
       setView(hasOnboardingSessionData ? 'onboarding' : 'dashboard');
-      navigate(hasOnboardingSessionData ? '/candidate/onboarding' : '/candidate/dashboard', { replace: true });
+      // A refresh or shared link keeps its workspace page (e.g. /candidate/matches).
+      const target = hasOnboardingSessionData
+        ? '/candidate/onboarding'
+        : isCandidateWorkspacePath(window.location.pathname) ? window.location.pathname : '/candidate/dashboard';
+      navigate(target, { replace: true });
     }
   };
 
