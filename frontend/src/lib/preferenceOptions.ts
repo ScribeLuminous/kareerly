@@ -1,4 +1,5 @@
 import { careerAreaOptions, getCareerAreaLabel } from './careerAreas';
+import { describeLocationPreference } from './regionPreference';
 import type { SurveyAnswers } from '../types';
 
 export type PreferenceOption = { value: string; label: string };
@@ -66,6 +67,12 @@ export function answersFromPreferencesUsed(preferences: unknown): SurveyAnswers 
     salary: text('salary_expectation', 'salary'),
     skill: text('skill_to_develop'),
   };
+  // Present only on reports generated with the region question.
+  const locationScope = text('location_scope');
+  if (locationScope) {
+    answers.locationScope = locationScope;
+    answers.region = text('region');
+  }
   return Object.values(answers).some(Boolean) ? answers : null;
 }
 
@@ -76,6 +83,7 @@ export function summarizePreferences(answers: SurveyAnswers | null | undefined):
   if (answers.industry?.trim()) items.push({ label: 'Career area', value: getCareerAreaLabel(answers.industry) });
   if (answers.role?.trim()) items.push({ label: 'Target job level', value: optionLabel(jobLevelOptions, answers.role) });
   if (answers.setup?.trim()) items.push({ label: 'Work setup', value: optionLabel(workSetupOptions, answers.setup) });
+  if (answers.locationScope?.trim()) items.push({ label: 'Location', value: describeLocationPreference(answers) });
   if (answers.salary?.trim()) items.push({ label: 'Salary expectation', value: optionLabel([...salaryOptions, ...legacySalaryOptions], answers.salary) });
   if (answers.skill?.trim()) items.push({ label: 'Skill to develop', value: answers.skill.trim() });
   return items;

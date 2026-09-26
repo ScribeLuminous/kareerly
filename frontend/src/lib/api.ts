@@ -720,6 +720,9 @@ export type RunJobMatchesPayload = {
     salary_expectation?: string;
     skill_to_develop: string;
     job_level?: string;
+    location_scope?: string;
+    region?: string;
+    current_location?: string;
   };
 };
 
@@ -737,6 +740,9 @@ type MatchFromResumePayload = {
     work_setup?: string;
     salary_expectation?: string;
     skill_to_develop?: string;
+    location_scope?: string;
+    region?: string;
+    current_location?: string;
   };
 };
 
@@ -858,6 +864,9 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
       salary: payload.preferences.salary || '',
       salary_expectation: payload.preferences.salary_expectation || payload.preferences.salary || '',
       skill_to_develop: payload.preferences.skill_to_develop || '',
+      location_scope: payload.preferences.location_scope || 'anywhere',
+      region: payload.preferences.region || '',
+      current_location: payload.preferences.current_location || '',
     },
   };
 
@@ -986,6 +995,9 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
       work_setup: payload.preferences.work_setup || '',
       salary_expectation: payload.preferences.salary_expectation || '',
       skill_to_develop: payload.preferences.skill_to_develop || '',
+      location_scope: payload.preferences.location_scope || 'anywhere',
+      region: payload.preferences.region || '',
+      current_location: payload.preferences.current_location || '',
     }),
   );
 
@@ -1111,6 +1123,29 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
       jobs_source: rawResults.metadata?.jobs_source || 'backend_job_source',
     },
   };
+}
+
+export type CurrentRegionLookup = {
+  currentRegion: string;
+  currentRegionName: string;
+};
+
+/**
+ * The region a saved profile location resolves to, using the backend's mapping
+ * (the same one applied to job locations). Empty when the location is vague
+ * ("Philippines") or names more than one region: the candidate then chooses.
+ */
+export async function resolveCurrentRegion(location: string): Promise<CurrentRegionLookup> {
+  const value = location.trim();
+  if (!value) return { currentRegion: '', currentRegionName: '' };
+  const response = await fetchBackend(
+    `${API_BASE_URL}/api/locations/regions?location=${encodeURIComponent(value)}`,
+    { method: 'GET' },
+    'Looking up your region timed out. Please choose a region.',
+  );
+  if (!response.ok) throw new Error('Unable to look up your region. Please choose a region.');
+  const body = await response.json() as { current_region?: string; current_region_name?: string };
+  return { currentRegion: String(body.current_region || ''), currentRegionName: String(body.current_region_name || '') };
 }
 
 export async function searchSkills(query: string, limit = 20): Promise<{ results: SkillSearchItem[] }> {
@@ -1290,6 +1325,8 @@ export function buildMatchPayloadFromAnalysis(params: {
       salary: answers.salary,
       salary_expectation: answers.salary,
       skill_to_develop: answers.skill,
+      location_scope: answers.locationScope || 'anywhere',
+      region: answers.locationScope && answers.locationScope !== 'anywhere' ? answers.region || '' : '',
     },
   };
 }

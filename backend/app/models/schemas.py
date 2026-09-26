@@ -42,6 +42,11 @@ class MatchPreferences(BaseModel):
     salary: str = ""
     salary_expectation: str = ""
     skill_to_develop: str = ""
+    # Region filter: "anywhere" (default), "current" or "region"; see services/ph_regions.py.
+    location_scope: str = ""
+    region: str = ""
+    # The saved profile location, read when "current" is sent without a region.
+    current_location: str = ""
 
 
 class RunMatchesRequest(BaseModel):
