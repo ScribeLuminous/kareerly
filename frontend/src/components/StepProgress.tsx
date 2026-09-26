@@ -31,7 +31,7 @@ export default function StepProgress({ currentStep }: StepProgressProps) {
                     ? 'bg-rust text-white shadow-md shadow-rust/20'
                     : getStepStatus(step.id) === 'done'
                     ? 'bg-green text-white'
-                    : 'bg-bdr text-soft'
+                    : 'bg-bdr text-soft-text'
                 }`}
                 title={step.label}
               >
@@ -43,7 +43,7 @@ export default function StepProgress({ currentStep }: StepProgressProps) {
                     ? 'text-rust'
                     : getStepStatus(step.id) === 'done'
                     ? 'text-green'
-                    : 'text-soft'
+                    : 'text-soft-text'
                 }`}
               >
                 {step.label}

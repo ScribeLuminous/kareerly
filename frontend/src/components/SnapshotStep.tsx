@@ -150,17 +150,17 @@ function describeMatch(
 }
 
 function MatchRow({ description }: { description: MatchDescription }) {
-  const toneClass = { matched: 'text-green', missing: 'text-soft', note: 'text-soft' };
+  const toneClass = { matched: 'text-green', missing: 'text-soft-text', note: 'text-soft-text' };
   return (
     <div className="rounded-lg bg-bg px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="font-semibold text-dark">{description.title}</div>
-          <div className="text-xs text-soft">{description.location}</div>
+          <div className="text-xs text-soft-text">{description.location}</div>
         </div>
         <div
           className={`rounded-md px-3 py-1 text-xs font-extrabold ${
-            description.matchPercent === null ? 'bg-bdr text-soft' : 'bg-rust text-white'
+            description.matchPercent === null ? 'bg-bdr text-soft-text' : 'bg-rust text-white'
           }`}
         >
           {description.scoreLabel}
@@ -171,7 +171,7 @@ function MatchRow({ description }: { description: MatchDescription }) {
           <div key={line.text} className={toneClass[line.tone]}>{line.text}</div>
         ))}
       </div>
-      <div className="mt-2 text-xs leading-relaxed text-soft">{description.explanation}</div>
+      <div className="mt-2 text-xs leading-relaxed text-soft-text">{description.explanation}</div>
     </div>
   );
 }
@@ -195,9 +195,9 @@ function SkillGapRow({ gap }: { gap: PrioritizedSkillGap }) {
     <div className="rounded-lg bg-bg px-4 py-3 text-sm">
       <div className="flex items-center justify-between gap-3">
         <span className="font-semibold text-dark">{cleanSkillLabel(gap.skill_name)}</span>
-        <span className="text-xs text-soft">{gap.severity || 'To work on'}</span>
+        <span className="text-xs text-soft-text">{gap.severity || 'To work on'}</span>
       </div>
-      <div className="mt-1 text-xs text-soft">{gapText}</div>
+      <div className="mt-1 text-xs text-soft-text">{gapText}</div>
     </div>
   );
 }
@@ -207,11 +207,11 @@ function LearningRow({ recommendation }: { recommendation: LearningRecommendatio
     <div className="flex items-center justify-between gap-3 rounded-lg bg-bg px-4 py-3">
       <div className="min-w-0">
         <div className="truncate font-semibold text-dark">{recommendation.title || 'Untitled course or certification'}</div>
-        <div className="truncate text-xs text-soft">{recommendation.provider || 'Provider not listed'}</div>
+        <div className="truncate text-xs text-soft-text">{recommendation.provider || 'Provider not listed'}</div>
       </div>
       <div
         className={`flex-shrink-0 rounded-lg px-3 py-1 text-xs font-bold ${
-          String(recommendation.cost_type || '').toLowerCase() === 'free' ? 'bg-green-l text-green' : 'bg-bg text-soft'
+          String(recommendation.cost_type || '').toLowerCase() === 'free' ? 'bg-green-l text-green' : 'bg-bg text-soft-text'
         }`}
       >
         {recommendation.cost_type || 'Cost unknown'}
@@ -231,13 +231,13 @@ function PreferenceSummary({ items }: { items: PreferenceSummaryItem[] }) {
         <dl className="grid gap-2.5 sm:grid-cols-2">
           {items.map((item) => (
             <div key={item.label} className="rounded-lg bg-bg px-4 py-3">
-              <dt className="text-xs text-soft">{item.label}</dt>
+              <dt className="text-xs text-soft-text">{item.label}</dt>
               <dd className="text-sm font-semibold text-dark">{item.value}</dd>
             </div>
           ))}
         </dl>
       ) : (
-        <div className="rounded-lg bg-bg p-4 text-sm text-soft">No preferences were recorded for this report.</div>
+        <div className="rounded-lg bg-bg p-4 text-sm text-soft-text">No preferences were recorded for this report.</div>
       )}
     </div>
   );
@@ -273,7 +273,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
       <div className="max-w-lg mx-auto px-6 py-12">
         <div className="bg-card border border-bdr rounded-lg p-6 text-center">
           <h2 className="font-display text-2xl font-bold text-dark mb-2">No report yet</h2>
-          <p className="text-sm text-soft mb-5">Upload a resume and complete the survey to generate your career snapshot.</p>
+          <p className="text-sm text-soft-text mb-5">Upload a resume and complete the survey to generate your career snapshot.</p>
           <button
             onClick={() => goToStep(1)}
             className="w-full px-5 py-3 rounded-lg bg-rust text-white font-semibold hover:opacity-90 transition-opacity duration-150"
@@ -400,7 +400,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold text-dark mb-2">Step 4: Your Career Report</h2>
-            <p className="text-sm text-soft">Based on your resume and preferences, here is your current Kareerly snapshot.</p>
+            <p className="text-sm text-soft-text">Based on your resume and preferences, here is your current Kareerly snapshot.</p>
           </div>
           <button
             type="button"
@@ -426,7 +426,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
           </div>
           <div className="text-sm font-bold text-dark mb-2">Fit-Now Matches</div>
           <div className="text-4xl font-bold text-rust mb-1">{summaryCards[0].value}</div>
-          <div className="text-xs text-soft leading-relaxed">{summaryCards[0].detail}</div>
+          <div className="text-xs text-soft-text leading-relaxed">{summaryCards[0].detail}</div>
         </div>
 
         <div className="bg-card border border-bdr rounded-xl p-6">
@@ -435,7 +435,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
           </div>
           <div className="text-sm font-bold text-dark mb-2">Skill Gaps Identified</div>
           <div className="text-4xl font-bold text-rust mb-1">{summaryCards[1].value}</div>
-          <div className="text-xs text-soft leading-relaxed">{summaryCards[1].detail}</div>
+          <div className="text-xs text-soft-text leading-relaxed">{summaryCards[1].detail}</div>
         </div>
 
         <div className="bg-card border border-bdr rounded-xl p-6">
@@ -444,7 +444,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
           </div>
           <div className="text-sm font-bold text-dark mb-2">Learning Recommendations</div>
           <div className="text-4xl font-bold text-rust mb-1">{summaryCards[2].value}</div>
-          <div className="text-xs text-soft leading-relaxed">{summaryCards[2].detail}</div>
+          <div className="text-xs text-soft-text leading-relaxed">{summaryCards[2].detail}</div>
         </div>
       </div>
 
@@ -473,7 +473,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft" role="status">{noFitNowText}</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft-text" role="status">{noFitNowText}</div>
         )}
         {closestDescriptions.length > 0 && (
           <div className="mt-4">
@@ -499,7 +499,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft">No aspiration matches returned yet.</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft-text">No aspiration matches returned yet.</div>
         )}
       </div>
 
@@ -515,7 +515,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft">No skill gaps returned yet.</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft-text">No skill gaps returned yet.</div>
         )}
       </div>
 
@@ -531,7 +531,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
             ))}
           </div>
         ) : (
-          <div className="rounded-lg bg-bg p-4 text-sm text-soft">No learning recommendations available yet.</div>
+          <div className="rounded-lg bg-bg p-4 text-sm text-soft-text">No learning recommendations available yet.</div>
         )}
       </div>
 

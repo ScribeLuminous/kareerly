@@ -50,7 +50,7 @@ export default function SignUpDefault({ onJobSeekerSignUp, onEmployerSignUp, onL
         <section className="bg-card px-4 py-6 sm:px-6 lg:px-10 lg:py-6">
           <div className="mx-auto flex h-full w-full max-w-lg flex-col justify-center">
             <h2 className="font-display text-2xl font-extrabold leading-tight tracking-tight text-dark sm:text-3xl">Create account</h2>
-            <p className="mt-2.5 text-sm leading-relaxed text-soft sm:text-[15px]">Choose your role to get started</p>
+            <p className="mt-2.5 text-sm leading-relaxed text-soft-text sm:text-[15px]">Choose your role to get started</p>
 
             <div className="mt-6 space-y-2.5">
               <button

@@ -20,7 +20,6 @@ import { clearGuestOnboarding, stashGuestOnboarding } from './lib/guestOnboardin
 import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/userData';
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
-import './index.css';
 
 type AppView =
   | 'landing'

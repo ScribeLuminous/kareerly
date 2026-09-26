@@ -1283,7 +1283,7 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
       <div className="min-h-screen bg-bg px-6 py-16">
         <div className="mx-auto max-w-lg rounded-xl border border-bdr bg-card p-6 text-center">
           <h2 className="font-display text-2xl font-bold text-dark">Candidate Dashboard is for registered users only</h2>
-          <p className="mt-2 text-sm text-soft">Please sign in to access your dashboard, matches, applications, and progress records.</p>
+          <p className="mt-2 text-sm text-soft-text">Please sign in to access your dashboard, matches, applications, and progress records.</p>
         </div>
       </div>
     );
@@ -3042,13 +3042,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               }}
             >
               <div className="cand-profile-avatar">{initials}</div>
-              <UIIcon name="chevron-down" className="cand-chevron-icon text-soft" />
+              <UIIcon name="chevron-down" className="cand-chevron-icon text-soft-text" />
             </button>
             {profileOpen && (
               <div className="cand-profile-dropdown" onClick={(event) => event.stopPropagation()}>
                 <div className="border-b border-bdr px-4 py-3">
                   <div className="text-sm font-bold text-dark">{displayName}</div>
-                  <div className="text-xs text-soft">{displayEmail}</div>
+                  <div className="text-xs text-soft-text">{displayEmail}</div>
                 </div>
                 <button
                   className="cand-profile-dd-item"
@@ -3072,7 +3072,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
                   <UIIcon name="sliders" className="cand-dd-icon" />
                   {tr(uiLanguage, 'Preferences')}
                 </button>
-                <div className="border-t border-bdr px-4 py-2 text-[10px] font-bold uppercase tracking-[0.5px] text-soft">{tr(uiLanguage, 'Language')}</div>
+                <div className="border-t border-bdr px-4 py-2 text-[10px] font-bold uppercase tracking-[0.5px] text-soft-text">{tr(uiLanguage, 'Language')}</div>
                 <div className="cand-lang-row">
                   <button className={`cand-lang-pill ${uiLanguage === 'en' ? 'active' : ''}`} type="button" onClick={() => setUiLanguage('en')}>
                     {tr(uiLanguage, 'English')}
@@ -3676,13 +3676,13 @@ function DashboardOverview({
               {metric.value}
             </div>
             <div className="cand-metric-label">{metric.label}</div>
-            <div className="mt-1 text-[11px] text-soft">{metric.detail}</div>
+            <div className="mt-1 text-[11px] text-soft-text">{metric.detail}</div>
           </div>
         ))}
       </div>
 
       {!hasData && (
-        <div className="mb-4 rounded-lg border border-bdr bg-bg p-3 text-sm text-soft">
+        <div className="mb-4 rounded-lg border border-bdr bg-bg p-3 text-sm text-soft-text">
           Upload and analyze a resume to generate your dashboard overview.
         </div>
       )}
@@ -3753,7 +3753,7 @@ function DashboardOverview({
                 <div key={gap.skill} className="flex items-center justify-between border-b border-bdr py-3 last:border-b-0">
                   <div>
                     <div className="text-sm font-bold text-dark">{gap.skill}</div>
-                    <div className="text-xs text-soft">{formatGapMissingCount(gap)}</div>
+                    <div className="text-xs text-soft-text">{formatGapMissingCount(gap)}</div>
                   </div>
                   <span className={`cand-gap-priority ${severityClass(gap.severity)}`}>{gap.severity}</span>
                 </div>
@@ -3798,7 +3798,7 @@ function DashboardOverview({
                 <div key={course.id} className="flex items-center justify-between border-b border-bdr py-3 last:border-b-0">
                   <div>
                     <div className="text-sm font-bold text-dark">{course.title}</div>
-                    <div className="text-xs text-soft">{course.provider} · {course.duration}</div>
+                    <div className="text-xs text-soft-text">{course.provider} · {course.duration}</div>
                   </div>
                   <span className={`cand-pill ${course.isFree ? 'free' : 'paid'}`}>{course.fees}</span>
                 </div>
@@ -4076,15 +4076,15 @@ function JobMatchesPage({
                     <tr key={`saved-${job.jobSource}-${job.id}`}>
                       <td>
                         <div className="text-sm font-bold text-dark">{job.title}</div>
-                        <div className="text-xs text-soft">{job.company}</div>
+                        <div className="text-xs text-soft-text">{job.company}</div>
                       </td>
                       <td>
                         <div className="text-xs font-bold text-mid">{job.category || 'Uncategorized'}</div>
-                        <div className="text-xs text-soft">{job.subCategory || job.jobLevel || ''}</div>
+                        <div className="text-xs text-soft-text">{job.subCategory || job.jobLevel || ''}</div>
                       </td>
                       <td>
                         <div className="text-xs text-mid">{job.location}</div>
-                        <div className="text-xs text-soft">{job.setup}</div>
+                        <div className="text-xs text-soft-text">{job.setup}</div>
                       </td>
                       <td>
                         {job.hasMatchScore
@@ -4329,7 +4329,7 @@ function SkillGapsPage({
                           <span><UIIcon name="briefcase" className="cand-mini-icon" />{formatGapMissingCount(gap)}</span>
                           <span><UIIcon name="target" className="cand-mini-icon" />{gap.category}</span>
                         </div>
-                        <div className="text-[11px] text-soft">
+                        <div className="text-[11px] text-soft-text">
                           {gap.affectedCount === null
                             ? 'This skill was identified as a gap in your matching results.'
                             : gap.optional
@@ -4347,12 +4347,12 @@ function SkillGapsPage({
                             {recommendedResource ? `${recommendedResource.title} (${recommendedResource.provider})` : 'No recommended learning resource available yet.'}
                           </div>
                           {gap.topResources && gap.topResources.length > 1 ? (
-                            <div className="mt-2 text-[11px] text-soft">
+                            <div className="mt-2 text-[11px] text-soft-text">
                               More options: {gap.topResources.slice(1, 3).map((resource) => resource.title).join(' · ')}
                             </div>
                           ) : null}
                         </div>
-                        <p className="mt-2 text-xs text-soft">Learning and certificates are managed by the provider. Kareerly does not verify completion. Opening a resource does not change skill coverage, readiness, or match scores.</p>
+                        <p className="mt-2 text-xs text-soft-text">Learning and certificates are managed by the provider. Kareerly does not verify completion. Opening a resource does not change skill coverage, readiness, or match scores.</p>
                         <div className="cand-gap-actions">
                           <button className="cand-gap-start" type="button" disabled={!recommendedResource || !learningResourceUrl(recommendedResource)} onClick={() => {
                             const url = recommendedResource && learningResourceUrl(recommendedResource);
@@ -4382,7 +4382,7 @@ function SkillGapsPage({
       ) : (
         <div id="skill-gap-progress-panel" role="tabpanel" aria-labelledby="skill-gap-tab-progress" tabIndex={0}>
           <h2 className="cand-card-title cand-gap-content-title mb-2"><UIIcon name="chart" className="cand-title-icon" />Your Development Progress</h2>
-          <p className="mb-3 text-xs text-soft">
+          <p className="mb-3 text-xs text-soft-text">
             Progress is an explainable career-guidance indicator, not a mastery-verification score.
           </p>
 
@@ -4622,12 +4622,12 @@ function ApplicationsPage({
                   <tr key={application.id} className={application.status === 'Withdrawn' ? 'cand-row-closed' : ''}>
                     <td>
                       <div className="text-sm font-bold text-dark">{application.jobTitle}</div>
-                      <div className="text-xs text-soft">{application.company}</div>
+                      <div className="text-xs text-soft-text">{application.company}</div>
                     </td>
                     <td>
                       <span className="font-display text-sm font-extrabold text-rust">{scoreLabel(application.matchScore)}</span>
                     </td>
-                    <td className="text-xs text-soft">{formatDateLabel(application.dateApplied)}</td>
+                    <td className="text-xs text-soft-text">{formatDateLabel(application.dateApplied)}</td>
                     <td><StatusBadge status={application.status} /></td>
                     <td>
                       <div className="flex flex-wrap gap-2">
@@ -4658,7 +4658,7 @@ function ApplicationsPage({
 
       <div className="cand-card mt-4">
         <div className="text-sm font-bold text-dark">Application Rules</div>
-        <p className="mt-2 text-sm text-soft">
+        <p className="mt-2 text-sm text-soft-text">
           Allowed statuses are Pending, Shortlisted, Interviewing, Hired, Rejected, and Withdrawn. Withdraw is enabled only for Pending, Shortlisted, and Interviewing. Hired, Rejected, and Withdrawn are final and read-only.
         </p>
         {hasInterviewing && (
@@ -4789,7 +4789,7 @@ function PreferencesPage({
         </div>
 
         <div className="mt-4">
-          <div className="mb-2 text-xs font-bold uppercase text-soft">Confirmed Skills</div>
+          <div className="mb-2 text-xs font-bold uppercase text-soft-text">Confirmed Skills</div>
           <div className="cand-skill-chip-grid">
             {skillNames.map((skill) => (
               <button key={skill} className="cand-skill-chip selected" type="button" onClick={() => removeSkill(skill)}>
@@ -4924,7 +4924,7 @@ function AccountSettingsPage({
 
       <div className="cand-acct-section">
         <div className="cand-acct-title">{t('Language Preference')}</div>
-        <p className="mb-3 text-xs text-soft">
+        <p className="mb-3 text-xs text-soft-text">
           {uiLanguage === 'fil'
             ? 'Gagamitin ang Filipino sa mga label at tagubilin ng Kareerly. Mananatili sa orihinal na wika ang nilalaman ng resume at mga trabahong ipinaskil ng employer.'
             : 'Choose the language used for Kareerly labels and instructions. Resume content and employer-provided job posts remain in their original language.'}
@@ -5009,11 +5009,11 @@ function AccountSettingsPage({
 
       <div className="cand-acct-section">
         <div className="cand-acct-title">User-Uploaded Evidence</div>
-        <p className="mb-3 text-xs text-soft">
+        <p className="mb-3 text-xs text-soft-text">
           Parsed resume information is used for your profile and job matching. Only PDFs submitted through Upload Evidence appear here. File checks do not confirm issuer authenticity, completion, or certificate validity. Uploads remain Pending Verification.
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs text-soft">Upload certificates, course completion files, portfolio outputs, or project samples to support your Skill Development Progress.</div>
+          <div className="text-xs text-soft-text">Upload certificates, course completion files, portfolio outputs, or project samples to support your Skill Development Progress.</div>
           <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenEvidenceUpload}>
             <UIIcon name="upload" className="cand-btn-icon" />Upload Evidence
           </button>
@@ -5319,7 +5319,7 @@ function KareersPage({
                 <div key={job.id} className={`cand-kareer-item ${selectedId === job.id ? 'active' : ''}`}>
                   <button className="cand-kareer-select" type="button" onClick={() => onSelect(job.id)}>
                     <div className="text-sm font-bold text-dark"><UIIcon name="briefcase" className="cand-chip-icon" />{job.title}</div>
-                    <div className="text-xs text-soft">{job.company} · {displayOrDash(job.category)}</div>
+                    <div className="text-xs text-soft-text">{job.company} · {displayOrDash(job.category)}</div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {job.matchedSkills.slice(0, 3).map((skill) => (
                         <span key={`${job.id}-${skill}`} className="rounded-full bg-cream-d px-2 py-0.5 text-[10px] font-semibold text-mid">
@@ -5356,7 +5356,7 @@ function KareersPage({
                 </div>
               ))
             ) : (
-              <div className="p-4 text-sm text-soft">{kareers.length === 0 ? 'No jobs are available right now.' : 'No jobs matched your current filters.'}</div>
+              <div className="p-4 text-sm text-soft-text">{kareers.length === 0 ? 'No jobs are available right now.' : 'No jobs matched your current filters.'}</div>
             )}
           </div>
           {!isLoading && !error && pageCount > 1 && <div className="flex items-center justify-center gap-3 border-t border-bdr p-3 text-sm"><button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {pageCount}</span><button type="button" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button></div>}
@@ -5839,7 +5839,7 @@ function CourseCard({ course, selectedJob, gaps, skillProgressRecords, courseCom
         <div className="cand-provider-badge">{course.provider.slice(0, 2).toUpperCase()}</div>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold text-dark">{course.title}</h3>
-          <div className="text-xs text-soft">{course.provider}{isCertification ? ' · Certification' : ''}</div>
+          <div className="text-xs text-soft-text">{course.provider}{isCertification ? ' · Certification' : ''}</div>
         </div>
         <button
           className={`cand-course-taken-toggle ${completion ? 'active' : ''}`}
@@ -5854,7 +5854,7 @@ function CourseCard({ course, selectedJob, gaps, skillProgressRecords, courseCom
       </div>
       <div className="cand-course-skill-block">
         <div className="cand-course-label">Helps address</div>
-        <div className="cand-course-skill-list">{mappedSkills.length > 0 ? mappedSkills.map((skill) => <span key={skill} className="cand-course-gap-tag">{skill}</span>) : <span className="text-xs text-soft">Skill mapping unavailable</span>}</div>
+        <div className="cand-course-skill-list">{mappedSkills.length > 0 ? mappedSkills.map((skill) => <span key={skill} className="cand-course-gap-tag">{skill}</span>) : <span className="text-xs text-soft-text">Skill mapping unavailable</span>}</div>
       </div>
       <div className="cand-course-reason"><span className="cand-course-label">Recommended because</span><span className="text-xs text-mid">{recommendationReason}</span></div>
       {metadata.length > 0 && <div className="cand-course-meta">{metadata.map((item) => <span key={item}>{item}</span>)}</div>}
@@ -5873,7 +5873,7 @@ function CourseCard({ course, selectedJob, gaps, skillProgressRecords, courseCom
           <a className="cand-btn-primary cand-btn-sm" href={url} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel}: ${course.title} (opens in a new tab)`}>
             {course.urlLabel || 'View Resource'}<UIIcon name="external" className="cand-btn-icon" />
           </a>
-        ) : <span className="text-xs text-soft">Provider link unavailable</span>}
+        ) : <span className="text-xs text-soft-text">Provider link unavailable</span>}
         {!course.verified && <span className="cand-course-unreviewed" title="Listed from Kareerly's gathered catalog; details have not been reviewed yet.">Catalog listing</span>}
       </div>
     </div>
@@ -5942,12 +5942,12 @@ function MessagesPage({
             applications.map((app) => (
               <button key={app.id} className={`cand-msg-item ${selectedJobId === app.jobId ? 'active' : ''}`} type="button" onClick={() => onSelect(app.jobId)}>
                 <div className="text-sm font-bold text-dark">{app.company}</div>
-                <div className="text-xs text-soft">{app.jobTitle} · {app.status}</div>
+                <div className="text-xs text-soft-text">{app.jobTitle} · {app.status}</div>
                 <span className={`cand-msg-badge ${stateToClass(requestStates[app.jobId] || 'Pending')}`}>{requestStates[app.jobId] || 'Pending'}</span>
               </button>
             ))
           ) : (
-            <div className="p-4 text-sm text-soft">No eligible Interviewing/Hired applications yet.</div>
+            <div className="p-4 text-sm text-soft-text">No eligible Interviewing/Hired applications yet.</div>
           )}
         </div>
 
@@ -5957,7 +5957,7 @@ function MessagesPage({
               <div className="cand-msg-thread-header">
                 <div className="min-w-0">
                   <h4 className="text-sm font-bold text-dark">{selected.company}</h4>
-                  <p className="text-xs text-soft">{selected.jobTitle} · {selected.status} stage</p>
+                  <p className="text-xs text-soft-text">{selected.jobTitle} · {selected.status} stage</p>
                 </div>
                 <div className="cand-msg-thread-actions">
                   <button
@@ -6228,8 +6228,8 @@ function JobDetailModal({
                   <div className="text-xs text-mid">This learning resource supports {cleanSkillDisplayName(course.gapTag)}, one of the skills connected to this role.</div>
                   {learningResourceUrl(course) ? (
                     <a className="cand-btn-secondary cand-btn-sm mt-2" href={learningResourceUrl(course)} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel}: ${course.title} (opens in a new tab)`}>{course.urlLabel}</a>
-                  ) : <span className="text-xs text-soft">Provider link unavailable</span>}
-                  <p className="text-xs text-soft">The provider manages learning and certificates. Kareerly does not verify completion; opening this resource does not change skills, readiness, or match scores.</p>
+                  ) : <span className="text-xs text-soft-text">Provider link unavailable</span>}
+                  <p className="text-xs text-soft-text">The provider manages learning and certificates. Kareerly does not verify completion; opening this resource does not change skills, readiness, or match scores.</p>
                 </div>
               </div>
             ))
@@ -6380,7 +6380,7 @@ function ResumeUpdateModal({
               />
               <UIIcon name="upload" className="cand-upload-icon" />
               <div className="mt-2 text-sm font-bold text-dark">Drag and drop your resume here</div>
-              <div className="text-xs text-soft">PDF, DOCX or DOC · max 5MB</div>
+              <div className="text-xs text-soft-text">PDF, DOCX or DOC · max 5MB</div>
             </label>
 
             {file && (
@@ -6394,7 +6394,7 @@ function ResumeUpdateModal({
                   <div className="text-xs mt-0.5">{formatFileSize(file.size)} · Ready for analysis</div>
                 </div>
                 <button
-                  className="text-soft hover:text-red transition-colors text-xl px-1 flex-shrink-0"
+                  className="text-soft-text hover:text-red transition-colors text-xl px-1 flex-shrink-0"
                   type="button"
                   onClick={() => onPickFile(null)}
                   title="Remove"
@@ -6450,7 +6450,7 @@ function ResumeUpdateModal({
               <span>Resume uploaded. Review and confirm detected skills before refreshing dashboard recommendations.</span>
             </div>
             <div className="text-sm font-bold text-dark">Detected Skills</div>
-            <div className="text-xs text-soft">Click a skill to remove it from confirmation.</div>
+            <div className="text-xs text-soft-text">Click a skill to remove it from confirmation.</div>
             <div className="cand-skill-chip-grid">
               {reviewSkills.map((skill) => (
                 <button key={skill} className="cand-skill-chip selected" type="button" onClick={() => onRemoveSkill(skill)}>
@@ -6744,7 +6744,7 @@ function ConfirmModal({
         <div className={`cand-notice ${danger ? 'error' : 'info'}`}>
           <span>{description}</span>
         </div>
-        {footnote && <p className="text-sm text-soft">{footnote}</p>}
+        {footnote && <p className="text-sm text-soft-text">{footnote}</p>}
         <div className="cand-modal-actions">
           <button className={danger ? 'cand-btn-danger' : 'cand-btn-primary'} type="button" onClick={onConfirm}>
             {confirmLabel}

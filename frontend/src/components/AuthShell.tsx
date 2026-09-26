@@ -38,7 +38,7 @@ export default function AuthShell({ title, subtitle, panelTitle, panelSubtitle, 
         <section className="flex items-start justify-center px-5 py-5 sm:px-6 sm:py-6 lg:items-start lg:py-5">
           <div className="w-full max-w-md">
             <h2 className="font-display text-2xl font-extrabold leading-tight text-dark sm:text-3xl">{title}</h2>
-            <p className="mt-2 text-base text-soft">{subtitle}</p>
+            <p className="mt-2 text-base text-soft-text">{subtitle}</p>
             <div className="mt-4">{children}</div>
           </div>
         </section>
