@@ -45,6 +45,7 @@ from .resume_parser import (
 from .skill_extractor import SkillExtractor
 from .skill_variants import any_case_variants, exact_case_skill_ids, load_skill_variants, merge_variants_into_rows
 from .supabase_jobs import load_internal_jobs_dataframe
+from .ph_regions import RegionPreference, region_preference, regions_in_location
 from . import taxonomy_additions
 from ..learning.ranking_model import BASELINE_VERSION, active_ranker, rank_category
 
@@ -1477,6 +1478,58 @@ def preference_conflicts(job: Dict[str, Any], preferences: Dict[str, Any]) -> Li
     return conflicts
 
 
+# Why a job is or is not eligible under an active region filter.
+REGION_IN_REGION = "in_region"
+REGION_REMOTE = "remote_allowed"
+REGION_OUT = "out_of_region"
+REGION_UNKNOWN = "region_unknown"
+
+
+def candidate_allows_remote(preferences: Dict[str, Any]) -> bool:
+    """True when the work setup answer leaves room for fully remote work."""
+    work_setup = normalize_for_match((preferences or {}).get("work_setup", ""))
+    return is_unrestricted_preference(work_setup) or "remote" in _work_setups(work_setup)
+
+
+def job_region_status(job: Dict[str, Any], region: RegionPreference, preferences: Dict[str, Any]) -> str:
+    """How a job stands against the candidate's region filter.
+
+    A job in the chosen region is eligible. A remote job is eligible wherever
+    it is based when the candidate's work setup allows remote work. Otherwise a
+    job in another region, and a job whose location names no region
+    ("Philippines", blank), is not: its region cannot be confirmed.
+    """
+    job_regions = regions_in_location(job.get("location", ""))
+    if region.region in job_regions:
+        return REGION_IN_REGION
+    if "remote" in _work_setups(normalize_for_match(job.get("work_type", ""))) and candidate_allows_remote(preferences):
+        return REGION_REMOTE
+    return REGION_OUT if job_regions else REGION_UNKNOWN
+
+
+def apply_region_filter(
+    results: List[Dict[str, Any]], region: RegionPreference, preferences: Dict[str, Any],
+) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+    """Keep the recommendable jobs the region filter allows; scores are untouched.
+
+    Only Fit-Now and Aspiration jobs are counted. Excluded jobs are never
+    brought back to fill a short or empty list.
+    """
+    counts = {REGION_IN_REGION: 0, REGION_REMOTE: 0, REGION_OUT: 0, REGION_UNKNOWN: 0}
+    if not region.active:
+        return results, counts
+    kept = []
+    for item in results:
+        if item["match_type"] == LOW_MATCH:
+            kept.append(item)
+            continue
+        status = job_region_status(item, region, preferences)
+        counts[status] += 1
+        if status in {REGION_IN_REGION, REGION_REMOTE}:
+            kept.append({**item, "region_filter_status": status})
+    return kept, counts
+
+
 PREFERENCE_NOUNS = {"job_level": "level", "work_setup": "work setup", "salary": "salary"}
 
 
@@ -2050,9 +2103,17 @@ def catalog_status(state: str, jobs_available: int = 0, source: str = "") -> Dic
     return {"state": state, "jobs_available": int(jobs_available), "source": source, "message": messages[state]}
 
 
-def _recommendation_notice(catalog: Dict[str, Any], fit_now: List[Dict[str, Any]], aspiration: List[Dict[str, Any]]) -> str:
+def _recommendation_notice(
+    catalog: Dict[str, Any], fit_now: List[Dict[str, Any]], aspiration: List[Dict[str, Any]],
+    location_filter: Optional[Dict[str, Any]] = None,
+) -> str:
     if catalog["state"] != "available":
         return catalog["message"]
+    location_filter = location_filter or {}
+    if location_filter.get("active") and not fit_now and not aspiration:
+        return (f"No matching jobs were found in {location_filter['region_name']}. "
+                "Jobs whose region could not be confirmed are not shown while a region filter is on. "
+                "Choose another region or \"Anywhere in the Philippines\" to see more.")
     if not fit_now and not aspiration:
         return ("None of the available jobs is a Fit-Now match for your resume, and none fits the career area "
                 "and preferences you chose in Step 3. Choosing another career area, or answering \"not sure\" "
@@ -2073,6 +2134,9 @@ def match_text_to_jobs(
 ) -> Dict[str, Any]:
     started_at = time.perf_counter()
     preferences = preferences or {}
+    # Checked first: a region filter without a usable region is the caller's
+    # error, never a reason to guess one or to drop the filter.
+    region = region_preference(preferences)
     context = _prepare_candidate_context(resume_text, confirmed_skills, removed_skill_ids)
     resume_text = context.resume_text
     final_skill_records, candidate_skill_names = context.skill_records, context.skill_names
@@ -2117,9 +2181,20 @@ def match_text_to_jobs(
     # bounded adjustment to that primary key; see learning/ranking_model.py.
     # Either list may be empty and both may be full; nothing is moved between
     # them to reach a count.
+    # The region filter narrows which jobs may be recommended before the top
+    # Fit-Now and Aspiration jobs are chosen; it never changes a score.
+    eligible_results, region_counts = apply_region_filter(results, region, preferences)
+    location_filter = {
+        **region.as_dict(),
+        "remote_allowed": candidate_allows_remote(preferences),
+        "jobs_in_region": region_counts[REGION_IN_REGION],
+        "remote_jobs_included": region_counts[REGION_REMOTE],
+        "excluded_out_of_region": region_counts[REGION_OUT],
+        "excluded_region_unknown": region_counts[REGION_UNKNOWN],
+    }
     ranker = active_ranker()
-    all_fit_now_matches = rank_category([item for item in results if item["match_type"] == FIT_NOW], FIT_NOW, ranker)
-    all_aspiration_matches = rank_category([item for item in results if item["match_type"] == ASPIRATION], ASPIRATION, ranker)
+    all_fit_now_matches = rank_category([item for item in eligible_results if item["match_type"] == FIT_NOW], FIT_NOW, ranker)
+    all_aspiration_matches = rank_category([item for item in eligible_results if item["match_type"] == ASPIRATION], ASPIRATION, ranker)
     applied_ranker_version = next(
         (item["ranker_version"] for item in all_fit_now_matches + all_aspiration_matches), ranker.version)
     fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
@@ -2188,7 +2263,8 @@ def match_text_to_jobs(
         "removed_skill_ids": context.removed_skill_ids,
         "preferences_used": preferences,
         "catalog_status": catalog,
-        "recommendation_notice": _recommendation_notice(catalog, all_fit_now_matches, all_aspiration_matches),
+        "location_filter": location_filter,
+        "recommendation_notice": _recommendation_notice(catalog, all_fit_now_matches, all_aspiration_matches, location_filter),
         "fit_now_matches": fit_now_matches,
         "aspiration_matches": aspiration_matches,
         "closest_matches": [],
@@ -2217,6 +2293,7 @@ def match_text_to_jobs(
             # Fields left open ("I'm not sure", "Flexible - no preference") that
             # did not filter or lower any job.
             "unrestricted_preferences": unrestricted_preference_fields(preferences),
+            "location_filter": location_filter,
             "fit_now_blockers": fit_now_blockers,
             "aspiration_blockers": aspiration_blockers,
             "resume_evidence_inputs": len(candidate_evidence.inputs),

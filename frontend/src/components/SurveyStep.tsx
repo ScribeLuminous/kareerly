@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   faCirclePlus,
   faXmark,
@@ -6,12 +6,15 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useOnboarding } from '../hooks/useOnboarding';
 import type { SelectedSkill, SurveyAnswers } from '../types';
-import { CONFIRMED_SKILL_LIMIT, removedSkillIds, runJobMatches, searchSkills } from '../lib/api';
-import { getCurrentKareerlyUser } from '../lib/auth';
+import { CONFIRMED_SKILL_LIMIT, loadCandidateAccountSettings, removedSkillIds, runJobMatches, searchSkills } from '../lib/api';
+import { getCurrentKareerlyUser, updateCandidateProfile } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
 import { careerAreaSkillExamples, confirmedSkillsInCareerArea, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { careerAreaPreferenceOptions, jobLevelOptions, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
 import { extractionWarnings } from '../lib/resumeFreshness';
+import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
+import LocationPreferenceQuestion from './LocationPreferenceQuestion';
+import type { LocationPreferenceValue } from './LocationPreferenceQuestion';
 import StepArrowButton from './StepArrowButton';
 
 type SurveyStepProps = {
@@ -24,6 +27,8 @@ const defaultAnswers: SurveyAnswers = {
   setup: '',
   salary: '',
   skill: '',
+  locationScope: 'anywhere',
+  region: '',
 };
 
 function dedupeSkills(skills: SelectedSkill[]): SelectedSkill[] {
@@ -65,6 +70,21 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
   const [isSearchingSkills, setIsSearchingSkills] = useState(false);
   const [skillSearchResults, setSkillSearchResults] = useState<SelectedSkill[]>([]);
   const [hasSearchedSkills, setHasSearchedSkills] = useState(false);
+  // Signed-in candidates' saved profile location decides their current region;
+  // undefined while loading, null when there is none.
+  const [loadedProfileLocation, setLoadedProfileLocation] = useState<string | null | undefined>(undefined);
+  const profileLocation = isLoggedIn ? loadedProfileLocation : null;
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let active = true;
+    loadCandidateAccountSettings()
+      .then((settings) => { if (active) setLoadedProfileLocation(settings?.location || null); })
+      .catch(() => { if (active) setLoadedProfileLocation(null); });
+    return () => {
+      active = false;
+    };
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (state.surveyAnswers) {
@@ -72,7 +92,8 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
     }
   }, [state.surveyAnswers]);
 
-  const isPreferencesComplete = Boolean(answers.industry && answers.role && answers.setup && answers.salary);
+  const isPreferencesComplete = Boolean(answers.industry && answers.role && answers.setup && answers.salary)
+    && isLocationPreferenceComplete(answers);
   const selectedSkills = (state.selectedSkills || []).slice(0, CONFIRMED_SKILL_LIMIT);
   const selectedSkillCount = selectedSkills.length;
   const isSkillLimitReached = selectedSkillCount >= CONFIRMED_SKILL_LIMIT;
@@ -143,6 +164,10 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
     setAnswers((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleLocationChange = useCallback((next: LocationPreferenceValue) => {
+    setAnswers((prev) => ({ ...prev, locationScope: next.locationScope, region: next.region }));
+  }, []);
+
   const handleContinueToPreferences = () => {
     if (!state.resumeAnalysis) {
       setError('Resume analysis is missing. Please go back to Step 1 and analyze your resume again.');
@@ -172,7 +197,9 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
     }
 
     if (!isPreferencesComplete) {
-      setError('Please answer all preference questions before generating your report.');
+      setError(isLocationPreferenceComplete(answers)
+        ? 'Please answer all preference questions before generating your report.'
+        : 'Please choose a region, or pick "Anywhere in the Philippines".');
       return;
     }
 
@@ -212,6 +239,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           work_setup: answers.setup,
           salary_expectation: answers.salary,
           skill_to_develop: answers.skill,
+          ...locationPreferencePayload(answers, profileLocation),
         },
       });
 
@@ -224,12 +252,20 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
       // round trip.
       void getCurrentKareerlyUser()
         .then((user) => user?.role === 'candidate'
-          ? saveMatchHistory({
-              userId: user.id,
-              resumeId: state.savedResumeId,
-              preferences: answers,
-              results,
-            })
+          ? Promise.all([
+              saveMatchHistory({
+                userId: user.id,
+                resumeId: state.savedResumeId,
+                preferences: answers,
+                results,
+              }),
+              // Saved so the dashboard regenerates recommendations with the same region.
+              updateCandidateProfile({
+                userId: user.id,
+                preferredLocationScope: normalizeLocationScope(answers.locationScope),
+                preferredRegion: locationPreferencePayload(answers).region,
+              }),
+            ])
           : undefined)
         .catch((error) => console.warn('Unable to save match history:', error));
     } catch (error) {
@@ -531,6 +567,13 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           value={answers.setup}
           onChange={(value) => handleChange('setup', value)}
           options={workSetupOptions}
+        />
+        <LocationPreferenceQuestion
+          scope={answers.locationScope}
+          region={answers.region}
+          onChange={handleLocationChange}
+          isSignedIn={isLoggedIn}
+          profileLocation={profileLocation}
         />
         <Question
           label="What's your salary expectation?"

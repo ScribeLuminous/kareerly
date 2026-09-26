@@ -218,6 +218,10 @@ export interface SurveyAnswers {
   setup: string;
   salary: string;
   skill: string;
+  /** Region filter, separate from work setup: 'anywhere', 'current' or 'region'. */
+  locationScope?: string;
+  /** Region code (see lib/regionPreference.ts) used when locationScope is 'current' or 'region'. */
+  region?: string;
 }
 
 export interface MatchResultItem {
@@ -443,6 +447,18 @@ export interface JobMatchRunResults {
   catalog_status?: CatalogStatus;
   /** Plain-language note for an empty Fit-Now list or an empty/unavailable catalogue. */
   recommendation_notice?: string;
+  /** The region filter the report was generated with, and what it excluded. */
+  location_filter?: {
+    location_scope: string;
+    region: string;
+    region_name: string;
+    active: boolean;
+    remote_allowed?: boolean;
+    jobs_in_region?: number;
+    remote_jobs_included?: number;
+    excluded_out_of_region?: number;
+    excluded_region_unknown?: number;
+  };
   total_qualifying_matches?: number | string;
   /** Distinct skill gaps across the compared matches; skill_gaps lists at most eight of them. */
   total_skill_gap_count?: number;
