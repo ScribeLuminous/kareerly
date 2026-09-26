@@ -64,7 +64,7 @@ import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestMatchRun, loadLatestResume, saveMatchHistory, saveResumeAnalysis, type ExistingResumeFile, type SavedResumeRecord } from '../lib/userData';
 import { assessSavedResume, extractionWarnings, RESUME_FILE_ACCEPT, staleResumeMessage, type SavedResumeFreshness } from '../lib/resumeFreshness';
-import type { DevelopmentProgressRecord, LearningRecommendation as RunLearningRecommendation } from '../types';
+import type { LearningRecommendation as RunLearningRecommendation } from '../types';
 import { extractMatchPercent, extractSkillGapMatchCount, extractSkillGapMatchPercent, parseNumericValue } from '../lib/matchScoring';
 import { formatJobDescription } from '../lib/jobDescription';
 import type { CredentialType, CourseRecommendation, JobMatch, MatchResultItem, ParsedResume, PrioritizedSkillGap, SelectedSkill, SkillGap, SurveyAnswers } from '../types';
@@ -256,6 +256,8 @@ type DashboardCourse = {
   gapTag: string;
   mappedSkills: string[];
   mappedSkillIds: string[];
+  /** Catalogue career area, e.g. "Office Administration and Records". */
+  categoryName?: string;
   /** Listable: has a title and a skill mapping, so it can be shown for a gap. */
   reviewed: boolean;
   /** Passed the catalog review (reviewer, evidence, verified date). */
@@ -279,18 +281,6 @@ type CourseCompletion = {
 };
 
 type EvidencePrefill = Pick<EvidenceUploadRecord, 'title' | 'evidenceType' | 'relatedSkill' | 'category'>;
-
-type CategoryProgressRow = {
-  category: SkillCategory;
-  percent: number;
-  missing: number;
-  matched: number;
-  completed: number;
-  inProgress: number;
-  evidenceUploaded: number;
-  relatedSkillRecords: string[];
-  recentActivity?: string;
-};
 
 type SkillProgressStatus = 'missing' | 'started' | 'in_progress' | 'completed' | 'evidenced' | 'covered';
 
@@ -711,6 +701,32 @@ function classifySkillCategory(skill: string): SkillCategory {
   return 'Other';
 }
 
+// The skill category stored with an evidence upload: the matching gap's
+// taxonomy category, else the course's category, else a keyword guess.
+function deriveEvidenceCategory(relatedSkill: string, gaps: DashboardGap[], course?: DashboardCourse | null): string {
+  const skills = relatedSkill.split(',').map(normalizeSkill).filter(Boolean);
+  const gap = gaps.find((item) => skills.includes(normalizeSkill(item.skill)));
+  const fromGap = gap?.categoryName?.trim() || (gap && gap.category !== 'Other' ? gap.category : '');
+  return fromGap || course?.categoryName?.trim() || classifySkillCategory(skills[0] || '');
+}
+
+const SKILL_STATUS_LABEL: Record<SkillProgressStatus, string> = {
+  missing: 'Not started',
+  started: 'Started',
+  in_progress: 'In progress',
+  completed: 'Course completed',
+  evidenced: 'Proof uploaded · pending review',
+  covered: 'Covered',
+};
+
+function skillNextStep(status: SkillProgressStatus, skill: string): string {
+  if (status === 'missing') return `Pick a course for ${skill} in Learning Recommendations. Mark it as taken when you finish.`;
+  if (status === 'started' || status === 'in_progress') return `Keep going with your ${skill} course, then mark it as taken on its card.`;
+  if (status === 'completed') return `Upload your certificate or proof of completion for ${skill}.`;
+  if (status === 'evidenced') return 'Your proof is on file and pending verification. Nothing else is needed for now.';
+  return `${skill} no longer appears as a gap in your current matches.`;
+}
+
 function mapSeverity(value: string): SeverityLevel {
   const normalized = value.toLowerCase();
   if (normalized.includes('critical')) return 'Critical';
@@ -768,15 +784,6 @@ function categoryStatus(percent: number): ProgressStatus {
     className: 'cand-sdp-chip cand-sdp-strong',
     interpretation: 'Strong evidence exists across most skills in the category.',
   };
-}
-
-function categoryBarColor(category: SkillCategory): string {
-  if (category === 'Core Office Tools') return 'var(--green)';
-  if (category === 'Programming & Scripting') return 'var(--forest)';
-  if (category === 'Statistical Analysis') return 'var(--rust)';
-  if (category === 'Data Visualization') return 'var(--amber)';
-  if (category === 'Data Engineering') return 'var(--cream-d)';
-  return 'var(--tan)';
 }
 
 function withMatchVote(current: Record<string, MatchVote>, key: string, vote: MatchVote | null): Record<string, MatchVote> {
@@ -1115,13 +1122,6 @@ function mapRunGap(gap: PrioritizedSkillGap): DashboardGap {
   };
 }
 
-function parseProgressPercent(record: DevelopmentProgressRecord): number {
-  const rawValue = record.progress_score ?? record.progress_percentage ?? record.progress_percent ?? record.percentage;
-  const numeric = parseNumericValue(rawValue);
-  if (numeric === null) return 0;
-  return Math.max(0, Math.min(100, Math.round(numeric)));
-}
-
 function normalizeProgressLabel(percent: number, backendLabel?: string): ProgressStatus {
   const derived = categoryStatus(percent);
   if (!backendLabel?.trim()) return derived;
@@ -1200,6 +1200,7 @@ function mapRunLearningRecommendation(rec: RunLearningRecommendation): Dashboard
     isFree: String(rec.cost_type || '').trim().toLowerCase() === 'free',
     gapTag,
     mappedSkills, mappedSkillIds: rec.matched_gap_skill_ids || [],
+    categoryName: rec.category_name || undefined,
     reviewed: Boolean(rec.resource_id || rec.title) && mappedSkills.length > 0,
     verified: rec.review_status === 'verified',
     recommendationNote: rec.why_recommended || undefined,
@@ -1776,156 +1777,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       return next;
     });
   }, [gaps]);
-
-  const categoryProgress = useMemo<CategoryProgressRow[]>(() => {
-    const progressEntries = Object.values(skillProgressRecords);
-    if (progressEntries.length > 0) {
-      const grouped = new Map<SkillCategory, SkillProgressRecord[]>();
-      progressEntries.forEach((record) => {
-        const list = grouped.get(record.category) || [];
-        list.push(record);
-        grouped.set(record.category, list);
-      });
-
-      return Array.from(grouped.entries()).map(([category, records]) => {
-        const relatedSkillRecords = records.map((record) => record.skillName);
-        const percent = Math.round(records.reduce((sum, record) => sum + record.progressPercent, 0) / Math.max(records.length, 1));
-        const completed = records.filter((record) => ['completed', 'evidenced', 'covered'].includes(record.status)).length;
-        const inProgress = records.filter((record) => ['started', 'in_progress'].includes(record.status)).length;
-        const evidenceUploaded = records.filter((record) => Boolean(record.evidenceFilename)).length;
-        const missing = records.filter((record) => !['covered'].includes(record.status)).length;
-        const matched = records.filter((record) => record.status === 'covered').length;
-
-        return {
-          category,
-          percent,
-          missing,
-          matched,
-          completed,
-          inProgress,
-          evidenceUploaded,
-          relatedSkillRecords,
-          recentActivity: records.find((record) => record.evidenceUploadedAt)?.evidenceUploadedAt
-            ? `Recent evidence uploaded ${formatDateLabel(records.find((record) => record.evidenceUploadedAt)?.evidenceUploadedAt || '')}`
-            : undefined,
-        };
-      }).sort((a, b) => b.percent - a.percent);
-    }
-
-    const backendProgress = state.matchResults?.development_progress || [];
-    if (backendProgress.length > 0) {
-      return backendProgress
-        .map((row) => {
-          const categoryName = String(row.category_name || row.category || 'Other').trim();
-          const relatedSkillRecords = Array.isArray(row.related_skill_records)
-            ? row.related_skill_records
-            : Array.isArray(row.related_skills)
-              ? row.related_skills
-              : Array.isArray(row.skill_records)
-                ? row.skill_records
-              : [];
-          const missingSkills = Array.isArray(row.missing_skills) ? row.missing_skills : [];
-          const coveredSkills = Array.isArray(row.covered_skills) ? row.covered_skills : [];
-
-          return {
-            category: classifySkillCategory(categoryName) === 'Other' ? (titleCase(categoryName) as SkillCategory) : classifySkillCategory(categoryName),
-            percent: parseProgressPercent(row),
-            missing: missingSkills.length,
-            matched: coveredSkills.length,
-            completed: Math.max(0, parseNumericValue(row.completed_count ?? row.completed_learning) ?? 0),
-            inProgress: Math.max(0, parseNumericValue(row.in_progress_count) ?? 0),
-            evidenceUploaded: Math.max(0, parseNumericValue(row.evidence_uploaded_count ?? row.supporting_evidence) ?? 0),
-            relatedSkillRecords: relatedSkillRecords.filter(Boolean).map(titleCase),
-            recentActivity: typeof (row as Record<string, unknown>).recent_activity === 'string'
-              ? String((row as Record<string, unknown>).recent_activity)
-              : undefined,
-          };
-        })
-        .filter((row) => row.relatedSkillRecords.length > 0 || row.missing > 0 || row.matched > 0 || row.completed > 0 || row.inProgress > 0 || row.evidenceUploaded > 0)
-        .sort((a, b) => b.percent - a.percent);
-    }
-
-    const missingByCategory = new Map<SkillCategory, Set<string>>();
-    const matchedByCategory = new Map<SkillCategory, Set<string>>();
-    const courseIdsByCategory = new Map<SkillCategory, Set<string>>();
-    const evidenceByCategory = new Map<SkillCategory, number>();
-
-    const addSkill = (map: Map<SkillCategory, Set<string>>, skill: string) => {
-      const category = classifySkillCategory(skill);
-      if (!map.has(category)) map.set(category, new Set());
-      map.get(category)?.add(normalizeSkill(skill));
-    };
-
-    const addCourse = (map: Map<SkillCategory, Set<string>>, course: DashboardCourse) => {
-      const category = classifySkillCategory(course.gapTag || course.title || '');
-      if (!map.has(category)) map.set(category, new Set());
-      map.get(category)?.add(course.id);
-    };
-
-    gaps.forEach((gap) => addSkill(missingByCategory, gap.skill));
-    jobs.forEach((job) => {
-      job.matchedSkills.forEach((skill) => addSkill(matchedByCategory, skill));
-      job.missingSkills.forEach((skill) => addSkill(missingByCategory, skill));
-    });
-    courses.forEach((course) => addCourse(courseIdsByCategory, course));
-    evidenceRecords.forEach((record) => {
-      const category = classifySkillCategory(record.category || record.relatedSkill || record.title);
-      evidenceByCategory.set(category, (evidenceByCategory.get(category) || 0) + 1);
-    });
-
-    const dynamicCategories = new Set<SkillCategory>();
-    missingByCategory.forEach((_skills, category) => dynamicCategories.add(category));
-    matchedByCategory.forEach((_skills, category) => dynamicCategories.add(category));
-    courseIdsByCategory.forEach((_ids, category) => dynamicCategories.add(category));
-    evidenceByCategory.forEach((_count, category) => dynamicCategories.add(category));
-
-    if (dynamicCategories.size === 0) return [];
-
-    return Array.from(dynamicCategories).map((category) => {
-      const missing = missingByCategory.get(category)?.size || 0;
-      const matched = matchedByCategory.get(category)?.size || 0;
-      const courseIds = Array.from(courseIdsByCategory.get(category) || []);
-      const completed = 0;
-      const startedOnly = 0;
-      const evidenceUploaded = evidenceByCategory.get(category) || 0;
-      const hasProgressEvidence = completed > 0 || startedOnly > 0 || evidenceUploaded > 0 || missing > 0 || matched > 0;
-      const relatedSkillRecords = [
-        ...Array.from(missingByCategory.get(category) || []).map(titleCase),
-        ...Array.from(matchedByCategory.get(category) || []).map(titleCase),
-      ];
-
-      let percent = 0;
-
-      if (hasProgressEvidence) {
-        const totalRelevantCourses = Math.max(1, courseIds.length, completed + startedOnly);
-        const learningCompletion = (completed / totalRelevantCourses) * 100;
-        const skillGapReduction = missing + matched > 0 ? (matched / (missing + matched)) * 100 : 0;
-        const uploadedEvidence = evidenceUploaded > 0 ? Math.min(100, (evidenceUploaded / Math.max(1, relatedSkillRecords.length || evidenceUploaded)) * 100) : 0;
-        const recentActivity = ((completed + startedOnly) / totalRelevantCourses) * 100;
-
-        percent = Math.round(
-          (0.35 * learningCompletion)
-          + (0.30 * skillGapReduction)
-          + (0.20 * uploadedEvidence)
-          + (0.15 * recentActivity),
-        );
-      }
-
-      return {
-        category,
-        percent,
-        missing,
-        matched,
-        completed,
-        inProgress: startedOnly,
-        evidenceUploaded,
-        relatedSkillRecords: Array.from(new Set(relatedSkillRecords)),
-        recentActivity: evidenceUploaded > 0 ? `${evidenceUploaded} evidence upload${evidenceUploaded === 1 ? '' : 's'}` : undefined,
-      };
-    })
-      .filter((row) => row.relatedSkillRecords.length > 0 || row.missing > 0 || row.matched > 0 || row.completed > 0 || row.inProgress > 0 || row.evidenceUploaded > 0)
-      .sort((a, b) => b.percent - a.percent);
-  }, [courses, evidenceRecords, gaps, jobs, skillProgressRecords, state.matchResults?.development_progress]);
 
   const metricCards = useMemo(() => {
     const hasMatchingResults = Boolean(state.matchResults || state.results);
@@ -2892,6 +2743,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     file: File | null;
   }) => {
     const existingRecord = draft.id ? evidenceRecords.find((record) => record.id === draft.id) : undefined;
+    draft = { ...draft, category: draft.category.trim() || deriveEvidenceCategory(draft.relatedSkill, gaps, evidenceCourseTarget) };
     setLoading(true);
     setError(null);
     try {
@@ -2984,7 +2836,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     title: evidenceCourseTarget.title,
     evidenceType: ['industry_certification', 'professional_certificate', 'certificate_course'].includes(evidenceCourseTarget.credentialType) ? 'Certificate' : 'Course Completion',
     relatedSkill: getCourseSkillLabels(evidenceCourseTarget).join(', '),
-    category: gaps.find((gap) => getCourseSkillLabels(evidenceCourseTarget).some((skill) => normalizeSkill(skill) === normalizeSkill(gap.skill)))?.categoryName || '',
+    category: deriveEvidenceCategory(getCourseSkillLabels(evidenceCourseTarget).join(', '), gaps, evidenceCourseTarget),
   } : undefined;
 
   const handleViewEvidence = (record: EvidenceUploadRecord) => {
@@ -3300,14 +3152,12 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
             <SkillGapsPage
               gaps={gaps}
               jobs={jobs}
-              categoryProgress={categoryProgress}
               courses={courses}
               evidenceRecords={evidenceRecords}
               skillProgressRecords={skillProgressRecords}
               onUpdateSkillProgress={updateSkillProgressStatus}
               onUploadSkillEvidence={openEvidenceUploadModal}
               onOpenUpskilling={() => setActivePage('upskilling')}
-              onOpenResume={openResumeModal}
             />
           )}
 
@@ -4202,32 +4052,24 @@ function FilterTab({ active, onClick, children }: { active: boolean; onClick: ()
 function SkillGapsPage({
   gaps,
   jobs,
-  categoryProgress,
   courses,
   evidenceRecords,
   skillProgressRecords,
   onUpdateSkillProgress,
   onUploadSkillEvidence,
   onOpenUpskilling,
-  onOpenResume,
 }: {
   gaps: DashboardGap[];
   jobs: DashboardJob[];
-  categoryProgress: CategoryProgressRow[];
   courses: DashboardCourse[];
   evidenceRecords: EvidenceUploadRecord[];
   skillProgressRecords: Record<string, SkillProgressRecord>;
   onUpdateSkillProgress: (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => void;
   onUploadSkillEvidence: () => void;
   onOpenUpskilling: () => void;
-  onOpenResume: () => void;
 }) {
-  const sortedCategories = useMemo(
-    () => categoryProgress.slice().sort((a, b) => a.percent - b.percent),
-    [categoryProgress],
-  );
   const [activeSkillGapView, setActiveSkillGapView] = useState<'board' | 'progress'>('board');
-  const [selectedCategory, setSelectedCategory] = useState<SkillCategory>(sortedCategories[0]?.category || 'Other');
+  const [selectedSkillKey, setSelectedSkillKey] = useState('');
   const skillGapTabOrder = ['board', 'progress'] as const;
   const selectSkillGapView = (view: 'board' | 'progress') => setActiveSkillGapView(view);
   const handleSkillGapTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -4244,52 +4086,27 @@ function SkillGapsPage({
     window.setTimeout(() => document.getElementById(`skill-gap-tab-${nextView}`)?.focus(), 0);
   };
 
-  useEffect(() => {
-    if (sortedCategories.length === 0) return;
-    if (!sortedCategories.some((row) => row.category === selectedCategory)) {
-      setSelectedCategory(sortedCategories[0].category);
-    }
-  }, [selectedCategory, sortedCategories]);
-
-  const coveredByCategory = useMemo(() => {
-    const map = new Map<SkillCategory, string[]>();
-    jobs.forEach((job) => {
-      job.matchedSkills.forEach((skill) => {
-        const category = classifySkillCategory(skill);
-        const list = map.get(category) || [];
-        if (!list.some((item) => normalizeSkill(item) === normalizeSkill(skill))) list.push(skill);
-        map.set(category, list);
-      });
-    });
-    return map;
+  // Skills the resume already shows for the matched jobs.
+  const coveredSkills = useMemo(() => {
+    const seen = new Map<string, string>();
+    jobs.forEach((job) => job.matchedSkills.forEach((skill) => {
+      const key = normalizeSkill(skill);
+      if (key && !seen.has(key)) seen.set(key, cleanSkillDisplayName(skill));
+    }));
+    return Array.from(seen.values());
   }, [jobs]);
-
-  const missingByCategory = useMemo(() => {
-    const map = new Map<SkillCategory, string[]>();
-    gaps.forEach((gap) => {
-      const list = map.get(gap.category) || [];
-      if (!list.some((item) => normalizeSkill(item) === normalizeSkill(gap.skill))) list.push(gap.skill);
-      map.set(gap.category, list);
-    });
-    return map;
-  }, [gaps]);
 
   const boardGaps = useMemo(() => gaps.map((gap) => ({ ...gap, boardSeverity: gap.severity })), [gaps]);
 
   const critical = boardGaps.filter((gap) => gap.boardSeverity === 'Critical');
   const high = boardGaps.filter((gap) => gap.boardSeverity === 'High');
   const moderate = boardGaps.filter((gap) => gap.boardSeverity === 'Moderate');
-  const totalCoveredSkills = Array.from(coveredByCategory.values()).reduce((sum, skills) => sum + skills.length, 0);
+  const totalCoveredSkills = coveredSkills.length;
   const progressEntries = Object.values(skillProgressRecords);
   const activeMissingCount = progressEntries.filter((record) => ['missing', 'started', 'in_progress'].includes(record.status)).length || gaps.length;
   const inProgressCount = progressEntries.filter((record) => ['started', 'in_progress'].includes(record.status)).length;
   const completedCount = progressEntries.filter((record) => ['completed', 'evidenced', 'covered'].includes(record.status)).length;
   const evidenceUploadedCount = progressEntries.filter((record) => Boolean(record.evidenceFilename)).length || evidenceRecords.length;
-  const selectedCategoryRow = categoryProgress.find((row) => row.category === selectedCategory) || null;
-  const selectedMissing = missingByCategory.get(selectedCategory) || [];
-  const selectedCovered = coveredByCategory.get(selectedCategory) || [];
-  const selectedStatus = selectedCategoryRow ? normalizeProgressLabel(selectedCategoryRow.percent) : null;
-  const hasAnyProgressData = gaps.length > 0 || categoryProgress.some((row) => row.percent > 0 || row.relatedSkillRecords.length > 0);
   const recommendedResourceByGap = useMemo(() => {
     const map = new Map<string, DashboardCourse>();
     gaps.forEach((gap) => {
@@ -4299,6 +4116,32 @@ function SkillGapsPage({
     });
     return map;
   }, [courses, gaps]);
+  // One row per missing skill: required gaps first, then by severity, then least progress.
+  const skillRows = useMemo(() => {
+    const severityRank: Record<SeverityLevel, number> = { Critical: 0, High: 1, Moderate: 2 };
+    return gaps.map((gap) => {
+      const key = (gap.skillId || normalizeSkill(gap.skill)).toUpperCase();
+      const record = skillProgressRecords[key];
+      const status: SkillProgressStatus = record?.status || 'missing';
+      return {
+        key,
+        gap,
+        status,
+        percent: record?.progressPercent ?? SKILL_PROGRESS_PERCENT[status],
+        evidenceFilename: record?.evidenceFilename,
+        resource: recommendedResourceByGap.get(gap.skill),
+      };
+    }).sort((a, b) => Number(Boolean(a.gap.optional)) - Number(Boolean(b.gap.optional))
+      || severityRank[a.gap.severity] - severityRank[b.gap.severity]
+      || a.percent - b.percent
+      || a.gap.skill.localeCompare(b.gap.skill));
+  }, [gaps, recommendedResourceByGap, skillProgressRecords]);
+  const activeGapKeys = new Set(skillRows.map((row) => row.key));
+  const closedGaps = Object.entries(skillProgressRecords)
+    .filter(([key, record]) => record.status === 'covered' && !activeGapKeys.has(key))
+    .map(([, record]) => cleanSkillDisplayName(record.skillName));
+  const selectedRow = skillRows.find((row) => row.key === selectedSkillKey) || skillRows[0] || null;
+  const hasAnyProgressData = gaps.length > 0;
   const summaryCards = [
     { label: 'Missing Skills', value: activeMissingCount, tone: 'critical', icon: 'puzzle' as IconName, subtitle: 'Still missing from top matches' },
     { label: 'In Progress', value: inProgressCount, tone: 'high', icon: 'graduation' as IconName, subtitle: 'Active learning underway' },
@@ -4445,89 +4288,114 @@ function SkillGapsPage({
             Progress is an explainable career-guidance indicator, not a mastery-verification score.
           </p>
 
-          {!hasAnyProgressData ? (
+          {skillRows.length === 0 ? (
             <SkillGapEmptyState />
           ) : (
           <div className="cand-sdp-dual">
             <div className="cand-sdp-list">
-              <div className="cand-sdp-list-head">Categories & Progress</div>
-              {sortedCategories.length > 0 ? sortedCategories.map((row) => {
-                const rowStatus = normalizeProgressLabel(row.percent);
+              <div className="cand-sdp-list-head">Skills to Develop ({skillRows.length})</div>
+              {skillRows.map((row) => {
+                const chip = normalizeProgressLabel(row.percent);
                 return (
-                  <button key={`sdp-row-${row.category}`} type="button" className={`cand-sdp-row-item ${selectedCategory === row.category ? 'active' : ''}`} onClick={() => setSelectedCategory(row.category)}>
+                  <button key={`sdp-skill-${row.key}`} type="button" className={`cand-sdp-row-item ${selectedRow?.key === row.key ? 'active' : ''}`} onClick={() => setSelectedSkillKey(row.key)} aria-pressed={selectedRow?.key === row.key}>
                     <div className="cand-sdp-row-left">
-                      <div className="cand-sdp-row-name">{row.category}</div>
-                      <div className={rowStatus.className}>{rowStatus.label}</div>
-                      <div className="mt-1 text-[11px] text-soft">{rowStatus.interpretation}</div>
+                      <div className="cand-sdp-row-name">{row.gap.skill}</div>
+                      <div className="cand-sdp-row-counts">
+                        {row.gap.optional ? 'Nice to have' : 'Required'} · {row.gap.severity} · needed by {row.gap.relatedJobs.length || row.gap.affectedCount || 0} match{(row.gap.relatedJobs.length || row.gap.affectedCount || 0) === 1 ? '' : 'es'}
+                      </div>
+                      <div className={chip.className}>{SKILL_STATUS_LABEL[row.status]}</div>
                       <div className="cand-sdp-mini-bar">
-                        <div className="cand-sdp-mini-fill" style={{ width: `${row.percent}%`, background: categoryBarColor(row.category) }} />
+                        <div className="cand-sdp-mini-fill" style={{ width: `${row.percent}%`, background: 'var(--rust)' }} />
                       </div>
                     </div>
                     <div className="cand-sdp-row-right">
                       <div className="cand-sdp-row-pct">{row.percent}%</div>
-                      <div className="cand-sdp-row-counts">{row.missing} missing · {Math.max(row.matched, row.completed)} covered</div>
-                      <div className="cand-sdp-row-counts">{row.evidenceUploaded} evidence · {row.completed} completed learning</div>
                     </div>
                   </button>
                 );
-              }) : <SkillGapEmptyState />}
+              })}
             </div>
 
             <div className="cand-sdp-detail">
-              {selectedCategoryRow ? (
+              {selectedRow && (
                 <>
                   <div className="cand-sdp-detail-head">
-                    <h3 className="cand-sdp-detail-title">{selectedCategory}</h3>
-                    <span className={selectedStatus?.className || ''}>{selectedStatus?.label}</span>
+                    <h3 className="cand-sdp-detail-title">{selectedRow.gap.skill}</h3>
+                    <span className={normalizeProgressLabel(selectedRow.percent).className}>{SKILL_STATUS_LABEL[selectedRow.status]}</span>
                   </div>
-                  <div className="mb-2 text-xs text-soft">{selectedStatus?.interpretation}</div>
                   <div className="cand-sdp-detail-bar-row">
                     <div className="cand-sdp-detail-bar">
-                      <div className="cand-sdp-detail-fill" style={{ width: `${selectedCategoryRow.percent}%`, background: categoryBarColor(selectedCategory) }} />
+                      <div className="cand-sdp-detail-fill" style={{ width: `${selectedRow.percent}%`, background: 'var(--rust)' }} />
                     </div>
-                    <span className="cand-sdp-detail-pct">{selectedCategoryRow.percent}%</span>
-                  </div>
-                  <div className="cand-sdp-row-counts mb-3">
-                    {selectedCategoryRow.evidenceUploaded} supporting evidence · {selectedCategoryRow.completed} completed learning
+                    <span className="cand-sdp-detail-pct">{selectedRow.percent}%</span>
                   </div>
 
-                  <div className="cand-sdp-detail-section">Missing Skills</div>
+                  <div className="cand-sdp-detail-section">Needed By</div>
                   <div className="cand-skill-row">
-                    {selectedMissing.length > 0 ? selectedMissing.map((skill) => <span key={`missing-${selectedCategory}-${skill}`} className="cand-skill-miss">{skill}</span>) : <span className="cand-covered-empty">No missing skills in this category.</span>}
+                    {selectedRow.gap.relatedJobs.length > 0
+                      ? selectedRow.gap.relatedJobs.map((title) => <span key={`needed-${selectedRow.key}-${title}`} className="cand-gap-chip">{title}</span>)
+                      : <span className="cand-covered-empty">Job details unavailable.</span>}
                   </div>
+                  <div className="cand-sdp-row-counts">{selectedRow.gap.optional
+                    ? 'Nice to have for these jobs: learning it strengthens your match but is not required.'
+                    : 'Required by at least one of these jobs.'}</div>
 
-                  <div className="cand-sdp-detail-section">Completed / Covered</div>
-                  <div className="cand-skill-row">
-                    {selectedCovered.length > 0 ? selectedCovered.map((skill) => <span key={`covered-${selectedCategory}-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>) : <span className="cand-covered-empty">No completed or covered skills yet.</span>}
-                  </div>
+                  <div className="cand-sdp-detail-section">Suggested Resource</div>
+                  {selectedRow.resource ? (
+                    <div className="cand-sdp-next-action">
+                      <strong>{selectedRow.resource.title}</strong> · {selectedRow.resource.provider}
+                      {selectedRow.resource.url && (
+                        <> · <a href={selectedRow.resource.url} target="_blank" rel="noopener noreferrer">{selectedRow.resource.urlLabel}</a></>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="cand-sdp-next-action">No resource is listed for this skill yet. Browse Learning Recommendations for related training.</div>
+                  )}
 
-                  <div className="cand-sdp-detail-section">Related Skill Records</div>
-                  <div className="cand-skill-row">
-                    {selectedCategoryRow.relatedSkillRecords.length > 0 ? selectedCategoryRow.relatedSkillRecords.map((skill) => (
-                      <span key={`record-${selectedCategory}-${skill}`} className="cand-gap-chip">{cleanSkillDisplayName(skill)}</span>
-                    )) : <span className="cand-covered-empty">No related skill records yet.</span>}
-                  </div>
-
-                  <div className="cand-sdp-detail-section">Recommended Next Action</div>
-                  <div className="cand-sdp-next-action">
-                    {selectedMissing.length > 0 ? `Focus on ${selectedMissing[0]} to improve category alignment.` : 'Maintain momentum by continuing related upskilling content.'}
-                  </div>
+                  <div className="cand-sdp-detail-section">Next Step</div>
+                  <div className="cand-sdp-next-action">{skillNextStep(selectedRow.status, selectedRow.gap.skill)}</div>
                   <div className="cand-sdp-action-row">
-                    <button className="cand-btn-primary cand-btn-sm" type="button" onClick={onOpenUpskilling}>
-                      <UIIcon name="graduation" className="cand-btn-icon" />Open Learning Recommendations
-                    </button>
-                    <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={onOpenResume}>
-                      <UIIcon name="upload" className="cand-btn-icon" />Update Resume
-                    </button>
+                    {selectedRow.status === 'missing' && (
+                      <button className="cand-btn-secondary cand-btn-sm" type="button" onClick={() => onUpdateSkillProgress(selectedRow.key, 'started', selectedRow.resource?.id)}>
+                        <UIIcon name="graduation" className="cand-btn-icon" />Mark as Started
+                      </button>
+                    )}
+                    {selectedRow.status === 'completed' ? (
+                      <button className="cand-btn-primary cand-btn-sm" type="button" onClick={onUploadSkillEvidence}>
+                        <UIIcon name="upload" className="cand-btn-icon" />Upload Proof
+                      </button>
+                    ) : (
+                      <button className="cand-btn-primary cand-btn-sm" type="button" onClick={onOpenUpskilling}>
+                        <UIIcon name="graduation" className="cand-btn-icon" />Open Learning Recommendations
+                      </button>
+                    )}
                   </div>
                 </>
-              ) : (
-                <SkillGapEmptyState />
               )}
             </div>
           </div>
           )}
 
+          {(coveredSkills.length > 0 || closedGaps.length > 0) && (
+            <div className="cand-sdp-detail mt-3">
+              {closedGaps.length > 0 && (
+                <>
+                  <div className="cand-sdp-detail-section">Gaps You Closed</div>
+                  <div className="cand-skill-row">
+                    {closedGaps.map((skill) => <span key={`closed-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>)}
+                  </div>
+                </>
+              )}
+              {coveredSkills.length > 0 && (
+                <>
+                  <div className="cand-sdp-detail-section">Skills You Already Have</div>
+                  <div className="cand-skill-row">
+                    {coveredSkills.map((skill) => <span key={`covered-${skill}`} className="cand-skill-match"><UIIcon name="check-circle" className="cand-chip-icon" />{skill}</span>)}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div className="cand-sdp-disclaimer">
             Skill Development Progress remains an explainable indicator for guidance and does not certify verified competency or guarantee employment.
           </div>
@@ -5621,10 +5489,16 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, course
   onOpenSkillGaps: () => void;
   onOpenJobMatches: () => void;
 }) {
-  const [selectedJobId, setSelectedJobId] = useState(jobs[0]?.id || '');
+  // Every match is listed, grouped by type, so each Fit-Now match can be focused.
+  const jobGroups = [
+    { label: 'Fit-Now matches', items: orderByBackendRank(jobs.filter((job) => job.matchCategory === 'fit-now')) },
+    { label: 'Closest matches', items: jobs.filter((job) => job.matchCategory === 'aspiration' && job.closestMatch) },
+    { label: 'Aspiration matches', items: orderByBackendRank(jobs.filter((job) => job.matchCategory === 'aspiration' && !job.closestMatch)) },
+  ].filter((group) => group.items.length > 0);
+  const [selectedJobId, setSelectedJobId] = useState(jobGroups[0]?.items[0]?.id || '');
   const [selectedSkill, setSelectedSkill] = useState('all');
   const jobSelectRef = useRef<HTMLSelectElement>(null);
-  const selectedJob = jobs.find((job) => job.id === selectedJobId) || jobs[0];
+  const selectedJob = jobs.find((job) => job.id === selectedJobId) || jobGroups[0]?.items[0];
   const visibleCourses = selectedJob ? getLearningForJob(selectedJob, courses) : [];
   // Required gaps first, then nice-to-have gaps (the Skill Gaps page lists both).
   const skillsToDevelop = Array.from(new Set([...(selectedJob?.missingSkills || []), ...(selectedJob?.missingPreferredSkills || [])].map(cleanSkillDisplayName).filter(Boolean)));
@@ -5685,7 +5559,11 @@ function UpskillingPage({ tab, courses, jobs, gaps, skillProgressRecords, course
             onChange={(event) => { setSelectedJobId(event.target.value); setSelectedSkill('all'); }}
           >
             {jobs.length === 0 && <option value="">No matched jobs available</option>}
-            {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} — {job.company}</option>)}
+            {jobGroups.map((group) => (
+              <optgroup key={group.label} label={`${group.label} (${group.items.length})`}>
+                {group.items.map((job) => <option key={job.id} value={job.id}>{job.title} — {job.company}{job.hasMatchScore ? ` · ${job.matchScore}%` : ''}</option>)}
+              </optgroup>
+            ))}
           </select>
         </div>
 
@@ -6534,7 +6412,8 @@ function EvidenceFormModal({
   const [title, setTitle] = useState(record?.title || prefill?.title || '');
   const [evidenceType, setEvidenceType] = useState<EvidenceType>(record?.evidenceType || prefill?.evidenceType || 'Certificate');
   const [relatedSkill, setRelatedSkill] = useState(record?.relatedSkill || prefill?.relatedSkill || '');
-  const [category, setCategory] = useState(record?.category || prefill?.category || '');
+  // Derived from the related skill when saving; never asked of the candidate.
+  const category = record?.category || prefill?.category || '';
   const [notes, setNotes] = useState(record?.notes || '');
   const [file, setFile] = useState<File | null>(null);
 
@@ -6567,9 +6446,6 @@ function EvidenceFormModal({
           <FormField label="Related Skill">
             <input className="cand-form-input" value={relatedSkill} onChange={(event) => setRelatedSkill(event.target.value)} placeholder="Enter related skill" />
           </FormField>
-          <FormField label="Skill Category">
-            <input className="cand-form-input" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Enter skill category" />
-          </FormField>
         </div>
 
         <FormField label="PDF Upload">
@@ -6597,7 +6473,7 @@ function EvidenceFormModal({
           <button
             className="cand-btn-primary"
             type="button"
-            disabled={loading || !title.trim() || !relatedSkill.trim() || !category.trim()}
+            disabled={loading || !title.trim() || !relatedSkill.trim()}
             onClick={() => onSave({
               id: record?.id,
               title,
