@@ -20,6 +20,13 @@ account types does not repair DNS failures.
 
 Run authentication regression checks with `node --test tests/auth.test.mjs`.
 
+# UI system
+
+- Colours: `tailwind.config.js` is the only palette definition; it also exposes each colour as a CSS variable (`--rust`, `--soft-text`, …). Use `soft-text` for small secondary text (`soft` is for icons and borders only).
+- Primitives: `src/styles/ui.css` (mobile-first classes prefixed `k-`) and `src/components/ui/` (Modal/ConfirmDialog, FilterPanel, Tabs, Segmented, SearchField, InfoTip, Menu, Banner, EmptyState, SkeletonRows, ToastRegion).
+- Candidate workspace: `src/pages/Dashboard.tsx` holds state and data flow; pages, the shell and job components are in `src/pages/candidate/`. Each page has a URL (`src/pages/candidate/routes.ts`).
+- Breakpoints: Tailwind's `sm` 640, `md` 768 (icon rail), `lg` 1024 (sidebar and list + detail split views), `xl` 1280.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

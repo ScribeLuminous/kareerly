@@ -13,20 +13,20 @@ export default function SignUpDefault({ onJobSeekerSignUp, onEmployerSignUp, onL
   return (
     <main className="min-h-screen bg-bg text-dark">
       <section className="mx-auto grid min-h-screen w-full lg:h-screen lg:min-h-0 lg:grid-cols-2">
-        <aside className="bg-[#ECEAE4] px-4 py-6 sm:px-6 lg:px-10 lg:py-6">
+        <aside className="bg-[#ECEAE4] px-4 py-5 sm:px-6 lg:px-10 lg:py-6">
           <div className="mx-auto flex h-full w-full max-w-lg flex-col justify-center">
-            <div className="mb-7 flex justify-center">
+            <div className="flex justify-center lg:mb-7">
               <Logo size="auth" layout="stack" className="scale-90 sm:scale-95" onClick={onHome} />
             </div>
 
-            <h1 className="font-display text-xl font-extrabold leading-tight tracking-tight text-dark sm:text-2xl">
+            <h1 className="hidden font-display text-xl font-extrabold leading-tight tracking-tight text-dark sm:text-2xl lg:block">
               What brings you here?
             </h1>
-            <p className="mt-2.5 max-w-[520px] text-sm leading-relaxed text-mid sm:text-[15px]">
+            <p className="mt-2.5 hidden max-w-[520px] text-sm leading-relaxed text-mid sm:text-[15px] lg:block">
               Choose your role to create an account and get started
             </p>
 
-            <div className="mt-6 space-y-3.5">
+            <div className="mt-6 hidden space-y-3.5 lg:block">
               <div className="flex items-center gap-3">
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-bdr bg-card text-rust">
                   <FontAwesomeIcon icon={faUser} aria-hidden="true" />
@@ -50,7 +50,7 @@ export default function SignUpDefault({ onJobSeekerSignUp, onEmployerSignUp, onL
         <section className="bg-card px-4 py-6 sm:px-6 lg:px-10 lg:py-6">
           <div className="mx-auto flex h-full w-full max-w-lg flex-col justify-center">
             <h2 className="font-display text-2xl font-extrabold leading-tight tracking-tight text-dark sm:text-3xl">Create account</h2>
-            <p className="mt-2.5 text-sm leading-relaxed text-soft sm:text-[15px]">Choose your role to get started</p>
+            <p className="mt-2.5 text-sm leading-relaxed text-soft-text sm:text-[15px]">Choose your role to get started</p>
 
             <div className="mt-6 space-y-2.5">
               <button

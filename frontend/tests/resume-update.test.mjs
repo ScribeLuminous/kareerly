@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readCandidateSource } from './helpers/candidateSource.mjs';
 
-const dashboard = fs.readFileSync(new URL('../src/pages/Dashboard.tsx', import.meta.url), 'utf8');
+const dashboard = readCandidateSource();
 const survey = fs.readFileSync(new URL('../src/components/SurveyStep.tsx', import.meta.url), 'utf8');
 const upload = fs.readFileSync(new URL('../src/components/UploadZone.tsx', import.meta.url), 'utf8');
 

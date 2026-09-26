@@ -58,7 +58,7 @@ export default function PasswordRecovery({ onBackToLogin, onHome }: PasswordReco
               name="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="input-base mb-3 border-2 bg-bg py-4 text-base outline-none focus:border-rust focus:bg-card"
+              className="k-input mb-3"
               placeholder="email@email.com"
               required
               type="email"
@@ -67,7 +67,7 @@ export default function PasswordRecovery({ onBackToLogin, onHome }: PasswordReco
             {error && <div className="mb-4 rounded-lg border border-red bg-red-l px-3 py-2 text-sm font-semibold text-red">{error}</div>}
 
             <button
-              className="w-full rounded-xl bg-rust px-5 py-4 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="k-btn k-btn-primary k-btn-block"
               type="submit"
               disabled={isSubmitting}
             >
@@ -88,7 +88,7 @@ export default function PasswordRecovery({ onBackToLogin, onHome }: PasswordReco
             If an account exists for <span className="font-semibold text-dark">{email.trim()}</span>, a password reset link has been sent.
           </p>
           <button
-            className="mt-4 w-full rounded-xl bg-rust px-5 py-3 text-base font-bold text-white transition-opacity hover:opacity-90"
+            className="k-btn k-btn-primary k-btn-block mt-4"
             type="button"
             onClick={onBackToLogin}
           >
