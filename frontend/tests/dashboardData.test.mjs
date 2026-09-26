@@ -23,27 +23,47 @@ const deps = {
   ...await loadUtility('../src/lib/jobDescription.ts'),
   React,
 };
-async function loadPage(path, exposed) {
+function importedNames(parsed) {
+  return parsed.statements.filter(ts.isImportDeclaration).flatMap((node) => {
+    const clause = node.importClause;
+    if (!clause || clause.isTypeOnly) return [];
+    const names = clause.name ? [clause.name.text] : [];
+    const bindings = clause.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) names.push(...bindings.elements.filter((el) => !el.isTypeOnly).map((el) => el.name.text));
+    if (bindings && ts.isNamespaceImport(bindings)) names.push(bindings.name.text);
+    return names;
+  });
+}
+
+// Transpile one page module with its imports resolved from `deps` (earlier
+// modules' exports are added to `deps` so later modules can use them).
+async function loadModule(path, exposed = '') {
   globalThis.__dashboardDataTestDeps = deps;
   const source = readFileSync(new URL(path, import.meta.url), 'utf8');
-  const parsed = ts.createSourceFile('Dashboard.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const names = parsed.statements.filter(ts.isImportDeclaration).flatMap((node) => {
-    if (node.importClause?.isTypeOnly) return [];
-    const bindings = node.importClause?.namedBindings;
-    return bindings && ts.isNamedImports(bindings) ? bindings.elements.filter((el) => !el.isTypeOnly).map((el) => el.name.text) : [];
-  });
+  const parsed = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const names = importedNames(parsed);
   const declarations = [...new Set(['React', ...names])].map((name) => `const ${name} = globalThis.__dashboardDataTestDeps.${name};`).join('\n');
-  const { outputText } = ts.transpileModule(`${declarations}\n${source}\nexport { ${exposed} };`, {
+  const { outputText } = ts.transpileModule(`${declarations}\n${source}\n${exposed ? `export { ${exposed} };` : ''}`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.React },
     transformers: { before: [() => (node) => ts.factory.updateSourceFile(node, node.statements.filter((statement) => !ts.isImportDeclaration(statement)))] },
   });
-  const page = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+  const module = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
   delete globalThis.__dashboardDataTestDeps;
-  return page;
+  Object.assign(deps, module);
+  return module;
 }
 
-const page = await loadPage('../src/pages/Dashboard.tsx', 'mapRunMatch, mapAvailableJob, mapApplicationRow, getMatchBadgeLabel, mapRunGap, mapRunLearningRecommendation, JobDetailModal, DashboardOverview');
-const employerPage = await loadPage('../src/pages/EmployerDashboard.tsx', 'toEmployerJob, toCandidateApplication, emptyJobForm, getMatchBucket');
+async function loadPage(paths, exposed) {
+  const loaded = {};
+  for (const path of paths) Object.assign(loaded, await loadModule(path, path.endsWith('Dashboard.tsx') ? exposed : ''));
+  return loaded;
+}
+
+const candidate = (name) => `../src/pages/candidate/${name}`;
+const page = await loadPage(
+  [candidate('model.ts'), candidate('icons.tsx'), candidate('common.tsx'), candidate('HomePage.tsx'), candidate('JobDetailModal.tsx')],
+);
+const employerPage = await loadPage(['../src/pages/EmployerDashboard.tsx'], 'toEmployerJob, toCandidateApplication, emptyJobForm, getMatchBucket');
 
 test('unmatched job listings do not invent work setup, level, employer, or missing skills', () => {
   const job = page.mapAvailableJob({ job_id: 'role-1', job_title: 'Senior Data Engineer', required_skills: ['SQL'] });

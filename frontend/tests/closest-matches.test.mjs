@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { readCandidateSource } from './helpers/candidateSource.mjs';
 
 const source = readFileSync(new URL('../src/lib/closestMatches.ts', import.meta.url), 'utf8');
 const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } });
 const closest = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 const snapshotSource = readFileSync(new URL('../src/components/SnapshotStep.tsx', import.meta.url), 'utf8');
-const dashboardSource = readFileSync(new URL('../src/pages/Dashboard.tsx', import.meta.url), 'utf8');
+const dashboardSource = readCandidateSource();
 
 const item = (id, title, percent) => ({ job_id: id, job_title: title, match_percentage: percent, match_category: 'Closest Match', is_closest_match: true });
 
