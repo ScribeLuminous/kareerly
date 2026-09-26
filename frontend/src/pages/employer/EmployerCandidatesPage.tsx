@@ -4,6 +4,7 @@ import { EmptyState, InfoTip, PageHeader, SearchField, SectionHead, Segmented, S
 import { ApplicantRow } from './ApplicantRow';
 import {
   ACTIVE_CANDIDATE_STATUSES,
+  applicantTitle,
   candidateDisplayName,
   candidateStatusBadgeClass,
   formatDateLabel,
@@ -152,7 +153,7 @@ export function EmployerCandidatesPage({ applications, jobs, isLoading, loadFail
                   .filter((group) => group.rows.length > 0)
                   .map((group) => (
                     <details key={group.id} className="k-detail-section border-t border-bdr pt-4">
-                      <summary>{group.title} <span className="k-meta ml-1">{group.rows.length}</span></summary>
+                      <summary><span>{group.title}<span className="k-meta ml-2">{group.rows.length}</span></span></summary>
                       <ul className="k-list mt-3">
                         {group.rows.map((candidate) => <li key={candidate.id}><ApplicantRow candidate={candidate} onReview={onReview} showRole={!jobFilter} /></li>)}
                       </ul>
@@ -183,8 +184,8 @@ export function EmployerCandidatesPage({ applications, jobs, isLoading, loadFail
                           <tr key={candidate.id} className={candidate.status === 'Withdrawn' ? 'opacity-70' : undefined}>
                             <td className="px-4 py-3">
                               <button className="min-h-[32px] text-left" type="button" onClick={() => onReview(candidate.id)}>
-                                <span className="k-label block hover:underline">{candidateDisplayName(candidate)}</span>
-                                {candidate.publicId && <span className="k-meta block">{candidate.publicId}</span>}
+                                <span className="k-label block hover:underline">{applicantTitle(candidate)}</span>
+                                {candidate.publicId && applicantTitle(candidate) !== candidate.publicId && <span className="k-meta block">{candidate.publicId}</span>}
                               </button>
                             </td>
                             <td className="k-secondary px-4 py-3">{candidate.role}</td>

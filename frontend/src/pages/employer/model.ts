@@ -509,6 +509,11 @@ export function candidateDisplayName(candidate: Pick<CandidateApplication, 'stat
   return shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName);
 }
 
+/** How an applicant is titled: their name once revealed, otherwise their candidate ID. */
+export function applicantTitle(candidate: Pick<CandidateApplication, 'status' | 'fullName' | 'publicId'>): string {
+  return shouldRevealIdentity(candidate.status) ? candidate.fullName : candidate.publicId || 'Applicant';
+}
+
 export function candidateStatusBadgeClass(status: CandidateStatus): string {
   if (status === 'Hired') return 'k-badge k-badge-success';
   if (status === 'Interviewing' || status === 'Shortlisted') return 'k-badge k-badge-info';

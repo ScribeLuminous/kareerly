@@ -1,12 +1,13 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faChevronRight, faUser } from '@fortawesome/free-solid-svg-icons';
 import {
-  candidateDisplayName,
+  applicantTitle,
   candidateStatusBadgeClass,
   getInitials,
   getMatchBucket,
   MATCH_BAND_LABEL,
   matchBandBadgeClass,
+  shouldRevealIdentity,
   type CandidateApplication,
 } from './model';
 
@@ -16,7 +17,8 @@ import {
  */
 export function ApplicantRow({ candidate, onReview, showRole = true }: { candidate: CandidateApplication; onReview: (candidateId: string) => void; showRole?: boolean }) {
   const bucket = getMatchBucket(candidate.matchPercent, candidate.hasMatchScore);
-  const name = candidateDisplayName(candidate);
+  const revealed = shouldRevealIdentity(candidate.status);
+  const title = applicantTitle(candidate);
   const matched = candidate.matchedSkills.length;
   const total = matched + candidate.missingSkills.length;
   return (
@@ -24,20 +26,24 @@ export function ApplicantRow({ candidate, onReview, showRole = true }: { candida
       className={`k-row items-start ${candidate.status === 'Withdrawn' ? 'opacity-70' : ''}`}
       type="button"
       onClick={() => onReview(candidate.id)}
-      aria-label={`Review ${candidate.publicId || name}, ${candidate.role}`}
+      aria-label={`Review ${title}, ${candidate.role}`}
     >
-      <span className="k-avatar mt-0.5 bg-tan text-dark" aria-hidden="true">{getInitials(candidate.fullName)}</span>
+      <span className="k-avatar mt-0.5 bg-tan text-dark" aria-hidden="true">
+        {revealed ? getInitials(candidate.fullName) : <FontAwesomeIcon icon={faUser} />}
+      </span>
       <span className="k-row-main">
-        <span className="k-label block truncate">{name}</span>
-        <span className="k-meta k-dot-sep mt-0.5 block truncate">
-          {candidate.publicId && <span>{candidate.publicId}</span>}
-          {showRole && <span>{candidate.role}</span>}
-        </span>
+        <span className="k-label block truncate">{title}</span>
+        {(showRole || (revealed && candidate.publicId)) && (
+          <span className="k-meta k-dot-sep mt-0.5 block truncate">
+            {revealed && candidate.publicId && <span>{candidate.publicId}</span>}
+            {showRole && <span>{candidate.role}</span>}
+          </span>
+        )}
         {total > 0 && (
           <span className="k-secondary mt-1 block text-[13px]">
             <FontAwesomeIcon icon={faCheck} className="mr-1 text-green" aria-hidden="true" />
             {matched} of {total} skills
-            {candidate.missingSkills.length > 0 && <span className="text-soft-text"> · Missing {candidate.missingSkills.slice(0, 2).join(', ')}{candidate.missingSkills.length > 2 ? ` +${candidate.missingSkills.length - 2}` : ''}</span>}
+            {candidate.missingSkills.length > 0 && <span className="hidden text-soft-text sm:inline"> · Missing {candidate.missingSkills.slice(0, 2).join(', ')}{candidate.missingSkills.length > 2 ? ` +${candidate.missingSkills.length - 2}` : ''}</span>}
           </span>
         )}
         <span className="mt-1.5 flex flex-wrap gap-1.5">

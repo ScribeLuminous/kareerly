@@ -2,7 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faComments, faEyeSlash, faLock } from '@fortawesome/free-solid-svg-icons';
 import { Banner, InfoTip, Modal } from '../../components/ui';
 import {
-  candidateDisplayName,
+  applicantTitle,
   candidateStatusBadgeClass,
   formatDateLabel,
   getMatchBucket,
@@ -27,6 +27,8 @@ type ApplicantReviewModalProps = {
 /** The next status moves an employer can make, most likely first. */
 function StatusActions({ candidate, onAction, onSendRequest, onOpenMessages }: Omit<ApplicantReviewModalProps, 'job' | 'onClose'>) {
   const { status, id } = candidate;
+  // Phones: the main action full width, the rest side by side.
+  const row = 'grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*:first-child]:col-span-2 [&>*:last-child:nth-child(even)]:col-span-2';
   if (status === 'Hired' || status === 'Rejected' || status === 'Withdrawn') {
     return (
       <p className="k-secondary flex items-center gap-2">
@@ -38,7 +40,7 @@ function StatusActions({ candidate, onAction, onSendRequest, onOpenMessages }: O
   const reject = <button className="k-btn k-btn-danger-outline" type="button" onClick={() => onAction('rejected', id)}>Reject</button>;
   if (status === 'Pending') {
     return (
-      <div className="k-button-row w-full">
+      <div className={row}>
         <button className="k-btn k-btn-primary" type="button" onClick={() => onAction('interviewing', id)}>Move to Interviewing</button>
         <button className="k-btn k-btn-secondary" type="button" onClick={() => onAction('shortlisted', id)}>Shortlist</button>
         {reject}
@@ -47,14 +49,14 @@ function StatusActions({ candidate, onAction, onSendRequest, onOpenMessages }: O
   }
   if (status === 'Shortlisted') {
     return (
-      <div className="k-button-row w-full">
+      <div className={row}>
         <button className="k-btn k-btn-primary" type="button" onClick={() => onAction('interviewing', id)}>Move to Interviewing</button>
         {reject}
       </div>
     );
   }
   return (
-    <div className="k-button-row w-full">
+    <div className={row}>
       {candidate.messageRequestState === 'none' ? (
         <button className="k-btn k-btn-primary" type="button" onClick={() => onSendRequest(id)}>
           <FontAwesomeIcon icon={faComments} aria-hidden="true" />Send message request
@@ -88,8 +90,8 @@ export function ApplicantReviewModal({ candidate, job, onClose, onAction, onSend
 
   return (
     <Modal
-      title={candidateDisplayName(candidate)}
-      subtitle={<span className="k-dot-sep">{candidate.publicId && <span>{candidate.publicId}</span>}<span>{candidate.role}</span></span>}
+      title={applicantTitle(candidate)}
+      subtitle={<span className="k-dot-sep">{revealed && candidate.publicId && <span>{candidate.publicId}</span>}<span>{candidate.role}</span></span>}
       onClose={onClose}
       size="lg"
       fullOnMobile

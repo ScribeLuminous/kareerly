@@ -1042,7 +1042,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onConfirm={applyStatusChange}
         >
           {confirmModal.action === 'rejected' && (
-            <FormField label="Reason *" help="Use an objective, job-related reason. The candidate sees it." className="mt-4">
+            <FormField label="Reason *" help="Use an objective, job-related reason. It is saved with the application." className="mt-4">
               <select className="k-select" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} required>
                 <option value="">Select a reason</option>
                 {REJECTION_REASONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}

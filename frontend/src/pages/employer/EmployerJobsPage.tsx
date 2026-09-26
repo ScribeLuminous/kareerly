@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBriefcase, faPen, faPlus, faUsers, faXmark } from '@fortawesome/free-solid-svg-icons';
-import { EmptyState, Modal, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
+import { EmptyState, InfoTip, Modal, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
 import { formatJobDescription } from '../../lib/jobDescription';
 import {
   daysUntil,
@@ -106,12 +106,15 @@ function JobDetailBody({ job, stats }: { job: EmployerJob; stats: JobStats }) {
   return (
     <>
       <section className="k-detail-section" aria-label="Applicants">
-        <h3 className="k-label mb-2">Applicants</h3>
+        <h3 className="k-label mb-2 flex items-center gap-1">
+          Applicants
+          <InfoTip label="About match bands">Top is 90% or more, Good is 75–89%, Partial is below 75%.</InfoTip>
+        </h3>
         <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
             { label: 'Total', value: stats.applications },
-            { label: 'Top 90%+', value: stats.top },
-            { label: 'Good 75–89%', value: stats.good },
+            { label: 'Top', value: stats.top },
+            { label: 'Good', value: stats.good },
             { label: 'Partial', value: stats.partial },
           ].map((item) => (
             <div key={item.label} className="rounded-[10px] bg-bg px-3 py-2">

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faBan, faComments, faEllipsisVertical, faFlag, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { EmptyState, InfoTip, Menu, PageHeader, SearchField } from '../../components/ui';
-import { candidateDisplayName, type CandidateApplication } from './model';
+import { applicantTitle, candidateDisplayName, type CandidateApplication } from './model';
 
 type EmployerMessagesPageProps = {
   threads: CandidateApplication[];
@@ -51,7 +51,7 @@ export function EmployerMessagesPage({
   const showList = isDesktop || !threadOpen;
   const showThread = Boolean(selected) && (isDesktop || threadOpen);
   const isDraft = Boolean(selected && selected.id === draftRequestId && selected.messageRequestState === 'none');
-  const name = selected ? selected.publicId || candidateDisplayName(selected) : '';
+  const name = selected ? applicantTitle(selected) : '';
 
   return (
     <div className="k-page">
@@ -93,7 +93,7 @@ export function EmployerMessagesPage({
                           onClick={() => { onSelect(candidate.id); setThreadOpen(true); }}
                         >
                           <span className="k-row-main">
-                            <span className="k-label block truncate">{candidate.publicId || candidateDisplayName(candidate)}</span>
+                            <span className="k-label block truncate">{applicantTitle(candidate)}</span>
                             <span className="k-meta mt-0.5 block truncate">{candidate.role} · {candidate.status}</span>
                           </span>
                           <span className={state.badge}>{state.label}</span>
@@ -116,7 +116,7 @@ export function EmployerMessagesPage({
                 )}
                 <div className="min-w-0 flex-1 py-1">
                   <h2 className="k-item-title truncate">{name}</h2>
-                  <p className="k-meta truncate">{candidateDisplayName(selected)} · {selected.role}</p>
+                  <p className="k-meta k-dot-sep truncate">{selected.publicId && selected.publicId !== name && <span>{selected.publicId}</span>}<span>{selected.role}</span></p>
                 </div>
                 <Menu
                   label={`Conversation options for ${name}`}
