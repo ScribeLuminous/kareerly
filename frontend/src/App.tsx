@@ -18,6 +18,7 @@ import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/us
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { isCandidateWorkspacePath } from './pages/candidate/routes';
+import { isEmployerWorkspacePath } from './pages/employer/model';
 
 // Each workspace loads on demand so phones only download the one they use.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -88,7 +89,8 @@ function AppContent() {
       setCurrentEmployer({ ...user, company: user.company || 'Employer Workspace' });
       if (!options?.preserveView) {
         setView('employer-dashboard');
-        navigate('/employer/dashboard', { replace: true });
+        // A refresh or shared link keeps its workspace page (e.g. /employer/jobs).
+        navigate(isEmployerWorkspacePath(window.location.pathname) ? window.location.pathname : '/employer/dashboard', { replace: true });
       }
       return;
     }

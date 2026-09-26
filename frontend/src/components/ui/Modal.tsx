@@ -132,13 +132,15 @@ type ConfirmDialogProps = {
   cancelLabel?: string;
   danger?: boolean;
   busy?: boolean;
+  /** Keeps the action off until the dialog's own fields are complete. */
+  confirmDisabled?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   children?: ReactNode;
 };
 
 /** A short confirmation: one sentence, Cancel, and the action named on the button. */
-export function ConfirmDialog({ title, message, confirmLabel, cancelLabel = 'Cancel', danger = false, busy = false, onConfirm, onCancel, children }: ConfirmDialogProps) {
+export function ConfirmDialog({ title, message, confirmLabel, cancelLabel = 'Cancel', danger = false, busy = false, confirmDisabled = false, onConfirm, onCancel, children }: ConfirmDialogProps) {
   return (
     <Modal
       title={title}
@@ -147,7 +149,7 @@ export function ConfirmDialog({ title, message, confirmLabel, cancelLabel = 'Can
       footer={(
         <>
           <button className="k-btn k-btn-ghost" type="button" onClick={onCancel} disabled={busy} data-autofocus={danger ? true : undefined}>{cancelLabel}</button>
-          <button className={`k-btn ${danger ? 'k-btn-danger' : 'k-btn-primary'}`} type="button" onClick={() => void onConfirm()} disabled={busy} data-autofocus={danger ? undefined : true}>
+          <button className={`k-btn ${danger ? 'k-btn-danger' : 'k-btn-primary'}`} type="button" onClick={() => void onConfirm()} disabled={busy || confirmDisabled} data-autofocus={danger ? undefined : true}>
             {confirmLabel}
           </button>
         </>

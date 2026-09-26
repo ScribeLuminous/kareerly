@@ -13,11 +13,7 @@ export type ToastType = '' | 'success' | 'warn' | 'danger';
 
 export type MatchBucket = 'top' | 'good' | 'partial' | 'unknown';
 
-export type CandidateFilter = 'all' | 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn';
-
 export type ReviewAction = 'shortlisted' | 'interviewing' | 'hired' | 'rejected';
-
-export type CandidateView = 'kanban' | 'table';
 
 export type JobsPanelMode = 'detail' | 'edit' | 'new';
 
@@ -447,27 +443,11 @@ export function maskedName(name: string): string {
     .join(' ');
 }
 
-export function getStatusBadgeClass(status: CandidateStatus): string {
-  if (status === 'Pending') return 'emp-status-badge emp-status-pending';
-  if (status === 'Shortlisted') return 'emp-status-badge emp-status-shortlisted';
-  if (status === 'Interviewing') return 'emp-status-badge emp-status-interviewing';
-  if (status === 'Hired') return 'emp-status-badge emp-status-hired';
-  if (status === 'Rejected') return 'emp-status-badge emp-status-rejected';
-  return 'emp-status-badge emp-status-withdrawn';
-}
-
 export function getMatchBucket(score: number, hasMatchScore = true): MatchBucket {
   if (!hasMatchScore) return 'unknown';
   if (score >= 90) return 'top';
   if (score >= 75) return 'good';
   return 'partial';
-}
-
-export function matchBucketLabel(bucket: MatchBucket): string {
-  if (bucket === 'unknown') return 'Match not available';
-  if (bucket === 'top') return 'Top Match (90%+)';
-  if (bucket === 'good') return 'Good Match (75-89%)';
-  return 'Partial Match (<75%)';
 }
 
 export function formatDateLabel(value: string): string {
@@ -484,25 +464,15 @@ export function todayIso(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export function statusToFilter(status: CandidateStatus): CandidateFilter {
-  return status.toLowerCase() as CandidateFilter;
-}
-
 export function shouldRevealIdentity(status: CandidateStatus): boolean {
   return status === 'Interviewing' || status === 'Hired' || status === 'Rejected';
 }
 
-export function getMatchColor(score: number): string {
-  if (score >= 90) return 'var(--green)';
-  if (score >= 75) return 'var(--amber)';
-  return 'var(--soft)';
-}
-
 export function statusActionLabel(action: ReviewAction): string {
-  if (action === 'shortlisted') return 'Move to Shortlisted';
+  if (action === 'shortlisted') return 'Shortlist this applicant';
   if (action === 'interviewing') return 'Move to Interviewing';
-  if (action === 'hired') return 'Mark as Hired';
-  return 'Reject Application';
+  if (action === 'hired') return 'Mark as hired';
+  return 'Reject this application';
 }
 
 export function statusActionMessage(action: ReviewAction, candidateId: string): string {
@@ -513,3 +483,109 @@ export function statusActionMessage(action: ReviewAction, candidateId: string): 
   if (action === 'hired') return 'Marking this application as Hired records a final recruitment outcome.';
   return 'Rejecting this applicant is a final decision and will close this application.';
 }
+
+// ---------- Display helpers for the redesigned employer views ----------
+
+export const EMPLOYER_PAGE_PATHS: Record<EmployerPage, string> = {
+  dashboard: '/employer/dashboard',
+  jobs: '/employer/jobs',
+  candidates: '/employer/candidates',
+  messages: '/employer/messages',
+  account: '/employer/account',
+};
+
+export function employerPageFromPath(pathname: string): EmployerPage {
+  const path = pathname.replace(/\/+$/, '');
+  const match = (Object.entries(EMPLOYER_PAGE_PATHS) as Array<[EmployerPage, string]>).find(([, value]) => value === path);
+  return match ? match[0] : 'dashboard';
+}
+
+export function isEmployerWorkspacePath(pathname: string): boolean {
+  return Object.values(EMPLOYER_PAGE_PATHS).includes(pathname.replace(/\/+$/, ''));
+}
+
+/** The name an employer may see: masked until Interviewing. */
+export function candidateDisplayName(candidate: Pick<CandidateApplication, 'status' | 'fullName'>): string {
+  return shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName);
+}
+
+export function candidateStatusBadgeClass(status: CandidateStatus): string {
+  if (status === 'Hired') return 'k-badge k-badge-success';
+  if (status === 'Interviewing' || status === 'Shortlisted') return 'k-badge k-badge-info';
+  if (status === 'Rejected') return 'k-badge k-badge-danger';
+  if (status === 'Withdrawn') return 'k-badge k-badge-outline';
+  return 'k-badge k-badge-high';
+}
+
+export const MATCH_BAND_LABEL: Record<MatchBucket, string> = {
+  top: 'Top match',
+  good: 'Good match',
+  partial: 'Partial match',
+  unknown: 'No score',
+};
+
+export function matchBandBadgeClass(bucket: MatchBucket): string {
+  if (bucket === 'top') return 'k-badge k-badge-fit';
+  if (bucket === 'good') return 'k-badge k-badge-info';
+  if (bucket === 'partial') return 'k-badge';
+  return 'k-badge k-badge-outline';
+}
+
+export function jobStatusBadgeClass(status: JobStatus): string {
+  if (status === 'open') return 'k-badge k-badge-success';
+  if (status === 'draft') return 'k-badge k-badge-high';
+  return 'k-badge k-badge-outline';
+}
+
+export const JOB_STATUS_LABEL: Record<JobStatus, string> = { open: 'Open', draft: 'Draft', closed: 'Closed' };
+
+export const ACTIVE_CANDIDATE_STATUSES: CandidateStatus[] = ['Pending', 'Shortlisted', 'Interviewing'];
+
+export function jobLocation(job: Pick<EmployerJob, 'city' | 'province'>): string {
+  return [job.city, job.province].filter(Boolean).join(', ');
+}
+
+/** Days until a deadline (negative once passed), or null when there is none. */
+export function daysUntil(dateIso: string, today = todayIso()): number | null {
+  if (!dateIso) return null;
+  const target = new Date(`${dateIso}T00:00:00`);
+  const base = new Date(`${today}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.round((target.getTime() - base.getTime()) / 86_400_000);
+}
+
+// One list for sign-up and the account page. A saved value outside the list is
+// kept as its own option so it is never silently replaced.
+export const EMPLOYER_INDUSTRIES = [
+  'Technology & Software',
+  'Data & Analytics',
+  'BPO & Customer Service',
+  'Finance & Banking',
+  'Healthcare',
+  'Education & Training',
+  'Retail & E-commerce',
+  'Manufacturing & Logistics',
+  'Hospitality & Tourism',
+  'Government & Public Sector',
+  'Other',
+];
+
+export const EMPLOYER_COMPANY_SIZES = ['1-10 employees', '11-50 employees', '51-200 employees', '201-500 employees', '500+ employees'];
+
+// Stored as the full sentence; the label is what the employer picks from.
+export const REJECTION_REASONS: Array<{ value: string; label: string }> = [
+  { value: 'Another candidate more closely matched the role requirements.', label: 'Another candidate more closely matched the role requirements' },
+  { value: 'The application did not demonstrate the required level of relevant experience.', label: 'Required relevant experience was not sufficiently demonstrated' },
+  { value: 'The application did not demonstrate one or more essential technical skills.', label: 'Essential technical skills were not sufficiently demonstrated' },
+  { value: "The candidate's availability did not align with the role's current requirements.", label: 'Availability did not align with the role requirements' },
+  { value: "The candidate's location or work-setup preference did not align with this position.", label: 'Location or work-setup preference did not align' },
+  { value: 'The position has been placed on hold or is no longer being filled.', label: 'Position placed on hold or no longer being filled' },
+  { value: 'The compensation expectations could not be aligned with the approved range.', label: 'Compensation expectations did not align with the approved range' },
+];
+
+export const EXPERIENCE_LEVELS = ['Entry-level / Fresh Graduate', 'Junior (1-2 yrs)', 'Mid-level (3-5 yrs)', 'Senior (5+ yrs)'];
+export const WORK_SETUPS = ['Remote', 'Hybrid', 'On-site'];
+export const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Temporary', 'Internship'];
+
+export type JobStats = { applications: number; top: number; good: number; partial: number };
+export const EMPTY_JOB_STATS: JobStats = { applications: 0, top: 0, good: 0, partial: 0 };
