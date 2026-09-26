@@ -93,7 +93,7 @@ export function AccountSettingsPage({
               <FontAwesomeIcon icon={faEye} aria-hidden="true" />{t('View')}
             </button>
             <button className="k-btn k-btn-primary flex-1 sm:flex-none" type="button" onClick={onOpenResume}>
-              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Update Resume')}
+              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Update resume')}
             </button>
           </div>
         </div>
@@ -106,7 +106,7 @@ export function AccountSettingsPage({
         }}
       >
         <section className="k-section" aria-labelledby="profile-details">
-          <h2 id="profile-details" className="k-section-title mb-3">{t('Personal Details')}</h2>
+          <h2 id="profile-details" className="k-section-title mb-3">{t('Personal details')}</h2>
           {profileSaveNotice && <Banner>{profileSaveNotice}</Banner>}
           <div className="k-form-grid">
             <FormField label={t('Full Name')} className="k-span-2">
@@ -148,7 +148,7 @@ export function AccountSettingsPage({
           </div>
           <div className="mt-5">
             <button className="k-btn k-btn-primary" type="submit" disabled={isSavingProfile}>
-              {isSavingProfile ? `${t('Saving')}…` : 'Save changes'}
+              {isSavingProfile ? `${t('Saving')}…` : t('Save changes')}
             </button>
           </div>
         </section>
@@ -156,9 +156,9 @@ export function AccountSettingsPage({
 
       <section className="k-section" aria-labelledby="profile-evidence">
         <div className="k-section-head">
-          <h2 id="profile-evidence" className="k-section-title">Certificates & proof</h2>
+          <h2 id="profile-evidence" className="k-section-title">{t('Certificates and proof')}</h2>
           <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={onOpenEvidenceUpload}>
-            <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Upload Evidence')}
+            <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Upload proof')}
           </button>
         </div>
         {sortedEvidence.length === 0 ? (
@@ -193,9 +193,9 @@ export function AccountSettingsPage({
       </section>
 
       <section className="k-section" aria-labelledby="profile-security">
-        <h2 id="profile-security" className="k-section-title mb-3">{t('Password & Security')}</h2>
+        <h2 id="profile-security" className="k-section-title mb-3">{t('Password and security')}</h2>
         {!passwordOpen ? (
-          <button className="k-btn k-btn-secondary" type="button" onClick={() => setPasswordOpen(true)}>Change password</button>
+          <button className="k-btn k-btn-secondary" type="button" onClick={() => setPasswordOpen(true)}>{t('Change password')}</button>
         ) : (
           <form
             className="k-card"
@@ -240,9 +240,9 @@ export function AccountSettingsPage({
       </section>
 
       <section className="k-section border-t border-bdr pt-6" aria-labelledby="profile-delete">
-        <h2 id="profile-delete" className="k-section-title text-red">{t('Delete Profile')}</h2>
+        <h2 id="profile-delete" className="k-section-title text-red">{t('Delete profile')}</h2>
         <p className="k-secondary mb-3 mt-1">Removes your candidate account, matches, applications and progress.</p>
-        <button className="k-btn k-btn-danger-outline" type="button" onClick={onOpenDelete}>{t('Request Profile Deletion')}</button>
+        <button className="k-btn k-btn-danger-outline" type="button" onClick={onOpenDelete}>{t('Request deletion')}</button>
       </section>
     </div>
   );

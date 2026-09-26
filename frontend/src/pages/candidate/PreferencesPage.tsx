@@ -148,7 +148,7 @@ export function PreferencesPage({
               <li key={skill}>
                 <span className="k-skill pr-1">
                   {skill}
-                  <button className="inline-flex h-7 w-7 items-center justify-center rounded-full text-mid hover:bg-cream-d hover:text-dark" type="button" onClick={() => removeSkill(skill)} aria-label={`Remove ${skill}`}>
+                  <button className="inline-flex h-8 w-8 items-center justify-center rounded-full text-mid hover:bg-cream-d hover:text-dark" type="button" onClick={() => removeSkill(skill)} aria-label={`Remove ${skill}`}>
                     <FontAwesomeIcon icon={faXmark} className="h-3 w-3" aria-hidden="true" />
                   </button>
                 </span>
@@ -182,7 +182,7 @@ export function PreferencesPage({
           </FormField>
         </section>
 
-        <div className="k-savebar">
+        <div className={`k-savebar ${dirty ? '' : 'k-savebar-idle'}`}>
           <span className="k-meta mr-auto hidden sm:inline">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
           {dirty && (
             <button
