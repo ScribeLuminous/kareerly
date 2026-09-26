@@ -1,11 +1,11 @@
-import type { EvidenceUploadRecord, EvidenceType } from '../../lib/evidence';
 import { useState } from 'react';
-import { faArrowLeft, faCircleCheck, faForward, faFileLines, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { formatFileSize } from '../../lib/fileUtils';
+import { faArrowLeft, faFileLines, faForward, faSliders, faUpload, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { Banner, Modal } from '../../components/ui';
+import type { EvidenceUploadRecord, EvidenceType } from '../../lib/evidence';
 import type { MessageReportReason } from '../../lib/api';
+import { formatFileSize } from '../../lib/fileUtils';
 import { RESUME_FILE_ACCEPT } from '../../lib/resumeFreshness';
-import { UIIcon } from './icons';
 import { MESSAGE_REPORT_REASONS, type EvidencePrefill } from './model';
 import { FormField } from './common';
 
@@ -52,127 +52,104 @@ export function ResumeUpdateModal({
   onAddSkill: () => void;
   onRemoveSkill: (skill: string) => void;
 }) {
+  const title = step === 'upload' ? 'Update resume' : step === 'decision' ? 'Resume read' : 'Check your skills';
+  const footer = step === 'upload' ? (
+    <>
+      <button className="k-btn k-btn-ghost" type="button" onClick={onClose}>Cancel</button>
+      <button className="k-btn k-btn-primary" type="button" disabled={loading || !file} onClick={onProcess}>
+        {loading ? 'Reading resume…' : 'Analyze resume'}
+      </button>
+    </>
+  ) : step === 'decision' ? (
+    <>
+      <button className="k-btn k-btn-ghost k-modal-footer-start" type="button" disabled={loading} onClick={onBack} aria-label="Back to upload" title="Back to upload">
+        <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
+      </button>
+      <button className="k-btn k-btn-secondary" type="button" disabled={loading} onClick={onSkip}>
+        <FontAwesomeIcon icon={faForward} aria-hidden="true" />
+        <span>{loading ? 'Applying…' : 'Skip & Apply'}</span>
+      </button>
+      <button className="k-btn k-btn-primary" type="button" disabled={loading} onClick={onReviewPreferencesPath}>
+        <FontAwesomeIcon icon={faSliders} aria-hidden="true" />
+        <span>{loading ? 'Saving…' : 'Skills & Preferences'}</span>
+      </button>
+    </>
+  ) : (
+    <>
+      <button className="k-btn k-btn-ghost k-modal-footer-start" type="button" onClick={() => onBack()}>Back</button>
+      <button className="k-btn k-btn-primary" type="button" disabled={loading} onClick={() => void onConfirm()}>
+        {loading ? 'Refreshing…' : postRefreshTarget === 'preferences' ? 'Confirm and open Preferences' : 'Confirm and refresh'}
+      </button>
+    </>
+  );
+
   return (
-    <div className="cand-modal-overlay" onClick={onClose}>
-      <div className="cand-modal-box" onClick={(event) => event.stopPropagation()}>
-        <div className="cand-modal-header">
-          <div>
-            <div className="cand-modal-title">Update Resume</div>
-            <div className="cand-modal-subtitle">Updating resume refreshes skills, matches, gaps, recommendations, and progress.</div>
-          </div>
-          <button className="cand-modal-close" type="button" onClick={onClose} aria-label="Close update resume">
-            <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
-          </button>
-        </div>
-
-        {actionError && <div className="cand-resume-action-error" role="alert">{actionError}</div>}
-
-        {step === 'upload' && (
-          <div>
-            <label
-              className={`cand-upload-zone ${dragOver ? 'drag-over' : ''}`}
-              onDragOver={(event) => {
-                event.preventDefault();
-                onDragOver(true);
-              }}
-              onDragLeave={() => onDragOver(false)}
-              onDrop={(event) => {
-                event.preventDefault();
-                onDragOver(false);
-                onPickFile(event.dataTransfer.files?.[0] ?? null);
-              }}
-            >
-              <input
-                type="file"
-                accept={RESUME_FILE_ACCEPT}
-                className="hidden"
-                onChange={(event) => onPickFile(event.target.files?.[0] ?? null)}
-              />
-              <UIIcon name="upload" className="cand-upload-icon" />
-              <div className="mt-2 text-sm font-bold text-dark">Drag and drop your resume here</div>
-              <div className="text-xs text-soft-text">PDF, DOCX or DOC · max 5MB</div>
-            </label>
-
-            {file && (
-              <div className="cand-upload-file">
-                <span className="text-2xl flex-shrink-0">
-                  <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  {/* Long unbroken file names must wrap inside the modal instead of overflowing it. */}
-                  <div className="text-sm font-bold [overflow-wrap:anywhere]">{file.name}</div>
-                  <div className="text-xs mt-0.5">{formatFileSize(file.size)} · Ready for analysis</div>
-                </div>
-                <button
-                  className="text-soft-text hover:text-red transition-colors text-xl px-1 flex-shrink-0"
-                  type="button"
-                  onClick={() => onPickFile(null)}
-                  title="Remove"
-                  aria-label="Remove resume"
-                >
-                  <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
-                </button>
+    <Modal title={title} onClose={onClose} footer={footer} fullOnMobile={step === 'review'}>
+      {actionError && <Banner tone="error">{actionError}</Banner>}
+      {step === 'upload' && (
+        <div>
+          <label
+            className={`flex cursor-pointer flex-col items-center gap-2 rounded-[12px] border-2 border-dashed px-4 py-8 text-center transition-colors ${dragOver ? 'border-rust bg-rust-l' : 'border-soft bg-bg hover:border-rust'}`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              onDragOver(true);
+            }}
+            onDragLeave={() => onDragOver(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              onDragOver(false);
+              onPickFile(event.dataTransfer.files?.[0] ?? null);
+            }}
+          >
+            <input type="file" accept={RESUME_FILE_ACCEPT} className="sr-only" onChange={(event) => onPickFile(event.target.files?.[0] ?? null)} />
+            <FontAwesomeIcon icon={faUpload} className="h-6 w-6 text-rust" aria-hidden="true" />
+            <span className="k-label">Choose a file or drop it here</span>
+            <span className="k-meta">PDF, DOCX or DOC · up to 5 MB · text-based files read best</span>
+          </label>
+          {file && (
+            <div className="mt-3 flex items-center gap-3 rounded-[10px] bg-green-l px-3 py-2 text-green">
+              <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                {/* Long unbroken file names must wrap inside the modal instead of overflowing it. */}
+                <div className="k-label text-green [overflow-wrap:anywhere]">{file.name}</div>
+                <div className="k-meta text-green">{formatFileSize(file.size)}</div>
               </div>
-            )}
-
-            <div className="cand-notice warn mt-4">
-              <span>Skill extraction works best on text-based PDF or Word files. Scanned resumes are read with text recognition (OCR), so check the extracted skills.</span>
-            </div>
-
-            <div className="cand-modal-actions">
-              <button className="cand-btn-primary" type="button" disabled={loading} onClick={onProcess}>
-                {loading ? 'Processing...' : 'Analyze Resume'}
-              </button>
-              <button className="cand-btn-secondary" type="button" onClick={onClose}>
-                Cancel
+              <button className="k-icon-btn text-green" type="button" onClick={() => onPickFile(null)} aria-label="Remove resume">
+                <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
               </button>
             </div>
-          </div>
-        )}
-
-        {step === 'decision' && (
-          <div>
-            {readingWarnings.map((warning) => (
-              <div key={warning} className="cand-notice warn mb-3" role="status"><span>{warning}</span></div>
+          )}
+        </div>
+      )}
+      {step === 'decision' && (
+        <div>
+          {readingWarnings.map((warning) => <Banner key={warning} tone="warn">{warning}</Banner>)}
+          <p className="k-secondary">Review your skills and preferences first, or apply the new resume to your matches now.</p>
+        </div>
+      )}
+      {step === 'review' && (
+        <div>
+          <p className="k-secondary mb-3">Remove any skill that isn't yours, or add one we missed. Confirming refreshes your matches.</p>
+          <ul className="k-chip-row gap-1.5" aria-label="Detected skills">
+            {reviewSkills.map((skill) => (
+              <li key={skill}>
+                <span className="k-skill pr-1">
+                  {skill}
+                  <button className="inline-flex h-7 w-7 items-center justify-center rounded-full text-mid hover:bg-cream-d hover:text-dark" type="button" onClick={() => onRemoveSkill(skill)} aria-label={`Remove ${skill}`}>
+                    <FontAwesomeIcon icon={faXmark} className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
+              </li>
             ))}
-            <div className="cand-notice info mb-3">
-              <span>Review your skills and preferences, or apply the resume to your dashboard now.</span>
-            </div>
-            <div className="cand-modal-actions cand-resume-decision-actions">
-              <button className="cand-btn-primary" type="button" disabled={loading} onClick={onReviewPreferencesPath}>
-                <FontAwesomeIcon icon={faCircleCheck} aria-hidden="true" />
-                <span>{loading ? 'Saving...' : 'Skills & Preferences'}</span>
-              </button>
-              <button className="cand-btn-secondary" type="button" disabled={loading} onClick={onSkip}>
-                <FontAwesomeIcon icon={faForward} aria-hidden="true" />
-                <span>{loading ? 'Applying...' : 'Skip & Apply'}</span>
-              </button>
-              <button className="cand-btn-secondary cand-resume-back-btn" type="button" disabled={loading} onClick={onBack} aria-label="Back to upload" title="Back to upload">
-                <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 'review' && (
-          <div>
-            <div className="cand-notice info mb-3">
-              <span>Resume uploaded. Review and confirm detected skills before refreshing dashboard recommendations.</span>
-            </div>
-            <div className="text-sm font-bold text-dark">Detected Skills</div>
-            <div className="text-xs text-soft-text">Click a skill to remove it from confirmation.</div>
-            <div className="cand-skill-chip-grid">
-              {reviewSkills.map((skill) => (
-                <button key={skill} className="cand-skill-chip selected" type="button" onClick={() => onRemoveSkill(skill)}>
-                  {skill} x
-                </button>
-              ))}
-            </div>
-            <div className="cand-skill-add-row">
+          </ul>
+          <div className="mt-4 flex gap-2">
+            <label className="min-w-0 flex-1">
+              <span className="sr-only">Add a skill</span>
               <input
+                className="k-input"
                 value={skillInput}
                 onChange={(event) => onSkillInput(event.target.value)}
-                placeholder="Add a missing skill..."
+                placeholder="Add a skill"
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault();
@@ -180,30 +157,12 @@ export function ResumeUpdateModal({
                   }
                 }}
               />
-              <button className="cand-btn-secondary" type="button" onClick={onAddSkill}>
-                Add Skill
-              </button>
-            </div>
-            <div className="cand-notice info mt-3">
-              <span>Confirming these skills refreshes job matches, skill gaps, upskilling recommendations, and Skill Development Progress.</span>
-            </div>
-            {postRefreshTarget === 'preferences' && (
-              <div className="cand-notice info mt-3">
-                <span>After confirmation, we will open Preferences so you can review and adjust your settings.</span>
-              </div>
-            )}
-            <div className="cand-modal-actions">
-              <button className="cand-btn-primary" type="button" disabled={loading} onClick={onConfirm}>
-                {loading ? 'Refreshing...' : postRefreshTarget === 'preferences' ? 'Confirm and Open Preferences' : 'Confirm Skills and Refresh'}
-              </button>
-              <button className="cand-btn-secondary cand-modal-back" type="button" onClick={() => onBack()}>
-                Back
-              </button>
-            </div>
+            </label>
+            <button className="k-btn k-btn-secondary" type="button" onClick={onAddSkill} disabled={!skillInput.trim()}>Add</button>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -235,122 +194,56 @@ export function EvidenceFormModal({
   const category = record?.category || prefill?.category || '';
   const [notes, setNotes] = useState(record?.notes || '');
   const [file, setFile] = useState<File | null>(null);
-
   return (
-    <div className="cand-modal-overlay" onClick={onClose}>
-      <div className="cand-modal-box lg" onClick={(event) => event.stopPropagation()}>
-        <div className="cand-modal-header">
-          <div>
-            <div className="cand-modal-title">{record ? 'Replace Evidence' : prefill ? 'Upload Proof of Completion' : 'Upload Evidence'}</div>
-            <div className="cand-modal-subtitle">{prefill
-              ? 'Add your certificate or completion proof to strengthen your profile. You can skip this and add it later.'
-              : 'Pending verification is retained for new or replaced uploads.'}</div>
-          </div>
-          <button className="cand-modal-close" type="button" onClick={onClose}>
-            x
-          </button>
-        </div>
-
-        <div className="cand-form-grid">
-          <FormField label="Evidence Title">
-            <input className="cand-form-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Enter evidence title" />
-          </FormField>
-          <FormField label="Evidence Type">
-            <select className="cand-form-select" value={evidenceType} onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}>
-              {['Certificate', 'Course Completion', 'Portfolio', 'Project', 'Training', 'Other'].map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Related Skill">
-            <input className="cand-form-input" value={relatedSkill} onChange={(event) => setRelatedSkill(event.target.value)} placeholder="Enter related skill" />
-          </FormField>
-        </div>
-
-        <FormField label="PDF Upload">
-          <label className="cand-evidence-upload">
-            <UIIcon name="upload" className="cand-upload-inline-icon" />
-            <span>{file?.name || record?.fileName || 'Choose PDF evidence file'}</span>
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              className="hidden"
-              onChange={(event) => setFile(event.target.files?.[0] || null)}
-            />
-          </label>
-        </FormField>
-
-        <FormField label="Optional Notes">
-          <textarea className="cand-form-textarea" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add context for verification or skill relevance" />
-        </FormField>
-
-        <div className="cand-notice info">
-          <span>PDF only. Uploaded evidence remains pending verification until independently reviewed.</span>
-        </div>
-
-        <div className="cand-modal-actions">
+    <Modal
+      title={record ? 'Replace proof' : prefill ? 'Add proof of completion' : 'Upload proof'}
+      subtitle={prefill ? 'Optional. You can add it later from the course.' : undefined}
+      onClose={onClose}
+      fullOnMobile
+      footer={(
+        <>
+          <button className="k-btn k-btn-ghost" type="button" onClick={onClose}>{prefill ? 'Skip for now' : 'Cancel'}</button>
           <button
-            className="cand-btn-primary"
+            className="k-btn k-btn-primary"
             type="button"
             disabled={loading || !title.trim() || !relatedSkill.trim()}
-            onClick={() => onSave({
-              id: record?.id,
-              title,
-              evidenceType,
-              relatedSkill,
-              category,
-              notes,
-              file,
-            })}
+            onClick={() => onSave({ id: record?.id, title, evidenceType, relatedSkill, category, notes, file })}
           >
-            {loading ? 'Saving...' : record ? 'Replace Evidence' : 'Upload Evidence'}
+            {loading ? 'Saving…' : record ? 'Replace' : 'Upload'}
           </button>
-          <button className="cand-btn-secondary" type="button" onClick={onClose}>
-            {prefill ? 'Skip for now' : 'Cancel'}
-          </button>
+        </>
+      )}
+    >
+      <div className="k-form-grid">
+        <FormField label="Title" className="k-span-2">
+          <input className="k-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. SQL for Data Analysis certificate" />
+        </FormField>
+        <FormField label="Type">
+          <select className="k-select" value={evidenceType} onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}>
+            {['Certificate', 'Course Completion', 'Portfolio', 'Project', 'Training', 'Other'].map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Related skill">
+          <input className="k-input" value={relatedSkill} onChange={(event) => setRelatedSkill(event.target.value)} />
+        </FormField>
+        <div className="k-field k-span-2">
+          <span className="k-label">PDF file</span>
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-[8px] border border-dashed border-soft bg-bg px-3 py-2 hover:border-rust">
+            <FontAwesomeIcon icon={faUpload} className="text-rust" aria-hidden="true" />
+            <span className="k-secondary min-w-0 flex-1 [overflow-wrap:anywhere]">{file?.name || record?.fileName || 'Choose a PDF'}</span>
+            <input type="file" accept="application/pdf,.pdf" className="sr-only" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+          </label>
+          <span className="k-help block">PDF only. Stays pending until reviewed.</span>
         </div>
+        <FormField label="Notes (optional)" className="k-span-2">
+          <textarea className="k-textarea min-h-[88px]" value={notes} onChange={(event) => setNotes(event.target.value)} />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   );
 }
-
-export function ApplicationSubmittedModal({
-  onClose,
-  onOpenApplications,
-  onContinue,
-}: {
-  onClose: () => void;
-  onOpenApplications: () => void;
-  onContinue: () => void;
-}) {
-  return (
-    <div className="cand-modal-overlay" onClick={onClose}>
-      <div className="cand-modal-box" onClick={(event) => event.stopPropagation()}>
-        <div className="cand-modal-header">
-          <div>
-            <div className="cand-modal-title">Application Submitted</div>
-            <div className="cand-modal-subtitle">Your application has been sent successfully.</div>
-          </div>
-          <button className="cand-modal-close" type="button" onClick={onClose}>
-            x
-          </button>
-        </div>
-        <div className="cand-notice info">
-          <span>You can track its progress from the Applications page.</span>
-        </div>
-        <div className="cand-modal-actions">
-          <button className="cand-btn-primary" type="button" onClick={onOpenApplications}>
-            Go to Applications
-          </button>
-          <button className="cand-btn-secondary" type="button" onClick={onContinue}>
-            Continue Browsing Jobs
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 export function ReportConversationModal({
   company,
@@ -369,35 +262,15 @@ export function ReportConversationModal({
   const [submitting, setSubmitting] = useState(false);
 
   return (
-    <div className="cand-modal-overlay" onClick={onCancel}>
-      <div className="cand-modal-box" role="dialog" aria-modal="true" aria-labelledby="report-conversation-title" onClick={(event) => event.stopPropagation()}>
-        <div className="cand-modal-header">
-          <div>
-            <div id="report-conversation-title" className="cand-modal-title">Report {company}</div>
-            <div className="cand-modal-subtitle">Reports are reviewed by the Kareerly team. {company} is not told who reported them.</div>
-          </div>
-          <button className="cand-modal-close" type="button" onClick={onCancel} aria-label="Close">
-            x
-          </button>
-        </div>
-        <FormField label="Reason">
-          <select className="cand-form-select" value={reason} onChange={(event) => setReason(event.target.value as MessageReportReason)}>
-            <option value="" disabled>Choose a reason</option>
-            {MESSAGE_REPORT_REASONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </FormField>
-        <FormField label="Details (optional)">
-          <textarea className="cand-form-input" rows={3} maxLength={2000} value={details} onChange={(event) => setDetails(event.target.value)} placeholder="What happened?" />
-        </FormField>
-        {!alreadyBlocked && (
-          <label className="flex items-center gap-2 text-sm text-mid">
-            <input type="checkbox" checked={alsoBlock} onChange={(event) => setAlsoBlock(event.target.checked)} />
-            Also block {company}
-          </label>
-        )}
-        <div className="cand-modal-actions">
+    <Modal
+      title={`Report ${company}`}
+      subtitle={`The Kareerly team reviews reports. ${company} isn't told who reported them.`}
+      onClose={onCancel}
+      footer={(
+        <>
+          <button className="k-btn k-btn-ghost" type="button" onClick={onCancel}>Cancel</button>
           <button
-            className="cand-btn-danger"
+            className="k-btn k-btn-danger"
             type="button"
             disabled={!reason || submitting}
             onClick={() => {
@@ -406,56 +279,26 @@ export function ReportConversationModal({
               void onSubmit(reason, details.trim(), alsoBlock && !alreadyBlocked).finally(() => setSubmitting(false));
             }}
           >
-            {submitting ? 'Submitting...' : 'Submit Report'}
+            {submitting ? 'Sending…' : 'Send report'}
           </button>
-          <button className="cand-btn-secondary" type="button" onClick={onCancel}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function ConfirmModal({
-  title,
-  description,
-  footnote,
-  danger,
-  confirmLabel,
-  onCancel,
-  onConfirm,
-}: {
-  title: string;
-  description: string;
-  footnote?: string;
-  danger?: boolean;
-  confirmLabel: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="cand-modal-overlay" onClick={onCancel}>
-      <div className="cand-modal-box" onClick={(event) => event.stopPropagation()}>
-        <div className="cand-modal-header">
-          <div className={`cand-modal-title ${danger ? 'text-red' : ''}`}>{title}</div>
-          <button className="cand-modal-close" type="button" onClick={onCancel}>
-            x
-          </button>
-        </div>
-        <div className={`cand-notice ${danger ? 'error' : 'info'}`}>
-          <span>{description}</span>
-        </div>
-        {footnote && <p className="text-sm text-soft-text">{footnote}</p>}
-        <div className="cand-modal-actions">
-          <button className={danger ? 'cand-btn-danger' : 'cand-btn-primary'} type="button" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-          <button className="cand-btn-secondary" type="button" onClick={onCancel}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+        </>
+      )}
+    >
+      <FormField label="Reason">
+        <select className="k-select" value={reason} onChange={(event) => setReason(event.target.value as MessageReportReason)} data-autofocus>
+          <option value="" disabled>Choose a reason</option>
+          {MESSAGE_REPORT_REASONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </FormField>
+      <FormField label="Details (optional)">
+        <textarea className="k-textarea min-h-[88px]" maxLength={2000} value={details} onChange={(event) => setDetails(event.target.value)} placeholder="What happened?" />
+      </FormField>
+      {!alreadyBlocked && (
+        <label className="mt-4 flex min-h-[44px] items-center gap-3">
+          <input className="h-5 w-5 accent-rust" type="checkbox" checked={alsoBlock} onChange={(event) => setAlsoBlock(event.target.checked)} />
+          <span className="k-secondary">Also block {company}</span>
+        </label>
+      )}
+    </Modal>
   );
 }

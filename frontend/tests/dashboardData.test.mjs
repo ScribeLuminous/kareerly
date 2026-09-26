@@ -37,7 +37,7 @@ function importedNames(parsed) {
 
 // Transpile one page module with its imports resolved from `deps` (earlier
 // modules' exports are added to `deps` so later modules can use them).
-async function loadModule(path, exposed = '') {
+async function loadModule(path, exposed = '', defaultName = '') {
   globalThis.__dashboardDataTestDeps = deps;
   const source = readFileSync(new URL(path, import.meta.url), 'utf8');
   const parsed = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -50,19 +50,34 @@ async function loadModule(path, exposed = '') {
   const module = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
   delete globalThis.__dashboardDataTestDeps;
   Object.assign(deps, module);
+  if (defaultName) deps[defaultName] = module.default;
   return module;
 }
 
 async function loadPage(paths, exposed) {
   const loaded = {};
-  for (const path of paths) Object.assign(loaded, await loadModule(path, path.endsWith('Dashboard.tsx') ? exposed : ''));
+  for (const entry of paths) {
+    const [path, defaultName] = Array.isArray(entry) ? entry : [entry, ''];
+    Object.assign(loaded, await loadModule(path, path.endsWith('Dashboard.tsx') ? exposed : '', defaultName));
+  }
   return loaded;
 }
 
 const candidate = (name) => `../src/pages/candidate/${name}`;
-const page = await loadPage(
-  [candidate('model.ts'), candidate('icons.tsx'), candidate('common.tsx'), candidate('HomePage.tsx'), candidate('JobDetailModal.tsx')],
-);
+const ui = (name) => `../src/components/ui/${name}`;
+const page = await loadPage([
+  candidate('model.ts'),
+  '../src/lib/matchFeedback.ts',
+  ['../src/components/MatchFeedbackControls.tsx', 'MatchFeedbackControls'],
+  ui('hooks.ts'),
+  ui('controls.tsx'),
+  ui('feedback.tsx'),
+  [ui('Modal.tsx'), 'Modal'],
+  candidate('common.tsx'),
+  candidate('JobCard.tsx'),
+  candidate('HomePage.tsx'),
+  candidate('JobDetailModal.tsx'),
+]);
 const employerPage = await loadPage(['../src/pages/EmployerDashboard.tsx'], 'toEmployerJob, toCandidateApplication, emptyJobForm, getMatchBucket');
 
 test('unmatched job listings do not invent work setup, level, employer, or missing skills', () => {
@@ -104,16 +119,17 @@ test('saved applications retain their original score rather than a later match r
 test('dashboard empty state renders placeholders without invented activity', () => {
   const { renderToStaticMarkup } = require('react-dom/server');
   const noop = () => {};
-  const html = renderToStaticMarkup(React.createElement(page.DashboardOverview, {
-    hasData: false, isLoading: false,
-    metrics: [{ label: 'Applications', value: '—', detail: 'Loading applications', iconClass: 'forest', valueColor: 'green', icon: 'layers' }],
-    categoryProgress: [], topJobHighlights: [], recentApplications: [], topMissingSkills: [],
-    recommendedSteps: ['Upload a resume and confirm skills to generate personalized next steps.'], courseRecommendations: [],
-    onOpenMatches: noop, onOpenApplications: noop, onOpenGaps: noop, onOpenUpskilling: noop, onOpenMessages: noop,
+  const html = renderToStaticMarkup(React.createElement(page.HomePage, {
+    isLoading: false,
+    nextSteps: [{ id: 'resume', title: 'Upload your resume', detail: 'Kareerly reads your skills and finds jobs that fit.', actionLabel: 'Upload resume', onAction: noop }],
+    fitNowCount: 0, aspirationCount: 0, topMatches: [], getApplicationStatus: () => null, onOpenJob: noop, onOpenMatches: noop,
+    topGaps: [], gapCount: 0, onOpenSkills: noop,
+    recentApplications: [], applicationLoadStatus: 'loading', activeApplicationCount: 0, onOpenApplications: noop,
+    profileTasks: [{ label: 'Upload your resume', done: false, onAction: noop }],
   }));
   assert.match(html, /Loading applications/);
-  assert.match(html, /Upload a resume and confirm skills/);
-  assert.doesNotMatch(html, /hours ago|Yesterday|IAMCompany|8 applications/);
+  assert.match(html, /Upload your resume/);
+  assert.doesNotMatch(html, /hours ago|Yesterday|IAMCompany|8 applications|Fit Now/);
 });
 
 

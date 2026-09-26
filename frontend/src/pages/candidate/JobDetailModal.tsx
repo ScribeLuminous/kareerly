@@ -1,245 +1,296 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowRight, faArrowUpRightFromSquare, faBookmark, faCheck, faCircleCheck, faBullseye } from '@fortawesome/free-solid-svg-icons';
+import MatchFeedbackControls from '../../components/MatchFeedbackControls';
+import { InfoTip, Modal, useMediaQuery, DESKTOP_QUERY } from '../../components/ui';
+import type { MatchFeedbackStatus, MatchVote } from '../../lib/matchFeedback';
 import { formatJobDescription } from '../../lib/jobDescription';
-import { buildJobExplanation, buildMatchReasons, cleanSkillDisplayName, displayOrDash, getCareerGuidance, getConfidenceLabel, getLearningForJob, getMatchBadgeLabel, getMatchReadinessClass, grantsCredential, learningResourceUrl, matchCategoryBadge, normalizeSkill, type DashboardApplication, type DashboardCourse, type DashboardJob } from './model';
-import { UIIcon } from './icons';
+import {
+  buildJobExplanation,
+  buildMatchReasons,
+  categoryBadgeClass,
+  cleanSkillDisplayName,
+  externalJobUrl,
+  formatDateLabel,
+  getCareerGuidance,
+  getConfidenceLabel,
+  getLearningForJob,
+  getMatchReadinessLabel,
+  jobMetaParts,
+  jobScore,
+  knownValue,
+  learningResourceUrl,
+  matchCategoryBadge,
+  normalizeSkill,
+  splitSkillList,
+  WITHDRAWABLE_STATUSES,
+  type DashboardApplication,
+  type DashboardCourse,
+  type DashboardJob,
+} from './model';
 
-export function JobDetailModal({
-  job,
-  application,
-  courses,
-  isSaved,
-  onClose,
-  onApply,
-  onWithdraw,
-  onSave,
-}: {
+export type JobFeedback = { vote: MatchVote | null; status: MatchFeedbackStatus; onVote: (vote: MatchVote) => void };
+
+type JobDetailProps = {
   job: DashboardJob;
   application: DashboardApplication | null;
   courses: DashboardCourse[];
   isSaved: boolean;
-  onClose: () => void;
   onApply: () => void | Promise<void>;
   onWithdraw: (application: DashboardApplication) => void;
   onSave: () => void;
-}) {
-  const canWithdraw = application && ['Pending', 'Shortlisted', 'Interviewing'].includes(application.status);
-  const learningResources = getLearningForJob(job, courses);
-  const confidence = getConfidenceLabel(job);
-  const requiredSkills = job.requiredSkills.length > 0 ? job.requiredSkills : [...job.matchedSkills, ...job.missingSkills];
-  const preferredSkills = job.preferredSkills.length > 0 ? job.preferredSkills : job.niceToHaveSkills || [];
-  const matchReasons = buildMatchReasons(job, requiredSkills);
-  const matchedKeys = new Set(job.matchedSkills.map(normalizeSkill));
-  const score = job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : 0;
-  const readinessClass = job.hasMatchScore ? getMatchReadinessClass(job.matchScore) : 'develop';
-  const details = [
-    { label: 'Level', value: job.jobLevel },
-    { label: 'Employment', value: job.employmentType },
-    { label: 'Work Setup', value: job.setup },
-    { label: 'Location', value: job.location },
-    { label: 'Salary', value: job.salary },
-    { label: 'Category', value: job.category },
-  ].map((item) => ({ ...item, value: displayOrDash(item.value) }));
+  onOpenLearning?: () => void;
+  onViewApplication?: () => void;
+  feedback?: JobFeedback;
+};
+
+const MATCH_NOTE = 'Match percentages show how well your skills and experience line up with a role, not your chance of being hired. The employer makes the hiring decision.';
+
+/** Score, category and readiness in one line, with the methodology behind ⓘ. */
+export function JobScoreLine({ job, large = false }: { job: DashboardJob; large?: boolean }) {
+  const score = jobScore(job);
+  if (score === null) {
+    return <p className="k-secondary">Match not available</p>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className={`k-score ${large ? 'k-score-lg' : ''}`}>{score}%</span>
+      <span className={categoryBadgeClass(job)}>{matchCategoryBadge(job)}</span>
+      <span className="k-meta">{getMatchReadinessLabel(score)}</span>
+      <InfoTip label="What the match percentage means" align="left">{MATCH_NOTE}</InfoTip>
+    </div>
+  );
+}
+
+export function JobActions({ job, application, isSaved, onApply, onWithdraw, onSave, onViewApplication }: Omit<JobDetailProps, 'courses' | 'feedback' | 'onOpenLearning'>) {
+  const saveButton = (
+    <button className="k-btn k-btn-secondary" type="button" onClick={onSave} aria-pressed={isSaved}>
+      <FontAwesomeIcon icon={faBookmark} className={isSaved ? 'text-rust' : undefined} aria-hidden="true" />
+      {isSaved ? 'Saved' : 'Save'}
+    </button>
+  );
+  if (job.sourceType === 'external') {
+    return (
+      <div>
+        <div className="k-detail-actions mt-0">
+          <a className="k-btn k-btn-primary" href={externalJobUrl(job)} target="_blank" rel="noopener noreferrer">
+            Visit job site<FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" />
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+          {saveButton}
+        </div>
+        <p className="k-meta mt-2">Applications on other sites aren't tracked in Kareerly.</p>
+      </div>
+    );
+  }
+  const canWithdraw = Boolean(application && WITHDRAWABLE_STATUSES.includes(application.status));
+  return (
+    <div>
+      <div className="k-detail-actions mt-0">
+        {application ? (
+          <>
+            <span className="k-badge k-badge-success min-h-[32px] px-3 text-sm">
+              <FontAwesomeIcon icon={faCheck} aria-hidden="true" />Applied · {application.status}
+            </span>
+            {onViewApplication && <button className="k-btn k-btn-secondary" type="button" onClick={onViewApplication}>View application</button>}
+            {canWithdraw && <button className="k-btn k-btn-ghost" type="button" onClick={() => onWithdraw(application)}>Withdraw</button>}
+          </>
+        ) : (
+          <button className="k-btn k-btn-primary" type="button" onClick={() => void onApply()}>Apply</button>
+        )}
+        {saveButton}
+      </div>
+      {!application && <p className="k-meta mt-2">Your match score never stops you from applying.</p>}
+    </div>
+  );
+}
+
+export function JobDetailBody({ job, courses, onOpenLearning, feedback }: Pick<JobDetailProps, 'job' | 'courses' | 'onOpenLearning' | 'feedback'>) {
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const matched = splitSkillList(job.matchedSkills);
+  const missing = splitSkillList(job.missingSkills);
+  const missingKeys = new Set(missing.map(normalizeSkill));
+  const missingNice = splitSkillList(job.missingPreferredSkills || []).filter((skill) => !missingKeys.has(normalizeSkill(skill)));
+  const required = splitSkillList(job.requiredSkills);
+  const preferred = splitSkillList([...job.preferredSkills, ...(job.niceToHaveSkills || [])]);
+  const hasFit = job.hasMatchScore && (matched.length > 0 || missing.length > 0 || missingNice.length > 0);
+  const reasons = buildMatchReasons(job, job.requiredSkills.length > 0 ? job.requiredSkills : [...job.matchedSkills, ...job.missingSkills]);
+  const learning = getLearningForJob(job, courses).slice(0, 2);
+  const facts = [
+    { label: 'Level', value: knownValue(job.jobLevel) },
+    { label: 'Employment', value: knownValue(job.employmentType) },
+    { label: 'Work setup', value: knownValue(job.setup) },
+    { label: 'Location', value: knownValue(job.location) },
+    { label: 'Salary', value: knownValue(job.salary) },
+    { label: 'Category', value: knownValue(job.category) },
+    { label: 'Posted', value: job.createdAt ? formatDateLabel(job.createdAt) : '' },
+  ].filter((fact) => fact.value);
+  const description = job.description?.trim() ? formatJobDescription(job.description) : '';
 
   return (
-    <div className="cand-modal-overlay" onClick={onClose}>
-      <div className="cand-modal-box lg cand-jd" onClick={(event) => event.stopPropagation()}>
-        <div className="cand-modal-header cand-jd-header">
-          <div>
-            <div className="cand-modal-title">{job.title}</div>
-            <div className="cand-modal-subtitle">{job.company}</div>
-            <div className="cand-jd-tags">
-              <span className={`cand-match-cat ${job.matchCategory === 'fit-now' ? 'cand-cat-fit' : 'cand-cat-aspiration'}`}>
-                {job.hasMatchScore ? matchCategoryBadge(job) : 'Match not available'}
-              </span>
-              <span className={`cand-type-tag ${job.sourceType === 'internal' ? 'cand-type-internal' : 'cand-type-external'}`}>
-                {job.sourceType === 'internal' ? 'Internal' : 'External'}
-              </span>
-            </div>
-          </div>
-          <button className="cand-modal-close cand-jd-close" type="button" onClick={onClose} aria-label="Close job details">
-            <UIIcon name="close" />
-          </button>
-        </div>
-
-        <section className={`cand-jd-why ${readinessClass}`} aria-labelledby={`${job.id}-why-title`}>
-          <div className="cand-jd-why-top">
-            <div className="cand-jd-score" style={{ ['--score' as string]: `${score}` }} aria-hidden="true">
-              <span>{job.hasMatchScore ? `${score}%` : '—'}</span>
-            </div>
-            <div className="min-w-0">
-              <h3 id={`${job.id}-why-title`} className="cand-jd-why-title">Why this job matches you</h3>
-              <div className="cand-jd-why-meta">
-                {getMatchBadgeLabel(job)} · Confidence: {confidence}
+    <>
+      <section className="k-detail-section" aria-label="Your fit">
+        <h3>Your fit</h3>
+        <p className="k-prose">{job.explanation?.trim() || buildJobExplanation(job)}</p>
+        {hasFit ? (
+          <div className="mt-3 space-y-3">
+            {matched.length > 0 && (
+              <div>
+                <div className="k-meta mb-1.5">You have</div>
+                <div className="k-chip-row gap-1.5">
+                  {matched.map((skill) => (
+                    <span key={`have-${skill}`} className="k-skill k-skill-have"><FontAwesomeIcon icon={faCheck} aria-hidden="true" />{skill}</span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+            {(missing.length > 0 || missingNice.length > 0) && (
+              <div>
+                <div className="k-meta mb-1.5">To build</div>
+                <div className="k-chip-row gap-1.5">
+                  {missing.map((skill) => <span key={`miss-${skill}`} className="k-skill k-skill-missing">{skill}<span className="sr-only"> (required)</span></span>)}
+                  {missingNice.map((skill) => <span key={`nice-${skill}`} className="k-skill k-skill-nice">{skill}<span className="k-meta">· nice to have</span></span>)}
+                </div>
+              </div>
+            )}
           </div>
-          <p className="cand-jd-why-summary">{job.explanation?.trim() || buildJobExplanation(job)}</p>
-          {matchReasons.length > 0 && (
-            <ul className="cand-jd-reasons">
-              {matchReasons.map((reason) => (
-                <li key={`${job.id}-reason-${reason.text}`} className={reason.tone}>
-                  <UIIcon name={reason.tone === 'strength' ? 'check-circle' : 'target'} className="cand-jd-reason-icon" />
+        ) : (required.length > 0 || preferred.length > 0) && (
+          <div className="mt-3 space-y-3">
+            {required.length > 0 && (
+              <div>
+                <div className="k-meta mb-1.5">Required skills</div>
+                <div className="k-chip-row gap-1.5">{required.map((skill) => <span key={`req-${skill}`} className="k-skill">{skill}</span>)}</div>
+              </div>
+            )}
+            {preferred.length > 0 && (
+              <div>
+                <div className="k-meta mb-1.5">Nice to have</div>
+                <div className="k-chip-row gap-1.5">{preferred.map((skill) => <span key={`pref-${skill}`} className="k-skill k-skill-nice">{skill}</span>)}</div>
+              </div>
+            )}
+          </div>
+        )}
+        <details className="mt-3">
+          <summary className="k-link cursor-pointer">Why this score</summary>
+          {reasons.length > 0 && (
+            <ul className="k-reasons">
+              {reasons.map((reason) => (
+                <li key={reason.text} className={reason.tone}>
+                  <FontAwesomeIcon icon={reason.tone === 'strength' ? faCircleCheck : faBullseye} aria-hidden="true" />
                   <span>{reason.text}</span>
                 </li>
               ))}
             </ul>
           )}
-        </section>
+          <p className="k-secondary mt-2">{getCareerGuidance(job)}</p>
+          <p className="k-meta mt-2">Confidence: {getConfidenceLabel(job)}</p>
+        </details>
+      </section>
 
-        {details.length > 0 && (
-          <dl className="cand-jd-details">
-            {details.map((item) => (
-              <div key={`${job.id}-detail-${item.label}`}>
-                <dt>{item.label}</dt>
-                <dd>{item.value?.replace(/\//g, '/\u200b')}</dd>
+      {(learning.length > 0 || (onOpenLearning && missing.length > 0)) && (
+        <section className="k-detail-section" aria-label="Learn next">
+          <h3>Learn next</h3>
+          {learning.length > 0 && (
+            <ul className="k-list">
+              {learning.map((course) => {
+                const url = learningResourceUrl(course);
+                const meta = [course.provider, course.level, course.duration, course.isFree ? 'Free' : ''].map((value) => knownValue(value)).filter(Boolean);
+                return (
+                  <li key={course.id} className="k-row">
+                    <div className="k-row-main">
+                      <div className="k-label">{course.title}</div>
+                      <div className="k-meta k-dot-sep mt-0.5">{meta.map((item) => <span key={item}>{item}</span>)}</div>
+                      <div className="k-meta mt-0.5">For {cleanSkillDisplayName(course.gapTag) || 'this role'}</div>
+                    </div>
+                    {url && (
+                      <a className="k-btn k-btn-secondary k-btn-sm" href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${course.title} (opens in a new tab)`}>
+                        Open<FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" />
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {onOpenLearning && (
+            <button className="k-link mt-3" type="button" onClick={onOpenLearning}>
+              All learning for this job<FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+            </button>
+          )}
+        </section>
+      )}
+
+      <details className="k-detail-section" open={isDesktop}>
+        <summary>About the role</summary>
+        <div className="k-prose">
+          {description ? <div className="whitespace-pre-wrap">{description}</div> : job.responsibilities.length === 0 && <p>The employer hasn't shared a full description yet.</p>}
+          {job.responsibilities.length > 0 && (
+            <>
+              <p className="k-label mt-3">What you'll do</p>
+              <ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul>
+            </>
+          )}
+        </div>
+      </details>
+
+      {facts.length > 0 && (
+        <details className="k-detail-section" open={isDesktop}>
+          <summary>Details</summary>
+          <dl className="k-facts">
+            {facts.map((fact) => (
+              <div key={fact.label}>
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
               </div>
             ))}
           </dl>
-        )}
+        </details>
+      )}
 
-        <section className="cand-jd-section">
-          <h4 className="cand-jd-heading">Job Description</h4>
-          <div className="cand-jd-text whitespace-pre-wrap">
-            {job.description?.trim() ? formatJobDescription(job.description) : 'Full job description is not available yet for this listing, but you can still explore the role details and personalized guidance below.'}
-          </div>
+      {feedback && job.hasMatchScore && !job.closestMatch && (
+        <section className="k-detail-section border-t border-bdr" aria-label="Rate this match">
+          <MatchFeedbackControls jobTitle={job.title} vote={feedback.vote} status={feedback.status} onVote={feedback.onVote} />
         </section>
+      )}
+    </>
+  );
+}
 
-        <section className="cand-jd-section">
-          <h4 className="cand-jd-heading">Responsibilities</h4>
-          {job.responsibilities.length > 0 ? (
-            <ul className="cand-bullet-list cand-jd-text">
-              {job.responsibilities.map((item) => (
-                <li key={`${job.id}-resp-${item}`}>{item}</li>
-              ))}
-            </ul>
-          ) : (
-            <div className="cand-jd-empty">Responsibilities have not yet been provided by the employer.</div>
-          )}
-        </section>
-
-        <section className="cand-jd-section">
-          <h4 className="cand-jd-heading">Your Matching Strengths</h4>
-          <div className="cand-skill-row">
-            {job.matchedSkills.map((skill) => (
-              <span key={`${job.id}-jd-m-${skill}`} className="cand-skill-match">
-                <UIIcon name="check-circle" className="cand-chip-icon" />
-                {cleanSkillDisplayName(skill)}
-              </span>
-            ))}
-            {job.matchedSkills.length === 0 && <span className="cand-jd-empty">Matched skills not detected yet.</span>}
-          </div>
-        </section>
-
-        <section className="cand-jd-section">
-          <h4 className="cand-jd-heading">Skills for This Role</h4>
-          <div className="cand-jd-sublabel">Required</div>
-          <div className="cand-skill-row">
-            {requiredSkills.length > 0 ? requiredSkills.map((skill) => (
-              <span key={`${job.id}-req-${skill}`} className={matchedKeys.has(normalizeSkill(skill)) ? 'cand-skill-match' : 'cand-jd-chip'}>{cleanSkillDisplayName(skill)}</span>
-            )) : <span className="cand-jd-empty">Required skills have not yet been provided by the employer.</span>}
-          </div>
-          <div className="cand-jd-sublabel">Preferred</div>
-          <div className="cand-skill-row">
-            {preferredSkills.length > 0 ? preferredSkills.map((skill) => (
-              <span key={`${job.id}-pref-${skill}`} className="cand-skill-nice">{cleanSkillDisplayName(skill)}</span>
-            )) : <span className="cand-jd-empty">Preferred skills have not yet been provided by the employer.</span>}
-          </div>
-        </section>
-
-        <section className="cand-jd-section">
-          <h4 className="cand-jd-heading">Skills to Improve</h4>
-          <div className="cand-skill-row">
-            {job.missingSkills.slice(0, 8).map((skill, index) => (
-              <span key={`${job.id}-jd-g-${skill}`} className="cand-skill-miss">
-                {index === 0 ? 'Critical: ' : index <= 2 ? 'High: ' : 'Medium: '}
-                {cleanSkillDisplayName(skill)}
-              </span>
-            ))}
-            {job.missingSkills.length === 0 && <span className="cand-jd-empty">No major missing skills detected for this role.</span>}
-          </div>
-        </section>
-
-        <section className="cand-jd-section">
-          <h4 className="cand-jd-heading">Recommended Learning</h4>
-          {learningResources.length > 0 ? (
-            learningResources.map((course) => (
-              <div key={`${job.id}-learn-${course.id}`} className="cand-jd-course">
-                <UIIcon name="graduation" className="cand-inline-info-icon" />
-                <div>
-                  <strong>{course.title}</strong>
-                  <div className="text-xs text-mid">
-                    {course.provider} · {course.level} · {course.duration} · {course.fees} ·{' '}
-                    <span className={grantsCredential(course.credentialType) ? 'cand-credential-yes' : 'cand-credential-no'}>{course.credentialLabel}</span>
-                  </div>
-                  <div className="text-xs text-mid">This learning resource supports {cleanSkillDisplayName(course.gapTag)}, one of the skills connected to this role.</div>
-                  {learningResourceUrl(course) ? (
-                    <a className="cand-btn-secondary cand-btn-sm mt-2" href={learningResourceUrl(course)} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel}: ${course.title} (opens in a new tab)`}>{course.urlLabel}</a>
-                  ) : <span className="text-xs text-soft-text">Provider link unavailable</span>}
-                  <p className="text-xs text-soft-text">The provider manages learning and certificates. Kareerly does not verify completion; opening this resource does not change skills, readiness, or match scores.</p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="cand-jd-empty">No learning resources are available yet for this role's current skill gaps.</div>
-          )}
-        </section>
-
-        <section className="cand-jd-section">
-          <h4 className="cand-jd-heading">Career Guidance</h4>
-          <div className="cand-explain cand-jd-guidance"><UIIcon name="lightbulb" className="cand-inline-info-icon" />{getCareerGuidance(job)}</div>
-        </section>
-
-        {job.sourceType === 'internal' ? (
-          <div className="cand-modal-actions cand-jd-actions">
-            {application ? (
-              <>
-                <button className="cand-btn-primary" type="button" disabled>
-                  Applied ✓
-                </button>
-                {canWithdraw && (
-                  <button className="cand-btn-secondary" type="button" onClick={() => onWithdraw(application)}>
-                    Withdraw Application
-                  </button>
-                )}
-              </>
-            ) : (
-              <button className="cand-btn-primary" type="button" onClick={onApply}>
-                <UIIcon name="paper-plane" className="cand-btn-icon" />Apply Now
-              </button>
-            )}
-            <button className="cand-btn-secondary" type="button" onClick={onSave}>
-              <UIIcon name="bookmark" className="cand-btn-icon" />{isSaved ? 'Saved' : 'Save Job'}
-            </button>
-            <button className="cand-btn-secondary" type="button" onClick={onClose}>
-              Back to Matches
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="cand-notice warn">
-              <span>This is an external opportunity. In-platform application tracking, withdrawal, and messaging are not available.</span>
-            </div>
-            <div className="cand-modal-actions cand-jd-actions">
-              <button
-                className="cand-btn-primary"
-                type="button"
-                onClick={() => {
-                  const fallbackQuery = encodeURIComponent(`${job.title} ${job.company} jobs`);
-                  const targetUrl = job.externalUrl || `https://www.google.com/search?q=${fallbackQuery}`;
-                  window.open(targetUrl, '_blank', 'noopener,noreferrer');
-                }}
-              >
-                <UIIcon name="external" className="cand-btn-icon" />Visit Job Site
-              </button>
-              <button className="cand-btn-secondary" type="button" onClick={onSave}>
-                <UIIcon name="bookmark" className="cand-btn-icon" />{isSaved ? 'Saved' : 'Save Job'}
-              </button>
-              <button className="cand-btn-secondary" type="button" onClick={onClose}>
-                Back to Matches
-              </button>
-            </div>
-          </>
-        )}
+/** Inline detail used in the desktop split view. */
+export function JobDetailPanel(props: JobDetailProps) {
+  const { job } = props;
+  const meta = jobMetaParts(job);
+  return (
+    <article className="k-split-detail k-detail" aria-label={`${job.title} details`}>
+      <header className="k-detail-header">
+        <h2 className="k-page-title text-[22px] leading-7">{job.title}</h2>
+        {meta.length > 0 && <p className="k-secondary k-dot-sep mt-1">{meta.map((part) => <span key={part}>{part}</span>)}</p>}
+        <div className="mt-3"><JobScoreLine job={job} large /></div>
+        <div className="mt-4"><JobActions {...props} /></div>
+      </header>
+      <div className="k-detail-scroll">
+        <JobDetailBody job={job} courses={props.courses} onOpenLearning={props.onOpenLearning} feedback={props.feedback} />
       </div>
-    </div>
+    </article>
+  );
+}
+
+/** Full-screen on phones, a large dialog elsewhere. */
+export function JobDetailModal(props: JobDetailProps & { onClose: () => void }) {
+  const { job, onClose } = props;
+  const meta = jobMetaParts(job);
+  return (
+    <Modal
+      title={job.title}
+      subtitle={meta.length > 0 ? <span className="k-dot-sep">{meta.map((part) => <span key={part}>{part}</span>)}</span> : undefined}
+      onClose={onClose}
+      size="lg"
+      fullOnMobile
+      closeStyle="back"
+      closeLabel="Close job details"
+      footer={<div className="w-full"><JobActions {...props} /></div>}
+    >
+      <JobScoreLine job={job} large />
+      <JobDetailBody job={job} courses={props.courses} onOpenLearning={props.onOpenLearning} feedback={props.feedback} />
+    </Modal>
   );
 }

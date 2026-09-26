@@ -1,23 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXmark } from '@fortawesome/free-solid-svg-icons';
 import { careerAreaOptions, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../../lib/careerAreas';
 import type { SurveyAnswers } from '../../types';
 import LocationPreferenceQuestion from '../../components/LocationPreferenceQuestion';
 import type { LocationPreferenceValue } from '../../components/LocationPreferenceQuestion';
 import { isLocationPreferenceComplete } from '../../lib/regionPreference';
 import { normalizeSkill, salaryLabels, setupLabels } from './model';
-import { FormField } from './common';
+import { FormField, PageHeader } from './common';
 
-export function PreferencesPage({
-  surveyAnswers,
-  profileLocation,
-  extraPreferences,
-  skillNames,
-  isLoading,
-  onUpdateExtra,
-  onUpdateSkills,
-  onSave,
-  onReset,
-}: {
+type PreferencesPageProps = {
   surveyAnswers: SurveyAnswers;
   /** The saved profile location; undefined until account settings have loaded. */
   profileLocation: string | undefined;
@@ -28,13 +20,24 @@ export function PreferencesPage({
   onUpdateSkills: (skills: string[]) => void;
   onSave: (answers: SurveyAnswers) => void;
   onReset: () => void;
-}) {
+};
+
+/** Keyed by the saved answers in the workspace, so a save or reset starts a fresh draft. */
+export function PreferencesPage({
+  surveyAnswers,
+  profileLocation,
+  extraPreferences,
+  skillNames,
+  isLoading,
+  onUpdateExtra,
+  onUpdateSkills,
+  onSave,
+  onReset,
+}: PreferencesPageProps) {
   const [draft, setDraft] = useState<SurveyAnswers>(surveyAnswers);
   const [skillInput, setSkillInput] = useState('');
-
-  useEffect(() => {
-    setDraft(surveyAnswers);
-  }, [surveyAnswers]);
+  // Skills and job level update the workspace straight away; they are saved with the form.
+  const [touched, setTouched] = useState(false);
 
   const updateLocation = useCallback((next: LocationPreferenceValue) => {
     setDraft((current) => ({ ...current, locationScope: next.locationScope, region: next.region }));
@@ -46,121 +49,159 @@ export function PreferencesPage({
     if (skillNames.some((item) => normalizeSkill(item) === normalizeSkill(next))) return;
     onUpdateSkills([...skillNames, next]);
     setSkillInput('');
+    setTouched(true);
   };
 
   const removeSkill = (value: string) => {
     const key = normalizeSkill(value);
     onUpdateSkills(skillNames.filter((item) => normalizeSkill(item) !== key));
+    setTouched(true);
   };
 
+  const dirty = touched || JSON.stringify(draft) !== JSON.stringify(surveyAnswers);
+  const canSave = !isLoading && isLocationPreferenceComplete(draft);
+
   return (
-    <div>
-      <div className="cand-page-header">
-        <h1 className="cand-page-title">Career Preferences</h1>
-        <p className="cand-page-subtitle">Refine your Aspiration-Based job matches and upskilling recommendations</p>
-      </div>
-
-      <div className="cand-card">
-        <div className="cand-form-grid">
-          <FormField label="Career Area of Interest">
-            <select className="cand-form-select" value={normalizeCareerAreaValue(draft.industry)} onChange={(event) => setDraft((current) => ({ ...current, industry: event.target.value }))}>
-              {/* A saved broad area from before the split stays selected until another is chosen. */}
-              {isLegacyCareerArea(draft.industry) && (
-                <option value={normalizeCareerAreaValue(draft.industry)}>{getCareerAreaLabel(draft.industry)} (saved choice)</option>
-              )}
-              {careerAreaOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Target Role">
-            <input className="cand-form-input" value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value }))} />
-          </FormField>
-          <FormField label="Job Level">
-            <select
-              className="cand-form-select"
-              value={extraPreferences.jobLevel}
-              onChange={(event) => onUpdateExtra({ ...extraPreferences, jobLevel: event.target.value })}
-            >
-              <option>Entry Level</option>
-              <option>Junior</option>
-              <option>Mid-Level</option>
-              <option>Senior</option>
-              <option>Trainee / Intern</option>
-            </select>
-          </FormField>
-          <FormField label="Work Setup">
-            <select className="cand-form-select" value={draft.setup} onChange={(event) => setDraft((current) => ({ ...current, setup: event.target.value }))}>
-              {Object.entries(setupLabels).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Salary Expectation">
-            <select className="cand-form-select" value={draft.salary} onChange={(event) => setDraft((current) => ({ ...current, salary: event.target.value }))}>
-              {Object.entries(salaryLabels).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </FormField>
-        </div>
-
-        <div className="mb-4">
-          <LocationPreferenceQuestion
-            scope={draft.locationScope}
-            region={draft.region}
-            onChange={updateLocation}
-            isSignedIn
-            profileLocation={profileLocation}
-            name="dashboard-location-scope"
-          />
-        </div>
-
-        <FormField label="Skill Development Interest">
-          <textarea className="cand-form-textarea" value={draft.skill} onChange={(event) => setDraft((current) => ({ ...current, skill: event.target.value }))} />
-        </FormField>
-
-        <div className="cand-card mt-4 border border-amber bg-amber-l px-4 py-3 text-xs text-amber">
-          Your career area decides which jobs appear as Aspiration matches; job level, work setup and salary order them. Fit-Now matches depend only on your resume and confirmed skills.
-        </div>
-
-        <div className="mt-4">
-          <div className="mb-2 text-xs font-bold uppercase text-soft-text">Confirmed Skills</div>
-          <div className="cand-skill-chip-grid">
-            {skillNames.map((skill) => (
-              <button key={skill} className="cand-skill-chip selected" type="button" onClick={() => removeSkill(skill)}>
-                {skill} x
-              </button>
-            ))}
+    <div className="k-page k-page-narrow">
+      <PageHeader title="Preferences" />
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (canSave) onSave(draft);
+        }}
+      >
+        <section className="k-section" aria-labelledby="pref-goal">
+          <h2 id="pref-goal" className="k-section-title mb-3">What you want</h2>
+          <div className="k-form-grid">
+            <FormField label="Career area" help="Decides which jobs appear as Aspiration matches." className="k-span-2">
+              <select className="k-select" value={normalizeCareerAreaValue(draft.industry)} onChange={(event) => setDraft((current) => ({ ...current, industry: event.target.value }))}>
+                {/* A saved broad area from before the split stays selected until another is chosen. */}
+                {isLegacyCareerArea(draft.industry) && (
+                  <option value={normalizeCareerAreaValue(draft.industry)}>{getCareerAreaLabel(draft.industry)} (saved choice)</option>
+                )}
+                {careerAreaOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Target role">
+              <input className="k-input" value={draft.role} autoComplete="organization-title" onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value }))} />
+            </FormField>
+            <FormField label="Job level">
+              <select
+                className="k-select"
+                value={extraPreferences.jobLevel}
+                onChange={(event) => {
+                  onUpdateExtra({ ...extraPreferences, jobLevel: event.target.value });
+                  setTouched(true);
+                }}
+              >
+                <option value="" disabled>Choose a level</option>
+                <option>Entry Level</option>
+                <option>Junior</option>
+                <option>Mid-Level</option>
+                <option>Senior</option>
+                <option>Trainee / Intern</option>
+              </select>
+            </FormField>
           </div>
-          <div className="cand-skill-add-row">
-            <input
-              value={skillInput}
-              className="cand-form-input"
-              placeholder="Add a missing skill..."
-              onChange={(event) => setSkillInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  addSkill();
-                }
-              }}
+        </section>
+
+        <section className="k-section" aria-labelledby="pref-conditions">
+          <h2 id="pref-conditions" className="k-section-title mb-3">Where and how</h2>
+          <div className="k-form-grid">
+            <FormField label="Work Setup">
+              <select className="k-select" value={draft.setup} onChange={(event) => setDraft((current) => ({ ...current, setup: event.target.value }))}>
+                {Object.entries(setupLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Salary expectation">
+              <select className="k-select" value={draft.salary} onChange={(event) => setDraft((current) => ({ ...current, salary: event.target.value }))}>
+                {Object.entries(salaryLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+          <div className="mt-4">
+            <LocationPreferenceQuestion
+              scope={draft.locationScope}
+              region={draft.region}
+              onChange={updateLocation}
+              isSignedIn
+              profileLocation={profileLocation}
+              name="dashboard-location-scope"
             />
-            <button className="cand-btn-secondary" type="button" onClick={addSkill}>
-              Add
-            </button>
           </div>
-        </div>
+          <p className="k-help mt-3">Job level, work setup and salary order your Aspiration matches. Fit Now matches use only your resume and skills.</p>
+        </section>
 
-        <div className="cand-form-actions">
-          <button className="cand-btn-primary" type="button" disabled={isLoading || !isLocationPreferenceComplete(draft)} onClick={() => onSave(draft)}>
-            {isLoading ? 'Saving and Refreshing...' : 'Save Preferences'}
-          </button>
-          <button className="cand-btn-secondary" type="button" onClick={onReset}>
-            Reset Changes
+        <section className="k-section" aria-labelledby="pref-skills">
+          <div className="k-section-head">
+            <h2 id="pref-skills" className="k-section-title">Your skills</h2>
+            <span className="k-meta">{skillNames.length}</span>
+          </div>
+          <ul className="k-chip-row gap-1.5" aria-label="Confirmed skills">
+            {skillNames.map((skill) => (
+              <li key={skill}>
+                <span className="k-skill pr-1">
+                  {skill}
+                  <button className="inline-flex h-7 w-7 items-center justify-center rounded-full text-mid hover:bg-cream-d hover:text-dark" type="button" onClick={() => removeSkill(skill)} aria-label={`Remove ${skill}`}>
+                    <FontAwesomeIcon icon={faXmark} className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex gap-2">
+            <label className="min-w-0 flex-1">
+              <span className="sr-only">Add a skill</span>
+              <input
+                value={skillInput}
+                className="k-input"
+                placeholder="Add a skill"
+                onChange={(event) => setSkillInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addSkill();
+                  }
+                }}
+              />
+            </label>
+            <button className="k-btn k-btn-secondary" type="button" onClick={addSkill} disabled={!skillInput.trim()}>Add</button>
+          </div>
+        </section>
+
+        <section className="k-section" aria-labelledby="pref-growth">
+          <h2 id="pref-growth" className="k-section-title mb-3">Development interest</h2>
+          <FormField label="Skills you want to grow (optional)">
+            <textarea className="k-textarea min-h-[88px]" value={draft.skill} onChange={(event) => setDraft((current) => ({ ...current, skill: event.target.value }))} />
+          </FormField>
+        </section>
+
+        <div className="k-savebar">
+          <span className="k-meta mr-auto hidden sm:inline">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
+          {dirty && (
+            <button
+              className="k-btn k-btn-ghost"
+              type="button"
+              onClick={() => {
+                onReset();
+                setDraft(surveyAnswers);
+                setTouched(false);
+              }}
+            >
+              Reset
+            </button>
+          )}
+          <button className="k-btn k-btn-primary" type="submit" disabled={!canSave || !dirty}>
+            {isLoading ? 'Saving…' : 'Save and refresh matches'}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }
