@@ -1,7 +1,10 @@
-import AuthShell from '../components/AuthShell';
+import AuthShell, { PasswordInput, PasswordRules } from '../components/AuthShell';
 import { useState } from 'react';
+import { Banner, FormField } from '../components/ui';
 import { signUpEmployer } from '../lib/auth';
 import type { KareerlyUser } from '../lib/auth';
+import { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from '../lib/employerOptions';
+import { STRONG_PASSWORD_PATTERN } from '../lib/passwordRules';
 
 type EmployerSignUpProps = {
   onAuthenticated: (employer: KareerlyUser & { company: string }) => void;
@@ -12,6 +15,7 @@ type EmployerSignUpProps = {
 export default function EmployerSignUp({ onAuthenticated, onSignIn, onHome }: EmployerSignUpProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [password, setPassword] = useState('');
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,73 +43,75 @@ export default function EmployerSignUp({ onAuthenticated, onSignIn, onHome }: Em
 
   return (
     <AuthShell
-      title="Create employer account"
-      subtitle="Hire the right talent faster"
-      panelTitle="Join as an Employer"
-      panelSubtitle="Post jobs and find the right talent with AI-powered matching"
-      panelItems={['Smart candidate screening', 'Skill-based match ranking', 'Blind applicant review', 'Streamlined hiring pipeline']}
+      title="Create an employer account"
+      subtitle="Post jobs and review matched applicants."
+      badge="Employer"
+      panelTitle="Hire on skills, not guesswork"
+      panelSubtitle="Kareerly scores every applicant against your required skills and keeps identity hidden until you choose to interview."
+      panelItems={['Applicants ranked by skill match', 'Identity masked until Interviewing', 'Jobs, candidates and messages in one place']}
       onHome={onHome}
+      footer={(
+        <>
+          Already have an account?{' '}
+          <button className="k-link" type="button" onClick={onSignIn}>Log in</button>
+        </>
+      )}
     >
       <form onSubmit={handleSubmit}>
-        <label className="form-label" htmlFor="company-name">Company name</label>
-        <input id="company-name" name="company" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="Company Name" required type="text" />
+        {error && <div role="alert"><Banner tone="error" className="mb-4">{error}</Banner></div>}
 
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <div>
-            <label className="form-label" htmlFor="employer-first-name">First name</label>
-            <input id="employer-first-name" name="firstName" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="First Name" required type="text" />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="employer-last-name">Last name</label>
-            <input id="employer-last-name" name="lastName" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="Last Name" required type="text" />
-          </div>
+        <FormField label="Company name">
+          <input id="company-name" name="company" className="k-input" required type="text" autoComplete="organization" />
+        </FormField>
+
+        <div className="k-form-grid mt-4">
+          <FormField label="Industry">
+            <select id="industry" name="industry" className="k-select" required defaultValue="">
+              <option value="" disabled>Select an industry</option>
+              {EMPLOYER_INDUSTRIES.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Company size">
+            <select id="company-size" name="companySize" className="k-select" required defaultValue="">
+              <option value="" disabled>Select a size</option>
+              {EMPLOYER_COMPANY_SIZES.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Your first name">
+            <input id="employer-first-name" name="firstName" className="k-input" required type="text" autoComplete="given-name" />
+          </FormField>
+          <FormField label="Your last name">
+            <input id="employer-last-name" name="lastName" className="k-input" required type="text" autoComplete="family-name" />
+          </FormField>
         </div>
 
-        <label className="form-label mt-2" htmlFor="business-email">Business email</label>
-        <input id="business-email" name="email" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="email@email.com" required type="email" />
+        <FormField label="Work email" className="mt-4">
+          <input id="business-email" name="email" className="k-input" required type="email" inputMode="email" autoComplete="email" />
+        </FormField>
 
-        <label className="form-label mt-2" htmlFor="company-size">Company size</label>
-        <select id="company-size" name="companySize" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" required defaultValue="">
-          <option value="" disabled>Select company size</option>
-          <option>1-10 employees</option>
-          <option>11-50 employees</option>
-          <option>51-200 employees</option>
-          <option>201+ employees</option>
-        </select>
-
-        <label className="form-label mt-2" htmlFor="industry">Industry</label>
-        <select id="industry" name="industry" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" required defaultValue="">
-          <option value="" disabled>Select industry</option>
-          <option>Technology & Software</option>
-          <option>BPO & Customer Service</option>
-          <option>Finance & Banking</option>
-          <option>Healthcare</option>
-        </select>
-
-        <label className="form-label mt-2" htmlFor="employer-password">Password</label>
-        <input id="employer-password" name="password" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="••••••••" required minLength={14} pattern="^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{14,}$" type="password" />
-        <div className="mt-1.5 text-sm text-soft">● At least 14 characters, with uppercase, number, and special character</div>
-
-        <div className="my-3 flex items-start gap-3 text-sm text-mid">
-          <input id="employer-terms" className="mt-0.5 h-5 w-5 cursor-pointer rounded accent-rust" required type="checkbox" />
-          <label className="cursor-pointer" htmlFor="employer-terms">
-            I agree to the <span className="font-bold text-rust">Terms of Service</span> and <span className="font-bold text-rust">Privacy Policy</span>
-          </label>
+        <div className="k-field">
+          <label className="k-label block" htmlFor="employer-password">Password</label>
+          <PasswordInput
+            id="employer-password"
+            autoComplete="new-password"
+            value={password}
+            onChange={setPassword}
+            minLength={14}
+            pattern={STRONG_PASSWORD_PATTERN}
+            describedBy="employer-password-rules"
+          />
+          <PasswordRules id="employer-password-rules" value={password} />
         </div>
 
-        {error && <div className="mb-3 rounded-lg border border-red bg-red-l px-3 py-2 text-sm font-semibold text-red">{error}</div>}
+        <label className="k-secondary mt-5 flex cursor-pointer items-start gap-3">
+          <input id="employer-terms" className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded accent-rust" required type="checkbox" />
+          <span>I agree to the <strong className="text-dark">Terms of Service</strong> and <strong className="text-dark">Privacy Policy</strong>.</span>
+        </label>
 
-        <button className="w-full rounded-xl bg-rust px-5 py-2.5 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Creating account...' : 'Create employer account'}
+        <button className="k-btn k-btn-primary k-btn-block mt-6" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Creating account…' : 'Create employer account'}
         </button>
       </form>
-
-      <div className="mt-5 text-center text-sm text-mid">
-        Already have an account?{' '}
-        <button className="font-bold text-rust hover:underline" type="button" onClick={onSignIn}>
-          Log in
-        </button>
-      </div>
     </AuthShell>
   );
 }

@@ -12,9 +12,9 @@ function percent(rate: number | null): string {
 function Tile({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
     <div className="rounded-lg border border-bdr bg-card px-4 py-3">
-      <div className="text-xs font-bold uppercase text-soft">{label}</div>
+      <div className="text-xs font-bold uppercase text-soft-text">{label}</div>
       <div className="mt-1 text-2xl font-extrabold text-dark">{value}</div>
-      {hint && <div className="text-xs text-soft">{hint}</div>}
+      {hint && <div className="text-xs text-soft-text">{hint}</div>}
     </div>
   );
 }
@@ -32,7 +32,7 @@ function SplitBars({ title, rows }: { title: string; rows: Array<{ label: string
             <div key={label} title={`${label}: ${bucket.good} good, ${bucket.bad} bad (${percent(bucket.good_rate)} good)`}>
               <div className="mb-1 flex items-baseline justify-between gap-3 text-xs">
                 <span className="font-bold text-mid">{label}</span>
-                <span className="whitespace-nowrap text-soft">
+                <span className="whitespace-nowrap text-soft-text">
                   {bucket.total ? <><strong className="text-dark">{percent(bucket.good_rate)}</strong> good · {bucket.good} / {bucket.bad}</> : 'No votes'}
                 </span>
               </div>
@@ -81,7 +81,7 @@ export default function AdminMatchQualityPanel({ getToken, notify }: AdminPanelP
   return (
     <div className="space-y-4 border-t border-bdr p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-soft">
+        <p className="text-sm text-soft-text">
           Candidates rate each recommended job as a good or bad match. <span className="inline-flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-green" /> Good</span>{' '}
           <span className="inline-flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-red" /> Bad</span>
         </p>
@@ -108,7 +108,7 @@ export default function AdminMatchQualityPanel({ getToken, notify }: AdminPanelP
         {stats.most_downvoted_jobs.length === 0 ? <PanelMessage>No job has a bad rating yet.</PanelMessage> : (
           <div className="overflow-x-auto border-t border-bdr">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-bg text-xs uppercase text-soft">
+              <thead className="bg-bg text-xs uppercase text-soft-text">
                 <tr>
                   <th className="px-4 py-3 font-extrabold">Job</th>
                   <th className="px-4 py-3 font-extrabold">Source</th>
@@ -122,7 +122,7 @@ export default function AdminMatchQualityPanel({ getToken, notify }: AdminPanelP
                   <tr key={`${job.job_source}:${job.job_id}`} className="bg-card">
                     <td className="px-4 py-3">
                       <div className="font-bold text-dark">{job.job_title || job.job_id}</div>
-                      <div className="text-xs text-soft">{job.company_name ? `${job.company_name} · ` : ''}{job.job_id}</div>
+                      <div className="text-xs text-soft-text">{job.company_name ? `${job.company_name} · ` : ''}{job.job_id}</div>
                     </td>
                     <td className="px-4 py-3 capitalize text-mid">{job.job_source}</td>
                     <td className="px-4 py-3 text-right font-bold text-dark">{job.bad}</td>

@@ -1,60 +1,54 @@
-import { savedMatchScore, scoreLabel } from '../lib/uiData';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import {
-  faArrowRight,
-  faBan,
-  faBars,
-  faBell,
-  faBookmark,
-  faBolt,
-  faBriefcase,
-  faBuilding,
-  faCalendar,
-  faCalendarCheck,
-  faCheck,
-  faChevronDown,
-  faCircle,
-  faCircleInfo,
-  faCircleXmark,
-  faClock,
-  faComments,
-  faEnvelope,
-  faEye,
-  faFlag,
-  faGear,
-  faHandshake,
-  faLayerGroup,
-  faLock,
-  faLocationDot,
-  faMagnifyingGlass,
-  faPaperPlane,
-  faPenToSquare,
-  faPlus,
-  faRightFromBracket,
-  faShieldHalved,
-  faStar,
-  faTable,
-  faTableCellsLarge,
-  faTag,
-  faUserTie,
-  faUsers,
-  faXmark,
-} from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import Logo from '../components/Logo';
-import {
-  loadApplicationMessages,
-  loadEmployerAccountSettings,
-  requestAccountDeletion,
-  saveEmployerAccountSettings,
-  sendApplicationMessage,
-  updateEmployerApplicationStatus,
-} from '../lib/api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { faBriefcase, faBuilding, faComments, faHouse, faLayerGroup, faPlus, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { AppShell, ConfirmDialog, DESKTOP_QUERY, FormField, ToastRegion, useMediaQuery, type NextStep, type ToastState } from '../components/ui';
+import { loadApplicationMessages, loadEmployerAccountSettings, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { formatJobDescription, joinJobContent, splitJobContent } from '../lib/jobDescription';
-import './employer-dashboard-v5.css';
+import { joinJobContent } from '../lib/jobDescription';
+import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
+import { EmployerAccountPage, type EmployerAccountForm } from './employer/EmployerAccountPage';
+import { EmployerCandidatesPage } from './employer/EmployerCandidatesPage';
+import { EmployerHomePage } from './employer/EmployerHomePage';
+import { EmployerJobsPage } from './employer/EmployerJobsPage';
+import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
+import { JobEditorModal } from './employer/JobEditorModal';
+import {
+  daysUntil,
+  EMPLOYER_PAGE_PATHS,
+  employerPageFromPath,
+  emptyJobForm,
+  getCategoryCode,
+  getInitials,
+  getMatchBucket,
+  getSalaryAmounts,
+  initialApplications,
+  initialJobs,
+  initialNotifications,
+  MIN_EMPLOYER_SALARY,
+  REJECTION_REASONS,
+  statusActionLabel,
+  statusActionMessage,
+  toCandidateApplication,
+  toEmployerJob,
+  toMessageEntry,
+  toSalaryInputValue,
+  todayIso,
+  type ApplicationMessageRow,
+  type CandidateApplication,
+  type CandidateStatus,
+  type EmployerJob,
+  type EmployerJobPostRow,
+  type EmployerPage,
+  type JobApplicationRow,
+  type JobFormState,
+  type JobStats,
+  type JobStatus,
+  type JobsPanelMode,
+  type MessageEntry,
+  type NotificationItem,
+  type ReviewAction,
+  type ToastType,
+} from './employer/model';
 
 type EmployerDashboardProps = {
   employer: { id?: string; name: string; email: string; company: string } | null;
@@ -64,620 +58,40 @@ type EmployerDashboardProps = {
   onLogout?: () => void;
 };
 
-type EmployerPage = 'dashboard' | 'jobs' | 'candidates' | 'messages' | 'account';
-type JobStatus = 'open' | 'draft' | 'closed';
-type CandidateStatus = 'Pending' | 'Shortlisted' | 'Interviewing' | 'Hired' | 'Rejected' | 'Withdrawn';
-type MessageRequestState = 'none' | 'pending' | 'accepted' | 'declined' | 'ignored';
-type ToastType = '' | 'success' | 'warn' | 'danger';
-type MatchBucket = 'top' | 'good' | 'partial' | 'unknown';
-type CandidateFilter = 'all' | 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn';
-type ReviewAction = 'shortlisted' | 'interviewing' | 'hired' | 'rejected';
-type CandidateView = 'kanban' | 'table';
-type JobsPanelMode = 'detail' | 'edit' | 'new';
-
-type IconName =
-  | 'menu'
-  | 'bell'
-  | 'chevron-down'
-  | 'dashboard'
-  | 'briefcase'
-  | 'users'
-  | 'messages'
-  | 'building'
-  | 'cog'
-  | 'star'
-  | 'layers'
-  | 'calendar-check'
-  | 'envelope'
-  | 'times-circle'
-  | 'clock'
-  | 'bolt'
-  | 'plus'
-  | 'search'
-  | 'edit'
-  | 'close'
-  | 'shield'
-  | 'table'
-  | 'eye'
-  | 'bookmark'
-  | 'handshake'
-  | 'ban'
-  | 'flag'
-  | 'paper-plane'
-  | 'check'
-  | 'lock'
-  | 'map-pin'
-  | 'tag'
-  | 'calendar'
-  | 'arrow-right'
-  | 'info'
-  | 'user-tie'
-  | 'logout';
-
-type EmployerJob = {
-  id: string;
-  databaseId?: string;
-  title: string;
-  category: string;
-  subcategory: string;
-  experienceLevel: string;
-  description: string;
-  responsibilities: string[];
-  requiredSkills: string[];
-  niceToHaveSkills: string[];
-  workSetup: string;
-  employmentType: string;
-  city: string;
-  province: string;
-  salaryRange: string;
-  deadline: string;
-  status: JobStatus;
-  postedDate: string;
-};
-
-type EmployerJobPostRow = {
-  id: string;
-  job_id: string;
-  category_code: string | null;
-  category_name: string | null;
-  job_subcategory?: string | null;
-  job_title: string;
-  company_name: string | null;
-  location: string | null;
-  work_setup: string | null;
-  employment_type: string | null;
-  job_level: string | null;
-  salary_min_php: number | null;
-  salary_max_php: number | null;
-  job_description: string | null;
-  responsibilities?: string | null;
-  required_skills: string | null;
-  preferred_skills: string | null;
-  posting_status: string | null;
-  application_deadline?: string | null;
-  created_at: string | null;
-};
-
-type MessageEntry = {
-  from: 'employer' | 'candidate';
-  text: string;
-  time: string;
-};
-
-type CandidateApplication = {
-  id: string;
-  publicId: string;
-  fullName: string;
-  role: string;
-  jobId: string;
-  matchPercent: number;
-  hasMatchScore: boolean;
-  matchedSkills: string[];
-  missingSkills: string[];
-  status: CandidateStatus;
-  appliedDate: string;
-  location: string;
-  matchSummary: string;
-  strengthNote: string;
-  gapNote: string;
-  recommendation: string;
-  messageRequestState: MessageRequestState;
-  messages: MessageEntry[];
-};
-
-type JobApplicationRow = {
-  id: string;
-  user_id: string;
-  job_source?: 'internal' | 'employer' | null;
-  job_id: string;
-  job_title?: string | null;
-  company_name?: string | null;
-  candidate_name?: string | null;
-  candidate_email?: string | null;
-  candidate_location?: string | null;
-  match_score?: number | null;
-  matched_skills?: string[] | null;
-  missing_skills?: string[] | null;
-  message_request_state?: MessageRequestState | null;
-  status?: string | null;
-  created_at?: string | null;
-  applied_at?: string | null;
-};
-
-type ApplicationMessageRow = {
-  id: string;
-  application_id: string;
-  sender_user_id: string;
-  sender_role: 'candidate' | 'employer';
-  message_kind: 'request' | 'message';
-  message_text: string;
-  created_at: string | null;
-};
-
-type NotificationItem = {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  type: 'match' | 'app' | 'msg' | 'warn' | 'job';
-  unread: boolean;
-};
-
-type JobFormState = {
-  title: string;
-  category: string;
-  subcategory: string;
-  experienceLevel: string;
-  description: string;
-  responsibilities: string;
-  workSetup: string;
-  employmentType: string;
-  location: string;
-  salaryRange: string;
-  deadline: string;
-  status: JobStatus;
-};
-
-const jobCategoryOptions = [
-  {
-    code: 'K01',
-    label: 'Software and Web Development',
-    value: 'Software and Web Development',
-    subcategories: ['Software Development', 'Web Development'],
-  },
-  {
-    code: 'K02',
-    label: 'Data, Analytics, and Artificial Intelligence',
-    value: 'Data, Analytics, and Artificial Intelligence',
-    subcategories: ['Data Analytics', 'Artificial Intelligence'],
-  },
-  {
-    code: 'K03',
-    label: 'IT Infrastructure and Cybersecurity',
-    value: 'IT Infrastructure and Cybersecurity',
-    subcategories: ['IT Infrastructure', 'Cybersecurity'],
-  },
-  {
-    code: 'K04',
-    label: 'Finance and Accounting',
-    value: 'Finance and Accounting',
-    subcategories: ['Accounting', 'Finance'],
-  },
-  {
-    code: 'K05',
-    label: 'Office Administration and Records',
-    value: 'Office Administration and Records',
-    subcategories: ['Office Administration', 'Records Management'],
-  },
-  {
-    code: 'K06',
-    label: 'Human Resources and Project Management',
-    value: 'Human Resources and Project Management',
-    subcategories: ['Human Resources', 'Project Management'],
-  },
-  {
-    code: 'K07',
-    label: 'Sales and Purchasing',
-    value: 'Sales and Purchasing',
-    subcategories: ['Sales', 'Purchasing'],
-  },
-  {
-    code: 'K08',
-    label: 'Marketing and Public Relations',
-    value: 'Marketing and Public Relations',
-    subcategories: ['Marketing', 'Public Relations'],
-  },
-  {
-    code: 'K09',
-    label: 'Customer Service and Retail',
-    value: 'Customer Service and Retail',
-    subcategories: ['Customer Service', 'Retail'],
-  },
-  {
-    code: 'K10',
-    label: 'Writing, Language, and Communications',
-    value: 'Writing, Language, and Communications',
-    subcategories: ['Writing', 'Communications'],
-  },
-  {
-    code: 'K11',
-    label: 'Design, Media, and Performing Arts',
-    value: 'Design, Media, and Performing Arts',
-    subcategories: ['Design', 'Media', 'Performing Arts'],
-  },
-  {
-    code: 'K12',
-    label: 'Education and Training',
-    value: 'Education and Training',
-    subcategories: ['Education', 'Training'],
-  },
-  {
-    code: 'K13',
-    label: 'Social and Community Services',
-    value: 'Social and Community Services',
-    subcategories: ['Social Services', 'Community Services'],
-  },
-  {
-    code: 'K14',
-    label: 'Healthcare and Clinical Services',
-    value: 'Healthcare and Clinical Services',
-    subcategories: ['Healthcare', 'Clinical Services'],
-  },
-  {
-    code: 'K15',
-    label: 'Caregiving and Wellness',
-    value: 'Caregiving and Wellness',
-    subcategories: ['Caregiving', 'Wellness'],
-  },
-  {
-    code: 'K16',
-    label: 'Engineering and Architecture',
-    value: 'Engineering and Architecture',
-    subcategories: ['Engineering', 'Architecture'],
-  },
-  {
-    code: 'K17',
-    label: 'Construction and Skilled Trades',
-    value: 'Construction and Skilled Trades',
-    subcategories: ['Construction', 'Skilled Trades'],
-  },
-  {
-    code: 'K18',
-    label: 'Hospitality and Tourism',
-    value: 'Hospitality and Tourism',
-    subcategories: ['Hospitality', 'Tourism'],
-  },
-  {
-    code: 'K19',
-    label: 'Food Service and Personal Care',
-    value: 'Food Service and Personal Care',
-    subcategories: ['Food Service', 'Personal Care'],
-  },
-  {
-    code: 'K20',
-    label: 'Logistics, Transport, and Warehousing',
-    value: 'Logistics, Transport, and Warehousing',
-    subcategories: ['Logistics', 'Transport', 'Warehousing'],
-  },
-  {
-    code: 'K21',
-    label: 'Manufacturing and Quality Operations',
-    value: 'Manufacturing and Quality Operations',
-    subcategories: ['Manufacturing', 'Quality Operations'],
-  },
-  {
-    code: 'K22',
-    label: 'Agriculture, Forestry, Fishery, and Environment',
-    value: 'Agriculture, Forestry, Fishery, and Environment',
-    subcategories: ['Agriculture', 'Forestry', 'Fishery', 'Environment'],
-  },
-  {
-    code: 'K23',
-    label: 'Public Administration and Government',
-    value: 'Public Administration and Government',
-    subcategories: ['Public Administration', 'Government'],
-  },
-  {
-    code: 'K24',
-    label: 'Legal, Security, and Protective Services',
-    value: 'Legal, Security, and Protective Services',
-    subcategories: ['Legal', 'Security', 'Protective Services'],
-  },
-];
-
-const jobSubcategoryMap = jobCategoryOptions.reduce<Record<string, string[]>>((map, category) => {
-  map[category.value] = category.subcategories;
-  return map;
-}, {});
-
-const MIN_EMPLOYER_SALARY = 10000;
-
-const getSalaryAmounts = (value: string): { minimum: number; maximum: number } => {
-  const amounts = Array.from(value.matchAll(/[0-9][0-9,\s.]*/g))
-    .map((match) => Number(match[0].replace(/[^\d]/g, '')))
-    .filter((amount) => Number.isFinite(amount) && amount > 0);
-  return {
-    minimum: amounts[0] || 0,
-    maximum: amounts[1] || amounts[0] || 0,
-  };
-};
-
-const toSalaryInputValue = (value: string): string => {
-  const { minimum, maximum } = getSalaryAmounts(value);
-  if (!minimum && !maximum) return '';
-  return `${minimum || ''}-${maximum || ''}`;
-};
-
-const formatPesoSalary = (value: string): string => {
-  const { minimum, maximum } = getSalaryAmounts(value);
-  if (!minimum || !maximum) return '';
-  return `₱${minimum.toLocaleString('en-PH')} - ${maximum.toLocaleString('en-PH')}`;
-};
-
-const getCategoryCode = (categoryValue: string): string => jobCategoryOptions.find((category) => category.value === categoryValue)?.code || '';
-
-const splitSkills = (value: string | null | undefined): string[] =>
-  String(value || '')
-    .split(',')
-    .map((skill) => skill.trim())
-    .filter(Boolean);
-
-const mapPostingStatusToJobStatus = (status: string | null | undefined): JobStatus => {
-  if (status === 'active' || status === 'open') return 'open';
-  if (status === 'closed') return 'closed';
-  return 'draft';
-};
-
-const mapApplicationStatus = (status: string | null | undefined): CandidateStatus => {
-  const normalized = String(status || '').toLowerCase();
-  if (normalized === 'shortlisted') return 'Shortlisted';
-  if (normalized === 'interviewing') return 'Interviewing';
-  if (normalized === 'hired') return 'Hired';
-  if (normalized === 'rejected') return 'Rejected';
-  if (normalized === 'withdrawn') return 'Withdrawn';
-  return 'Pending';
-};
-
-const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
-  id: row.job_id,
-  databaseId: row.id,
-  title: row.job_title,
-  category: row.category_name || '',
-  subcategory: row.job_subcategory || '',
-  experienceLevel: row.job_level || '',
-  description: splitJobContent(row.job_description || '').description,
-  responsibilities: row.responsibilities
-    ? row.responsibilities.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
-    : splitJobContent(row.job_description || '').responsibilities,
-  requiredSkills: splitSkills(row.required_skills),
-  niceToHaveSkills: splitSkills(row.preferred_skills),
-  workSetup: row.work_setup || '',
-  employmentType: row.employment_type || '',
-  city: (row.location || '').split(',')[0]?.trim() || '',
-  province: (row.location || '').split(',').slice(1).join(',').trim(),
-  salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
-  deadline: row.application_deadline || '',
-  status: row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
-  postedDate: row.created_at ? row.created_at.slice(0, 10) : '',
-});
-
-const mapMessageRequestState = (state: string | null | undefined): MessageRequestState => {
-  if (state === 'pending' || state === 'accepted' || state === 'declined' || state === 'ignored') return state;
-  return 'none';
-};
-
-const toMessageEntry = (row: ApplicationMessageRow): MessageEntry => ({
-  from: row.sender_role === 'employer' ? 'employer' : 'candidate',
-  text: row.message_text,
-  time: row.created_at ? formatDateLabel(row.created_at.slice(0, 10)) : 'Time unavailable',
-});
-
-const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], messages: ApplicationMessageRow[] = [], publicId = ''): CandidateApplication => {
-  const relatedJob = jobs.find((job) => job.id === row.job_id);
-  const status = mapApplicationStatus(row.status);
-  const matchedSkills = Array.isArray(row.matched_skills) ? row.matched_skills.filter(Boolean) : [];
-  const missingSkills = Array.isArray(row.missing_skills) ? row.missing_skills.filter(Boolean) : [];
-  const savedScore = savedMatchScore(row.match_score);
-  const matchPercent = savedScore ?? 0;
-
-  return {
-    id: row.id,
-    publicId,
-    fullName: row.candidate_name || row.candidate_email || `Candidate ${String(row.user_id || row.id).slice(0, 8)}`,
-    role: row.job_title || relatedJob?.title || 'Untitled role',
-    jobId: row.job_id,
-    matchPercent,
-    hasMatchScore: savedScore !== null,
-    matchedSkills,
-    missingSkills,
-    status,
-    appliedDate: (row.applied_at || row.created_at || '').slice(0, 10),
-    location: row.candidate_location || 'Location not provided',
-    matchSummary: savedScore !== null ? `${matchPercent}% candidate-side match at application time.` : 'Candidate applied without a saved match score.',
-    strengthNote: matchedSkills.length > 0 ? `Matched skills: ${matchedSkills.slice(0, 4).join(', ')}` : 'Matched skills were not captured yet.',
-    gapNote: missingSkills.length > 0 ? `Potential gaps: ${missingSkills.slice(0, 4).join(', ')}` : 'Missing skill information was not captured.',
-    recommendation: status === 'Withdrawn' ? 'Application withdrawn by candidate.' : 'Review candidate application details and decide next status.',
-    messageRequestState: mapMessageRequestState(row.message_request_state),
-    messages: messages.map(toMessageEntry),
-  };
-};
-
-const emptyJobForm: JobFormState = {
-  title: '',
-  category: '',
-  subcategory: '',
-  experienceLevel: '',
-  description: '',
-  responsibilities: '',
-  workSetup: '',
-  employmentType: '',
-  location: '',
-  salaryRange: '',
-  deadline: '',
-  status: 'draft',
-};
-
-const initialJobs: EmployerJob[] = [];
-
-const initialApplications: CandidateApplication[] = [];
-
-const initialNotifications: NotificationItem[] = [];
-
-const iconMap: Record<IconName, IconDefinition> = {
-  menu: faBars,
-  bell: faBell,
-  'chevron-down': faChevronDown,
-  dashboard: faTableCellsLarge,
-  briefcase: faBriefcase,
-  users: faUsers,
-  messages: faComments,
-  building: faBuilding,
-  cog: faGear,
-  star: faStar,
-  layers: faLayerGroup,
-  'calendar-check': faCalendarCheck,
-  envelope: faEnvelope,
-  'times-circle': faCircleXmark,
-  clock: faClock,
-  bolt: faBolt,
-  plus: faPlus,
-  search: faMagnifyingGlass,
-  edit: faPenToSquare,
-  close: faXmark,
-  shield: faShieldHalved,
-  table: faTable,
-  eye: faEye,
-  bookmark: faBookmark,
-  handshake: faHandshake,
-  ban: faBan,
-  flag: faFlag,
-  'paper-plane': faPaperPlane,
-  check: faCheck,
-  lock: faLock,
-  'map-pin': faLocationDot,
-  tag: faTag,
-  calendar: faCalendar,
-  'arrow-right': faArrowRight,
-  info: faCircleInfo,
-  'user-tie': faUserTie,
-  logout: faRightFromBracket,
-};
-
-function UIIcon({ name, className = '' }: { name: IconName; className?: string }) {
-  const iconClass = `emp-inline-icon ${className}`.trim();
-  return <FontAwesomeIcon className={iconClass} icon={iconMap[name] || faCircle} aria-hidden="true" />;
-}
-
-function getInitials(label: string): string {
-  const parts = label.split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'EM';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
-}
-
-function maskedName(name: string): string {
-  const parts = name.split(/\s+/).filter(Boolean);
-  return parts
-    .map((part) => {
-      if (part.length <= 1) return part;
-      return `${part[0]}${'*'.repeat(Math.max(4, part.length - 1))}`;
-    })
-    .join(' ');
-}
-
-function getStatusBadgeClass(status: CandidateStatus): string {
-  if (status === 'Pending') return 'emp-status-badge emp-status-pending';
-  if (status === 'Shortlisted') return 'emp-status-badge emp-status-shortlisted';
-  if (status === 'Interviewing') return 'emp-status-badge emp-status-interviewing';
-  if (status === 'Hired') return 'emp-status-badge emp-status-hired';
-  if (status === 'Rejected') return 'emp-status-badge emp-status-rejected';
-  return 'emp-status-badge emp-status-withdrawn';
-}
-
-function getMatchBucket(score: number, hasMatchScore = true): MatchBucket {
-  if (!hasMatchScore) return 'unknown';
-  if (score >= 90) return 'top';
-  if (score >= 75) return 'good';
-  return 'partial';
-}
-
-function matchBucketLabel(bucket: MatchBucket): string {
-  if (bucket === 'unknown') return 'Match not available';
-  if (bucket === 'top') return 'Top Match (90%+)';
-  if (bucket === 'good') return 'Good Match (75-89%)';
-  return 'Partial Match (<75%)';
-}
-
-function formatDateLabel(value: string): string {
-  const parsed = new Date(value);
-  if (!value || Number.isNaN(parsed.getTime())) return 'Date unavailable';
-  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function todayIso(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function statusToFilter(status: CandidateStatus): CandidateFilter {
-  return status.toLowerCase() as CandidateFilter;
-}
-
-function shouldRevealIdentity(status: CandidateStatus): boolean {
-  return status === 'Interviewing' || status === 'Hired' || status === 'Rejected';
-}
-
-function getMatchColor(score: number): string {
-  if (score >= 90) return 'var(--green)';
-  if (score >= 75) return 'var(--amber)';
-  return 'var(--soft)';
-}
-
-function statusActionLabel(action: ReviewAction): string {
-  if (action === 'shortlisted') return 'Move to Shortlisted';
-  if (action === 'interviewing') return 'Move to Interviewing';
-  if (action === 'hired') return 'Mark as Hired';
-  return 'Reject Application';
-}
-
-function statusActionMessage(action: ReviewAction, candidateId: string): string {
-  if (action === 'shortlisted') return `Moving ${candidateId} to Shortlisted will mark them as a priority applicant.`;
-  if (action === 'interviewing') {
-    return 'Moving to Interviewing will unlock full candidate profile details and allow message requests.';
-  }
-  if (action === 'hired') return 'Marking this application as Hired records a final recruitment outcome.';
-  return 'Rejecting this applicant is a final decision and will close this application.';
-}
-
 export default function EmployerDashboard({ employer, onHome, onLogin, onSignUp, onLogout }: EmployerDashboardProps) {
-  void onLogin;
-  void onSignUp;
-
   if (!employer) {
     return (
-      <div className="min-h-screen bg-bg px-6 py-16">
-        <div className="mx-auto max-w-lg rounded-xl border border-bdr bg-card p-6 text-center">
-          <h2 className="font-display text-2xl font-bold text-dark">Employer Dashboard is for registered employers only</h2>
-          <p className="mt-2 text-sm text-soft">Please sign in with an employer account to access recruitment pages.</p>
+      <main className="flex min-h-screen items-center justify-center bg-bg px-4 py-16">
+        <div className="k-card w-full max-w-md text-center">
+          <h1 className="k-section-title">For employer accounts</h1>
+          <p className="k-secondary mt-2">Sign in with an employer account to manage jobs and applicants.</p>
+          <div className="k-button-row mt-5 justify-center">
+            <button className="k-btn k-btn-primary" type="button" onClick={onLogin}>Sign in</button>
+            <button className="k-btn k-btn-secondary" type="button" onClick={onSignUp}>Create an account</button>
+          </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   return <EmployerWorkspace employer={employer} onHome={onHome} onLogout={onLogout} />;
 }
 
+const notificationIcon: Record<NotificationItem['type'], typeof faStar> = {
+  match: faStar,
+  app: faLayerGroup,
+  msg: faComments,
+  warn: faLayerGroup,
+  job: faBriefcase,
+};
+
 function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboardProps, 'onHome' | 'onLogout'> & { employer: NonNullable<EmployerDashboardProps['employer']> }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const activePage = employerPageFromPath(location.pathname);
   const [companyName, setCompanyName] = useState(employer.company || 'Employer Workspace');
-  const companyInitials = getInitials(companyName);
-  const contactName = employer.name || 'Employer Manager';
-  const [activePage, setActivePage] = useState<EmployerPage>('dashboard');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 900 : false));
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const contactName = employer.name || '';
   const [jobs, setJobs] = useState<EmployerJob[]>(initialJobs);
   const [jobsLoadStatus, setJobsLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [applicationsLoadStatus, setApplicationsLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -686,25 +100,19 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [isSavingJob, setIsSavingJob] = useState(false);
   const [applications, setApplications] = useState<CandidateApplication[]>(initialApplications);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
-  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
-  const [jobSearch, setJobSearch] = useState('');
-  const [jobStatusFilter, setJobStatusFilter] = useState<'all' | JobStatus>('all');
+  const [toast, setToast] = useState<ToastState>(null);
   const [selectedJobId, setSelectedJobId] = useState<string>(initialJobs[0]?.id || '');
+  const [jobDetailOpen, setJobDetailOpen] = useState(false);
   const [jobsPanelMode, setJobsPanelMode] = useState<JobsPanelMode>('detail');
   const [jobForm, setJobForm] = useState<JobFormState>(emptyJobForm);
+  const [jobFormError, setJobFormError] = useState('');
   const [requiredSkillsDraft, setRequiredSkillsDraft] = useState<string[]>([]);
   const [niceSkillsDraft, setNiceSkillsDraft] = useState<string[]>([]);
   const [requiredSkillInput, setRequiredSkillInput] = useState('');
   const [niceSkillInput, setNiceSkillInput] = useState('');
-  const [candidateFilter, setCandidateFilter] = useState<CandidateFilter>('all');
+  const [closeJobTarget, setCloseJobTarget] = useState<EmployerJob | null>(null);
   const [candidateJobFilter, setCandidateJobFilter] = useState<string>('');
-  const [candidateSearch, setCandidateSearch] = useState('');
-  const [candidateView, setCandidateView] = useState<CandidateView>('kanban');
-  const [privacyAccordionOpen, setPrivacyAccordionOpen] = useState(false);
-  const [hiredSectionOpen, setHiredSectionOpen] = useState(false);
-  const [closedSectionOpen, setClosedSectionOpen] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string>('');
-  const [messageSearch, setMessageSearch] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
   const [draftRequestCandidateId, setDraftRequestCandidateId] = useState<string>('');
   const [reviewModalId, setReviewModalId] = useState<string | null>(null);
@@ -715,23 +123,41 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   });
   const [rejectionReason, setRejectionReason] = useState('');
   const [deleteProfileModalOpen, setDeleteProfileModalOpen] = useState(false);
-  const [accountProfile, setAccountProfile] = useState({
+  const [accountProfile, setAccountProfile] = useState<EmployerAccountForm>({
     company: companyName,
-    industry: 'Enter industry',
-    size: 'Enter company size',
-    location: 'Enter company location',
-    website: 'Enter website',
-    about: 'Enter a short company description',
+    industry: '',
+    size: '',
+    location: '',
+    website: '',
+    about: '',
     contactPerson: contactName,
-    contactRole: 'Enter contact role',
+    contactRole: '',
     contactEmail: employer.email,
-    contactNumber: 'Enter contact number',
+    contactNumber: '',
   });
   const [isSavingAccount, setIsSavingAccount] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const toastTimerRef = useRef<number | null>(null);
 
   const unreadCount = useMemo(() => notifications.filter((item) => item.unread).length, [notifications]);
+
+  const showToast = (message: string, type: ToastType = '') => {
+    if (!message) return;
+    setToast({ message, type });
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const goPage = useCallback((page: EmployerPage) => {
+    if (EMPLOYER_PAGE_PATHS[page] !== location.pathname) navigate(EMPLOYER_PAGE_PATHS[page]);
+    window.scrollTo({ top: 0 });
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentDate(todayIso()), 60_000);
@@ -765,7 +191,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     return () => { isMounted = false; };
   }, [employer.id]);
 
-  const saveCompanyProfile = async () => {
+  // Company and contact details save together; the API accepts both in one PATCH.
+  const saveAccountProfile = async () => {
     if (!accountProfile.company.trim()) {
       showToast('Company name is required.', 'warn');
       return;
@@ -779,20 +206,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         company_location: accountProfile.location,
         company_website: accountProfile.website,
         company_description: accountProfile.about,
-      });
-      setCompanyName(saved.company_name || accountProfile.company.trim());
-      showToast('Company profile saved to Supabase.', 'success');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to save company profile.', 'danger');
-    } finally {
-      setIsSavingAccount(false);
-    }
-  };
-
-  const saveContactDetails = async () => {
-    setIsSavingAccount(true);
-    try {
-      await saveEmployerAccountSettings({
         contact_person_name: accountProfile.contactPerson,
         contact_role: accountProfile.contactRole,
         business_email: accountProfile.contactEmail,
@@ -801,9 +214,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         last_name: accountProfile.contactPerson.trim().split(/\s+/).slice(1).join(' '),
         contact_number: accountProfile.contactNumber,
       });
-      showToast('Contact details saved to Supabase.', 'success');
+      setCompanyName(saved.company_name || accountProfile.company.trim());
+      showToast('Company profile saved.', 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to save contact details.', 'danger');
+      showToast(error instanceof Error ? error.message : 'Unable to save company profile.', 'danger');
     } finally {
       setIsSavingAccount(false);
     }
@@ -825,7 +239,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       const { error } = await supabase.auth.updateUser({ password: passwordForm.next });
       if (error) throw error;
       setPasswordForm({ current: '', next: '', confirm: '' });
-      showToast('Password updated in Supabase Auth.', 'success');
+      showToast('Password updated.', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to update password.', 'danger');
     } finally {
@@ -833,66 +247,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     }
   };
 
-  const allApplicationsCount = applications.length;
-  const openJobsCount = jobs.filter((job) => job.status === 'open').length;
-  const topMatchesCount = applications.filter((candidate) => candidate.matchPercent >= 90).length;
-  const interviewingCount = applications.filter((candidate) => candidate.status === 'Interviewing').length;
-
   const jobMap = useMemo(() => new Map(jobs.map((job) => [job.id, job])), [jobs]);
 
-  const topAlerts = useMemo(() => {
-    const strong = applications
-      .filter((candidate) => candidate.matchPercent >= 90 && candidate.status !== 'Withdrawn')
-      .slice(0, 3);
-    const withdrawn = applications.find((candidate) => candidate.status === 'Withdrawn');
-    const rows: Array<{ id: string; type: 'match' | 'warn'; title: string; desc: string; meta: string }> = strong.map((candidate) => ({
-      id: `${candidate.id}-alert`,
-      type: 'match',
-      title: `${candidate.publicId || 'Candidate'} - ${scoreLabel(candidate.hasMatchScore ? candidate.matchPercent : null)} match for ${candidate.role}`,
-      desc: candidate.matchSummary,
-      meta: `Applied ${formatDateLabel(candidate.appliedDate)} · Top Match category`,
-    }));
-    if (withdrawn) {
-      rows.push({
-        id: `${withdrawn.id}-withdrawn`,
-        type: 'warn',
-        title: `${withdrawn.publicId || 'Candidate'} withdrew their application`,
-        desc: `The candidate withdrew from ${withdrawn.role}. This record is now closed and read-only.`,
-        meta: `Applied ${formatDateLabel(withdrawn.appliedDate)} · Currently withdrawn`,
-      });
-    }
-    return rows;
-  }, [applications]);
-
-  const jobPostingSummary = useMemo(() => {
-    return jobs
-      .filter((job) => job.status === 'open')
-      .map((job) => ({
-        ...job,
-        applicantCount: applications.filter((candidate) => candidate.jobId === job.id).length,
-      }));
-  }, [applications, jobs]);
-
-  const filteredJobs = useMemo(() => {
-    const query = jobSearch.trim().toLowerCase();
-    return jobs.filter((job) => {
-      if (jobStatusFilter !== 'all' && job.status !== jobStatusFilter) return false;
-      if (!query) return true;
-      return `${job.title} ${job.subcategory} ${job.city} ${job.province}`.toLowerCase().includes(query);
-    });
-  }, [jobSearch, jobStatusFilter, jobs]);
-
-  useEffect(() => {
-    if (jobsPanelMode !== 'detail') return;
-    if (!selectedJobId || !filteredJobs.some((job) => job.id === selectedJobId)) {
-      setSelectedJobId(filteredJobs[0]?.id || '');
-    }
-  }, [filteredJobs, jobsPanelMode, selectedJobId]);
-
-  const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) || null, [jobs, selectedJobId]);
-
   const jobStats = useMemo(() => {
-    return new Map(
+    return new Map<string, JobStats>(
       jobs.map((job) => {
         const candidates = applications.filter((candidate) => candidate.jobId === job.id);
         const top = candidates.filter((candidate) => candidate.matchPercent >= 90).length;
@@ -904,50 +262,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       }),
     );
   }, [applications, jobs]);
-
-  const filteredCandidates = useMemo(() => {
-    const query = candidateSearch.trim().toLowerCase();
-    return applications.filter((candidate) => {
-      if (candidateFilter !== 'all' && statusToFilter(candidate.status) !== candidateFilter) return false;
-      if (candidateJobFilter && candidate.jobId !== candidateJobFilter) return false;
-      if (!query) return true;
-      const searchCorpus = [
-        candidate.id,
-        candidate.fullName,
-        candidate.role,
-        candidate.status,
-        matchBucketLabel(getMatchBucket(candidate.matchPercent, candidate.hasMatchScore)),
-        ...candidate.matchedSkills,
-        ...candidate.missingSkills,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return searchCorpus.includes(query);
-    });
-  }, [applications, candidateFilter, candidateJobFilter, candidateSearch]);
-
-  const activeCandidates = useMemo(
-    () => filteredCandidates.filter((candidate) => ['Pending', 'Shortlisted', 'Interviewing'].includes(candidate.status)),
-    [filteredCandidates],
-  );
-
-  const hiredCandidates = useMemo(
-    () => filteredCandidates.filter((candidate) => candidate.status === 'Hired'),
-    [filteredCandidates],
-  );
-
-  const closedCandidates = useMemo(
-    () => filteredCandidates.filter((candidate) => candidate.status === 'Rejected' || candidate.status === 'Withdrawn'),
-    [filteredCandidates],
-  );
-
-  const groupedCandidates = useMemo(() => {
-    const top = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) === 'top');
-    const good = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) === 'good');
-    const partial = activeCandidates.filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) === 'partial');
-    const unknown = activeCandidates.filter((candidate) => !candidate.hasMatchScore);
-    return { top, good, partial, unknown };
-  }, [activeCandidates]);
 
   const messageThreads = useMemo(() => {
     return applications.filter(
@@ -961,58 +275,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     );
   }, [applications, draftRequestCandidateId]);
 
-  const filteredMessageThreads = useMemo(() => {
-    const query = messageSearch.trim().toLowerCase();
-    if (!query) return messageThreads;
-
-    return messageThreads.filter((candidate) => {
-      const corpus = [
-        candidate.id,
-        shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName),
-        candidate.role,
-        candidate.status,
-        candidate.messageRequestState === 'accepted' ? 'accepted' : 'request pending',
-      ]
-        .join(' ')
-        .toLowerCase();
-      return corpus.includes(query);
-    });
-  }, [messageSearch, messageThreads]);
-
-  useEffect(() => {
-    if (filteredMessageThreads.length === 0) {
-      setSelectedThreadId('');
-      return;
-    }
-    if (!selectedThreadId || !filteredMessageThreads.some((candidate) => candidate.id === selectedThreadId)) {
-      setSelectedThreadId(filteredMessageThreads[0].id);
-    }
-  }, [filteredMessageThreads, selectedThreadId]);
-
-  const selectedThreadCandidate = filteredMessageThreads.find((candidate) => candidate.id === selectedThreadId) || null;
+  // Desktop shows the first conversation until another is picked.
+  const selectedThreadCandidate = messageThreads.find((candidate) => candidate.id === selectedThreadId) || (isDesktop ? messageThreads[0] || null : null);
   const isDraftRequestThread = Boolean(selectedThreadCandidate && selectedThreadCandidate.id === draftRequestCandidateId && selectedThreadCandidate.messageRequestState === 'none');
   const canSendMessage = selectedThreadCandidate?.messageRequestState === 'accepted' || isDraftRequestThread;
 
   const reviewCandidate = applications.find((candidate) => candidate.id === reviewModalId) || null;
   const reviewJob = reviewCandidate ? jobMap.get(reviewCandidate.jobId) || null : null;
-
-  const closePanels = () => {
-    setNotifOpen(false);
-    setProfileOpen(false);
-  };
-
-  const showToast = (message: string, type: ToastType = '') => {
-    if (!message) return;
-    setToast({ message, type });
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 3600);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -1028,7 +297,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
       if (profileError) {
         console.warn('Unable to load employer profile:', profileError);
-        if (isMounted) { setJobsLoadStatus('error'); showToast('Unable to load employer profile from Supabase.', 'warn'); }
+        if (isMounted) { setJobsLoadStatus('error'); showToast('Unable to load your employer profile.', 'warn'); }
         return;
       }
 
@@ -1044,7 +313,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
       if (error) {
         console.warn('Unable to load employer job posts:', error);
-        if (isMounted) { setJobsLoadStatus('error'); showToast('Unable to load saved job posts from Supabase.', 'warn'); }
+        if (isMounted) { setJobsLoadStatus('error'); showToast('Unable to load your saved jobs.', 'warn'); }
         return;
       }
 
@@ -1063,7 +332,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       const savedJobs = Array.isArray(data) ? (data as EmployerJobPostRow[]).map(toEmployerJob) : [];
       setJobs(savedJobs);
       setJobsLoadStatus('ready');
-      setSelectedJobId(savedJobs[0]?.id || '');
     };
 
     void loadEmployerJobs();
@@ -1102,7 +370,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
       if (error) {
         console.warn('Unable to load job applications:', error);
-        if (isMounted) { setApplicationsLoadStatus('error'); showToast('Unable to load applicants from Supabase.', 'warn'); }
+        if (isMounted) { setApplicationsLoadStatus('error'); showToast('Unable to load applicants.', 'warn'); }
         return;
       }
 
@@ -1147,14 +415,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const markNotificationsRead = () => {
     setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
-    showToast('All notifications marked as read.', 'success');
-  };
-
-  const goPage = (page: EmployerPage) => {
-    setActivePage(page);
-    if (typeof window !== 'undefined' && window.innerWidth < 900) {
-      setSidebarCollapsed(true);
-    }
   };
 
   const toFormLocation = (job: EmployerJob) => `${job.city}${job.province ? `, ${job.province}` : ''}`;
@@ -1172,6 +432,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const startNewJobForm = () => {
     setJobsPanelMode('new');
     setJobForm(emptyJobForm);
+    setJobFormError('');
     setRequiredSkillsDraft([]);
     setNiceSkillsDraft([]);
     setRequiredSkillInput('');
@@ -1181,6 +442,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const startEditJobForm = (job: EmployerJob) => {
     setSelectedJobId(job.id);
     setJobsPanelMode('edit');
+    setJobFormError('');
     setJobForm({
       title: job.title,
       category: job.category,
@@ -1203,9 +465,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const cancelJobPanel = () => {
     setJobsPanelMode('detail');
-    if (!selectedJobId && filteredJobs[0]) {
-      setSelectedJobId(filteredJobs[0].id);
-    }
+    setJobFormError('');
   };
 
   const updateJobForm = <K extends keyof JobFormState>(field: K, value: JobFormState[K]) => {
@@ -1214,6 +474,11 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       return;
     }
     setJobForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const setSkillInput = (kind: 'required' | 'nice', value: string) => {
+    if (kind === 'required') setRequiredSkillInput(value);
+    else setNiceSkillInput(value);
   };
 
   const addSkillDraft = (kind: 'required' | 'nice') => {
@@ -1233,7 +498,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       const existing = new Set(requiredSkillsDraft.map((skill) => skill.toLowerCase()));
       const nextSkills = uniqueValues.filter((skill) => !existing.has(skill.toLowerCase()));
       if (nextSkills.length === 0) {
-        showToast('Required skill already added.', 'warn');
+        setJobFormError('That required skill is already added.');
         return;
       }
       setRequiredSkillsDraft((current) => [...current, ...nextSkills]);
@@ -1244,7 +509,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     const existing = new Set(niceSkillsDraft.map((skill) => skill.toLowerCase()));
     const nextSkills = uniqueValues.filter((skill) => !existing.has(skill.toLowerCase()));
     if (nextSkills.length === 0) {
-      showToast('Nice-to-have skill already added.', 'warn');
+      setJobFormError('That nice-to-have skill is already added.');
       return;
     }
     setNiceSkillsDraft((current) => [...current, ...nextSkills]);
@@ -1260,34 +525,35 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   };
 
   const validateJobForm = (): string | null => {
-    if (!jobForm.title.trim()) return 'Job Title is required.';
-    if (!jobForm.category.trim()) return 'Job Category is required.';
-    if (!jobForm.subcategory.trim()) return 'Subcategory is required.';
-    if (!jobForm.experienceLevel.trim()) return 'Experience Level is required.';
-    if (!jobForm.description.trim()) return 'Job Description is required.';
+    if (!jobForm.title.trim()) return 'Add a job title.';
+    if (!jobForm.category.trim()) return 'Choose a category.';
+    if (!jobForm.subcategory.trim()) return 'Choose a sub-category.';
+    if (!jobForm.experienceLevel.trim()) return 'Choose an experience level.';
+    if (!jobForm.workSetup.trim()) return 'Choose a work setup.';
+    if (!jobForm.location.trim()) return 'Add a location.';
+    if (!jobForm.deadline.trim()) return 'Set an application deadline.';
+    if (!jobForm.salaryRange.trim()) return 'Add a salary range.';
+    const { minimum: minimumSalary, maximum: maximumSalary } = getSalaryAmounts(jobForm.salaryRange);
+    if (!minimumSalary || !maximumSalary) return 'Enter both a minimum and a maximum salary.';
+    if (minimumSalary < MIN_EMPLOYER_SALARY) return `The minimum salary must be at least ₱${MIN_EMPLOYER_SALARY.toLocaleString('en-PH')}.`;
+    if (maximumSalary < minimumSalary) return 'The maximum salary must be at least the minimum.';
+    if (!jobForm.description.trim()) return 'Add a short description of the role.';
     if (!jobForm.responsibilities.trim()) return 'Add at least one responsibility.';
     if (requiredSkillsDraft.length === 0) return 'Add at least one required skill.';
-    if (!jobForm.workSetup.trim()) return 'Work Setup is required.';
-    if (!jobForm.location.trim()) return 'Location is required.';
-    if (!jobForm.salaryRange.trim()) return 'Salary Range is required.';
-    const { minimum: minimumSalary, maximum: maximumSalary } = getSalaryAmounts(jobForm.salaryRange);
-    if (!minimumSalary || !maximumSalary) return 'Enter a complete salary range.';
-    if (minimumSalary < MIN_EMPLOYER_SALARY) return 'Minimum salary must be at least ₱10,000.';
-    if (maximumSalary < minimumSalary) return 'Maximum salary must be greater than or equal to the minimum salary.';
-    if (!jobForm.deadline.trim()) return 'Application Deadline is required.';
     return null;
   };
 
   const saveJobForm = async (mode: 'draft' | 'post') => {
     const error = validateJobForm();
     if (error) {
-      showToast(error, 'warn');
+      setJobFormError(error);
       return;
     }
     if (!employerProfileId) {
-      showToast('Employer profile is still loading. Please try again in a moment.', 'warn');
+      setJobFormError('Your employer profile is still loading. Try again in a moment.');
       return;
     }
+    setJobFormError('');
     setIsSavingJob(true);
     const status: JobStatus = mode === 'draft' ? 'draft' : jobForm.status === 'closed' ? 'closed' : 'open';
     const { city, province } = parseFormLocation(jobForm.location);
@@ -1354,7 +620,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
     if (saveError) {
       console.warn('Unable to save job post:', saveError);
-      showToast('Unable to save job post to Supabase. Please try again.', 'danger');
+      setJobFormError("The job couldn't be saved. Please try again.");
       setIsSavingJob(false);
       return;
     }
@@ -1372,12 +638,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
             : job,
         ),
       );
-      showToast(mode === 'draft' ? 'Job draft saved.' : 'Job posting updated.', 'success');
+      showToast(mode === 'draft' ? 'Draft saved.' : 'Job updated.', 'success');
     } else {
       const newJob: EmployerJob = { ...savedJob, deadline: jobForm.deadline };
       setJobs((current) => [newJob, ...current]);
       setSelectedJobId(newJob.id);
-      showToast(mode === 'draft' ? 'Job saved as draft.' : 'Job posted successfully.', 'success');
+      showToast(mode === 'draft' ? 'Saved as a draft.' : 'Job posted.', 'success');
+      goPage('jobs');
     }
     setIsSavingJob(false);
     setJobsPanelMode('detail');
@@ -1392,7 +659,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       return;
     }
     setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, status: 'closed' } : job)));
-    showToast('Job closed.', 'warn');
+    showToast('Job closed. It no longer takes applications.', 'success');
   };
 
   const openReview = (candidateId: string) => {
@@ -1436,6 +703,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       return;
     }
 
+    const label = applications.find((candidate) => candidate.id === confirmModal.candidateId)?.publicId || 'Applicant';
     setApplications((current) =>
       current.map((candidate) =>
         candidate.id === confirmModal.candidateId && !['Hired', 'Rejected', 'Withdrawn'].includes(candidate.status)
@@ -1447,12 +715,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       ),
     );
     if (nextStatus === 'Interviewing') {
-      showToast(`${confirmModal.candidateId} moved to Interviewing. Message requests are now available.`, 'success');
+      showToast(`${label} moved to Interviewing. You can now send a message request.`, 'success');
     } else {
-      showToast(`${confirmModal.candidateId} moved to ${nextStatus}.`, 'success');
+      showToast(`${label} moved to ${nextStatus}.`, 'success');
     }
     closeConfirm();
-    closeReview();
+    // Keep the review open after Interviewing so the message request is one tap away.
+    if (nextStatus !== 'Interviewing') closeReview();
   };
 
   const sendMessageRequest = (candidateId: string) => {
@@ -1463,14 +732,14 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     }
     setDraftRequestCandidateId(candidateId);
     setMessageDraft(`Hi ${candidate.fullName}, we'd like to coordinate next steps for your ${candidate.role} application.`);
-    goPage('messages');
     setSelectedThreadId(candidateId);
     closeReview();
-    showToast('Customize your message request, then press Send.', 'success');
+    goPage('messages');
   };
 
   const selectThreadFromCandidates = (candidateId: string) => {
     const threadExists = messageThreads.some((candidate) => candidate.id === candidateId);
+    closeReview();
     goPage('messages');
     if (threadExists) {
       setSelectedThreadId(candidateId);
@@ -1489,7 +758,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       savedMessage = await sendApplicationMessage({ applicationId: selectedThreadCandidate.id, text, kind: isRequest ? 'request' : 'message' });
     } catch (messageError) {
       console.warn('Unable to save message:', messageError);
-      showToast(messageError instanceof Error ? messageError.message : 'Unable to save message request. Please try again.', 'danger');
+      showToast(messageError instanceof Error ? messageError.message : 'Unable to send the message request. Please try again.', 'danger');
       return;
     }
 
@@ -1533,6 +802,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         },
         ...current,
       ]);
+      showToast('Message request sent.', 'success');
     }
     setMessageDraft('');
   };
@@ -1545,8 +815,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   };
 
   const handleLogout = () => {
-    setNotifOpen(false);
-    setProfileOpen(false);
     setReviewModalId(null);
     setConfirmModal({ open: false, action: null, candidateId: null });
     if (onLogout) {
@@ -1556,1016 +824,203 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     onHome();
   };
 
-  const filteredJobsForRole = useMemo(() => jobs.filter((job) => job.status !== 'closed'), [jobs]);
-  const selectedJobStats = selectedJob ? jobStats.get(selectedJob.id) || { applications: 0, top: 0, good: 0, partial: 0 } : null;
+  const openJob = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setJobDetailOpen(true);
+    goPage('jobs');
+  };
+
+  const postJob = () => {
+    startNewJobForm();
+  };
+
+  const viewApplicants = (jobId: string) => {
+    setCandidateJobFilter(jobId);
+    setJobDetailOpen(false);
+    goPage('candidates');
+  };
+
+  // Home: the few things worth doing next, most urgent first.
+  const isLoadingJobs = jobsLoadStatus === 'loading';
+  const isLoadingApplicants = applicationsLoadStatus === 'loading';
+  const pendingApplicants = applications.filter((candidate) => candidate.status === 'Pending');
+  const awaitingRequest = applications.find((candidate) => candidate.status === 'Interviewing' && candidate.messageRequestState === 'none');
+  const closingSoon = jobs.find((job) => {
+    const days = job.status === 'open' ? daysUntil(job.deadline, currentDate) : null;
+    return days !== null && days >= 0 && days <= 3;
+  });
+  const draftJob = jobs.find((job) => job.status === 'draft');
+  const openJobsList = jobs
+    .filter((job) => job.status === 'open')
+    .map((job) => ({ ...job, applicantCount: jobStats.get(job.id)?.applications || 0 }));
+  const closingDays = closingSoon ? daysUntil(closingSoon.deadline, currentDate) : null;
+  const nextSteps: NextStep[] = [
+    ...(!isLoadingJobs && jobs.length === 0 ? [{ id: 'first-job', title: 'Post your first job', detail: 'Kareerly matches applicants to your required skills as soon as it is live.', actionLabel: 'Post a job', onAction: postJob }] : []),
+    ...(pendingApplicants.length > 0 ? [{ id: 'pending', title: `Review ${pendingApplicants.length} new applicant${pendingApplicants.length === 1 ? '' : 's'}`, detail: 'Shortlist, interview or decline to keep candidates informed.', actionLabel: 'Review applicants', onAction: () => goPage('candidates') }] : []),
+    ...(awaitingRequest ? [{ id: 'request', title: `Message ${awaitingRequest.publicId || 'your interviewing candidate'}`, detail: `Interviewing for ${awaitingRequest.role}. Send a message request to set up next steps.`, actionLabel: 'Open applicant', onAction: () => openReview(awaitingRequest.id) }] : []),
+    ...(closingSoon ? [{ id: 'closing', title: `${closingSoon.title} ${closingDays === 0 ? 'closes today' : `closes in ${closingDays} day${closingDays === 1 ? '' : 's'}`}`, detail: 'Extend the deadline if you need more applicants.', actionLabel: 'Edit job', onAction: () => startEditJobForm(closingSoon) }] : []),
+    ...(draftJob ? [{ id: 'draft', title: `Finish your draft: ${draftJob.title}`, detail: 'Drafts are hidden from candidates until you post them.', actionLabel: 'Continue editing', onAction: () => startEditJobForm(draftJob) }] : []),
+  ];
+  const topApplicants = applications
+    .filter((candidate) => candidate.status === 'Pending' || candidate.status === 'Shortlisted' || candidate.status === 'Interviewing')
+    .filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) !== 'unknown')
+    .sort((left, right) => right.matchPercent - left.matchPercent)
+    .slice(0, 4);
+  const pipeline = (['Pending', 'Shortlisted', 'Interviewing', 'Hired'] as CandidateStatus[]).map((status) => ({
+    label: status,
+    count: applications.filter((candidate) => candidate.status === status).length,
+  }));
+  const requestAwaiting = messageThreads.filter((candidate) => candidate.messageRequestState === 'pending').length;
+
+  const confirmCandidate = confirmModal.candidateId ? applications.find((candidate) => candidate.id === confirmModal.candidateId) : null;
 
   return (
-    <div className="emp-dashboard">
-      <header className="emp-topbar">
-        <div className="emp-topbar-left">
-          <button className="emp-menu-toggle" type="button" onClick={() => setSidebarCollapsed((value) => !value)}>
-            <UIIcon name="menu" className="emp-icon-lg" />
-          </button>
-          <div className="emp-logo-wrap">
-            <Logo size="module" onClick={() => goPage('dashboard')} />
-            <span className="emp-logo-suffix">Employer</span>
-          </div>
-        </div>
-        <div className="emp-topbar-right">
-          <div className="emp-greeting">
-            Good day, <strong>{companyName}</strong>
-          </div>
-          <div className="emp-notif-wrap">
-            <button
-              className="emp-notif-btn"
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setNotifOpen((value) => !value);
-                setProfileOpen(false);
-              }}
-            >
-              <UIIcon name="bell" className="emp-icon-lg" />
-              {unreadCount > 0 && <span className="emp-notif-badge">{unreadCount}</span>}
-            </button>
-            {notifOpen && (
-              <div className="emp-notif-dropdown" onClick={(event) => event.stopPropagation()}>
-                <div className="emp-notif-header">
-                  <strong>Notifications</strong>
-                  <button className="emp-notif-mark" type="button" onClick={markNotificationsRead}>
-                    Mark all read
-                  </button>
-                </div>
-                {notifications.map((item) => (
-                  <div key={item.id} className={`emp-notif-item ${item.unread ? 'unread' : ''}`}>
-                    <div className={`emp-notif-icon ${item.type}`}>
-                      <UIIcon
-                        name={
-                          item.type === 'match'
-                            ? 'star'
-                            : item.type === 'app'
-                              ? 'layers'
-                              : item.type === 'msg'
-                                ? 'envelope'
-                                : item.type === 'warn'
-                                  ? 'times-circle'
-                                  : 'briefcase'
-                        }
-                      />
-                    </div>
-                    <div>
-                      <div className="emp-notif-text">
-                        <strong>{item.title}</strong>
-                        {item.message}
-                      </div>
-                      <div className="emp-notif-time">{item.time}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="emp-profile-wrap">
-            <button
-              className="emp-profile-trigger"
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setProfileOpen((value) => !value);
-                setNotifOpen(false);
-              }}
-            >
-              <div className="emp-avatar">{companyInitials}</div>
-              <UIIcon name="chevron-down" className="emp-icon-sm text-soft" />
-            </button>
-            {profileOpen && (
-              <div className="emp-profile-dropdown" onClick={(event) => event.stopPropagation()}>
-                <div className="emp-profile-header">
-                  <div className="text-[13px] font-bold text-dark">{companyName}</div>
-                  <div className="text-[11px] text-soft">{employer.email}</div>
-                </div>
-                <button
-                  className="emp-profile-item"
-                  type="button"
-                  onClick={() => {
-                    goPage('account');
-                    setProfileOpen(false);
-                  }}
-                >
-                  <UIIcon name="building" />
-                  Account Settings
-                </button>
-                <hr className="emp-divider" />
-                <button
-                  className="emp-profile-item danger"
-                  type="button"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    handleLogout();
-                  }}
-                >
-                  <UIIcon name="logout" />
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+    <AppShell
+      onHome={() => goPage('dashboard')}
+      workspaceLabel="Employer"
+      nav={[
+        { id: 'dashboard', href: EMPLOYER_PAGE_PATHS.dashboard, label: 'Home', icon: faHouse, current: activePage === 'dashboard', onSelect: () => goPage('dashboard') },
+        { id: 'jobs', href: EMPLOYER_PAGE_PATHS.jobs, label: 'Jobs', icon: faBriefcase, current: activePage === 'jobs', onSelect: () => goPage('jobs') },
+        {
+          id: 'candidates',
+          href: EMPLOYER_PAGE_PATHS.candidates,
+          label: 'Candidates',
+          icon: faUsers,
+          current: activePage === 'candidates',
+          onSelect: () => goPage('candidates'),
+          badge: pendingApplicants.length,
+          badgeLabel: (count) => `${count} new applicant${count === 1 ? '' : 's'}`,
+        },
+        {
+          id: 'messages',
+          href: EMPLOYER_PAGE_PATHS.messages,
+          label: 'Messages',
+          icon: faComments,
+          current: activePage === 'messages',
+          onSelect: () => goPage('messages'),
+          badge: requestAwaiting,
+          badgeLabel: (count) => `${count} request${count === 1 ? '' : 's'} awaiting a reply`,
+        },
+      ]}
+      sidebarAction={{ label: 'Post a job', icon: faPlus, href: EMPLOYER_PAGE_PATHS.jobs, current: jobsPanelMode === 'new', onSelect: postJob }}
+      notifications={{
+        items: notifications.map((item) => ({
+          id: item.id,
+          title: item.title,
+          message: item.message,
+          time: item.time,
+          unread: item.unread,
+          icon: notificationIcon[item.type],
+          onOpen: () => goPage(item.type === 'msg' ? 'messages' : item.type === 'job' ? 'jobs' : 'candidates'),
+          onMarkRead: () => setNotifications((current) => current.map((row) => (row.id === item.id ? { ...row, unread: false } : row))),
+        })),
+        status: 'ready',
+        unreadCount,
+        onMarkAllRead: markNotificationsRead,
+      }}
+      account={{
+        name: companyName,
+        email: employer.email,
+        initials: getInitials(companyName),
+        items: [{ label: 'Company profile', icon: faBuilding, onSelect: () => goPage('account') }],
+        onLogout: handleLogout,
+      }}
+    >
+      {activePage === 'dashboard' && (
+        <EmployerHomePage
+          isLoading={isLoadingJobs || isLoadingApplicants}
+          nextSteps={nextSteps}
+          pipeline={pipeline}
+          topApplicants={topApplicants}
+          openJobs={openJobsList}
+          onReview={openReview}
+          onOpenCandidates={() => goPage('candidates')}
+          onOpenJobs={() => goPage('jobs')}
+          onOpenJob={openJob}
+          onPostJob={postJob}
+        />
+      )}
 
-      <div className={`emp-main ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`} onClick={closePanels}>
-        <aside className={`emp-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} onClick={(event) => event.stopPropagation()}>
-          <div className="emp-sidebar-inner">
-            <div className="emp-sidebar-title">Recruitment</div>
-            <SidebarItem icon="dashboard" active={activePage === 'dashboard'} onClick={() => goPage('dashboard')}>
-              Dashboard
-            </SidebarItem>
-            <SidebarItem icon="briefcase" active={activePage === 'jobs'} onClick={() => goPage('jobs')}>
-              Manage Jobs
-            </SidebarItem>
-            <SidebarItem icon="users" active={activePage === 'candidates'} onClick={() => goPage('candidates')}>
-              Candidates
-            </SidebarItem>
-            <button className={`emp-nav-item ${activePage === 'messages' ? 'active' : ''}`} type="button" onClick={() => goPage('messages')}>
-              <UIIcon name="messages" />
-              Messages
-              {messageThreads.length > 0 && <span className="emp-nav-badge">{messageThreads.length}</span>}
-            </button>
-            <div className="emp-sidebar-title">Settings</div>
-            <SidebarItem icon="building" active={activePage === 'account'} onClick={() => goPage('account')}>
-              Account Settings
-            </SidebarItem>
-          </div>
-          <div className="emp-sidebar-bottom">
-            <button className="emp-profile-card" type="button" onClick={() => goPage('account')}>
-              <div className="emp-profile-card-avatar">{companyInitials}</div>
-              <div>
-                <div className="text-[13px] font-bold text-dark">{companyName}</div>
-                <div className="text-[11px] text-soft">
-                  <UIIcon name="map-pin" className="emp-icon-sm mr-1" />
-                  {accountProfile.location}
-                </div>
-              </div>
-              <UIIcon name="cog" className="ml-auto text-soft" />
-            </button>
-          </div>
-        </aside>
+      {activePage === 'jobs' && (
+        <EmployerJobsPage
+          jobs={jobs}
+          jobStats={jobStats}
+          isLoading={isLoadingJobs}
+          isDesktop={isDesktop}
+          selectedJobId={selectedJobId}
+          detailOpen={jobDetailOpen}
+          onSelect={(jobId) => { setSelectedJobId(jobId); setJobDetailOpen(true); }}
+          onCloseDetail={() => setJobDetailOpen(false)}
+          onPostJob={postJob}
+          onEdit={startEditJobForm}
+          onViewApplicants={viewApplicants}
+          onCloseJob={setCloseJobTarget}
+        />
+      )}
 
-        <main className={`emp-content ${sidebarCollapsed ? 'expanded' : ''}`}>
-          {activePage === 'dashboard' && (
-            <div>
-              <div className="emp-page-header">
-                <h1 className="emp-page-title">Recruitment Overview</h1>
-                <p className="emp-page-subtitle">Your hiring activity, top matches, and pending actions</p>
-              </div>
+      {activePage === 'candidates' && (
+        <EmployerCandidatesPage
+          applications={applications}
+          jobs={jobs}
+          isLoading={isLoadingJobs || isLoadingApplicants}
+          loadFailed={applicationsLoadStatus === 'error'}
+          jobFilter={candidateJobFilter}
+          onJobFilter={setCandidateJobFilter}
+          onReview={openReview}
+          onOpenJobs={() => goPage('jobs')}
+        />
+      )}
 
-              <div className="emp-metrics-grid">
-                <MetricCard icon="layers" iconClass="rust" number={applicationsLoadStatus === 'ready' ? allApplicationsCount : '—'} label="Total Applications" numberClass="rust" />
-                <MetricCard icon="briefcase" iconClass="forest" number={jobsLoadStatus === 'ready' ? openJobsCount : '—'} label="Open Jobs" numberClass="forest" />
-                <MetricCard icon="star" iconClass="green" number={applicationsLoadStatus === 'ready' ? topMatchesCount : '—'} label="Top Matches (90%+)" numberClass="green" />
-                <MetricCard icon="calendar-check" iconClass="mauve" number={applicationsLoadStatus === 'ready' ? interviewingCount : '—'} label="Interviewing" numberClass="mauve" />
-              </div>
+      {activePage === 'messages' && (
+        <EmployerMessagesPage
+          threads={messageThreads}
+          selected={selectedThreadCandidate}
+          draftRequestId={draftRequestCandidateId}
+          companyName={companyName}
+          draft={messageDraft}
+          canSend={canSendMessage}
+          isDesktop={isDesktop}
+          onSelect={setSelectedThreadId}
+          onDraftChange={setMessageDraft}
+          onSend={() => void sendMessage()}
+          onBlock={() => showToast('Block action recorded.', 'warn')}
+          onReport={() => showToast('Report submitted.', 'warn')}
+          onOpenCandidates={() => goPage('candidates')}
+        />
+      )}
 
-              <div className="emp-dashboard-grid">
-                <div>
-                  <div className="emp-section-box">
-                    <h2 className="emp-section-title">
-                      <UIIcon name="star" /> New Top Match Alerts
-                    </h2>
-                    {topAlerts.length > 0 ? (
-                      <>
-                        {topAlerts.map((alert) => (
-                          <div key={alert.id} className="emp-alert-item">
-                            <div className={`emp-alert-icon ${alert.type === 'warn' ? 'warn' : 'match'}`}>
-                              <UIIcon name={alert.type === 'warn' ? 'times-circle' : 'star'} />
-                            </div>
-                            <div>
-                              <div className="emp-alert-title">{alert.title}</div>
-                              <div className="emp-alert-desc">{alert.desc}</div>
-                              <div className="emp-alert-meta">{alert.meta}</div>
-                            </div>
-                          </div>
-                        ))}
-                        <button className="emp-btn-secondary w-full justify-center" type="button" onClick={() => goPage('candidates')}>
-                          Review All Applicants <UIIcon name="arrow-right" />
-                        </button>
-                      </>
-                    ) : (
-                      <div className="emp-empty">No top match alerts available.</div>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <div className="emp-section-box">
-                    <h2 className="emp-section-title">
-                      <UIIcon name="bolt" /> Quick Actions
-                    </h2>
-                    <div className="grid gap-2">
-                      <button
-                        className="emp-btn-primary w-full justify-center"
-                        type="button"
-                        onClick={() => {
-                          goPage('jobs');
-                          startNewJobForm();
-                        }}
-                      >
-                        <UIIcon name="plus" />
-                        Post New Job
-                      </button>
-                      <button className="emp-btn-secondary w-full justify-center" type="button" onClick={() => goPage('candidates')}>
-                        <UIIcon name="users" />
-                        Review Applicants
-                      </button>
-                      <button className="emp-btn-secondary w-full justify-center" type="button" onClick={() => goPage('messages')}>
-                        <UIIcon name="messages" />
-                        View Messages
-                      </button>
-                    </div>
-                  </div>
-                  <div className="emp-section-box">
-                    <h2 className="emp-section-title">
-                      <UIIcon name="briefcase" /> Job Posting Summary
-                    </h2>
-                    {jobPostingSummary.length > 0 ? (
-                      <>
-                        {jobPostingSummary.map((job) => (
-                          <div key={job.id} className="flex items-center justify-between border-b border-bdr py-2 last:border-b-0">
-                            <div>
-                              <div className="text-[13px] font-bold text-dark">{job.title}</div>
-                              <div className="text-[11px] text-soft">
-                                {applications.filter((candidate) => candidate.jobId === job.id).length} applications · Closes {formatDateLabel(job.deadline)}
-                              </div>
-                            </div>
-                            <span className={`emp-job-status ${job.status}`}>{job.status}</span>
-                          </div>
-                        ))}
-                        <button className="emp-btn-secondary mt-3 w-full justify-center" type="button" onClick={() => goPage('jobs')}>
-                          Manage Jobs <UIIcon name="arrow-right" />
-                        </button>
-                      </>
-                    ) : (
-                      <div className="emp-empty">No open jobs yet.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+      {activePage === 'account' && (
+        <EmployerAccountPage
+          profile={accountProfile}
+          password={passwordForm}
+          isSaving={isSavingAccount}
+          onProfileChange={setAccountProfile}
+          onSave={() => void saveAccountProfile()}
+          onPasswordChange={setPasswordForm}
+          onUpdatePassword={() => void updatePassword()}
+          onRequestDelete={() => setDeleteProfileModalOpen(true)}
+        />
+      )}
 
-          {activePage === 'jobs' && (
-            <div>
-              <div className="emp-page-header">
-                <h1 className="emp-page-title">Manage Jobs</h1>
-                <p className="emp-page-subtitle">Post, update, and review your job postings in one workspace</p>
-              </div>
-              <div className="emp-jobs-workspace">
-                <div className="emp-jobs-list-panel">
-                  <div className="emp-jobs-list-header">
-                    <div className="emp-jobs-search">
-                      <UIIcon name="search" className="emp-jobs-search-icon" />
-                      <input
-                        className="emp-input"
-                        value={jobSearch}
-                        placeholder="Search jobs..."
-                        onChange={(event) => setJobSearch(event.target.value)}
-                      />
-                    </div>
-                    <div className="emp-jobs-filter-row">
-                      <button className={`emp-jobs-chip ${jobStatusFilter === 'all' ? 'active' : ''}`} type="button" onClick={() => setJobStatusFilter('all')}>
-                        All
-                      </button>
-                      <button className={`emp-jobs-chip ${jobStatusFilter === 'open' ? 'active' : ''}`} type="button" onClick={() => setJobStatusFilter('open')}>
-                        Open
-                      </button>
-                      <button className={`emp-jobs-chip ${jobStatusFilter === 'draft' ? 'active' : ''}`} type="button" onClick={() => setJobStatusFilter('draft')}>
-                        Draft
-                      </button>
-                      <button className={`emp-jobs-chip ${jobStatusFilter === 'closed' ? 'active' : ''}`} type="button" onClick={() => setJobStatusFilter('closed')}>
-                        Closed
-                      </button>
-                    </div>
-                  </div>
-                  <div className="emp-job-list-body">
-                    {filteredJobs.length > 0 ? (
-                      filteredJobs.map((job) => {
-                        const stats = jobStats.get(job.id) || { applications: 0, top: 0, good: 0, partial: 0 };
-                        return (
-                          <button
-                            key={job.id}
-                            className={`emp-job-list-item ${selectedJobId === job.id && jobsPanelMode === 'detail' ? 'active' : ''}`}
-                            type="button"
-                            onClick={() => {
-                              setSelectedJobId(job.id);
-                              setJobsPanelMode('detail');
-                            }}
-                          >
-                            <div className="emp-job-list-top">
-                              <div className="emp-job-list-title">{job.title}</div>
-                              <span className={`emp-job-status ${job.status}`}>{job.status}</span>
-                            </div>
-                            <div className="emp-job-list-meta">
-                              <span>
-                                <UIIcon name="map-pin" className="emp-icon-sm" /> {job.city}, {job.province}
-                              </span>
-                              <span>
-                                <UIIcon name="clock" className="emp-icon-sm" /> Closes {formatDateLabel(job.deadline)}
-                              </span>
-                            </div>
-                            <div className="emp-job-list-stats">
-                              <span className="emp-job-list-stat">{stats.applications} applicants</span>
-                              <span className="emp-job-list-stat top">{stats.top} Top</span>
-                              <span className="emp-job-list-stat good">{stats.good} Good</span>
-                            </div>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="emp-empty">No jobs found for this filter.</div>
-                    )}
-                    <button className="emp-btn-primary emp-post-job-btn" type="button" onClick={startNewJobForm}>
-                      <UIIcon name="plus" />
-                      Post New Job
-                    </button>
-                  </div>
-                </div>
-
-                <div className="emp-jobs-detail-panel">
-                  {jobsPanelMode === 'detail' && selectedJob && selectedJobStats && (
-                    <div>
-                      <div className="emp-job-detail-header">
-                        <div>
-                          <div className="emp-job-detail-title">{selectedJob.title}</div>
-                          <div className="emp-job-detail-meta">
-                            <UIIcon name="tag" className="emp-icon-sm" /> {selectedJob.subcategory} ·{' '}
-                            <UIIcon name="map-pin" className="emp-icon-sm" /> {selectedJob.city}, {selectedJob.province} · {selectedJob.workSetup} ·{' '}
-                            <UIIcon name="calendar" className="emp-icon-sm" /> Closes {formatDateLabel(selectedJob.deadline)}
-                          </div>
-                        </div>
-                        <div className="emp-job-detail-actions">
-                          <span className={`emp-job-status ${selectedJob.status}`}>{selectedJob.status}</span>
-                          <button className="emp-btn-secondary" type="button" onClick={() => startEditJobForm(selectedJob)}>
-                            <UIIcon name="edit" />
-                            Edit
-                          </button>
-                          <button
-                            className="emp-btn-secondary"
-                            type="button"
-                            onClick={() => {
-                              setCandidateJobFilter(selectedJob.id);
-                              goPage('candidates');
-                            }}
-                          >
-                            <UIIcon name="users" />
-                            Applicants
-                          </button>
-                          <button
-                            className="emp-btn-secondary"
-                            type="button"
-                            onClick={() => closeJobPosting(selectedJob.id)}
-                            disabled={selectedJob.status === 'closed'}
-                            title={selectedJob.status === 'closed' ? 'This job is already closed.' : 'Close this job'}
-                          >
-                            <UIIcon name="times-circle" />
-                            Close
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="emp-job-detail-section-label">Applicant Summary</div>
-                      <div className="emp-job-detail-stats-row">
-                        <div className="emp-job-detail-stat">
-                          <div className="emp-job-detail-stat-num">{selectedJobStats.applications}</div>
-                          <div className="emp-job-detail-stat-label">Total</div>
-                        </div>
-                        <div className="emp-job-detail-stat">
-                          <div className="emp-job-detail-stat-num text-green">{selectedJobStats.top}</div>
-                          <div className="emp-job-detail-stat-label">Top 90%+</div>
-                        </div>
-                        <div className="emp-job-detail-stat">
-                          <div className="emp-job-detail-stat-num text-amber">{selectedJobStats.good}</div>
-                          <div className="emp-job-detail-stat-label">Good 75-89%</div>
-                        </div>
-                        <div className="emp-job-detail-stat">
-                          <div className="emp-job-detail-stat-num text-soft">{selectedJobStats.partial}</div>
-                          <div className="emp-job-detail-stat-label">Partial</div>
-                        </div>
-                      </div>
-
-                      <div className="emp-job-detail-section-label">Job Description</div>
-                      <div className="emp-job-detail-box emp-job-description">{formatJobDescription(selectedJob.description)}</div>
-
-                      <div className="emp-job-detail-section-label">Responsibilities</div>
-                      <div className="emp-job-detail-box emp-job-description">
-                        {selectedJob.responsibilities.length > 0
-                          ? selectedJob.responsibilities.map((item) => `• ${item}`).join('\n')
-                          : 'Responsibilities have not yet been provided.'}
-                      </div>
-
-                      <div className="emp-job-detail-section-label">Required Skills</div>
-                      <div className="emp-skill-chips">
-                        {selectedJob.requiredSkills.map((skill) => (
-                          <span key={`${selectedJob.id}-req-${skill}`} className="emp-skill-chip emp-skill-matched">
-                            {skill}
-                          </span>
-                        ))}
-                        {selectedJob.niceToHaveSkills.map((skill) => (
-                          <span key={`${selectedJob.id}-nice-${skill}`} className="emp-skill-chip emp-skill-missing">
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="emp-job-detail-section-label">Salary &amp; Setup</div>
-                      <div className="emp-job-detail-meta-row">
-                        <span>
-                          <UIIcon name="tag" className="emp-icon-sm" /> {selectedJob.salaryRange}
-                        </span>
-                        <span>
-                          <UIIcon name="calendar-check" className="emp-icon-sm" /> {selectedJob.experienceLevel}
-                        </span>
-                        <span>
-                          <UIIcon name="briefcase" className="emp-icon-sm" /> {selectedJob.workSetup}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {jobsPanelMode === 'detail' && !selectedJob && (
-                    <div className="emp-empty">
-                      Select a job from the left panel or click <strong>Post New Job</strong>.
-                    </div>
-                  )}
-
-                  {(jobsPanelMode === 'new' || jobsPanelMode === 'edit') && (
-                    <JobEditorPanel
-                      editing={jobsPanelMode === 'edit'}
-                      form={jobForm}
-                      requiredSkills={requiredSkillsDraft}
-                      niceSkills={niceSkillsDraft}
-                      requiredSkillInput={requiredSkillInput}
-                      niceSkillInput={niceSkillInput}
-                      onCancel={cancelJobPanel}
-                      onUpdateForm={updateJobForm}
-                      onRequiredInput={setRequiredSkillInput}
-                      onNiceInput={setNiceSkillInput}
-                      onAddRequired={() => addSkillDraft('required')}
-                      onAddNice={() => addSkillDraft('nice')}
-                      onRemoveRequired={(skill) => removeSkillDraft('required', skill)}
-                      onRemoveNice={(skill) => removeSkillDraft('nice', skill)}
-                      onSaveDraft={() => saveJobForm('draft')}
-                      onPost={() => saveJobForm('post')}
-                      saving={isSavingJob}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activePage === 'candidates' && (
-            <div>
-              <div className="emp-candidates-header">
-                <div>
-                  <h1 className="emp-page-title">Candidates</h1>
-                  <p className="emp-page-subtitle">Applicants from your job postings only — privacy-aware review</p>
-                </div>
-                <button className="emp-privacy-pill" type="button" onClick={() => setPrivacyAccordionOpen((value) => !value)}>
-                  <UIIcon name="shield" className="emp-icon-sm" />
-                  Privacy-aware review
-                  <UIIcon name="chevron-down" className={`emp-icon-sm ${privacyAccordionOpen ? 'rotate-180' : ''}`} />
-                </button>
-              </div>
-
-              {privacyAccordionOpen && (
-                <div className="emp-privacy-accordion">
-                  <div className="emp-privacy-rule"><UIIcon name="eye" /> Candidate identity is masked during Pending and Shortlisted.</div>
-                  <div className="emp-privacy-rule"><UIIcon name="check" /> Full profile details are revealed only at Interviewing, Hired, or Rejected.</div>
-                  <div className="emp-privacy-rule"><UIIcon name="times-circle" /> Withdrawn applications remain closed/read-only and cannot be reactivated, rejected, hired, or messaged.</div>
-                  <div className="emp-privacy-rule"><UIIcon name="ban" /> Global candidate search and cross-employer profile access are not permitted.</div>
-                </div>
-              )}
-
-              <div className="emp-candidate-search">
-                <UIIcon name="search" className="emp-candidate-search-icon" />
-                <input
-                  className="emp-input"
-                  value={candidateSearch}
-                  placeholder="Search candidate ID, role, skills, or match category..."
-                  onChange={(event) => setCandidateSearch(event.target.value)}
-                />
-              </div>
-
-              <div className="emp-candidate-toolbar">
-                <div className="emp-cand-tabs">
-                  <CandidateFilterTab active={candidateFilter === 'all'} onClick={() => setCandidateFilter('all')}>All</CandidateFilterTab>
-                  <CandidateFilterTab active={candidateFilter === 'pending'} onClick={() => setCandidateFilter('pending')}>Pending</CandidateFilterTab>
-                  <CandidateFilterTab active={candidateFilter === 'shortlisted'} onClick={() => setCandidateFilter('shortlisted')}>Shortlisted</CandidateFilterTab>
-                  <CandidateFilterTab active={candidateFilter === 'interviewing'} onClick={() => setCandidateFilter('interviewing')}>Interviewing</CandidateFilterTab>
-                  <CandidateFilterTab active={candidateFilter === 'hired'} onClick={() => setCandidateFilter('hired')}>Hired</CandidateFilterTab>
-                  <CandidateFilterTab active={candidateFilter === 'rejected'} onClick={() => setCandidateFilter('rejected')}>Rejected</CandidateFilterTab>
-                  <CandidateFilterTab active={candidateFilter === 'withdrawn'} onClick={() => setCandidateFilter('withdrawn')}>Withdrawn</CandidateFilterTab>
-                </div>
-                <div className="emp-candidate-toolbar-actions">
-                  <select className="emp-select" value={candidateJobFilter} onChange={(event) => setCandidateJobFilter(event.target.value)}>
-                    <option value="">All Jobs</option>
-                    {filteredJobsForRole.map((job) => (
-                      <option key={job.id} value={job.id}>
-                        {job.title}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="emp-view-toggle">
-                    <button className={`emp-view-btn ${candidateView === 'kanban' ? 'active' : ''}`} type="button" onClick={() => setCandidateView('kanban')}>
-                      <UIIcon name="layers" className="emp-icon-sm" /> Kanban
-                    </button>
-                    <button className={`emp-view-btn ${candidateView === 'table' ? 'active' : ''}`} type="button" onClick={() => setCandidateView('table')}>
-                      <UIIcon name="table" className="emp-icon-sm" /> Table
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="emp-candidate-note">
-                <UIIcon name="info" className="emp-icon-sm" />
-                Match groups are review aids only: Top (90%+), Good (75-89%), Partial (&lt;75%).
-              </div>
-
-              {candidateView === 'kanban' ? (
-                <>
-                  <div className="emp-kanban">
-                    <CandidateGroup title="Top Matches (90%+)" type="top" candidates={groupedCandidates.top} onReview={openReview} />
-                    <CandidateGroup title="Good Matches (75-89%)" type="good" candidates={groupedCandidates.good} onReview={openReview} />
-                    <CandidateGroup title="Partial Matches (<75%)" type="partial" candidates={groupedCandidates.partial} onReview={openReview} />
-                    {groupedCandidates.unknown.length > 0 && <CandidateGroup title="Match not available" type="unknown" candidates={groupedCandidates.unknown} onReview={openReview} />}
-                  </div>
-
-                  <div className="emp-final-section">
-                    <button className="emp-final-header" type="button" onClick={() => setHiredSectionOpen((value) => !value)}>
-                      <span><UIIcon name="handshake" /> Hired Applications ({hiredCandidates.length})</span>
-                      <UIIcon name="chevron-down" className={hiredSectionOpen ? 'rotate-180' : ''} />
-                    </button>
-                    {hiredSectionOpen && (
-                      <div className="emp-final-body">
-                        {hiredCandidates.length > 0 ? (
-                          hiredCandidates.map((candidate) => (
-                            <FinalCandidateCard key={candidate.id} candidate={candidate} onReview={openReview} />
-                          ))
-                        ) : (
-                          <div className="emp-empty">No hired applications for this filter.</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="emp-final-section">
-                    <button className="emp-final-header" type="button" onClick={() => setClosedSectionOpen((value) => !value)}>
-                      <span><UIIcon name="times-circle" /> Closed Applications ({closedCandidates.length})</span>
-                      <UIIcon name="chevron-down" className={closedSectionOpen ? 'rotate-180' : ''} />
-                    </button>
-                    {closedSectionOpen && (
-                      <div className="emp-final-body">
-                        {closedCandidates.length > 0 ? (
-                          closedCandidates.map((candidate) => (
-                            <FinalCandidateCard key={candidate.id} candidate={candidate} onReview={openReview} />
-                          ))
-                        ) : (
-                          <div className="emp-empty">No closed applications for this filter.</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="emp-section-box">
-                  <div className="emp-table-wrap">
-                    <table className="emp-table">
-                      <thead>
-                        <tr>
-                          <th>Candidate</th>
-                          <th>Applied Role</th>
-                          <th>Match</th>
-                          <th>Category</th>
-                          <th>Applied</th>
-                          <th>Status</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredCandidates.map((candidate) => {
-                          const bucket = getMatchBucket(candidate.matchPercent, candidate.hasMatchScore);
-                          const bucketColor = bucket === 'top' ? 'text-green' : bucket === 'good' ? 'text-amber' : bucket === 'unknown' ? 'text-soft' : 'text-rust';
-                          return (
-                            <tr key={candidate.id} className={candidate.status === 'Withdrawn' ? 'withdrawn-row' : ''}>
-                              <td>
-                                <span className={`font-bold ${candidate.status === 'Withdrawn' ? 'text-soft' : 'text-dark'}`}>{candidate.publicId || 'Not available'}</span>
-                                <div className="text-[11px] text-soft">
-                                  {shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}
-                                </div>
-                              </td>
-                              <td>{candidate.role}</td>
-                              <td>
-                                <span className="font-display font-extrabold" style={{ color: getMatchColor(candidate.matchPercent) }}>
-                                  {scoreLabel(candidate.hasMatchScore ? candidate.matchPercent : null)}
-                                </span>
-                              </td>
-                              <td>
-                                <span className={`text-[11px] font-bold ${bucketColor}`}>{matchBucketLabel(bucket)}</span>
-                              </td>
-                              <td className="text-[12px] text-soft">{formatDateLabel(candidate.appliedDate)}</td>
-                              <td>
-                                <span className={getStatusBadgeClass(candidate.status)}>{candidate.status}</span>
-                              </td>
-                              <td>
-                                <button className="emp-review-btn" type="button" onClick={() => openReview(candidate.id)}>
-                                  <UIIcon name="eye" className="mr-1" />
-                                  {candidate.status === 'Withdrawn' ? 'View' : 'Review'}
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {filteredCandidates.length === 0 && (
-                          <tr>
-                            <td colSpan={7}>
-                              <div className="emp-empty">No applicants match the selected filters.</div>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activePage === 'messages' && (
-            <div>
-              <div className="emp-page-header">
-                <h1 className="emp-page-title">Messages</h1>
-                <p className="emp-page-subtitle">Interview-stage candidate communications initiated after Interviewing status</p>
-              </div>
-              <div className="emp-info-notice mb-5">
-                <UIIcon name="info" className="mt-[2px]" />
-                <span>
-                  <strong>Messaging Rule:</strong> Employers may initiate a message request only after moving an applicant to Interviewing. The request remains pending until the candidate accepts. If the candidate declines or ignores, no active thread opens. Messaging is not available for Pending, Shortlisted, Rejected, or Withdrawn applicants.
-                </span>
-              </div>
-              <div className="emp-msg-layout">
-                <div className="emp-msg-list">
-                  <div className="emp-msg-list-hd">
-                    <span>Conversations</span>
-                    <span className="emp-msg-list-count">{filteredMessageThreads.length}/{messageThreads.length}</span>
-                  </div>
-                  <div className="emp-msg-search-wrap">
-                    <UIIcon name="search" className="emp-msg-search-icon" />
-                    <input
-                      className="emp-msg-search"
-                      value={messageSearch}
-                      onChange={(event) => setMessageSearch(event.target.value)}
-                      placeholder="Search candidate or role..."
-                    />
-                  </div>
-                  <div className="emp-msg-list-scroll">
-                    {filteredMessageThreads.length > 0 ? (
-                      filteredMessageThreads.map((candidate) => (
-                        <button
-                          key={candidate.id}
-                          className={`emp-msg-thread ${selectedThreadId === candidate.id ? 'active' : ''}`}
-                          type="button"
-                          onClick={() => setSelectedThreadId(candidate.id)}
-                        >
-                          <div className="emp-msg-thread-co">
-                            {candidate.publicId || 'Not available'} · {shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}
-                          </div>
-                          <div className="emp-msg-thread-job">
-                            {candidate.role} · <span className={getStatusBadgeClass(candidate.status)}>{candidate.status}</span>
-                          </div>
-                          <span className={`emp-msg-req ${candidate.messageRequestState}`}>
-                            {candidate.id === draftRequestCandidateId && candidate.messageRequestState === 'none'
-                              ? 'Draft Request'
-                              : candidate.messageRequestState === 'accepted'
-                                ? 'Accepted'
-                                : 'Request Pending'}
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="p-4 text-sm text-soft">
-                        {messageThreads.length > 0 ? 'No conversations match your search.' : 'No active message threads yet.'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="emp-msg-panel">
-                  {selectedThreadCandidate ? (
-                    <>
-                      <div className="emp-msg-panel-hd">
-                        <div>
-                          <h4 className="text-sm font-bold text-dark">
-                            {selectedThreadCandidate.publicId || 'Not available'} — {selectedThreadCandidate.role}
-                          </h4>
-                          <p className="text-xs text-soft">
-                            {selectedThreadCandidate.status} · {scoreLabel(selectedThreadCandidate.hasMatchScore ? selectedThreadCandidate.matchPercent : null)} match · Message request{' '}
-                            {isDraftRequestThread ? 'draft' : selectedThreadCandidate.messageRequestState === 'accepted' ? 'accepted' : 'pending'}
-                          </p>
-                        </div>
-                        <div className="emp-msg-hd-actions">
-                          <button type="button" onClick={() => showToast('Block action recorded.', 'warn')}>
-                            <UIIcon name="ban" className="mr-1" />
-                            Block
-                          </button>
-                          <button type="button" onClick={() => showToast('Report submitted.', 'warn')}>
-                            <UIIcon name="flag" className="mr-1" />
-                            Report
-                          </button>
-                        </div>
-                      </div>
-                      <div className="emp-msg-body">
-                        {isDraftRequestThread && (
-                          <div className="emp-msg-status-box pending">
-                            <div className="mb-1 font-bold">
-                              <UIIcon name="paper-plane" className="mr-1" />
-                              Customize Message Request
-                            </div>
-                            <div className="text-xs">
-                              Type the message you want the candidate to receive. The request will be saved when you press Send.
-                            </div>
-                          </div>
-                        )}
-                        {selectedThreadCandidate.messageRequestState === 'pending' && (
-                          <div className="emp-msg-status-box pending">
-                            <div className="mb-1 font-bold">
-                              <UIIcon name="clock" className="mr-1" />
-                              Message Request Pending
-                            </div>
-                            <div className="text-xs">
-                              Your message request was sent and is awaiting candidate acceptance. No active thread opens until acceptance.
-                            </div>
-                          </div>
-                        )}
-                        {selectedThreadCandidate.messageRequestState !== 'accepted' && selectedThreadCandidate.messages.map((entry, index) => (
-                          <div key={`${selectedThreadCandidate.id}-${index}`} className="flex flex-col">
-                            <div className={`emp-msg-bubble-sender ${entry.from === 'employer' ? 'text-right' : ''}`}>
-                              {entry.from === 'employer' ? `${companyName} (You)` : selectedThreadCandidate.publicId || 'Candidate'}
-                            </div>
-                            <div className={entry.from === 'employer' ? 'emp-msg-bubble-employer' : 'emp-msg-bubble-candidate'}>
-                              {entry.text}
-                            </div>
-                            <div className={`emp-msg-bubble-time ${entry.from === 'employer' ? 'text-right' : ''}`}>{entry.time}</div>
-                          </div>
-                        ))}
-                        {selectedThreadCandidate.messageRequestState === 'accepted' && (
-                          <>
-                            <div className="emp-msg-status-box accepted">
-                              <div className="mb-1 font-bold">
-                                <UIIcon name="check" className="mr-1" />
-                                Request Accepted
-                              </div>
-                              <div className="text-xs">Candidate accepted your request. You can now continue the conversation.</div>
-                            </div>
-                            {selectedThreadCandidate.messages.map((entry, index) => (
-                              <div key={`${selectedThreadCandidate.id}-${index}`} className="flex flex-col">
-                                <div className={`emp-msg-bubble-sender ${entry.from === 'employer' ? 'text-right' : ''}`}>
-                                  {entry.from === 'employer' ? `${companyName} (You)` : selectedThreadCandidate.publicId || 'Candidate'}
-                                </div>
-                                <div className={entry.from === 'employer' ? 'emp-msg-bubble-employer' : 'emp-msg-bubble-candidate'}>
-                                  {entry.text}
-                                </div>
-                                <div className={`emp-msg-bubble-time ${entry.from === 'employer' ? 'text-right' : ''}`}>{entry.time}</div>
-                              </div>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                      <div className="emp-msg-composer">
-                        <textarea
-                          className="emp-msg-input"
-                          value={messageDraft}
-                          rows={1}
-                          placeholder={
-                            canSendMessage
-                              ? isDraftRequestThread ? 'Write your message request...' : 'Type your message...'
-                              : 'Waiting for candidate acceptance. Composer is disabled.'
-                          }
-                          disabled={!canSendMessage}
-                          onChange={(event) => setMessageDraft(event.target.value)}
-                        />
-                        <button className="emp-msg-send" type="button" disabled={!canSendMessage} onClick={sendMessage}>
-                          <UIIcon name="paper-plane" />
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="emp-empty m-4">No message threads available.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activePage === 'account' && (
-            <div>
-              <div className="emp-page-header">
-                <h1 className="emp-page-title">Account Settings</h1>
-                <p className="emp-page-subtitle">Manage your company profile, contact details, and account security</p>
-              </div>
-
-              <div className="emp-acct-grid">
-                <div className="emp-acct-section">
-                  <div className="emp-acct-title">
-                    <UIIcon name="building" />
-                    Company Profile
-                  </div>
-                  <div className="emp-form-group mb-4">
-                    <label className="emp-form-label">Company / Employer Name</label>
-                    <input
-                      className="emp-input"
-                      value={accountProfile.company}
-                      onChange={(event) => setAccountProfile((current) => ({ ...current, company: event.target.value }))}
-                    />
-                  </div>
-                  <div className="emp-form-group mb-4">
-                    <label className="emp-form-label">Industry</label>
-                    <select
-                      className="emp-select"
-                      value={accountProfile.industry}
-                      onChange={(event) => setAccountProfile((current) => ({ ...current, industry: event.target.value }))}
-                    >
-                      <option>Information Technology</option>
-                      <option>Data &amp; Analytics</option>
-                      <option>Finance &amp; Banking</option>
-                      <option>BPO &amp; Outsourcing</option>
-                      <option>Government &amp; Public Sector</option>
-                    </select>
-                  </div>
-                  <div className="emp-form-group mb-4">
-                    <label className="emp-form-label">Company Size</label>
-                    <select
-                      className="emp-select"
-                      value={accountProfile.size}
-                      onChange={(event) => setAccountProfile((current) => ({ ...current, size: event.target.value }))}
-                    >
-                      <option>1-10 employees</option>
-                      <option>11-50 employees</option>
-                      <option>51-200 employees</option>
-                      <option>201-500 employees</option>
-                      <option>500+ employees</option>
-                    </select>
-                  </div>
-                  <div className="emp-form-group mb-4">
-                    <label className="emp-form-label">Company Location</label>
-                    <input
-                      className="emp-input"
-                      value={accountProfile.location}
-                      onChange={(event) => setAccountProfile((current) => ({ ...current, location: event.target.value }))}
-                    />
-                  </div>
-                  <div className="emp-form-group mb-4">
-                    <label className="emp-form-label">Company Website (Optional)</label>
-                    <input
-                      className="emp-input"
-                      value={accountProfile.website}
-                      onChange={(event) => setAccountProfile((current) => ({ ...current, website: event.target.value }))}
-                    />
-                  </div>
-                  <div className="emp-form-group mb-4">
-                    <label className="emp-form-label">About the Company</label>
-                    <textarea
-                      className="emp-textarea"
-                      style={{ minHeight: 90 }}
-                      value={accountProfile.about}
-                      onChange={(event) => setAccountProfile((current) => ({ ...current, about: event.target.value }))}
-                    />
-                  </div>
-                  <button className="emp-btn-primary" type="button" disabled={isSavingAccount} onClick={() => void saveCompanyProfile()}>
-                    <UIIcon name="check" />
-                    Save Profile
-                  </button>
-                </div>
-
-                <div>
-                  <div className="emp-acct-section">
-                    <div className="emp-acct-title">
-                      <UIIcon name="user-tie" />
-                      Contact Person
-                    </div>
-                    <div className="emp-form-group mb-4">
-                      <label className="emp-form-label">Contact Person Name</label>
-                      <input
-                        className="emp-input"
-                        value={accountProfile.contactPerson}
-                        onChange={(event) => setAccountProfile((current) => ({ ...current, contactPerson: event.target.value }))}
-                      />
-                    </div>
-                    <div className="emp-form-group mb-4">
-                      <label className="emp-form-label">Position / Role</label>
-                      <input
-                        className="emp-input"
-                        value={accountProfile.contactRole}
-                        onChange={(event) => setAccountProfile((current) => ({ ...current, contactRole: event.target.value }))}
-                      />
-                    </div>
-                    <div className="emp-form-group mb-4">
-                      <label className="emp-form-label">Account &amp; Contact Email</label>
-                      <input
-                        className="emp-input"
-                        type="email"
-                        value={accountProfile.contactEmail}
-                        onChange={(event) => setAccountProfile((current) => ({ ...current, contactEmail: event.target.value }))}
-                      />
-                    </div>
-                    <div className="emp-form-group mb-4">
-                      <label className="emp-form-label">Contact Number</label>
-                      <input
-                        className="emp-input"
-                        value={accountProfile.contactNumber}
-                        onChange={(event) => setAccountProfile((current) => ({ ...current, contactNumber: event.target.value }))}
-                      />
-                    </div>
-                    <button className="emp-btn-primary" type="button" disabled={isSavingAccount} onClick={() => void saveContactDetails()}>
-                      <UIIcon name="check" />
-                      Save Contact
-                    </button>
-                  </div>
-
-                  <div className="emp-acct-section">
-                    <div className="emp-acct-title">
-                      <UIIcon name="lock" />
-                      Password &amp; Security
-                    </div>
-                    <div className="emp-form-group mb-4">
-                      <label className="emp-form-label">Current Password</label>
-                      <input className="emp-input" type="password" value={passwordForm.current} onChange={(event) => setPasswordForm((current) => ({ ...current, current: event.target.value }))} placeholder="Enter current password" />
-                    </div>
-                    <div className="emp-form-group mb-4">
-                      <label className="emp-form-label">New Password</label>
-                      <input className="emp-input" type="password" value={passwordForm.next} onChange={(event) => setPasswordForm((current) => ({ ...current, next: event.target.value }))} placeholder="Enter new password" />
-                    </div>
-                    <div className="emp-form-group mb-4">
-                      <label className="emp-form-label">Confirm New Password</label>
-                      <input className="emp-input" type="password" value={passwordForm.confirm} onChange={(event) => setPasswordForm((current) => ({ ...current, confirm: event.target.value }))} placeholder="Confirm new password" />
-                    </div>
-                    <button className="emp-btn-primary" type="button" disabled={isSavingAccount} onClick={() => void updatePassword()}>
-                      <UIIcon name="check" />
-                      Update Password
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="emp-section-box">
-                <div className="emp-acct-title !mb-3">
-                  <UIIcon name="shield" />
-                  Privacy &amp; Access Control
-                </div>
-                <p className="mb-3 text-sm text-mid">
-                  Your employer account operates within Kareerly role-based access controls. The following boundaries apply:
-                </p>
-                <div className="grid gap-2 text-sm text-mid">
-                  <div className="flex gap-2">
-                    <UIIcon name="check" className="mt-[3px] text-green" />
-                    <span>You may view only applicants to your own job postings.</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <UIIcon name="times-circle" className="mt-[3px] text-red" />
-                    <span>No global candidate search, browsing, or cross-employer profile access.</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <UIIcon name="times-circle" className="mt-[3px] text-red" />
-                    <span>Withdrawn applicants are closed/read-only and cannot be reactivated or messaged.</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <UIIcon name="check" className="mt-[3px] text-green" />
-                    <span>Early applicant review uses data masking until Interviewing stage.</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <UIIcon name="check" className="mt-[3px] text-green" />
-                    <span>Messaging is available only after Interviewing and candidate acceptance.</span>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs italic text-soft">
-                  This prototype does not independently verify employer identity or organization legitimacy.
-                </p>
-              </div>
-
-              <div className="emp-section-box emp-delete-box">
-                <div className="emp-acct-title !mb-3 text-red">
-                  <UIIcon name="times-circle" />
-                  Delete Employer Profile
-                </div>
-                <p className="mb-3 text-sm text-mid">
-                  Requesting profile deletion removes your employer account and related records where applicable, including job postings, applicant records, and message history.
-                </p>
-                <button className="emp-btn-danger" type="button" onClick={() => setDeleteProfileModalOpen(true)}>
-                  <UIIcon name="times-circle" />
-                  Request Employer Profile Deletion
-                </button>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
+      {(jobsPanelMode === 'new' || jobsPanelMode === 'edit') && (
+        <JobEditorModal
+          editing={jobsPanelMode === 'edit'}
+          form={jobForm}
+          error={jobFormError}
+          requiredSkills={requiredSkillsDraft}
+          niceSkills={niceSkillsDraft}
+          requiredSkillInput={requiredSkillInput}
+          niceSkillInput={niceSkillInput}
+          saving={isSavingJob}
+          onUpdateForm={updateJobForm}
+          onSkillInput={setSkillInput}
+          onAddSkill={addSkillDraft}
+          onRemoveSkill={removeSkillDraft}
+          onCancel={cancelJobPanel}
+          onSaveDraft={() => void saveJobForm('draft')}
+          onPost={() => void saveJobForm('post')}
+        />
+      )}
 
       {reviewCandidate && (
         <ApplicantReviewModal
@@ -2579,835 +1034,51 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       )}
 
       {confirmModal.open && confirmModal.action && confirmModal.candidateId && (
-        <ConfirmActionModal
+        <ConfirmDialog
           title={`${statusActionLabel(confirmModal.action)}?`}
-          description={statusActionMessage(confirmModal.action, applications.find((candidate) => candidate.id === confirmModal.candidateId)?.publicId || 'this candidate')}
-          rejectionReason={confirmModal.action === 'rejected' ? rejectionReason : undefined}
-          onRejectionReason={confirmModal.action === 'rejected' ? setRejectionReason : undefined}
+          message={statusActionMessage(confirmModal.action, confirmCandidate?.publicId || 'this candidate')}
+          confirmLabel={confirmModal.action === 'rejected' ? 'Reject' : 'Confirm'}
+          danger={confirmModal.action === 'rejected'}
+          confirmDisabled={confirmModal.action === 'rejected' && !rejectionReason}
           onCancel={closeConfirm}
           onConfirm={applyStatusChange}
+        >
+          {confirmModal.action === 'rejected' && (
+            <FormField label="Reason *" help="Use an objective, job-related reason. It is saved with the application." className="mt-4">
+              <select className="k-select" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} required>
+                <option value="">Select a reason</option>
+                {REJECTION_REASONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+              </select>
+            </FormField>
+          )}
+        </ConfirmDialog>
+      )}
+
+      {closeJobTarget && (
+        <ConfirmDialog
+          title="Close this job?"
+          message={`${closeJobTarget.title} will stop taking applications. Current applicants stay in Candidates.`}
+          confirmLabel="Close job"
+          onCancel={() => setCloseJobTarget(null)}
+          onConfirm={async () => {
+            await closeJobPosting(closeJobTarget.id);
+            setCloseJobTarget(null);
+          }}
         />
       )}
 
       {deleteProfileModalOpen && (
-        <DeleteProfileModal
+        <ConfirmDialog
+          title="Delete your employer profile?"
+          message="This asks the Kareerly administrators to remove your account, job posts, applicant records and messages. Your account stays active until an administrator approves the request."
+          confirmLabel="Request deletion"
+          danger
           onCancel={() => setDeleteProfileModalOpen(false)}
           onConfirm={requestDeleteEmployerProfile}
         />
       )}
 
-      {toast && <div className={`emp-toast ${toast.type}`}>{toast.message}</div>}
-    </div>
-  );
-}
-
-function SidebarItem({
-  icon,
-  active,
-  onClick,
-  children,
-}: {
-  icon: IconName;
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button className={`emp-nav-item ${active ? 'active' : ''}`} type="button" onClick={onClick}>
-      <UIIcon name={icon} />
-      {children}
-    </button>
-  );
-}
-
-function MetricCard({
-  icon,
-  iconClass,
-  number,
-  label,
-  numberClass,
-}: {
-  icon: IconName;
-  iconClass: string;
-  number: number | string;
-  label: string;
-  numberClass: string;
-}) {
-  return (
-    <div className="emp-metric-card">
-      <div className={`emp-metric-icon ${iconClass}`}>
-        <UIIcon name={icon} className="emp-icon-lg" />
-      </div>
-      <div className={`emp-metric-number ${numberClass}`}>{number}</div>
-      <div className="emp-metric-label">{label}</div>
-    </div>
-  );
-}
-
-function CandidateFilterTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button className={`emp-cand-tab ${active ? 'active' : ''}`} type="button" onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-function CandidateGroup({
-  title,
-  type,
-  candidates,
-  onReview,
-}: {
-  title: string;
-  type: MatchBucket;
-  candidates: CandidateApplication[];
-  onReview: (candidateId: string) => void;
-}) {
-  return (
-    <div className="emp-kanban-col">
-      <div className={`emp-kanban-header ${type}`}>
-        <UIIcon name={type === 'top' ? 'star' : type === 'good' ? 'check' : type === 'unknown' ? 'users' : 'times-circle'} />
-        {title}
-        <span className="emp-kanban-count">{candidates.length}</span>
-      </div>
-      <div className="emp-kanban-content">
-        {candidates.length > 0 ? (
-          candidates.map((candidate) => {
-            return (
-              <div key={candidate.id} className={`emp-app-card ${candidate.status === 'Withdrawn' ? 'withdrawn' : ''}`}>
-                <div className="emp-app-head">
-                  <div className="emp-app-avatar">{getInitials(candidate.fullName)}</div>
-                  <div>
-                    <div className="emp-app-name">
-                      {shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}
-                    </div>
-                    <div className="emp-app-id">{candidate.publicId || 'Not available'}</div>
-                  </div>
-                </div>
-                <div className="emp-app-match-row">
-                  <div className="emp-app-match" style={{ color: getMatchColor(candidate.matchPercent) }}>
-                    {scoreLabel(candidate.hasMatchScore ? candidate.matchPercent : null)}
-                  </div>
-                  <div className="emp-app-role">{candidate.role}</div>
-                </div>
-                <div>
-                  <span className="emp-skill-label">Matched Skills</span>
-                  <div className="emp-skill-chips">
-                    {candidate.matchedSkills.slice(0, 4).map((skill) => (
-                      <span key={`${candidate.id}-match-${skill}`} className="emp-skill-chip emp-skill-matched">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className="emp-skill-label">Missing Skills</span>
-                  <div className="emp-skill-chips">
-                    {candidate.missingSkills.slice(0, 4).map((skill) => (
-                      <span key={`${candidate.id}-gap-${skill}`} className="emp-skill-chip emp-skill-missing">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="emp-app-foot">
-                  <span className={getStatusBadgeClass(candidate.status)}>{candidate.status}</span>
-                  <button className="emp-link-action" type="button" onClick={() => onReview(candidate.id)}>
-                    {candidate.status === 'Withdrawn' ? 'View' : 'Review'}
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="emp-empty">No candidates in this group.</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FinalCandidateCard({
-  candidate,
-  onReview,
-}: {
-  candidate: CandidateApplication;
-  onReview: (candidateId: string) => void;
-}) {
-  return (
-    <div className={`emp-final-card ${candidate.status === 'Withdrawn' ? 'withdrawn' : ''}`}>
-      <div className="emp-final-card-top">
-        <div className="emp-final-avatar">{getInitials(candidate.fullName)}</div>
-        <div>
-          <div className="emp-final-name">{shouldRevealIdentity(candidate.status) ? candidate.fullName : maskedName(candidate.fullName)}</div>
-          <div className="emp-final-role">
-            {candidate.publicId || 'Not available'} · {candidate.role}
-          </div>
-        </div>
-      </div>
-      <div className="emp-skill-chips">
-        {candidate.matchedSkills.slice(0, 3).map((skill) => (
-          <span key={`${candidate.id}-final-match-${skill}`} className="emp-skill-chip emp-skill-matched">
-            {skill}
-          </span>
-        ))}
-      </div>
-      {candidate.status === 'Withdrawn' && <div className="emp-final-note">Withdrawn by candidate. Read-only record.</div>}
-      <div className="emp-final-footer">
-        <span className={getStatusBadgeClass(candidate.status)}>{candidate.status}</span>
-        <button className="emp-link-action" type="button" onClick={() => onReview(candidate.id)}>
-          View
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ApplicantReviewModal({
-  candidate,
-  job,
-  onClose,
-  onAction,
-  onSendRequest,
-  onOpenMessages,
-}: {
-  candidate: CandidateApplication;
-  job: EmployerJob | null;
-  onClose: () => void;
-  onAction: (action: ReviewAction, candidateId: string) => void;
-  onSendRequest: (candidateId: string) => void;
-  onOpenMessages: (candidateId: string) => void;
-}) {
-  const bucket = getMatchBucket(candidate.matchPercent, candidate.hasMatchScore);
-  const bucketLabel = matchBucketLabel(bucket);
-  const isFinal = candidate.status === 'Hired' || candidate.status === 'Rejected' || candidate.status === 'Withdrawn';
-  const isWithdrawn = candidate.status === 'Withdrawn';
-  const revealIdentity = shouldRevealIdentity(candidate.status);
-
-  return (
-    <div className="emp-modal-overlay" onClick={onClose}>
-      <div className="emp-modal lg" onClick={(event) => event.stopPropagation()}>
-        <div className="emp-modal-header">
-          <div>
-            <div className="emp-modal-title">Applicant Review — {candidate.publicId || 'Not available'}</div>
-            <div className="emp-modal-subtitle">
-              {candidate.publicId || 'Not available'} · {candidate.role}
-            </div>
-          </div>
-          <button className="emp-modal-close" type="button" onClick={onClose}>
-            <UIIcon name="close" />
-          </button>
-        </div>
-
-        {isWithdrawn && (
-          <div className="emp-withdrawn-banner">
-            <UIIcon name="times-circle" className="mt-[2px]" />
-            <div>
-              <strong>Withdrawn by Candidate</strong>
-              <br />
-              <span className="text-xs">
-                This application is closed and read-only. You cannot reactivate, message, or move this record.
-              </span>
-            </div>
-          </div>
-        )}
-
-        <div className="emp-review-sec">
-          <div
-            className="emp-match-band"
-            style={{
-              background:
-                !candidate.hasMatchScore ? 'var(--bg)' : candidate.matchPercent >= 90
-                  ? 'var(--green-l)'
-                  : candidate.matchPercent >= 75
-                    ? 'var(--amber-l)'
-                    : 'var(--rust-l)',
-              color:
-                !candidate.hasMatchScore ? 'var(--soft)' : candidate.matchPercent >= 90
-                  ? 'var(--green)'
-                  : candidate.matchPercent >= 75
-                    ? 'var(--amber)'
-                    : 'var(--rust)',
-            }}
-          >
-            <UIIcon name="star" />
-            {candidate.hasMatchScore ? `${candidate.matchPercent}% Match` : 'Match not available'}
-            <span className="text-xs opacity-80">· {bucketLabel}</span>
-          </div>
-
-          {!revealIdentity && (
-            <div className="emp-masked-notice">
-              <UIIcon name="eye" className="mt-[2px]" />
-              <span>
-                Early applicant review uses <strong>data masking</strong>. Name, age, gender, and direct contact details remain hidden during Pending and Shortlisted stages.
-              </span>
-            </div>
-          )}
-
-          <div className="emp-detail-grid">
-            <div>
-              <div className="emp-detail-label">Candidate ID</div>
-              <div className="emp-detail-value">{candidate.publicId || 'Not available'}</div>
-            </div>
-            <div>
-              <div className="emp-detail-label">Applied Role</div>
-              <div className="emp-detail-value">{candidate.role}</div>
-            </div>
-            <div>
-              <div className="emp-detail-label">Match Category</div>
-              <div className="emp-detail-value">{bucketLabel}</div>
-            </div>
-            <div>
-              <div className="emp-detail-label">Application Status</div>
-              <div className="emp-detail-value">
-                <span className={getStatusBadgeClass(candidate.status)}>{candidate.status}</span>
-              </div>
-            </div>
-            {revealIdentity && (
-              <>
-                <div>
-                  <div className="emp-detail-label">Full Name</div>
-                  <div className="emp-detail-value">{candidate.fullName}</div>
-                </div>
-                <div>
-                  <div className="emp-detail-label">Location</div>
-                  <div className="emp-detail-value">{candidate.location}</div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="emp-review-sec">
-          <div className="emp-review-sec-title">Matched Skills (Required)</div>
-          <div className="emp-skill-chips">
-            {candidate.matchedSkills.map((skill) => (
-              <span key={`${candidate.id}-modal-match-${skill}`} className="emp-skill-chip emp-skill-matched">
-                {skill}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="emp-review-sec">
-          <div className="emp-review-sec-title">Missing Skills (Required)</div>
-          <div className="emp-skill-chips">
-            {candidate.missingSkills.map((skill) => (
-              <span key={`${candidate.id}-modal-gap-${skill}`} className="emp-skill-chip emp-skill-missing">
-                {skill}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="emp-review-sec">
-          <div className="emp-review-sec-title">Match Analysis</div>
-          <div className="emp-analysis-box strength">
-            <div className="emp-analysis-title">
-              <UIIcon name="check" />
-              Strength
-            </div>
-            {candidate.strengthNote}
-          </div>
-          <div className="emp-analysis-box gap">
-            <div className="emp-analysis-title">
-              <UIIcon name="times-circle" />
-              Gap
-            </div>
-            {candidate.gapNote}
-          </div>
-          <div className="emp-analysis-box rec">
-            <div className="emp-analysis-title">
-              <UIIcon name="arrow-right" />
-              Recommendation
-            </div>
-            {candidate.recommendation}
-          </div>
-          <div className="mt-2 rounded-lg bg-bg p-3 text-sm text-mid">{candidate.matchSummary}</div>
-          {job && (
-            <div className="mt-2 text-xs text-soft">
-              Applied to: <strong className="text-mid">{job.title}</strong> · {job.city}, {job.province}
-            </div>
-          )}
-        </div>
-
-        <div className="emp-review-sec">
-          <div className="emp-review-sec-title">Application Status Actions</div>
-          <div className="mb-3 text-xs text-soft">
-            Final hiring decisions remain the employer’s responsibility. Kareerly provides skill-alignment decision support only.
-          </div>
-
-          {isFinal ? (
-            <div className="space-y-3">
-              <div className="rounded-lg bg-bg p-4 text-center text-sm text-soft">
-                <UIIcon name="lock" className="mr-1" />
-                This application is in a final state. No further status changes are allowed.
-              </div>
-              {(candidate.status === 'Rejected' || candidate.status === 'Withdrawn') && (
-                <button className="emp-status-btn" style={{ width: '100%' }} type="button" disabled title={`Messaging is unavailable for ${candidate.status.toLowerCase()} applications.`}>
-                  <UIIcon name="messages" /> Send Message Request
-                </button>
-              )}
-            </div>
-          ) : candidate.status === 'Pending' ? (
-            <div className="emp-status-actions">
-              <button className="emp-status-btn" type="button" onClick={() => onAction('shortlisted', candidate.id)}>
-                <UIIcon name="bookmark" />
-                Shortlist
-              </button>
-              <button className="emp-status-btn primary" type="button" onClick={() => onAction('interviewing', candidate.id)}>
-                <UIIcon name="calendar-check" />
-                Move to Interviewing
-              </button>
-              <button
-                className="emp-status-btn danger"
-                style={{ gridColumn: 'span 2' }}
-                type="button"
-                onClick={() => onAction('rejected', candidate.id)}
-              >
-                <UIIcon name="times-circle" />
-                Reject
-              </button>
-            </div>
-          ) : candidate.status === 'Shortlisted' ? (
-            <div className="emp-status-actions">
-              <button className="emp-status-btn primary" type="button" onClick={() => onAction('interviewing', candidate.id)}>
-                <UIIcon name="calendar-check" />
-                Move to Interviewing
-              </button>
-              <button className="emp-status-btn danger" type="button" onClick={() => onAction('rejected', candidate.id)}>
-                <UIIcon name="times-circle" />
-                Reject
-              </button>
-            </div>
-          ) : (
-            <div className="emp-status-actions">
-              <button className="emp-status-btn primary" type="button" onClick={() => onAction('hired', candidate.id)}>
-                <UIIcon name="handshake" />
-                Mark as Hired
-              </button>
-              <button className="emp-status-btn danger" type="button" onClick={() => onAction('rejected', candidate.id)}>
-                <UIIcon name="times-circle" />
-                Reject
-              </button>
-              {candidate.messageRequestState === 'none' ? (
-                <button
-                  className="emp-status-btn"
-                  style={{ gridColumn: 'span 2' }}
-                  type="button"
-                  onClick={() => onSendRequest(candidate.id)}
-                >
-                  <UIIcon name="messages" />
-                  Send Message Request
-                </button>
-              ) : (
-                <button
-                  className="emp-status-btn"
-                  style={{ gridColumn: 'span 2' }}
-                  type="button"
-                  onClick={() => onOpenMessages(candidate.id)}
-                >
-                  <UIIcon name="messages" />
-                  {candidate.messageRequestState === 'accepted' ? 'Open Messages' : 'View Pending Message Request'}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmActionModal({
-  title,
-  description,
-  rejectionReason,
-  onRejectionReason,
-  onCancel,
-  onConfirm,
-}: {
-  title: string;
-  description: string;
-  rejectionReason?: string;
-  onRejectionReason?: (reason: string) => void;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="emp-modal-overlay" onClick={onCancel}>
-      <div className="emp-modal sm" onClick={(event) => event.stopPropagation()}>
-        <div className="emp-modal-header">
-          <div className="emp-modal-title">{title}</div>
-          <button className="emp-modal-close" type="button" onClick={onCancel}>
-            <UIIcon name="close" />
-          </button>
-        </div>
-        <div className="text-sm text-mid">{description}</div>
-        {onRejectionReason && (
-          <div className="emp-form-group mt-4">
-            <label className="emp-form-label required">Reason for rejection</label>
-            <select className="emp-select" value={rejectionReason || ''} onChange={(event) => onRejectionReason(event.target.value)}>
-              <option value="">Select a concise, job-related reason...</option>
-              <option value="Another candidate more closely matched the role requirements.">Another candidate more closely matched the role requirements</option>
-              <option value="The application did not demonstrate the required level of relevant experience.">Required relevant experience was not sufficiently demonstrated</option>
-              <option value="The application did not demonstrate one or more essential technical skills.">Essential technical skills were not sufficiently demonstrated</option>
-              <option value="The candidate's availability did not align with the role's current requirements.">Availability did not align with the role requirements</option>
-              <option value="The candidate's location or work-setup preference did not align with this position.">Location or work-setup preference did not align</option>
-              <option value="The position has been placed on hold or is no longer being filled.">Position placed on hold or no longer being filled</option>
-              <option value="The compensation expectations could not be aligned with the approved range.">Compensation expectations did not align with the approved range</option>
-            </select>
-            <p className="mt-2 text-xs text-soft">Use only objective, job-related reasons. Do not include sensitive or discriminatory information.</p>
-          </div>
-        )}
-        <div className="emp-modal-footer">
-          <button className="emp-btn-secondary" type="button" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="emp-btn-primary" type="button" onClick={onConfirm} disabled={Boolean(onRejectionReason && !rejectionReason)}>
-            <UIIcon name="check" />
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function JobEditorPanel({
-  editing,
-  form,
-  requiredSkills,
-  niceSkills,
-  requiredSkillInput,
-  niceSkillInput,
-  onCancel,
-  onUpdateForm,
-  onRequiredInput,
-  onNiceInput,
-  onAddRequired,
-  onAddNice,
-  onRemoveRequired,
-  onRemoveNice,
-  onSaveDraft,
-  onPost,
-  saving,
-}: {
-  editing: boolean;
-  form: JobFormState;
-  requiredSkills: string[];
-  niceSkills: string[];
-  requiredSkillInput: string;
-  niceSkillInput: string;
-  onCancel: () => void;
-  onUpdateForm: <K extends keyof JobFormState>(field: K, value: JobFormState[K]) => void;
-  onRequiredInput: (value: string) => void;
-  onNiceInput: (value: string) => void;
-  onAddRequired: () => void;
-  onAddNice: () => void;
-  onRemoveRequired: (skill: string) => void;
-  onRemoveNice: (skill: string) => void;
-  onSaveDraft: () => void;
-  onPost: () => void;
-  saving: boolean;
-}) {
-  const subcategoryOptions = form.category ? jobSubcategoryMap[form.category] || [] : [];
-  const [salaryMinimum = '', salaryMaximum = ''] = form.salaryRange.split('-');
-  const updateSalaryRange = (field: 'minimum' | 'maximum', value: string) => {
-    const sanitizedValue = value.replace(/[^\d]/g, '');
-    onUpdateForm('salaryRange', field === 'minimum' ? `${sanitizedValue}-${salaryMaximum}` : `${salaryMinimum}-${sanitizedValue}`);
-  };
-
-  return (
-    <div className="emp-job-editor">
-      <div className="emp-job-editor-header">
-        <div>
-          <div className="emp-job-editor-title">{editing ? 'Edit Job Posting' : 'Post New Job'}</div>
-          <div className="emp-job-editor-subtitle">All required fields are marked with *</div>
-        </div>
-        <button className="emp-btn-secondary" type="button" onClick={onCancel}>
-          <UIIcon name="close" />
-          Cancel
-        </button>
-      </div>
-
-      <div className="emp-form-grid">
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Job Title</label>
-          <input className="emp-input" value={form.title} onChange={(event) => onUpdateForm('title', event.target.value)} placeholder="Enter job title" />
-        </div>
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Category</label>
-          <select className="emp-select" value={form.category} onChange={(event) => onUpdateForm('category', event.target.value)}>
-            <option value="">Select category</option>
-            {jobCategoryOptions.map((category) => (
-              <option key={category.code} value={category.value}>
-                {category.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="emp-form-grid">
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Sub-category</label>
-          <select className="emp-select" value={form.subcategory} onChange={(event) => onUpdateForm('subcategory', event.target.value)}>
-            <option value="">Select sub-category</option>
-            {subcategoryOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Experience Level</label>
-          <select className="emp-select" value={form.experienceLevel} onChange={(event) => onUpdateForm('experienceLevel', event.target.value)}>
-            <option value="">Select level</option>
-            <option value="Entry-level / Fresh Graduate">Entry-level / Fresh Graduate</option>
-            <option value="Junior (1-2 yrs)">Junior (1-2 yrs)</option>
-            <option value="Mid-level (3-5 yrs)">Mid-level (3-5 yrs)</option>
-            <option value="Senior (5+ yrs)">Senior (5+ yrs)</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="emp-form-grid">
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Work Setup</label>
-          <select className="emp-select" value={form.workSetup} onChange={(event) => onUpdateForm('workSetup', event.target.value)}>
-            <option value="">Select setup</option>
-            <option value="Remote">Remote</option>
-            <option value="Hybrid">Hybrid</option>
-            <option value="On-site">On-site</option>
-          </select>
-        </div>
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Location</label>
-          <input className="emp-input" value={form.location} onChange={(event) => onUpdateForm('location', event.target.value)} placeholder="City, Province" />
-        </div>
-      </div>
-
-      <div className="emp-form-grid">
-        <div className="emp-form-group">
-          <label className="emp-form-label" htmlFor="job-employment-type">Employment Type</label>
-          <select id="job-employment-type" className="emp-select" value={form.employmentType} onChange={(event) => onUpdateForm('employmentType', event.target.value)}>
-            <option value="">Not specified</option>
-            {form.employmentType && !['Full-time', 'Part-time', 'Contract', 'Temporary', 'Internship'].includes(form.employmentType) && <option value={form.employmentType}>{form.employmentType}</option>}
-            <option value="Full-time">Full-time</option>
-            <option value="Part-time">Part-time</option>
-            <option value="Contract">Contract</option>
-            <option value="Temporary">Temporary</option>
-            <option value="Internship">Internship</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="emp-form-grid">
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Salary Range</label>
-          <div className="emp-money-range">
-            <div className="emp-money-input">
-              <span className="emp-money-prefix">₱</span>
-              <input
-                className="emp-input"
-                value={salaryMinimum}
-                onChange={(event) => updateSalaryRange('minimum', event.target.value)}
-                onKeyDown={(event) => {
-                  if (['e', 'E', '+', '-', '.'].includes(event.key)) {
-                    event.preventDefault();
-                  }
-                }}
-                placeholder="0"
-                required
-                type="number"
-                min={MIN_EMPLOYER_SALARY}
-                step="1000"
-                inputMode="numeric"
-                aria-label="Minimum salary"
-              />
-            </div>
-            <span className="emp-money-separator">-</span>
-            <div className="emp-money-input">
-              <span className="emp-money-prefix">₱</span>
-              <input
-                className="emp-input"
-                value={salaryMaximum}
-                onChange={(event) => updateSalaryRange('maximum', event.target.value)}
-                onKeyDown={(event) => {
-                  if (['e', 'E', '+', '-', '.'].includes(event.key)) {
-                    event.preventDefault();
-                  }
-                }}
-                placeholder="0"
-                required
-                type="number"
-                min={MIN_EMPLOYER_SALARY}
-                step="1000"
-                inputMode="numeric"
-                aria-label="Maximum salary"
-              />
-            </div>
-          </div>
-          <div className="emp-form-hint">Enter a salary range. Minimum salary is ₱10,000.</div>
-        </div>
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Application Deadline</label>
-          <input className="emp-input" type="date" value={form.deadline} onChange={(event) => onUpdateForm('deadline', event.target.value)} />
-        </div>
-      </div>
-
-      <div className="emp-form-grid full">
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Job Description</label>
-          <textarea
-            className="emp-textarea"
-            style={{ minHeight: 96 }}
-            value={form.description}
-            placeholder="Describe the role and its purpose..."
-            onChange={(event) => onUpdateForm('description', event.target.value)}
-          />
-          <div className="emp-form-hint">Give candidates a concise overview of the role.</div>
-        </div>
-      </div>
-
-      <div className="emp-form-grid full">
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Responsibilities</label>
-          <textarea
-            className="emp-textarea"
-            style={{ minHeight: 132 }}
-            value={form.responsibilities}
-            placeholder={'Enter one responsibility per line.\nExample: Resolve customer support tickets within agreed response times.'}
-            onChange={(event) => onUpdateForm('responsibilities', event.target.value)}
-          />
-          <div className="emp-form-hint">Enter one responsibility per line. These appear as a separate list on the candidate job view.</div>
-        </div>
-      </div>
-
-      <div className="emp-form-grid full">
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Required Skills</label>
-          <div className="emp-skill-input-row">
-            <input
-              className="emp-input"
-              value={requiredSkillInput}
-              placeholder="e.g., SQL, Excel, Python"
-              onChange={(event) => onRequiredInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  onAddRequired();
-                }
-              }}
-            />
-            <button className="emp-btn-forest" type="button" onClick={onAddRequired}>
-              <UIIcon name="plus" />
-              Add
-            </button>
-          </div>
-          <div className="emp-added-skills">
-            {requiredSkills.map((skill) => (
-              <span key={`req-${skill}`} className="emp-skill-tag">
-                {skill}
-                <button type="button" onClick={() => onRemoveRequired(skill)}>
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="emp-form-grid full">
-        <div className="emp-form-group">
-          <label className="emp-form-label">Nice-to-Have Skills</label>
-          <div className="emp-skill-input-row">
-            <input
-              className="emp-input"
-              value={niceSkillInput}
-              placeholder="e.g., Figma, Power BI"
-              onChange={(event) => onNiceInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  onAddNice();
-                }
-              }}
-            />
-            <button className="emp-btn-secondary" type="button" onClick={onAddNice}>
-              <UIIcon name="plus" />
-              Add
-            </button>
-          </div>
-          <div className="emp-added-skills">
-            {niceSkills.map((skill) => (
-              <span key={`nice-${skill}`} className="emp-skill-tag nice">
-                {skill}
-                <button type="button" onClick={() => onRemoveNice(skill)}>
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="emp-form-grid">
-        <div className="emp-form-group">
-          <label className="emp-form-label required">Status</label>
-          <select className="emp-select" value={form.status} onChange={(event) => onUpdateForm('status', event.target.value as JobStatus)}>
-            <option value="open">Open</option>
-            <option value="draft">Draft</option>
-            <option value="closed">Closed</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="emp-job-editor-actions">
-        <button className="emp-btn-secondary" type="button" onClick={onSaveDraft} disabled={saving}>
-          <UIIcon name="bookmark" />
-          {saving ? 'Saving...' : 'Save Draft'}
-        </button>
-        <button className="emp-btn-primary" type="button" onClick={onPost} disabled={saving}>
-          <UIIcon name="paper-plane" />
-          {saving ? 'Posting...' : 'Post Job'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function DeleteProfileModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
-  return (
-    <div className="emp-modal-overlay" onClick={onCancel}>
-      <div className="emp-modal sm" onClick={(event) => event.stopPropagation()}>
-        <div className="emp-modal-header">
-          <div className="emp-modal-title text-red">Delete Employer Profile</div>
-          <button className="emp-modal-close" type="button" onClick={onCancel}>
-            <UIIcon name="close" />
-          </button>
-        </div>
-        <div className="emp-danger-notice">
-          <UIIcon name="times-circle" />
-          <span>
-            This sends a deletion request to the Kareerly administrators. Your account stays active until an administrator approves it.
-          </span>
-        </div>
-        <p className="mt-3 text-sm text-soft">
-          This prototype does not independently verify employer identity or organization legitimacy.
-        </p>
-        <div className="emp-modal-footer">
-          <button className="emp-btn-secondary" type="button" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="emp-btn-danger" type="button" onClick={onConfirm}>
-            <UIIcon name="times-circle" />
-            Request Deletion
-          </button>
-        </div>
-      </div>
-    </div>
+      <ToastRegion toast={toast} onClose={() => setToast(null)} />
+    </AppShell>
   );
 }

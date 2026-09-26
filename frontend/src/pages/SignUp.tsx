@@ -1,7 +1,9 @@
-import AuthShell from '../components/AuthShell';
+import AuthShell, { PasswordInput, PasswordRules } from '../components/AuthShell';
 import { useState } from 'react';
+import { Banner, FormField } from '../components/ui';
 import { signUpCandidate } from '../lib/auth';
 import type { KareerlyUser } from '../lib/auth';
+import { STRONG_PASSWORD_PATTERN } from '../lib/passwordRules';
 
 type SignUpProps = {
   onAuthenticated: (user: KareerlyUser) => void;
@@ -12,6 +14,7 @@ type SignUpProps = {
 export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [password, setPassword] = useState('');
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -38,55 +41,61 @@ export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProp
   return (
     <AuthShell
       title="Create your account"
-      subtitle="Join thousands of job seekers"
-      panelTitle="Join as a Job Seeker"
-      panelSubtitle="Create your account and upload your resume to get started"
-      panelItems={['Find jobs matched to your skills', 'See skill gaps & learning recommendations', 'Apply with one click', 'Track your applications']}
+      subtitle="Free for job seekers."
+      panelTitle="Jobs that fit the skills you have"
+      panelSubtitle="Upload your resume once. Kareerly matches you to jobs, shows the gaps worth closing and tracks your applications."
+      panelItems={['Matches scored on your real skills', 'Free learning for the skills you are missing', 'Apply and track in one place']}
       onHome={onHome}
+      footer={(
+        <>
+          Already have an account?{' '}
+          <button className="k-link" type="button" onClick={onSignIn}>Log in</button>
+        </>
+      )}
     >
       <form onSubmit={handleSubmit}>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div>
-            <label className="form-label" htmlFor="signup-first-name">First name</label>
-            <input id="signup-first-name" name="firstName" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="First Name" required type="text" />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="signup-last-name">Last name</label>
-            <input id="signup-last-name" name="lastName" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="Last Name" required type="text" />
-          </div>
+        {error && <div role="alert"><Banner tone="error" className="mb-4">{error}</Banner></div>}
+
+        <div className="k-form-grid">
+          <FormField label="First name">
+            <input id="signup-first-name" name="firstName" className="k-input" required type="text" autoComplete="given-name" />
+          </FormField>
+          <FormField label="Last name">
+            <input id="signup-last-name" name="lastName" className="k-input" required type="text" autoComplete="family-name" />
+          </FormField>
         </div>
 
-        <label className="form-label mt-2" htmlFor="signup-email">Email address</label>
-        <input id="signup-email" name="email" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="email@email.com" required type="email" />
+        <FormField label="Email" className="mt-4">
+          <input id="signup-email" name="email" className="k-input" required type="email" inputMode="email" autoComplete="email" />
+        </FormField>
 
-        <label className="form-label mt-2" htmlFor="signup-birthday">Birthday</label>
-        <input id="signup-birthday" name="birthday" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" required type="date" />
-        <div className="mt-1.5 text-sm text-soft">You must be at least 18 years old to create an account.</div>
+        <FormField label="Birthday" help="You need to be 18 or older.">
+          <input id="signup-birthday" name="birthday" className="k-input" required type="date" autoComplete="bday" />
+        </FormField>
 
-        <label className="form-label mt-2" htmlFor="signup-password">Password</label>
-        <input id="signup-password" name="password" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="••••••••" required minLength={14} pattern="^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{14,}$" type="password" />
-        <div className="mt-1.5 text-sm text-soft">● At least 14 characters, with uppercase, number, and special character</div>
-
-        <div className="my-3 flex items-start gap-3 text-sm text-mid">
-          <input id="agree-terms" className="mt-0.5 h-5 w-5 cursor-pointer rounded accent-rust" required type="checkbox" />
-          <label className="cursor-pointer" htmlFor="agree-terms">
-            I agree to the <span className="font-bold text-rust">Terms of Service</span> and <span className="font-bold text-rust">Privacy Policy</span>
-          </label>
+        <div className="k-field">
+          <label className="k-label block" htmlFor="signup-password">Password</label>
+          <PasswordInput
+            id="signup-password"
+            autoComplete="new-password"
+            value={password}
+            onChange={setPassword}
+            minLength={14}
+            pattern={STRONG_PASSWORD_PATTERN}
+            describedBy="signup-password-rules"
+          />
+          <PasswordRules id="signup-password-rules" value={password} />
         </div>
 
-        {error && <div className="mb-3 rounded-lg border border-red bg-red-l px-3 py-2 text-sm font-semibold text-red">{error}</div>}
+        <label className="k-secondary mt-5 flex cursor-pointer items-start gap-3">
+          <input id="agree-terms" className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded accent-rust" required type="checkbox" />
+          <span>I agree to the <strong className="text-dark">Terms of Service</strong> and <strong className="text-dark">Privacy Policy</strong>.</span>
+        </label>
 
-        <button className="w-full rounded-xl bg-rust px-5 py-2.5 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Creating account...' : 'Create account'}
+        <button className="k-btn k-btn-primary k-btn-block mt-6" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Creating account…' : 'Create account'}
         </button>
       </form>
-
-      <div className="mt-4 text-center text-sm text-mid">
-        Already have an account?{' '}
-        <button className="font-bold text-rust hover:underline" type="button" onClick={onSignIn}>
-          Log in
-        </button>
-      </div>
     </AuthShell>
   );
 }

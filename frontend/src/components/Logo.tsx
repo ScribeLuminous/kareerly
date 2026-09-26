@@ -24,7 +24,8 @@ export default function Logo({ className = '', wordmarkClassName = '', layout = 
   return (
     <a
       className={`logo ${layoutClasses} no-underline ${className}`}
-      href="#"
+      href="/"
+      aria-label="Kareerly home"
       onClick={(event) => {
         if (onClick) {
           event.preventDefault();
@@ -38,7 +39,7 @@ export default function Logo({ className = '', wordmarkClassName = '', layout = 
       >
         <img
           src={puzzleLogo}
-          alt="Kareerly puzzle logo"
+          alt=""
           className="object-contain"
           style={{ width: config.puzzle, height: config.puzzle }}
         />
@@ -49,7 +50,7 @@ export default function Logo({ className = '', wordmarkClassName = '', layout = 
       >
         <img
           src={wordmarkLogo}
-          alt="Kareerly wordmark"
+          alt=""
           className="object-contain"
           style={{ height: config.wordmark }}
         />

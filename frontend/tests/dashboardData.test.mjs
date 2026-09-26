@@ -23,27 +23,72 @@ const deps = {
   ...await loadUtility('../src/lib/jobDescription.ts'),
   React,
 };
-async function loadPage(path, exposed) {
-  globalThis.__dashboardDataTestDeps = deps;
-  const source = readFileSync(new URL(path, import.meta.url), 'utf8');
-  const parsed = ts.createSourceFile('Dashboard.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const names = parsed.statements.filter(ts.isImportDeclaration).flatMap((node) => {
-    if (node.importClause?.isTypeOnly) return [];
-    const bindings = node.importClause?.namedBindings;
-    return bindings && ts.isNamedImports(bindings) ? bindings.elements.filter((el) => !el.isTypeOnly).map((el) => el.name.text) : [];
-  });
-  const declarations = [...new Set(['React', ...names])].map((name) => `const ${name} = globalThis.__dashboardDataTestDeps.${name};`).join('\n');
-  const { outputText } = ts.transpileModule(`${declarations}\n${source}\nexport { ${exposed} };`, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.React },
-    transformers: { before: [() => (node) => ts.factory.updateSourceFile(node, node.statements.filter((statement) => !ts.isImportDeclaration(statement)))] },
-  });
-  const page = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
-  delete globalThis.__dashboardDataTestDeps;
-  return page;
+// Names a module re-exports from elsewhere (`export { A } from './x'`).
+function reexportedNames(parsed) {
+  return parsed.statements
+    .filter((node) => ts.isExportDeclaration(node) && node.moduleSpecifier && !node.isTypeOnly && node.exportClause && ts.isNamedExports(node.exportClause))
+    .flatMap((node) => node.exportClause.elements.filter((el) => !el.isTypeOnly).map((el) => el.name.text));
 }
 
-const page = await loadPage('../src/pages/Dashboard.tsx', 'mapRunMatch, mapAvailableJob, mapApplicationRow, getMatchBadgeLabel, mapRunGap, mapRunLearningRecommendation, JobDetailModal, DashboardOverview');
-const employerPage = await loadPage('../src/pages/EmployerDashboard.tsx', 'toEmployerJob, toCandidateApplication, emptyJobForm, getMatchBucket');
+function importedNames(parsed) {
+  return parsed.statements.filter(ts.isImportDeclaration).flatMap((node) => {
+    const clause = node.importClause;
+    if (!clause || clause.isTypeOnly) return [];
+    const names = clause.name ? [clause.name.text] : [];
+    const bindings = clause.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) names.push(...bindings.elements.filter((el) => !el.isTypeOnly).map((el) => el.name.text));
+    if (bindings && ts.isNamespaceImport(bindings)) names.push(bindings.name.text);
+    return names;
+  });
+}
+
+// Transpile one page module with its imports resolved from `deps` (earlier
+// modules' exports are added to `deps` so later modules can use them).
+async function loadModule(path, exposed = '', defaultName = '') {
+  globalThis.__dashboardDataTestDeps = deps;
+  const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+  const parsed = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const reexports = reexportedNames(parsed);
+  const names = [...importedNames(parsed), ...reexports];
+  const declarations = [...new Set(['React', ...names])].map((name) => `const ${name} = globalThis.__dashboardDataTestDeps.${name};`).join('\n');
+  const exportList = [exposed, reexports.join(', ')].filter(Boolean).join(', ');
+  const { outputText } = ts.transpileModule(`${declarations}\n${source}\n${exportList ? `export { ${exportList} };` : ''}`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.React },
+    transformers: { before: [() => (node) => ts.factory.updateSourceFile(node, node.statements.filter((statement) => !ts.isImportDeclaration(statement) && !(ts.isExportDeclaration(statement) && statement.moduleSpecifier)))] },
+  });
+  const module = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+  delete globalThis.__dashboardDataTestDeps;
+  Object.assign(deps, module);
+  if (defaultName) deps[defaultName] = module.default;
+  return module;
+}
+
+async function loadPage(paths, exposed) {
+  const loaded = {};
+  for (const entry of paths) {
+    const [path, defaultName] = Array.isArray(entry) ? entry : [entry, ''];
+    Object.assign(loaded, await loadModule(path, path.endsWith('Dashboard.tsx') ? exposed : '', defaultName));
+  }
+  return loaded;
+}
+
+const candidate = (name) => `../src/pages/candidate/${name}`;
+const ui = (name) => `../src/components/ui/${name}`;
+const page = await loadPage([
+  candidate('model.ts'),
+  '../src/lib/matchFeedback.ts',
+  ['../src/components/MatchFeedbackControls.tsx', 'MatchFeedbackControls'],
+  ui('hooks.ts'),
+  ui('controls.tsx'),
+  ui('feedback.tsx'),
+  [ui('Modal.tsx'), 'Modal'],
+  ui('page.tsx'),
+  candidate('common.tsx'),
+  candidate('JobCard.tsx'),
+  candidate('HomePage.tsx'),
+  candidate('JobDetailModal.tsx'),
+]);
+const employerPage = await loadPage(['../src/pages/employer/model.ts']);
 
 test('unmatched job listings do not invent work setup, level, employer, or missing skills', () => {
   const job = page.mapAvailableJob({ job_id: 'role-1', job_title: 'Senior Data Engineer', required_skills: ['SQL'] });
@@ -84,16 +129,17 @@ test('saved applications retain their original score rather than a later match r
 test('dashboard empty state renders placeholders without invented activity', () => {
   const { renderToStaticMarkup } = require('react-dom/server');
   const noop = () => {};
-  const html = renderToStaticMarkup(React.createElement(page.DashboardOverview, {
-    hasData: false, isLoading: false,
-    metrics: [{ label: 'Applications', value: '—', detail: 'Loading applications', iconClass: 'forest', valueColor: 'green', icon: 'layers' }],
-    categoryProgress: [], topJobHighlights: [], recentApplications: [], topMissingSkills: [],
-    recommendedSteps: ['Upload a resume and confirm skills to generate personalized next steps.'], courseRecommendations: [],
-    onOpenMatches: noop, onOpenApplications: noop, onOpenGaps: noop, onOpenUpskilling: noop, onOpenMessages: noop,
+  const html = renderToStaticMarkup(React.createElement(page.HomePage, {
+    isLoading: false,
+    nextSteps: [{ id: 'resume', title: 'Upload your resume', detail: 'Kareerly reads your skills and finds jobs that fit.', actionLabel: 'Upload resume', onAction: noop }],
+    fitNowCount: 0, aspirationCount: 0, topMatches: [], getApplicationStatus: () => null, onOpenJob: noop, onOpenMatches: noop,
+    topGaps: [], gapCount: 0, onOpenSkills: noop,
+    recentApplications: [], applicationLoadStatus: 'loading', activeApplicationCount: 0, onOpenApplications: noop,
+    profileTasks: [{ label: 'Upload your resume', done: false, onAction: noop }],
   }));
   assert.match(html, /Loading applications/);
-  assert.match(html, /Upload a resume and confirm skills/);
-  assert.doesNotMatch(html, /hours ago|Yesterday|IAMCompany|8 applications/);
+  assert.match(html, /Upload your resume/);
+  assert.doesNotMatch(html, /hours ago|Yesterday|IAMCompany|8 applications|Fit Now/);
 });
 
 

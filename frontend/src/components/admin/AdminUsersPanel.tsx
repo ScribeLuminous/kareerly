@@ -83,7 +83,7 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
       {loading && !data ? <PanelMessage>Loading users...</PanelMessage> : users.length === 0 ? <PanelMessage>No {roleLabels[role].toLowerCase()} found.</PanelMessage> : (
         <div className="overflow-x-auto border-t border-bdr">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-bg text-xs uppercase text-soft">
+            <thead className="bg-bg text-xs uppercase text-soft-text">
               <tr>
                 <th className="px-4 py-3 font-extrabold">User</th>
                 <th className="px-4 py-3 font-extrabold">{role === 'employer' ? 'Company' : role === 'candidate' ? 'Resumes' : 'Role'}</th>
@@ -97,7 +97,7 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
                 <tr key={user.id} className="bg-card align-top">
                   <td className="px-4 py-3">
                     <div className="font-bold text-dark">{`${user.first_name} ${user.last_name}`.trim() || '-'}</div>
-                    <div className="text-xs text-soft">{user.email}</div>
+                    <div className="text-xs text-soft-text">{user.email}</div>
                   </td>
                   <td className="px-4 py-3 text-mid">
                     {role === 'employer' ? user.company_name || '-' : role === 'candidate' ? (

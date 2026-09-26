@@ -329,10 +329,10 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
 
   if (state.step === 2) {
     return (
-      <section className="mx-auto w-full max-w-5xl px-6 py-12">
-        <div className="mb-8">
-          <h2 className="font-display text-2xl font-bold text-dark mb-2">Step 2: Review Extracted Skills</h2>
-          <p className="text-sm text-soft">Your resume may contain many skills, so Kareerly selected the 20 most relevant skills for cleaner recommendations. You can remove skills and add others from the skill search.</p>
+      <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mb-6">
+          <h2 className="k-page-title mb-1">Check your skills</h2>
+          <p className="k-secondary">We picked your 20 most relevant skills. Remove any that don't fit, or add ones we missed.</p>
         </div>
 
         {!state.resumeAnalysis && (
@@ -367,13 +367,13 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                 <span
                   key={getSkillKey(skill)}
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold ${
-                    isLoggedIn ? 'border-bdr bg-bg text-mid' : 'border-bdr bg-bg text-soft'
+                    isLoggedIn ? 'border-bdr bg-bg text-mid' : 'border-bdr bg-bg text-soft-text'
                   }`}
                   title={skill.is_standardized === false ? 'Custom skill — not yet standardized' : skill.skill_id || skill.skill_name}
                 >
                   <span className="text-dark">{skill.skill_name || skill.skill_id}</span>
                   {skill.is_standardized === false && (
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-soft" title="Custom skill — not yet standardized">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[12px] font-semibold text-soft-text" title="Custom skill — not yet standardized">
                       Custom
                     </span>
                   )}
@@ -391,7 +391,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-bdr bg-bg p-3 text-sm text-soft">
+            <div className="rounded-lg border border-bdr bg-bg p-3 text-sm text-soft-text">
               No skills selected yet. {isLoggedIn ? 'Search and add skills below.' : 'Please try another resume file.'}
             </div>
           )}
@@ -403,7 +403,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                   <FontAwesomeIcon className="text-amber text-base" icon={faCirclePlus} aria-hidden="true" />
                   <div className="text-base font-display font-bold text-dark sm:text-lg">Add missing skills</div>
                 </div>
-                <div className="mb-3 text-sm text-soft">Search and add skills to improve your profile.</div>
+                <div className="mb-3 text-sm text-soft-text">Search and add skills to improve your profile.</div>
 
                 <div className="relative mb-4">
                   <input
@@ -421,13 +421,13 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                     }}
                     disabled={isSkillLimitReached}
                     placeholder="Search ESCO skills, e.g., Python, React, AWS"
-                    className="w-full rounded-lg border border-bdr bg-white px-3 py-2.5 text-sm text-mid outline-none transition-colors placeholder:text-soft focus:border-rust disabled:cursor-not-allowed disabled:bg-bg disabled:text-soft"
+                    className="w-full rounded-lg border border-bdr bg-white px-3 py-2.5 text-sm text-mid outline-none transition-colors placeholder:text-soft-text focus:border-rust disabled:cursor-not-allowed disabled:bg-bg disabled:text-soft-text"
                   />
 
                   {(isSearchingSkills || hasSearchedSkills || skillSearchResults.length > 0) && skillQuery.trim().length >= 2 && !isSkillLimitReached && (
                     <div className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-xl border border-bdr bg-white py-2 shadow-lg">
                       {isSearchingSkills && (
-                        <div className="px-4 py-3 text-sm text-soft">Searching skills...</div>
+                        <div className="px-4 py-3 text-sm text-soft-text">Searching skills...</div>
                       )}
 
                       {!isSearchingSkills && skillSearchResults.length > 0 && (
@@ -446,10 +446,10 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                                 <span>
                                   <span className="block font-semibold text-dark">{skill.skill_name}</span>
                                   {typeof skill.source_metadata?.matched_alias === 'string' && skill.source_metadata.matched_alias && (
-                                    <span className="block text-xs text-soft">Matched alias: {skill.source_metadata.matched_alias}</span>
+                                    <span className="block text-xs text-soft-text">Matched alias: {skill.source_metadata.matched_alias}</span>
                                   )}
                                 </span>
-                                {alreadySelected ? <span className="text-xs font-bold text-soft">Added</span> : <FontAwesomeIcon className="mt-0.5 text-forest" icon={faCirclePlus} aria-hidden="true" />}
+                                {alreadySelected ? <span className="text-xs font-bold text-soft-text">Added</span> : <FontAwesomeIcon className="mt-0.5 text-forest" icon={faCirclePlus} aria-hidden="true" />}
                               </button>
                             );
                           })}
@@ -458,7 +458,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
 
                       {!isSearchingSkills && hasSearchedSkills && skillSearchResults.length === 0 && (
                         <div>
-                          <div className="px-4 py-3 text-sm text-soft">No matching standardized skill found.</div>
+                          <div className="px-4 py-3 text-sm text-soft-text">No matching standardized skill found.</div>
                           {trimmedSkillQuery && !selectedSkillNameSet.has(trimmedSkillQuery.toLowerCase()) && (
                             <button
                               type="button"
@@ -491,7 +491,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                       >
                         <span className="text-dark">{skill.skill_name || skill.skill_id}</span>
                         {skill.is_standardized === false && (
-                          <span className="rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold uppercase text-soft" title="Custom skill — not yet standardized">
+                          <span className="rounded-full bg-bg px-2 py-0.5 text-[12px] font-semibold text-soft-text" title="Custom skill — not yet standardized">
                             Custom
                           </span>
                         )}
@@ -507,14 +507,14 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-soft">No additional skills added yet.</div>
+                  <div className="text-sm text-soft-text">No additional skills added yet.</div>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between px-2 sm:px-4">
+        <div className="flex items-center justify-between gap-3">
           <StepArrowButton
             direction="back"
             label="Back to resume upload"
@@ -529,17 +529,17 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         </div>
 
         {state.error && (
-          <div className="mt-4 rounded-lg border border-red bg-red-l p-3 text-sm font-medium text-red">{state.error}</div>
+          <div className="k-banner k-banner-error mt-4" role="alert">{state.error}</div>
         )}
       </section>
     );
   }
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
+    <section className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <div className="mb-7">
-        <h2 className="font-display text-2xl font-bold text-dark mb-2">Step 3: Your Career Preferences</h2>
-        <p className="text-sm text-soft">Tell us your goals so we can generate a personalized report.</p>
+        <h2 className="k-page-title mb-1">Your career goals</h2>
+        <p className="k-secondary">These shape your Aspiration matches and the order of results.</p>
       </div>
 
       {!state.resumeAnalysis && (
@@ -584,27 +584,25 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         />
       </div>
 
-      <div className="flex items-start justify-between px-2 sm:px-4">
+      <div className="flex items-center justify-between gap-3">
         <StepArrowButton
           direction="back"
           label="Back to skills review"
           onClick={() => goToStep(2)}
           disabled={state.isLoading}
         />
-        <div className="flex flex-col items-center gap-2">
-          <StepArrowButton
-            direction="next"
-            label="Next: generate career report"
-            onClick={handleRunMatching}
-            disabled={!isPreferencesComplete || !state.resumeAnalysis}
-            loading={state.isLoading}
-          />
-          <span className="text-xs font-semibold text-mid" aria-live="polite">{state.isLoading ? 'Generating report…' : 'Generate report'}</span>
-        </div>
+        <StepArrowButton
+          direction="next"
+          text={state.isLoading ? 'Generating…' : 'Get report'}
+          label="Get report: generate your career report"
+          onClick={handleRunMatching}
+          disabled={!isPreferencesComplete || !state.resumeAnalysis}
+          loading={state.isLoading}
+        />
       </div>
 
       {state.error && (
-        <div className="mt-4 rounded-lg border border-red bg-red-l p-3 text-sm font-medium text-red">{state.error}</div>
+        <div className="k-banner k-banner-error mt-4" role="alert">{state.error}</div>
       )}
     </section>
   );
@@ -657,7 +655,7 @@ function CareerAreaQuestion({ value, onChange, confirmedSkillIds }: CareerAreaQu
   return (
     <div className="rounded-xl border border-bdr bg-card p-5 transition-all hover:border-rust-m">
       <label className="mb-1 block text-sm font-semibold text-dark">Which career area interests you most?</label>
-      <p className="mb-3.5 text-xs text-soft">
+      <p className="mb-3.5 text-xs text-soft-text">
         Example skills show what each area involves. Your matches use only the skills you confirmed in Step 2.
       </p>
       {legacyValue && (
@@ -711,7 +709,7 @@ function CareerAreaChoice({ value, label, checked, onChange, examples = [], your
       <span className="min-w-0">
         <span className="block break-words text-sm font-medium text-mid">{label}</span>
         {examples.length > 0 && (
-          <span className="mt-0.5 block text-xs text-soft">e.g. {examples.join(', ')}</span>
+          <span className="mt-0.5 block text-xs text-soft-text">e.g. {examples.join(', ')}</span>
         )}
         {yourSkills.length > 0 && (
           <span className="mt-0.5 block text-xs text-green">Your confirmed skills here: {yourSkills.slice(0, 4).join(', ')}</span>

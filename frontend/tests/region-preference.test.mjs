@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { readCandidateSource } from './helpers/candidateSource.mjs';
 
 function load(path) {
   const { outputText } = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
@@ -51,7 +52,7 @@ test('both matching requests send the region preference', () => {
 
 test('onboarding and the dashboard ask the region question and save it', () => {
   const survey = read('../src/components/SurveyStep.tsx');
-  const dashboard = read('../src/pages/Dashboard.tsx');
+  const dashboard = readCandidateSource();
   for (const source of [survey, dashboard]) {
     assert.match(source, /<LocationPreferenceQuestion/);
     assert.match(source, /locationPreferencePayload\(answers, /);
@@ -67,6 +68,6 @@ test('an empty filtered list offers to change or remove the filter', () => {
   const notice = read('../src/components/RegionFilterNotice.tsx');
   assert.match(notice, /Change region/);
   assert.match(notice, /Show jobs anywhere in the Philippines/);
-  assert.match(read('../src/pages/Dashboard.tsx'), /onRemoveRegionFilter=\{\(\) => void handlePreferencesSave\(\{ \.\.\.surveyAnswers, locationScope: 'anywhere', region: '' \}\)\}/);
+  assert.match(readCandidateSource(), /onRemoveRegionFilter=\{\(\) => void handlePreferencesSave\(\{ \.\.\.surveyAnswers, locationScope: 'anywhere', region: '' \}\)\}/);
   assert.match(read('../src/components/SnapshotStep.tsx'), /<RegionFilterNotice/);
 });
