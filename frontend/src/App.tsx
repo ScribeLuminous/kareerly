@@ -1,12 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { OnboardingProvider } from './context/OnboardingContext';
 import { useOnboarding } from './hooks/useOnboarding';
 import BackendVersionBanner from './components/BackendVersionBanner';
-import AdminDashboard from './pages/AdminDashboard';
 import CandidateLogin from './pages/CandidateLogin';
-import Dashboard from './pages/Dashboard';
-import EmployerDashboard from './pages/EmployerDashboard';
 import EmployerLogin from './pages/EmployerLogin';
 import EmployerSignUp from './pages/EmployerSignUp';
 import Landing from './pages/Landing';
@@ -21,6 +18,22 @@ import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/us
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { isCandidateWorkspacePath } from './pages/candidate/routes';
+
+// Each workspace loads on demand so phones only download the one they use.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const EmployerDashboard = lazy(() => import('./pages/EmployerDashboard'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+
+function WorkspaceLoading() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-bg px-6 text-center text-mid" role="status">
+      <div>
+        <div className="font-display text-2xl font-extrabold text-dark">Kareerly</div>
+        <div className="mt-2 text-sm">Loading…</div>
+      </div>
+    </main>
+  );
+}
 
 type AppView =
   | 'landing'
@@ -364,7 +377,7 @@ function AppContent() {
   }
 
   return (
-    <>
+    <Suspense fallback={<WorkspaceLoading />}>
       <BackendVersionBanner />
       {view === 'landing' && (
         <Landing
@@ -455,7 +468,7 @@ function AppContent() {
           onViewDashboard={showDashboard}
         />
       )}
-    </>
+    </Suspense>
   );
 }
 

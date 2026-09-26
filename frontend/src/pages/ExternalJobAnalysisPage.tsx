@@ -268,7 +268,7 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
       </div>
 
       <div className="external-analysis-layout">
-        <main className="external-analysis-main">
+        <div className="external-analysis-main">
           {!result && (
             <form className="external-input-surface" onSubmit={submit} noValidate ref={formRef} aria-busy={isLoading}>
               <label className="external-description-label k-field block" htmlFor="external-job-description">
@@ -394,7 +394,7 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
               </div>
             </div>
           )}
-        </main>
+        </div>
 
         <SavedAnalysesRail
           matches={savedMatches}

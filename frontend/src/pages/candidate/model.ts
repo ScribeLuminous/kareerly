@@ -75,12 +75,6 @@ export function tr(language: UiLanguage, english: string): string {
 
 export type SkillCategory = 'Core Office Tools' | 'Programming & Scripting' | 'Statistical Analysis' | 'Data Visualization' | 'Data Engineering' | 'Other';
 
-export type ProgressStatus = {
-  label: string;
-  className: string;
-  interpretation: string;
-};
-
 export type DashboardJob = {
   id: string;
   jobSource: 'internal' | 'employer';
@@ -341,13 +335,6 @@ export function getMatchReadinessLabel(score: number): string {
   return 'Match pending';
 }
 
-export function getMatchReadinessClass(score: number): string {
-  if (score >= 80) return 'top';
-  if (score >= 60) return 'good';
-  if (score >= 1) return 'partial';
-  return 'develop';
-}
-
 export function getMatchBadgeLabel(job: DashboardJob): string {
   if (!job.hasMatchScore) return 'Match not available';
   const score = job.hasMatchScore ? Math.max(0, Math.min(100, Math.round(job.matchScore))) : 0;
@@ -397,13 +384,6 @@ export function splitSkillList(skills: string[]): string[] {
       seen.add(key);
       return true;
     });
-}
-
-export function getRecommendedNextStep(job: DashboardJob): string {
-  const firstMissing = cleanSkillDisplayName(job.missingSkills[0] || '');
-  if (firstMissing) return `Start with ${firstMissing} because it is one of the clearest skills to improve for this role.`;
-  if (job.matchedSkills.length > 0) return `Build on your current strengths and keep your resume updated as you gain more related experience.`;
-  return 'Review the recommended learning resources to build stronger alignment with similar roles.';
 }
 
 export function getCareerGuidance(job: DashboardJob): string {
@@ -481,32 +461,9 @@ export function getCourseSkillLabels(course: DashboardCourse): string[] {
   return Array.from(new Set(rawSkills.map(cleanSkillDisplayName).filter(Boolean)));
 }
 
-export function getProgressStatusLabel(status: SkillProgressStatus): string {
-  if (status === 'started' || status === 'in_progress') return 'In Progress';
-  if (status === 'completed' || status === 'covered') return 'Completed / Covered';
-  if (status === 'evidenced') return 'Evidence Uploaded';
-  return 'Not Started';
-}
-
 export function formatGapMissingCount(gap: DashboardGap): string {
   if (gap.affectedCount === null) return 'Affected match count unavailable';
   return `Missing in ${gap.affectedCount} match${gap.affectedCount === 1 ? '' : 'es'}`;
-}
-
-export function scoreColorClass(score: number): string {
-  if (score >= 85) return 'var(--rust)';
-  if (score >= 75) return 'var(--forest)';
-  if (score >= 65) return 'var(--mauve)';
-  return 'var(--tan)';
-}
-
-export function getMatchScoreBadge(job: DashboardJob): string {
-  return getMatchBadgeLabel(job);
-}
-
-export function getMatchScoreColor(job: DashboardJob): string {
-  if (!job.hasMatchScore) return 'var(--soft)';
-  return scoreColorClass(job.matchScore);
 }
 
 export function getInitials(name: string, email: string): string {
@@ -594,52 +551,6 @@ export function severityPriority(value: SeverityLevel): number {
   if (value === 'Critical') return 0;
   if (value === 'High') return 1;
   return 2;
-}
-
-export function severityClass(value: SeverityLevel): string {
-  if (value === 'Critical') return 'critical';
-  if (value === 'High') return 'high';
-  return 'moderate';
-}
-
-export function categoryStatus(percent: number): ProgressStatus {
-  if (percent <= 0) {
-    return {
-      label: 'Not Started / Missing',
-      className: 'cand-sdp-chip cand-sdp-not-started',
-      interpretation: 'No learning activity or supporting evidence has been recorded.',
-    };
-  }
-
-  if (percent <= 25) {
-    return {
-      label: 'Foundation Progress',
-      className: 'cand-sdp-chip cand-sdp-early',
-      interpretation: 'The candidate has started addressing the skill gap.',
-    };
-  }
-
-  if (percent <= 50) {
-    return {
-      label: 'Intermediate Progress',
-      className: 'cand-sdp-chip cand-sdp-developing',
-      interpretation: 'Some learning completion or supporting evidence is present.',
-    };
-  }
-
-  if (percent <= 75) {
-    return {
-      label: 'Advanced Progress',
-      className: 'cand-sdp-chip cand-sdp-advanced',
-      interpretation: 'Most related skills show learning progress or evidence.',
-    };
-  }
-
-  return {
-    label: 'Strong Progress Evidence',
-    className: 'cand-sdp-chip cand-sdp-strong',
-    interpretation: 'Strong evidence exists across most skills in the category.',
-  };
 }
 
 export function withMatchVote(current: Record<string, MatchVote>, key: string, vote: MatchVote | null): Record<string, MatchVote> {
@@ -978,15 +889,6 @@ export function mapRunGap(gap: PrioritizedSkillGap): DashboardGap {
   };
 }
 
-export function normalizeProgressLabel(percent: number, backendLabel?: string): ProgressStatus {
-  const derived = categoryStatus(percent);
-  if (!backendLabel?.trim()) return derived;
-  return {
-    ...derived,
-    label: backendLabel.trim(),
-  };
-}
-
 export function mapModelGap(gap: SkillGap, matches: JobMatch[]): DashboardGap {
   const severity = gap.importance === 'critical' ? 'Critical' : gap.importance === 'high' ? 'High' : 'Moderate';
   const related = matches
@@ -1070,13 +972,6 @@ export function mapRunLearningRecommendation(rec: RunLearningRecommendation): Da
   };
 }
 
-export function compactCompanyBadge(company: string): string {
-  const parts = company.split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'CO';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
-}
-
 export function getPreferenceLabel(table: Record<string, string>, key: string): string {
   return table[key] || key;
 }
@@ -1111,19 +1006,6 @@ export async function loadProfilePreferences(userId: string): Promise<SurveyAnsw
   };
 }
 
-export function statusKey(status: ApplicationStatus): 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn' {
-  return status.toLowerCase() as 'pending' | 'shortlisted' | 'interviewing' | 'hired' | 'rejected' | 'withdrawn';
-}
-
-export const APPLICATION_STATUS_FILTERS = [
-  ['pending', 'Pending'],
-  ['shortlisted', 'Shortlisted'],
-  ['interviewing', 'Interviewing'],
-  ['hired', 'Hired'],
-  ['rejected', 'Rejected'],
-  ['withdrawn', 'Withdrawn'],
-] as const;
-
 export function learningResourceUrl(course: DashboardCourse): string | undefined {
   try {
     if (!course.url) return undefined;
@@ -1132,13 +1014,6 @@ export function learningResourceUrl(course: DashboardCourse): string | undefined
   } catch {
     return undefined;
   }
-}
-
-export function stateToClass(state: MessageRequestState): string {
-  if (state === 'Accepted') return 'accepted';
-  if (state === 'Declined') return 'declined';
-  if (state === 'Ignored') return 'ignored';
-  return 'pending';
 }
 
 export const MESSAGE_REPORT_REASONS: Array<{ value: MessageReportReason; label: string }> = [

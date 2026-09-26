@@ -373,7 +373,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                 >
                   <span className="text-dark">{skill.skill_name || skill.skill_id}</span>
                   {skill.is_standardized === false && (
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-soft-text" title="Custom skill — not yet standardized">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[12px] font-semibold text-soft-text" title="Custom skill — not yet standardized">
                       Custom
                     </span>
                   )}
@@ -491,7 +491,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                       >
                         <span className="text-dark">{skill.skill_name || skill.skill_id}</span>
                         {skill.is_standardized === false && (
-                          <span className="rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold uppercase text-soft-text" title="Custom skill — not yet standardized">
+                          <span className="rounded-full bg-bg px-2 py-0.5 text-[12px] font-semibold text-soft-text" title="Custom skill — not yet standardized">
                             Custom
                           </span>
                         )}
