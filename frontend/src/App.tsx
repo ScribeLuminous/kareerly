@@ -123,6 +123,10 @@ function AppContent() {
         } else if (location.pathname === '/employer/login') {
           setAuthRole('employer');
           setView('employer-login');
+        } else if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) {
+          setAuthRole('admin');
+          setView('admin-login');
+          if (location.pathname !== '/admin/login') navigate('/admin/login', { replace: true });
         } else if (location.pathname !== '/') {
           setView('landing');
           navigate('/', { replace: true });
@@ -273,6 +277,7 @@ function AppContent() {
   const showAdminSignIn = () => {
     setAuthRole('admin');
     setView('admin-login');
+    navigate('/admin/login');
   };
   const showCandidateSignUp = () => {
     setAuthRole('candidate');
@@ -388,6 +393,7 @@ function AppContent() {
           onEmployerStart={showEmployerSignUp}
           onLogin={showCandidateSignIn}
           onSignUp={showSignUpDefault}
+          onAdminLogin={showAdminSignIn}
         />
       )}
       {view === 'candidate-login' && (

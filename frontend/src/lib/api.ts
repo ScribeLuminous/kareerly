@@ -1330,3 +1330,130 @@ export function buildMatchPayloadFromAnalysis(params: {
     },
   };
 }
+
+export type AdminPerson = { id: string; email: string; name: string; role: 'candidate' | 'employer' | 'admin'; company_name?: string | null };
+
+export type AdminUserRow = {
+  id: string;
+  role: 'candidate' | 'employer' | 'admin';
+  first_name: string;
+  last_name: string;
+  email: string;
+  created_at?: string | null;
+  company_name?: string | null;
+  resume_count?: number;
+  banned_until?: string | null;
+  suspended: boolean;
+  deletion_requested: boolean;
+};
+
+export type AdminResumeRow = {
+  id: string;
+  user_id: string;
+  original_filename?: string | null;
+  file_mime_type?: string | null;
+  file_size_bytes?: number | null;
+  created_at?: string | null;
+  has_file: boolean;
+  owner: AdminPerson | null;
+};
+
+export type AdminResumeDetail = AdminResumeRow & {
+  download_url: string | null;
+  parsed_text: string;
+  parsed_text_truncated: boolean;
+};
+
+export type ReportStatus = 'open' | 'resolved' | 'dismissed';
+
+export type AdminReport = {
+  id: string;
+  application_id: string;
+  actor_role: 'candidate' | 'employer';
+  reason: string | null;
+  details: string | null;
+  created_at: string;
+  review_status: ReportStatus;
+  reviewed_at?: string | null;
+  admin_note?: string | null;
+  reporter: AdminPerson | null;
+  reported: AdminPerson | null;
+  application: { job_title?: string | null; company_name?: string | null; status?: string | null };
+};
+
+export type VoteBucket = { good: number; bad: number; total: number; good_rate: number | null };
+
+export type MatchFeedbackStats = {
+  totals: VoteBucket & { voters: number };
+  by_category: Record<string, VoteBucket>;
+  by_score_band: Array<VoteBucket & { band: string }>;
+  by_ranker_version: Array<VoteBucket & { version: string }>;
+  by_week: Array<VoteBucket & { week_start: string }>;
+  most_downvoted_jobs: Array<VoteBucket & { job_id: string; job_source: string; job_title?: string | null; company_name?: string | null }>;
+};
+
+export type DeletionRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export type AccountDeletionRequest = {
+  id: string;
+  user_id?: string | null;
+  user_email?: string;
+  user_role?: 'candidate' | 'employer';
+  reason: string | null;
+  status: DeletionRequestStatus;
+  requested_at: string;
+  reviewed_at?: string | null;
+  admin_note?: string | null;
+  user?: AdminPerson | null;
+};
+
+type Page = { has_more: boolean; offset: number; limit: number };
+
+function adminQuery(params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') query.set(key, String(value));
+  });
+  return query.toString();
+}
+
+export const fetchAdminUsers = (token: string, input: { role: string; q?: string; offset?: number }) =>
+  adminRequest<Page & { users: AdminUserRow[] }>(token, `/api/admin/users?${adminQuery({ role: input.role, q: input.q, offset: input.offset })}`);
+export const suspendAdminUser = (token: string, userId: string, suspended: boolean) =>
+  adminRequest<{ suspended: boolean }>(token, `/api/admin/users/${encodeURIComponent(userId)}/suspend`, 'POST', { suspended });
+export const deleteAdminUser = (token: string, userId: string) =>
+  adminRequest<{ deleted: boolean }>(token, `/api/admin/users/${encodeURIComponent(userId)}`, 'DELETE');
+
+export const fetchAdminResumes = (token: string, input: { q?: string; offset?: number }) =>
+  adminRequest<Page & { resumes: AdminResumeRow[] }>(token, `/api/admin/resumes?${adminQuery({ q: input.q, offset: input.offset })}`);
+export const fetchAdminResume = (token: string, resumeId: string) =>
+  adminRequest<{ resume: AdminResumeDetail }>(token, `/api/admin/resumes/${encodeURIComponent(resumeId)}`);
+export const deleteAdminResume = (token: string, resumeId: string) =>
+  adminRequest<{ deleted: boolean }>(token, `/api/admin/resumes/${encodeURIComponent(resumeId)}`, 'DELETE');
+
+export const fetchAdminReports = (token: string, status: ReportStatus | 'all') =>
+  adminRequest<{ reports: AdminReport[]; counts: Record<ReportStatus, number> }>(token, `/api/admin/reports?status=${status}`);
+export const reviewAdminReport = (token: string, reportId: string, input: { status: ReportStatus; note?: string }) =>
+  adminRequest<{ report: AdminReport }>(token, `/api/admin/reports/${encodeURIComponent(reportId)}`, 'PATCH', input);
+
+export const fetchMatchFeedbackStats = (token: string) => adminRequest<MatchFeedbackStats>(token, '/api/admin/match-feedback/stats');
+
+export const fetchAdminDeletionRequests = (token: string, status: DeletionRequestStatus | 'all') =>
+  adminRequest<{ requests: AccountDeletionRequest[]; counts: Record<DeletionRequestStatus, number> }>(token, `/api/admin/deletion-requests?status=${status}`);
+export const decideAdminDeletionRequest = (token: string, requestId: string, decision: 'approve' | 'reject', note?: string) =>
+  adminRequest<{ request: AccountDeletionRequest }>(token, `/api/admin/deletion-requests/${encodeURIComponent(requestId)}/${decision}`, 'POST', { note: note || null });
+
+const DELETION_REQUEST_PATH = '/api/account/deletion-request';
+
+export async function loadAccountDeletionRequest(): Promise<AccountDeletionRequest | null> {
+  const payload = await authenticatedMessageRequest(DELETION_REQUEST_PATH, {}, 'Unable to load your deletion request.');
+  return payload?.request || null;
+}
+
+export async function requestAccountDeletion(reason?: string): Promise<AccountDeletionRequest | null> {
+  const payload = await authenticatedMessageRequest(DELETION_REQUEST_PATH, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || null }),
+  }, 'Unable to submit your deletion request.');
+  return payload?.request || null;
+}

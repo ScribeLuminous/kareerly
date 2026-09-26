@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
+import { analyzeResume, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
 import { getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
@@ -2044,13 +2044,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       {deleteModalOpen && (
         <ConfirmDialog
           title="Delete your profile?"
-          message="This removes your candidate account, saved matches, applications and progress. We'll email you to confirm before anything is deleted."
+          message="This asks the Kareerly administrators to remove your candidate account, saved matches, applications and progress. Your account stays active until an administrator approves the request."
           danger
           confirmLabel="Request deletion"
           onCancel={() => setDeleteModalOpen(false)}
           onConfirm={() => {
             setDeleteModalOpen(false);
-            showToast('Deletion requested. Check your email to confirm.', 'success');
+            requestAccountDeletion()
+              .then(() => showToast('Profile deletion request sent. An administrator will review it.', 'success'))
+              .catch((error) => showToast(error instanceof Error ? error.message : 'Unable to submit your deletion request.', 'danger'));
           }}
         />
       )}

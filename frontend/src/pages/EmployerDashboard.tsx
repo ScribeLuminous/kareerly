@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { faBriefcase, faBuilding, faComments, faHouse, faLayerGroup, faPlus, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { AppShell, ConfirmDialog, DESKTOP_QUERY, FormField, ToastRegion, useMediaQuery, type NextStep, type ToastState } from '../components/ui';
-import { loadApplicationMessages, loadEmployerAccountSettings, saveEmployerAccountSettings, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
+import { loadApplicationMessages, loadEmployerAccountSettings, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { joinJobContent } from '../lib/jobDescription';
 import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
@@ -809,7 +809,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const requestDeleteEmployerProfile = () => {
     setDeleteProfileModalOpen(false);
-    showToast('Deletion request sent. Check your email to confirm.', 'success');
+    requestAccountDeletion()
+      .then(() => showToast('Profile deletion request sent. An administrator will review it.', 'success'))
+      .catch((error) => showToast(error instanceof Error ? error.message : 'Unable to submit your deletion request.', 'danger'));
   };
 
   const handleLogout = () => {
@@ -1068,7 +1070,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       {deleteProfileModalOpen && (
         <ConfirmDialog
           title="Delete your employer profile?"
-          message="This sends a deletion request. We email you to confirm before removing your account, job posts, applicant records and messages."
+          message="This asks the Kareerly administrators to remove your account, job posts, applicant records and messages. Your account stays active until an administrator approves the request."
           confirmLabel="Request deletion"
           danger
           onCancel={() => setDeleteProfileModalOpen(false)}

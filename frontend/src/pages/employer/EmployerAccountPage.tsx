@@ -147,7 +147,7 @@ export function EmployerAccountPage({ profile, password, isSaving, onProfileChan
 
       <section className="k-section border-t border-bdr pt-6" aria-labelledby="acct-delete">
         <h2 id="acct-delete" className="k-section-title text-red">Delete employer profile</h2>
-        <p className="k-secondary mb-3 mt-1">Removes your account, job posts, applicant records and messages. We email you to confirm first.</p>
+        <p className="k-secondary mb-3 mt-1">Asks the Kareerly administrators to remove your account, job posts, applicant records and messages. Your account stays active until they approve it.</p>
         <button className="k-btn k-btn-danger-outline" type="button" onClick={onRequestDelete}>Request deletion</button>
       </section>
     </div>
