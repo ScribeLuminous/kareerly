@@ -329,10 +329,10 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
 
   if (state.step === 2) {
     return (
-      <section className="mx-auto w-full max-w-5xl px-6 py-12">
-        <div className="mb-8">
-          <h2 className="font-display text-2xl font-bold text-dark mb-2">Step 2: Review Extracted Skills</h2>
-          <p className="text-sm text-soft-text">Your resume may contain many skills, so Kareerly selected the 20 most relevant skills for cleaner recommendations. You can remove skills and add others from the skill search.</p>
+      <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mb-6">
+          <h2 className="k-page-title mb-1">Check your skills</h2>
+          <p className="k-secondary">We picked your 20 most relevant skills. Remove any that don't fit, or add ones we missed.</p>
         </div>
 
         {!state.resumeAnalysis && (
@@ -514,7 +514,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           )}
         </div>
 
-        <div className="flex items-center justify-between px-2 sm:px-4">
+        <div className="flex items-center justify-between gap-3">
           <StepArrowButton
             direction="back"
             label="Back to resume upload"
@@ -529,17 +529,17 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         </div>
 
         {state.error && (
-          <div className="mt-4 rounded-lg border border-red bg-red-l p-3 text-sm font-medium text-red">{state.error}</div>
+          <div className="k-banner k-banner-error mt-4" role="alert">{state.error}</div>
         )}
       </section>
     );
   }
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
+    <section className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <div className="mb-7">
-        <h2 className="font-display text-2xl font-bold text-dark mb-2">Step 3: Your Career Preferences</h2>
-        <p className="text-sm text-soft-text">Tell us your goals so we can generate a personalized report.</p>
+        <h2 className="k-page-title mb-1">Your career goals</h2>
+        <p className="k-secondary">These shape your Aspiration matches and the order of results.</p>
       </div>
 
       {!state.resumeAnalysis && (
@@ -584,27 +584,25 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         />
       </div>
 
-      <div className="flex items-start justify-between px-2 sm:px-4">
+      <div className="flex items-center justify-between gap-3">
         <StepArrowButton
           direction="back"
           label="Back to skills review"
           onClick={() => goToStep(2)}
           disabled={state.isLoading}
         />
-        <div className="flex flex-col items-center gap-2">
-          <StepArrowButton
-            direction="next"
-            label="Next: generate career report"
-            onClick={handleRunMatching}
-            disabled={!isPreferencesComplete || !state.resumeAnalysis}
-            loading={state.isLoading}
-          />
-          <span className="text-xs font-semibold text-mid" aria-live="polite">{state.isLoading ? 'Generating report…' : 'Generate report'}</span>
-        </div>
+        <StepArrowButton
+          direction="next"
+          text={state.isLoading ? 'Generating…' : 'Get report'}
+          label="Get report: generate your career report"
+          onClick={handleRunMatching}
+          disabled={!isPreferencesComplete || !state.resumeAnalysis}
+          loading={state.isLoading}
+        />
       </div>
 
       {state.error && (
-        <div className="mt-4 rounded-lg border border-red bg-red-l p-3 text-sm font-medium text-red">{state.error}</div>
+        <div className="k-banner k-banner-error mt-4" role="alert">{state.error}</div>
       )}
     </section>
   );

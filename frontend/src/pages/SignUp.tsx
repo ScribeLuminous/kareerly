@@ -48,23 +48,23 @@ export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProp
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
             <label className="form-label" htmlFor="signup-first-name">First name</label>
-            <input id="signup-first-name" name="firstName" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="First Name" required type="text" />
+            <input id="signup-first-name" name="firstName" className="k-input" placeholder="First Name" required type="text" />
           </div>
           <div>
             <label className="form-label" htmlFor="signup-last-name">Last name</label>
-            <input id="signup-last-name" name="lastName" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="Last Name" required type="text" />
+            <input id="signup-last-name" name="lastName" className="k-input" placeholder="Last Name" required type="text" />
           </div>
         </div>
 
         <label className="form-label mt-2" htmlFor="signup-email">Email address</label>
-        <input id="signup-email" name="email" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="email@email.com" required type="email" />
+        <input id="signup-email" name="email" className="k-input" placeholder="email@email.com" required type="email" />
 
         <label className="form-label mt-2" htmlFor="signup-birthday">Birthday</label>
-        <input id="signup-birthday" name="birthday" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" required type="date" />
+        <input id="signup-birthday" name="birthday" className="k-input" required type="date" />
         <div className="mt-1.5 text-sm text-soft-text">You must be at least 18 years old to create an account.</div>
 
         <label className="form-label mt-2" htmlFor="signup-password">Password</label>
-        <input id="signup-password" name="password" className="input-base border-2 bg-bg py-2 text-base outline-none focus:border-rust focus:bg-card" placeholder="••••••••" required minLength={14} pattern="^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{14,}$" type="password" />
+        <input id="signup-password" name="password" className="k-input" placeholder="••••••••" required minLength={14} pattern="^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{14,}$" type="password" />
         <div className="mt-1.5 text-sm text-soft-text">● At least 14 characters, with uppercase, number, and special character</div>
 
         <div className="my-3 flex items-start gap-3 text-sm text-mid">
@@ -76,7 +76,7 @@ export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProp
 
         {error && <div className="mb-3 rounded-lg border border-red bg-red-l px-3 py-2 text-sm font-semibold text-red">{error}</div>}
 
-        <button className="w-full rounded-xl bg-rust px-5 py-2.5 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isSubmitting}>
+        <button className="k-btn k-btn-primary k-btn-block" type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Creating account...' : 'Create account'}
         </button>
       </form>
