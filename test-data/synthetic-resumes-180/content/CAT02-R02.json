@@ -1,0 +1,51 @@
+{
+  "candidate_id": "CAT02-R02",
+  "full_name": "Kimberly Morales",
+  "location": "Tarlac City, Tarlac",
+  "email": "kimberly.morales@example.net",
+  "phone": "+63 999 754 2594",
+  "headline": "Reporting Analyst",
+  "summary": "Business Administration graduate looking for an entry-level reporting analyst role. During my OJT at a sugar trading company I prepared weekly Excel reports and charts from encoded delivery slips and checked each figure against the source documents. I am careful with detail and quick with spreadsheets.",
+  "skills": [
+    "Microsoft Excel (pivot tables, SUMIFS, conditional formatting)",
+    "Excel charts for weekly reports",
+    "Basic data analysis",
+    "Data encoding",
+    "Checking records against source documents",
+    "English communication"
+  ],
+  "experience": [
+    {
+      "title": "Reports Intern (OJT)",
+      "employer": "Tarlac Valley Sugar Trading Inc.",
+      "location": "Tarlac City, Tarlac",
+      "start": "2026-01",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Encoded about 600 cane delivery slips a week and matched totals against weighbridge tickets.",
+        "Prepared a weekly Excel report with charts of deliveries per planter association for the operations head."
+      ]
+    },
+    {
+      "title": "Student Assistant",
+      "employer": "Registrar's Office, Central Tarlac Colleges",
+      "location": "Tarlac City, Tarlac",
+      "start": "2025-06",
+      "end": "2025-12",
+      "type": "part-time",
+      "bullets": [
+        "Updated student records and flagged mismatched subject codes before grade release."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Operations Management",
+      "school": "Central Tarlac Colleges",
+      "location": "Tarlac City, Tarlac",
+      "start": "2022",
+      "end": "2026"
+    }
+  ]
+}

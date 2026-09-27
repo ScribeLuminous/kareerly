@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT03-R04",
+  "full_name": "Kevin Flores",
+  "location": "Tacurong City, Sultan Kudarat",
+  "email": "kevin.flores@example.org",
+  "phone": "+63 965 436 3453",
+  "headline": "Systems Administrator",
+  "summary": "Systems administrator with three years looking after servers, users and the network at an agricultural supply company. I keep Windows and Linux servers, the office network and the sales database running, and I automate routine tasks with PowerShell and SQL.",
+  "skills": [
+    "Technical support",
+    "Network administration",
+    "Database management (MySQL, backups, user rights)",
+    "System security: patching, access rights, antivirus",
+    "PowerShell and Bash scripting",
+    "SQL",
+    "Windows Server and Active Directory"
+  ],
+  "experience": [
+    {
+      "title": "Systems Administrator",
+      "employer": "Sultan Kudarat Agri-Supply Corp.",
+      "location": "Tacurong City, Sultan Kudarat",
+      "start": "2023-06",
+      "end": "Present",
+      "bullets": [
+        "Look after 6 servers, 90 user accounts and the network linking the head office with four branch stores.",
+        "Set up nightly database backups with a monthly restore drill after a failed disk nearly lost a week of sales.",
+        "Wrote PowerShell scripts that create and disable user accounts from an HR list.",
+        "Apply monthly patches and keep antivirus and access rights up to date on every server."
+      ]
+    },
+    {
+      "title": "IT Intern",
+      "employer": "Tacurong City Water Utility Services",
+      "location": "Tacurong City, Sultan Kudarat",
+      "start": "2023-01",
+      "end": "2023-04",
+      "type": "internship",
+      "bullets": [
+        "Supported staff with computer problems and helped inventory network equipment."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Kudarat Plains State College",
+      "location": "Isulan, Sultan Kudarat",
+      "start": "2019",
+      "end": "2023"
+    }
+  ]
+}

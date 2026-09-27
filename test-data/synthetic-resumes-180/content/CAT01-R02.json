@@ -1,0 +1,50 @@
+{
+  "candidate_id": "CAT01-R02",
+  "full_name": "Zenaida Lumactod",
+  "location": "Cabadbaran City, Agusan del Norte",
+  "email": "zenaida.lumactod@example.com",
+  "phone": "+63 991 435 1473",
+  "headline": "Software Developer Trainee",
+  "summary": "Computer Science graduate (2026) looking for a trainee developer post. I wrote Python scripts and small SQL databases in coursework and during a three-month OJT at an agri-trading firm, and I built simple HTML and CSS pages for class requirements. I learn new tools quickly and am ready to follow a team's coding standards.",
+  "skills": [
+    "Python",
+    "SQL (SQLite)",
+    "HTML and CSS",
+    "Programming fundamentals: loops, functions, lists and dictionaries",
+    "Microsoft Excel",
+    "Written and spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Programming Intern (OJT)",
+      "employer": "Masao Agri-Trading Inc.",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2026-01",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Wrote a Python script that merges daily palay delivery logs from separate Excel files into one weekly summary.",
+        "Set up an SQLite table for supplier deliveries and wrote queries for weekly totals per barangay."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Computer Science",
+      "school": "Northeastern Mindanao Polytechnic College",
+      "location": "Cabadbaran City, Agusan del Norte",
+      "start": "2022",
+      "end": "2026",
+      "notes": [
+        "Thesis: a rule-based class schedule generator written in Python"
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Python Essentials 1",
+      "issuer": "online course",
+      "date": "2025-08"
+    }
+  ]
+}
