@@ -2141,6 +2141,149 @@ details.k-detail-section[open] > summary {
   }
 }
 
+/* ---------- Centred top navigation (candidate workspace) ---------- */
+/* Phones and tablets keep the bottom bar; desktop gets text-only tabs centred in the top bar. */
+
+.k-topbar-start {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+
+.k-topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.k-centernav {
+  display: none;
+}
+
+/* Tablets: undo the icon rail so the phone bottom bar stays in place. */
+@media (min-width: 768px) {
+  .k-shell-centered .k-main {
+    margin-left: 0;
+    padding-bottom: calc(var(--k-bottomnav-h) + env(safe-area-inset-bottom));
+  }
+
+  .k-shell-centered .k-nav {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    display: grid;
+    gap: 0;
+    padding: 0 0 env(safe-area-inset-bottom);
+    border-top: 1px solid var(--bdr);
+    border-right: 0;
+    overflow-y: visible;
+  }
+
+  .k-shell-centered .k-nav-item {
+    min-height: var(--k-bottomnav-h);
+  }
+
+  .k-shell-centered .k-nav-label {
+    white-space: nowrap;
+    text-align: start;
+  }
+
+  .k-shell-centered .k-toast {
+    bottom: calc(var(--k-bottomnav-h) + 24px + env(safe-area-inset-bottom));
+  }
+
+  .k-shell-centered .k-savebar {
+    bottom: calc(var(--k-bottomnav-h) + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 1024px) {
+  .k-shell-centered .k-nav {
+    display: none;
+  }
+
+  .k-shell-centered .k-main {
+    padding-bottom: 0;
+  }
+
+  .k-shell-centered .k-toast {
+    bottom: 24px;
+  }
+
+  .k-shell-centered .k-savebar {
+    bottom: 0;
+  }
+
+  /* Equal outer columns keep the tabs centred on the viewport, not between logo and icons. */
+  .k-topbar-centered {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .k-topbar-centered .k-topbar-end {
+    justify-self: end;
+  }
+
+  .k-centernav {
+    display: flex;
+    align-self: stretch;
+    gap: 28px;
+  }
+
+  .k-centernav-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 2px;
+    color: var(--soft-text);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+
+  .k-centernav-item:hover {
+    color: var(--dark);
+  }
+
+  .k-centernav-item[aria-current='page'] {
+    color: var(--dark);
+  }
+
+  /* Thin underline on the header's bottom edge. */
+  .k-centernav-item[aria-current='page']::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--rust);
+  }
+
+  .k-centernav-item:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .k-centernav-count {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--rust);
+    color: #fff;
+    font-size: 11px;
+    line-height: 18px;
+    font-weight: 700;
+    text-align: center;
+  }
+}
+
 /* ---------- Structured evaluation ---------- */
 
 .k-meter {

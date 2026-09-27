@@ -5,7 +5,6 @@ import {
   faCompass,
   faHouse,
   faLayerGroup,
-  faMagnifyingGlassChart,
   faPuzzlePiece,
   faSliders,
   faUser,
@@ -68,9 +67,9 @@ export function CandidateShell({
     item('home', 'dashboard', 'Home', faHouse),
     item('matches', 'jobmatches', 'Matches', faBriefcase),
     item('skills', 'skillgaps', 'Skills', faPuzzlePiece),
-    item('kareers', 'kareers', 'Kareers', faCompass),
     {
-      ...item('applications', 'applications', 'Applications', faLayerGroup),
+      // Applications and Analyze a job live under Kareers, so its message requests count shows here.
+      ...item('kareers', 'kareers', 'Kareers', faCompass),
       badge: applicationsBadge,
       badgeLabel: (count) => `${count} message request${count === 1 ? '' : 's'}`,
     },
@@ -80,13 +79,7 @@ export function CandidateShell({
     <AppShell
       onHome={onHome}
       nav={nav}
-      sidebarAction={{
-        label: 'Analyze a job',
-        icon: faMagnifyingGlassChart,
-        href: PAGE_PATHS['external-job'],
-        current: activePage === 'external-job',
-        onSelect: () => onNavigate('external-job'),
-      }}
+      layout="centered"
       notifications={{
         items: notifications.map((row) => {
           const isMessage = row.event_type === 'message_request';

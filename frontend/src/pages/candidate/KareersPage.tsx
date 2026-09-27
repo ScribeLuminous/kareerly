@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCompass, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faChevronRight, faCompass, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, EmptyState, FilterChoice, FilterPanel, SearchField, SkeletonRows } from '../../components/ui';
 import { JobCard } from './JobCard';
 import { PageHeader } from './common';
@@ -23,9 +23,12 @@ type KareersPageProps = {
   isDesktop: boolean;
   selectedJobId: string | null;
   renderDetail: (job: DashboardJob) => ReactNode;
+  onOpenApplications: () => void;
+  onAnalyzeJob: () => void;
+  messageRequestCount: number;
 };
 
-export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, getApplicationStatus, onSave, onApply, onOpenJob, isDesktop, selectedJobId, renderDetail }: KareersPageProps) {
+export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, getApplicationStatus, onSave, onApply, onOpenJob, isDesktop, selectedJobId, renderDetail, onOpenApplications, onAnalyzeJob, messageRequestCount }: KareersPageProps) {
   const [searchValue, setSearchValue] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
@@ -93,6 +96,32 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
   return (
     <div className="k-page">
       <PageHeader title="Kareers" />
+      <section className="mb-6" aria-labelledby="kareers-tools">
+        <h2 id="kareers-tools" className="k-eyebrow mb-2">Career tools</h2>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          <li className="k-list">
+            <button className="k-row" type="button" onClick={onOpenApplications}>
+              <span className="k-row-main">
+                <span className="k-label block">Applications</span>
+                <span className="k-meta mt-0.5 block">View and track your job applications</span>
+              </span>
+              {messageRequestCount > 0 && (
+                <span className="k-badge k-badge-info">{messageRequestCount} message request{messageRequestCount === 1 ? '' : 's'}</span>
+              )}
+              <FontAwesomeIcon className="k-row-chevron" icon={faChevronRight} aria-hidden="true" />
+            </button>
+          </li>
+          <li className="k-list">
+            <button className="k-row" type="button" onClick={onAnalyzeJob}>
+              <span className="k-row-main">
+                <span className="k-label block">Analyze a job</span>
+                <span className="k-meta mt-0.5 block">Paste an external job description and compare it with your profile</span>
+              </span>
+              <FontAwesomeIcon className="k-row-chevron" icon={faChevronRight} aria-hidden="true" />
+            </button>
+          </li>
+        </ul>
+      </section>
       <div className="k-toolbar">
         <SearchField value={searchValue} onChange={setSearchValue} label="Search jobs" placeholder="Search role, skill or location" />
         <div className="k-toolbar-controls">

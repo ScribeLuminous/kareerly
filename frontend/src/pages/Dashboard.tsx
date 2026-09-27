@@ -1894,6 +1894,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           isDesktop={isDesktop}
           selectedJobId={selectedJob?.id ?? null}
           renderDetail={renderDetailPanel}
+          onOpenApplications={() => setActivePage('applications')}
+          onAnalyzeJob={() => setActivePage('external-job')}
+          messageRequestCount={pendingMessageCount}
         />
       )}
 
