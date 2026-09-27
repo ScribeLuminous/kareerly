@@ -1050,20 +1050,26 @@ a.k-row:hover {
   flex: 1 1 0;
 }
 
-/* Filters and sort match the search field's height (no gap under Filters). */
+/* Search, Filters and sort share one fixed height, so they line up whatever
+   the font or browser does to a field's natural height. */
 .k-toolbar {
-  align-items: stretch;
+  --k-toolbar-control-h: 44px;
 }
 
-.k-toolbar-controls > .k-popover-anchor,
-.k-toolbar-controls > .k-sort {
-  display: flex;
-}
-
+.k-toolbar .k-search .k-input,
 .k-toolbar-controls > .k-popover-anchor > .k-btn,
 .k-toolbar-controls > .k-sort > .k-select {
-  flex: 1 1 auto;
-  height: auto;
+  height: var(--k-toolbar-control-h);
+  min-height: var(--k-toolbar-control-h);
+}
+
+.k-toolbar-controls > .k-popover-anchor > .k-btn {
+  width: 100%;
+}
+
+.k-toolbar-controls > .k-sort > .k-select {
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 @media (min-width: 640px) {
