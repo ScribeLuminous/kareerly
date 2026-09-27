@@ -1,0 +1,74 @@
+{
+  "candidate_id": "CAT06-R06",
+  "full_name": "Jonathan Tabañag",
+  "location": "Zamboanga City, Zamboanga del Sur",
+  "email": "jonathan.tabanag@example.net",
+  "phone": "+63 966 710 7583",
+  "headline": "Recruitment Specialist",
+  "summary": "Customer service representative of three years who moved into recruitment at the same BPO. For the past year I have screened applicants by phone, coordinated interview days and helped new hires through their first weeks. I bring a CSR's patience and phone manner to every candidate call.",
+  "projects": [
+    {
+      "name": "Walk-in hiring day redesign",
+      "context": "internal project",
+      "bullets": [
+        "Reorganised the Saturday walk-in hiring day so applicants finish the initial interview, assessment and account interview in one visit.",
+        "Average waiting time for applicants dropped from four hours to under two."
+      ]
+    },
+    {
+      "name": "Referral drive",
+      "context": "internal project",
+      "description": "Ran a two-month employee referral drive among agents that brought in 70 qualified applicants."
+    }
+  ],
+  "skills": [
+    "Recruitment coordination",
+    "Phone screening and candidate sourcing",
+    "HR support for new hires",
+    "Microsoft Office",
+    "Customer service",
+    "Phone support",
+    "CRM and applicant tracking software",
+    "Clear spoken and written English"
+  ],
+  "experience": [
+    {
+      "title": "Recruitment Specialist",
+      "employer": "Zamboanga Bayview Contact Center",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Screen 40 to 60 applicants a day by phone for voice and chat accounts.",
+        "Coordinate assessment and interview schedules with operations and training.",
+        "Help new hires with documents and questions in their first two weeks."
+      ]
+    },
+    {
+      "title": "Customer Service Representative (Voice)",
+      "employer": "Zamboanga Bayview Contact Center",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2022-06",
+      "end": "2025-05",
+      "bullets": [
+        "Handled about 70 calls a day for a US telecom account, keeping satisfaction scores above target for 11 straight months.",
+        "Logged every interaction in the client's CRM and followed up open cases.",
+        "Mentored new agents on the floor during their nesting period."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Communication",
+      "school": "Zamboanga Peninsula College",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Chavacano"
+  ]
+}

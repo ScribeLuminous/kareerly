@@ -1,0 +1,77 @@
+{
+  "candidate_id": "CAT06-R01",
+  "full_name": "Giselle Navarro",
+  "location": "Lagawe, Ifugao",
+  "email": "giselle.navarro@example.net",
+  "phone": "+63 999 302 2439",
+  "headline": "HR Assistant",
+  "education": [
+    {
+      "credential": "Bachelor of Science in Psychology",
+      "school": "Ifugao Terraces State College",
+      "location": "Lagawe, Ifugao",
+      "start": "2021",
+      "end": "2025",
+      "notes": [
+        "Thesis: Job satisfaction among rice terrace tourism workers",
+        "Passed the Psychometrician Licensure Examination, 2025"
+      ]
+    }
+  ],
+  "summary": "Psychology graduate and licensed psychometrician working as an HR assistant for a regional hotel group. I coordinate recruitment from job posting to onboarding, keep employee records and HR forms in order, and schedule interviews and trainings. I want to grow into a full HR generalist role.",
+  "projects": [
+    {
+      "name": "Onboarding checklist for seasonal staff",
+      "context": "workplace project",
+      "description": "Wrote a one-page onboarding checklist and welcome kit for peak-season hires, which cut missing requirements on day one."
+    }
+  ],
+  "skills": [
+    "HR support and employee records",
+    "Recruitment coordination",
+    "Sourcing and screening applicants",
+    "HR processes: onboarding, 201 files, leave forms",
+    "Scheduling interviews and trainings",
+    "Microsoft Office (Word, Excel, PowerPoint)",
+    "Clear business writing"
+  ],
+  "experience": [
+    {
+      "title": "HR Assistant",
+      "employer": "Cordillera Heritage Hotels and Inns",
+      "location": "Lagawe, Ifugao",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Post openings on job boards and the local PESO board, screen about 60 applications a month and set up interviews.",
+        "Administer and score pre-employment tests with the HR officer.",
+        "Prepare onboarding kits and keep complete 201 files for 140 employees across three properties.",
+        "Manage the HR calendar of interviews, orientations and training sessions."
+      ]
+    },
+    {
+      "title": "HR Intern",
+      "employer": "Banaue Rice Terraces Cooperative",
+      "location": "Lagawe, Ifugao",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Updated member-employee records and helped organise a hiring event for tour guides."
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Psychometrician",
+      "issuer": "Professional Regulation Commission",
+      "date": "2025-10"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ifugao",
+    "Ilocano"
+  ]
+}

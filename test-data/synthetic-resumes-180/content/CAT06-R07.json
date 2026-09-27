@@ -1,0 +1,61 @@
+{
+  "candidate_id": "CAT06-R07",
+  "full_name": "Grace Montebon",
+  "location": "Bais City, Negros Oriental",
+  "email": "grace.montebon@example.net",
+  "phone": "+63 989 246 4423",
+  "headline": "Construction Project Coordinator",
+  "summary": "Construction project coordinator with four years on residential and commercial builds in Negros Oriental. I plan and track schedules, keep drawings, RFIs and daily reports in Procore, and make sure safety requirements and material take-offs are ready before each phase. I work closely with engineers, foremen and suppliers.",
+  "skills": [
+    "Project coordination",
+    "Procore",
+    "Construction project management",
+    "Scheduling and site calendars",
+    "Construction safety coordination",
+    "Reading and revising technical drawings",
+    "Quantity take-offs and material estimates",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Construction Project Coordinator",
+      "employer": "Tañon Strait Builders and Developers",
+      "location": "Bais City, Negros Oriental",
+      "start": "2023-04",
+      "end": "Present",
+      "bullets": [
+        "Coordinate schedules, subcontractors and deliveries for a 48-unit housing project and two commercial buildings.",
+        "Manage drawings, RFIs, submittals and daily reports in Procore for the whole site team.",
+        "Prepare quantity take-offs for concrete and rebar with the site engineer before each pour.",
+        "Organise toolbox talks and keep safety permits and inspections on schedule."
+      ]
+    },
+    {
+      "title": "Draftsman and Site Assistant",
+      "employer": "Dumaguete Structural Design Studio",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2022-03",
+      "end": "2023-03",
+      "bullets": [
+        "Revised floor plans and details in AutoCAD from engineers' mark-ups.",
+        "Helped measure completed work for progress billing."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Civil Engineering",
+      "school": "Negros Oriental College of Engineering",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Basic Occupational Safety and Health (BOSH)",
+      "issuer": "DOLE-accredited training organisation",
+      "date": "2023-06"
+    }
+  ]
+}
