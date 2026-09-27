@@ -87,6 +87,24 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(self.vocabulary.resolve("search engine marketing"), "")
         self.assertEqual(self.vocabulary.resolve("SEM"), "")
 
+    def test_look_alike_languages_and_databases_are_separate_skills(self):
+        # Node.js, MySQL, C++ and C# are skills of their own, so each side of a
+        # look-alike pair resolves, to a different skill.
+        self.assertEqual(self.vocabulary.resolve("NodeJS"), "SK695")
+        self.assertEqual(self.vocabulary.resolve("Node JS"), self.vocabulary.resolve("Node.js"))
+        self.assertEqual(self.vocabulary.resolve("MySQL"), "SK696")
+        self.assertEqual(self.vocabulary.resolve("C++"), "SK697")
+        self.assertEqual(self.vocabulary.resolve("C Sharp"), self.vocabulary.resolve("C#"))
+        self.assertEqual(self.vocabulary.resolve("C"), "")
+        for left, right in [("SQL", "MySQL"), ("C++", "C#"), ("Java", "JavaScript"), ("Node.js", "JavaScript")]:
+            with self.subTest(left=left, right=right):
+                self.assertNotEqual(self.vocabulary.resolve(left), self.vocabulary.resolve(right))
+        found = {item["skill_id"] for item in SkillExtractor().extract_skills("Administered MySQL servers; wrote C# services.", limit=None)}
+        self.assertTrue({"SK696", "SK698"} <= found)
+        self.assertFalse({"SK004", "SK697"} & found)
+        self.assertEqual(matching.compute_skill_coverage([], ["SK696"], "Wrote SQL queries daily.")["missing_skills"], ["MySQL"])
+        self.assertEqual(matching.compute_skill_coverage(["NodeJS"], ["Node.js"])["missing_skills"], [])
+
     def test_candidates_and_exclusions_do_not_resolve(self):
         rows = read("skill_aliases.csv")
         verified = collections.defaultdict(set)

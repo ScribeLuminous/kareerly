@@ -54,7 +54,7 @@ UNREVIEWED_STATUS = "auto_generated_review"
 
 # Short names that are skills on their own; any other alias under three
 # characters is too ambiguous to search for.
-SHORT_ALIAS_ALLOWLIST = frozenset({"sql", "git", "aws", "crm", "seo", "css", "php", "api", "ui", "ux"})
+SHORT_ALIAS_ALLOWLIST = frozenset({"sql", "git", "aws", "crm", "seo", "css", "php", "api", "ui", "ux", "c#"})
 
 # Pairs that must never resolve to each other, whatever a taxonomy label says.
 # Tests assert them; the generator refuses to verify an alias that breaks one.
@@ -234,14 +234,14 @@ def build_vocabulary(
     vocabulary = SkillVocabulary(labels=labels, mapping_status=statuses)
 
     # Extraction: verified names of active skills, three characters or more
-    # (shorter ones only as upper-case variants, handled by skill_variants),
-    # never a bare category word.
+    # or on SHORT_ALIAS_ALLOWLIST ("C#"); other short ones only as upper-case
+    # variants, handled by skill_variants; never a bare category word.
     for skill_id, keys in verified.items():
         if not include_inactive and not vocabulary.is_active(skill_id):
             continue
         own = normalize(labels[skill_id])
         for key in keys:
-            if len(key) < 3 or (key in categories and key != own):
+            if (len(key) < 3 and key not in SHORT_ALIAS_ALLOWLIST) or (key in categories and key != own):
                 continue
             vocabulary.extract_aliases.setdefault(key, set()).add(skill_id)
 
