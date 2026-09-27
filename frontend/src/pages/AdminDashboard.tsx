@@ -212,6 +212,8 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
       return [
         { key: 'job_title', label: 'Title' },
         { key: 'company_name', label: 'Company' },
+        { key: 'psoc_unit_code', label: 'PSOC 2012', render: (row: Record<string, unknown>) => row.psoc_unit_code
+          ? `${String(row.psoc_unit_code)} · ${String(row.psoc_title || 'Unknown occupation')}` : 'Unclassified' },
         { key: 'posting_status', label: 'Status', render: (row: Record<string, unknown>) => <StatusPill value={row.posting_status} /> },
         { key: 'job_id', label: 'Job ID' },
         { key: 'updated_at', label: 'Updated', render: (row: Record<string, unknown>) => dateText(row.updated_at || row.created_at) },
@@ -226,6 +228,10 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
               const status = window.prompt('Status: active, draft, or closed', String(row.posting_status || 'active'))?.toLowerCase();
               if (status) void runAdminAction((token) => updateAdminJob(token, { job_id: String(row.id), posting_status: status }), 'Job status updated.');
             }}>Status</button>
+            <button className="rounded border border-bdr px-2 py-1 text-xs font-bold" type="button" onClick={() => {
+              const code = window.prompt('Reviewed PSOC 2012 occupation code (four digits; leave blank to clear)', String(row.psoc_unit_code || ''));
+              if (code !== null) void runAdminAction((token) => updateAdminJob(token, { job_id: String(row.id), psoc_unit_code: code }), 'Occupation code updated.');
+            }}>Occupation</button>
             <button className="rounded border border-red px-2 py-1 text-xs font-bold text-red" type="button" onClick={() => {
               if (window.confirm('Permanently delete this job post?')) void runAdminAction((token) => deleteAdminJob(token, String(row.id)), 'Job post deleted.');
             }}>Delete</button>
