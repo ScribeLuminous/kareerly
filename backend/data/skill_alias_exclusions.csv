@@ -1,0 +1,50 @@
+skill_id,alias,reason
+SK001,programming languages,"Knowing programming languages in general is not Python; ""programming languages: Java, C#"" named Python"
+SK002,Mocha,Mocha is a JavaScript test framework and a coffee drink; neither shows JavaScript programming
+SK002,Escript,Escript is Erlang's script runner and names a different language
+SK002,Live Script,LiveScript is a separate language that compiles to JavaScript
+SK004,database query languages,"The family of query languages, not SQL itself"
+SK004,DMX,DMX (Data Mining Extensions) is a different query language; also a stage-lighting protocol
+SK004,SuprTool,SuprTool is a separate HP data tool
+SK004,OttoQL,OttoQL is a separate query language
+SK004,XPath,XPath queries XML documents; it is not SQL
+SK004,QUEL,QUEL is a separate relational query language
+SK020,workplace skills,"A generic phrase, not business communication"
+SK038,shooting,"""trouble shooting"" and ""shooting range"" are not photography"
+SK047,conduct,"An everyday verb (""conduct training"", ""conducted audits""), not student assessment"
+SK049,workplace skills,"A generic phrase, not instructional design"
+SK074,mechanical engineering,"Mechanical engineering is a related discipline, not mechanical maintenance"
+SK077,survey,"""customer survey"" and ""conducted surveys"" are not land surveying"
+SK083,reserve,"""reserve fund"" and ""ROTC reserve"" are not reservation management"
+SK113,record management,Records management in general is Document Management; public records are a narrower skill
+SK127,data analysis,Data Analysis (SK005) is its own skill; statistics is related but not the same
+SK127,data collection,"Collecting data is not statistics"
+SK127,survey data,"Handling survey data is not statistics"
+SK127,experimental data,"Handling experimental data is not statistics"
+SK127,organisation of data,"Organising data is records work, not statistics"
+SK127,use of data in performance of work,"Too broad to show statistics"
+SK148,Swift,"An everyday word (""swift response""); unreviewed row"
+SK165,Ada,"A first name and an accessibility law (ADA); unreviewed row"
+SK165,Ceylon,"Also tea and the former name of Sri Lanka; unreviewed row"
+SK170,Ruby,"A common first name; unreviewed row"
+SK172,Pascal,"A first name and a unit of pressure; unreviewed row"
+SK175,Scratch,"""built from scratch"" is not Scratch programming; unreviewed row"
+SK259,banking,"Working in banking is not economics"
+SK259,financials,"Preparing financials is accounting, not economics"
+SK259,financial data,"Handling financial data is not economics"
+SK315,direct marketing,"Direct marketing is not network (multi-level) marketing"
+SK328,draw,"""draw blood"", ""draw insights"": an everyday verb; unreviewed row"
+SK328,sing,"An everyday verb; unreviewed row"
+SK328,paint,"An everyday verb and noun; unreviewed row"
+SK328,dance,"Covered by Perform dances; not creative self-expression in general; unreviewed row"
+SK447,PRM,"Also partner relationship management; unreviewed row"
+SK471,mechatronics,"A related discipline, not robotics; unreviewed row"
+SK471,industrial automation,"A related field, not robotics; unreviewed row"
+SK534,geography,"A school subject, not tourism geography; unreviewed row"
+SK559,packing,"Packing goods is not packaging engineering; unreviewed row"
+SK011,edge computing,"Edge computing is a related field, not cloud computing"
+SK025,product requirements,"Writing product requirements is not product knowledge"
+SK366,social services,"Working in social services is not clinical social work; unreviewed row"
+SK489,scheduling software,"Scheduling software is not industrial software; unreviewed row"
+SK492,software design,"Software design is not computer engineering; unreviewed row"
+SK571,process control,"Only the wearing-apparel skill carries this ESCO label; process control in general is not it; unreviewed row"
