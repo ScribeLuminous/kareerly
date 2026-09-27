@@ -205,3 +205,29 @@ class EvaluationSetTests(unittest.TestCase):
         for item in evaluation.read("course_links.csv"):
             self.assertIn(item["resource_id"], resources, item)
             self.assertIn(item["gold_teaches"], {"yes", "no"}, item)
+
+
+class SkillSearchTests(unittest.TestCase):
+    """Step 2 skill search reads the same verified names as matching."""
+
+    @classmethod
+    def setUpClass(cls):
+        from fastapi.testclient import TestClient
+        from backend.app import main
+        cls.client = TestClient(main.app)
+
+    def search(self, q):
+        response = self.client.get("/api/skills/search", params={"q": q, "limit": 5})
+        self.assertEqual(response.status_code, 200)
+        return [item["skill_id"] for item in response.json()["results"]]
+
+    def test_the_route_answers_the_query(self):
+        # The route was attached to a helper and did not accept "q".
+        self.assertEqual(self.search("React")[0], "SK678")
+        self.assertEqual(self.search("NodeJS")[0], "SK695")
+
+    def test_unreviewed_labels_and_skills_are_not_offered(self):
+        # An ESCO alternative label left as a candidate (a product under a broad concept).
+        self.assertEqual(self.search("Gnumeric"), [])
+        # SK127 Statistics is an unreviewed auto-expansion skill.
+        self.assertNotIn("SK127", self.search("Statistics"))
