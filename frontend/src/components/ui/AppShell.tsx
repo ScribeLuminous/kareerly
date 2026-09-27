@@ -78,15 +78,17 @@ export default function AppShell({ onHome, workspaceLabel, nav, layout = 'sideba
     <div className={`k-shell cand-dashboard ${layout === 'topnav' ? 'k-shell-topnav' : ''}`}>
       <a className="k-btn k-btn-primary sr-only-focusable fixed left-2 top-2 z-[1001]" href="#main-content">Skip to content</a>
       <header className="k-topbar">
-        <Logo size="module" onClick={onHome} />
-        {workspaceLabel && <span className="k-badge k-badge-info ml-2 hidden sm:inline-flex">{workspaceLabel}</span>}
+        <div className="k-topbar-zone">
+          <Logo size="module" onClick={onHome} />
+          {workspaceLabel && <span className="k-badge k-badge-info ml-2 hidden sm:inline-flex">{workspaceLabel}</span>}
+        </div>
         {layout === 'topnav' && (
           <nav className="k-topnav" aria-label="Main">
             {nav.map((item) => {
               const badge = item.badge || 0;
               return (
                 <a key={item.id} className="k-topnav-item" href={item.href} aria-current={item.current ? 'page' : undefined} onClick={plainClick(item.onSelect)}>
-                  <FontAwesomeIcon icon={item.icon} aria-hidden="true" />
+                  <FontAwesomeIcon className="k-topnav-icon" icon={item.icon} aria-hidden="true" />
                   <span>{item.label}</span>
                   {badge > 0 && (
                     <>
@@ -100,8 +102,10 @@ export default function AppShell({ onHome, workspaceLabel, nav, layout = 'sideba
           </nav>
         )}
         <div className="k-topbar-spacer" />
-        <NotificationsMenu {...notifications} />
-        <AccountMenu {...account} />
+        <div className="k-topbar-zone k-topbar-zone-end">
+          <NotificationsMenu {...notifications} />
+          <AccountMenu {...account} />
+        </div>
       </header>
 
       <nav className="k-nav" aria-label={layout === 'topnav' ? 'Main, mobile' : 'Main'} style={{ gridTemplateColumns: nav.length === 4 ? 'repeat(4, minmax(0, 1fr))' : undefined }}>
