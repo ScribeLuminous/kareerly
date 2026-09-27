@@ -192,12 +192,16 @@ def build_vocabulary(
     entries: Optional[Iterable[AliasEntry]] = None,
     extra_verified: Optional[Dict[str, List[str]]] = None,
     provisional: Optional[bool] = None,
+    include_inactive: bool = False,
 ) -> SkillVocabulary:
     """Build the vocabulary from taxonomy rows and the reviewed alias file.
 
     ``rows`` are taxonomy rows (skills_reference.csv plus approved additions);
     ``extra_verified`` are names a reviewer approved at runtime (skill
     discovery's approved aliases) that are not yet in the alias file.
+    ``include_inactive`` also reads unreviewed skills' verified names in text;
+    it is for course evidence ("does this course name the skill"), never for
+    crediting a candidate.
     """
     entries = list(load_alias_entries() if entries is None else entries)
     labels = {str(row.get("skill_id", "")).strip().upper(): str(row.get("skill_name", "")).strip()
@@ -233,7 +237,7 @@ def build_vocabulary(
     # (shorter ones only as upper-case variants, handled by skill_variants),
     # never a bare category word.
     for skill_id, keys in verified.items():
-        if not vocabulary.is_active(skill_id):
+        if not include_inactive and not vocabulary.is_active(skill_id):
             continue
         own = normalize(labels[skill_id])
         for key in keys:

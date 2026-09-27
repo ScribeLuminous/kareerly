@@ -636,7 +636,7 @@ def ensure_taxonomy_current() -> None:
         _taxonomy_state.update(fingerprint=fingerprint, additions=additions)
         for cache in (load_skills_reference, get_weighted_skill_extractor,
                 skill_vocabulary, skill_id_equivalents, get_skill_labels_by_id, get_skill_categories_by_id,
-                _spaced_spellings, resource_skill_evidence):
+                _spaced_spellings, resource_skill_evidence, course_evidence_extractor):
             cache.cache_clear()
     if additions:
         logger.info("Skill taxonomy includes %d approved additions", len(additions))
@@ -1439,6 +1439,13 @@ def reviewed_learning_skill_ids() -> set:
     return covered
 
 
+@lru_cache(maxsize=1)
+def course_evidence_extractor() -> SkillExtractor:
+    """The shared extractor over every skill, reviewed or not, for reading course text."""
+    ensure_taxonomy_current()
+    return SkillExtractor(SKILLS_REFERENCE_PATH, extra_rows=_taxonomy_state["additions"], include_inactive=True)
+
+
 @lru_cache(maxsize=4096)
 def resource_skill_evidence(text: str) -> frozenset:
     """Taxonomy skills a learning resource's own text names, read like a resume.
@@ -1448,7 +1455,7 @@ def resource_skill_evidence(text: str) -> frozenset:
     """
     equivalents = skill_id_equivalents()
     found = set()
-    for item in current_skill_extractor().extract_skills(text, limit=None):
+    for item in course_evidence_extractor().extract_skills(text, limit=None):
         skill_id = clean_text(item.get("skill_id", "")).upper()
         if skill_id:
             found.add(equivalents.get(skill_id, skill_id))
