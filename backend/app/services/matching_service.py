@@ -44,7 +44,7 @@ from .resume_parser import (
 )
 from .skill_extractor import SkillExtractor
 from .skill_variants import (
-    any_case_variants, exact_case_skill_ids, load_skill_variants, merge_variants_into_rows, remove_excluded_aliases,
+    any_case_variants, exact_case_skill_ids, merge_variants_into_rows, remove_excluded_aliases,
 )
 from .supabase_jobs import load_internal_jobs_dataframe
 from .ph_regions import RegionPreference, region_preference, regions_in_location

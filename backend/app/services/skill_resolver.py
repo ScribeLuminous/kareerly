@@ -37,7 +37,7 @@ import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 ALIASES_PATH = DATA_DIR / "skill_aliases.csv"
