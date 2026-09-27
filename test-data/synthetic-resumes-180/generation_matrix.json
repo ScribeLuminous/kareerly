@@ -11717,52 +11717,56 @@
     {
       "candidate_id": "STRESS-005",
       "dataset_group": "cross_category_stress",
-      "target_category_id": "K01",
-      "target_category": "Software and Web Development",
+      "target_category_id": "K14",
+      "target_category": "Healthcare and Clinical Services",
       "profile_variant": "cross_category_stress",
-      "primary_role": "Python Developer",
+      "primary_role": "Home Health Nurse",
       "prior_occupation": "",
       "experience_years": 3,
       "experience_level": "Mid Level",
-      "education_level": "Bachelor's degree",
+      "education_level": "Bachelor's degree with professional licence",
       "core_skills": [
-        "Python Programming",
-        "SQL",
-        "Git Version Control",
-        "Web Development"
+        "Patient Assessment Support",
+        "Clinical Documentation",
+        "Medical Terminology",
+        "Basic Life Support",
+        "Monitor patients' progress related to treatment"
       ],
       "core_skill_ids": [
-        "SK001",
-        "SK004",
-        "SK657",
-        "SK003"
+        "SK056",
+        "SK058",
+        "SK057",
+        "SK061",
+        "SK440"
       ],
       "supporting_skills": [
-        "Data Analysis",
-        "Data science",
-        "Data Visualization"
+        "Caregiving",
+        "Elderly Care",
+        "Medication Assistance",
+        "Geriatrics"
       ],
       "supporting_skill_ids": [
-        "SK005",
-        "SK130",
-        "SK006"
+        "SK059",
+        "SK060",
+        "SK062",
+        "SK410"
       ],
       "intentionally_missing_skills": [
-        "Power BI",
-        "Business intelligence",
-        "Apply statistical analysis techniques",
-        "JavaScript Programming"
+        "Medical Billing",
+        "Patient Coordination",
+        "Laboratory Safety",
+        "Fitness Coaching"
       ],
       "intentionally_missing_skill_ids": [
-        "SK669",
-        "SK145",
-        "SK126",
-        "SK002"
+        "SK654",
+        "SK655",
+        "SK063",
+        "SK065"
       ],
       "adjacent_skills": [],
       "adjacent_skill_ids": [],
       "adjacent_categories": [
-        "K02"
+        "K15"
       ],
       "city": "Oroquieta City",
       "province": "Misamis Occidental",
@@ -11772,165 +11776,166 @@
       "email": "john.cabrera@example.com",
       "phone": "+63 999 840 9935",
       "resume_template_variant": "experience_first",
-      "primary_category": "Software and Web Development",
+      "primary_category": "Healthcare and Clinical Services",
       "secondary_categories": [
-        "Data, Analytics, and Artificial Intelligence"
+        "Caregiving and Wellness"
       ],
       "overlap_skills": [
-        "Python Programming",
-        "SQL",
-        "Data Analysis"
+        "Basic Life Support",
+        "Medication Assistance",
+        "Clinical Documentation"
       ],
       "overlap_skill_ids": [
-        "SK001",
-        "SK004",
-        "SK005"
+        "SK061",
+        "SK062",
+        "SK058"
       ],
       "category_specific_missing_skills": [
-        "Power BI",
-        "Business intelligence",
-        "Apply statistical analysis techniques",
-        "JavaScript Programming"
+        "Medical Billing",
+        "Patient Coordination",
+        "Laboratory Safety",
+        "Fitness Coaching"
       ],
-      "stress_test_reason": "Backend Python development versus data analysis and data science"
+      "stress_test_reason": "Licensed clinical nursing versus caregiving and elderly-care roles"
     },
     {
       "candidate_id": "STRESS-006",
       "dataset_group": "cross_category_stress",
-      "target_category_id": "K04",
-      "target_category": "Finance and Accounting",
+      "target_category_id": "K19",
+      "target_category": "Food Service and Personal Care",
       "profile_variant": "cross_category_stress",
-      "primary_role": "Financial Reporting and BI Analyst",
+      "primary_role": "Banquet and Catering Supervisor",
       "prior_occupation": "",
-      "experience_years": 5,
-      "experience_level": "Mid Level",
-      "education_level": "Bachelor's degree with professional licence",
+      "experience_years": 7,
+      "experience_level": "Senior",
+      "education_level": "Vocational/technical diploma",
       "core_skills": [
-        "Financial Reporting",
-        "Bookkeeping",
-        "Microsoft Excel",
-        "Prepare financial statements"
+        "Food Service",
+        "Food Safety",
+        "Food Preparation",
+        "Serve food in table service",
+        "Provide food and beverages"
       ],
       "core_skill_ids": [
-        "SK013",
-        "SK012",
-        "SK629",
-        "SK233"
+        "SK084",
+        "SK086",
+        "SK085",
+        "SK508",
+        "SK511"
       ],
       "supporting_skills": [
-        "Data Analysis",
-        "Power BI",
-        "Data Visualization",
-        "SQL"
+        "Event Coordination",
+        "Guest Relations",
+        "Reservation Management",
+        "Manage staff"
       ],
       "supporting_skill_ids": [
-        "SK005",
-        "SK669",
-        "SK006",
-        "SK004"
+        "SK082",
+        "SK080",
+        "SK083",
+        "SK261"
       ],
       "intentionally_missing_skills": [
-        "Business intelligence",
-        "Apply statistical analysis techniques",
-        "SAP ERP",
-        "International financial reporting standards"
+        "Perform food safety checks",
+        "Audit food safety procedures",
+        "Front Desk Support",
+        "Use e-tourism platforms"
       ],
       "intentionally_missing_skill_ids": [
-        "SK145",
-        "SK126",
-        "SK684",
-        "SK256"
+        "SK515",
+        "SK517",
+        "SK078",
+        "SK530"
       ],
       "adjacent_skills": [],
       "adjacent_skill_ids": [],
       "adjacent_categories": [
-        "K01",
-        "K02"
+        "K06",
+        "K18"
       ],
-      "city": "Baguio City",
-      "province": "Benguet",
-      "region_code": "CAR",
-      "region_name": "Cordillera Administrative Region",
+      "city": "Balanga City",
+      "province": "Bataan",
+      "region_code": "III",
+      "region_name": "Central Luzon",
       "full_name": "Rosalie Serrano",
       "email": "rosalie.serrano@example.net",
       "phone": "+63 998 774 6401",
       "resume_template_variant": "bullet_heavy",
-      "primary_category": "Finance and Accounting",
+      "primary_category": "Food Service and Personal Care",
       "secondary_categories": [
-        "Data, Analytics, and Artificial Intelligence"
+        "Hospitality and Tourism"
       ],
       "overlap_skills": [
-        "Financial Reporting",
-        "Data Analysis",
-        "Microsoft Excel",
-        "Power BI"
+        "Food Service",
+        "Guest Relations",
+        "Event Coordination"
       ],
       "overlap_skill_ids": [
-        "SK013",
-        "SK005",
-        "SK629",
-        "SK669"
+        "SK084",
+        "SK080",
+        "SK082"
       ],
       "category_specific_missing_skills": [
-        "Business intelligence",
-        "Apply statistical analysis techniques",
-        "SAP ERP",
-        "International financial reporting standards"
+        "Perform food safety checks",
+        "Audit food safety procedures",
+        "Front Desk Support",
+        "Use e-tourism platforms"
       ],
-      "stress_test_reason": "Accounting and financial reporting versus business analytics"
+      "stress_test_reason": "Food service and catering versus hotel events and guest-facing hospitality roles"
     },
     {
       "candidate_id": "STRESS-007",
       "dataset_group": "cross_category_stress",
-      "target_category_id": "K06",
-      "target_category": "Human Resources and Project Management",
+      "target_category_id": "K12",
+      "target_category": "Education and Training",
       "profile_variant": "cross_category_stress",
-      "primary_role": "HR and Recruitment Analyst",
+      "primary_role": "E-learning Developer",
       "prior_occupation": "",
-      "experience_years": 4,
+      "experience_years": 5,
       "experience_level": "Mid Level",
       "education_level": "Bachelor's degree",
       "core_skills": [
-        "Recruitment Coordination",
-        "Recruit personnel",
-        "Human Resource Support",
-        "Human resources department processes"
+        "Instructional Design",
+        "Develop digital educational materials",
+        "Training Facilitation",
+        "Learning Evaluation",
+        "Develop educational resources"
       ],
       "core_skill_ids": [
-        "SK019",
-        "SK236",
-        "SK018",
-        "SK204"
+        "SK049",
+        "SK390",
+        "SK048",
+        "SK050",
+        "SK368"
       ],
       "supporting_skills": [
-        "Microsoft Excel",
-        "Data Analysis",
-        "Data Visualization",
-        "Data Encoding"
+        "Multimedia Design",
+        "Video Editing",
+        "Canva",
+        "Develop animations"
       ],
       "supporting_skill_ids": [
-        "SK629",
-        "SK005",
-        "SK006",
-        "SK017"
+        "SK041",
+        "SK039",
+        "SK660",
+        "SK321"
       ],
       "intentionally_missing_skills": [
-        "Payroll Processing",
-        "Manage staff",
-        "SQL",
-        "Power BI"
+        "Lesson Planning",
+        "Classroom Management",
+        "Adobe Photoshop",
+        "Adobe After Effects"
       ],
       "intentionally_missing_skill_ids": [
-        "SK014",
-        "SK261",
-        "SK004",
-        "SK669"
+        "SK045",
+        "SK046",
+        "SK662",
+        "SK665"
       ],
       "adjacent_skills": [],
       "adjacent_skill_ids": [],
       "adjacent_categories": [
-        "K02",
-        "K05"
+        "K11"
       ],
       "city": "Legazpi City",
       "province": "Albay",
@@ -11940,28 +11945,27 @@
       "email": "ariel.alcantara@example.org",
       "phone": "+63 981 508 1561",
       "resume_template_variant": "classic_summary_first",
-      "primary_category": "Human Resources and Project Management",
+      "primary_category": "Education and Training",
       "secondary_categories": [
-        "Data, Analytics, and Artificial Intelligence",
-        "Office Administration and Records"
+        "Design, Media, and Performing Arts"
       ],
       "overlap_skills": [
-        "Human Resource Support",
-        "Microsoft Excel",
-        "Data Analysis"
+        "Develop digital educational materials",
+        "Multimedia Design",
+        "Instructional Design"
       ],
       "overlap_skill_ids": [
-        "SK018",
-        "SK629",
-        "SK005"
+        "SK390",
+        "SK041",
+        "SK049"
       ],
       "category_specific_missing_skills": [
-        "Payroll Processing",
-        "Manage staff",
-        "SQL",
-        "Power BI"
+        "Lesson Planning",
+        "Classroom Management",
+        "Adobe Photoshop",
+        "Adobe After Effects"
       ],
-      "stress_test_reason": "HR recruitment work combined with data reporting and encoding"
+      "stress_test_reason": "Instructional design and training versus multimedia production roles"
     },
     {
       "candidate_id": "STRESS-008",
@@ -12351,10 +12355,10 @@
         "K05",
         "K21"
       ],
-      "city": "Balanga City",
-      "province": "Bataan",
-      "region_code": "III",
-      "region_name": "Central Luzon",
+      "city": "Baguio City",
+      "province": "Benguet",
+      "region_code": "CAR",
+      "region_name": "Cordillera Administrative Region",
       "full_name": "Jennifer Castro",
       "email": "jennifer.castro@example.net",
       "phone": "+63 981 549 4465",

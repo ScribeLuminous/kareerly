@@ -1,0 +1,64 @@
+{
+  "candidate_id": "CAT03-R02",
+  "full_name": "Jasmine Cruz",
+  "location": "Catbalogan City, Samar",
+  "email": "jasmine.cruz@example.com",
+  "phone": "+63 975 179 3907",
+  "headline": "Help Desk Technician",
+  "education": [
+    {
+      "credential": "Computer Systems Servicing NC II",
+      "school": "Samar Skills Training Center",
+      "location": "Catbalogan City, Samar",
+      "start": "2024-09",
+      "end": "2025-02",
+      "notes": [
+        "Passed national assessment on the first attempt"
+      ]
+    },
+    {
+      "credential": "Senior High School, TVL Track – ICT strand",
+      "school": "Samar Bayside Integrated School",
+      "location": "Catbalogan City, Samar",
+      "start": "2022",
+      "end": "2024",
+      "notes": [
+        "Work immersion at a print and copy centre"
+      ]
+    }
+  ],
+  "summary": "TESDA-certified computer technician looking for a first help desk role. I can install and troubleshoot Windows PCs, set up printers and photocopiers, and help users with Microsoft Office. Friendly with customers and patient when explaining fixes.",
+  "skills": [
+    "Technical support for Windows PCs",
+    "Installing operating systems, drivers and Microsoft Office",
+    "Help desk support and ticket logging",
+    "Printer, scanner and photocopier setup",
+    "Handling walk-in clients politely",
+    "English, Filipino and Waray"
+  ],
+  "experience": [
+    {
+      "title": "Computer Shop Attendant",
+      "employer": "Rio Bayside Computer Center",
+      "location": "Catbalogan City, Samar",
+      "start": "2026-02",
+      "end": "Present",
+      "type": "part-time",
+      "bullets": [
+        "Fix common problems on 20 rental PCs, from frozen programs to failed updates.",
+        "Help customers print, scan and format school and job documents."
+      ]
+    },
+    {
+      "title": "Work Immersion Student",
+      "employer": "Catbalogan Print and Copy Center",
+      "location": "Catbalogan City, Samar",
+      "start": "2024-02",
+      "end": "2024-04",
+      "type": "internship",
+      "bullets": [
+        "Cleaned, refilled and set up printers, and logged every repair in the shop's service notebook."
+      ]
+    }
+  ]
+}

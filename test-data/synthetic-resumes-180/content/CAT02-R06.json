@@ -1,0 +1,88 @@
+{
+  "candidate_id": "CAT02-R06",
+  "full_name": "John Paul Reyes",
+  "location": "Kidapawan City, Cotabato",
+  "email": "john.reyes@example.com",
+  "phone": "+63 955 122 8724",
+  "headline": "Data Analyst",
+  "summary": "Licensed mathematics teacher of six years moving into data analysis. As my school's data coordinator I analyse learner assessment results in Excel, build the charts our principal presents to the division office, and use statistics to spot which sections need intervention. I am looking for an analyst role where I can apply this with larger and messier data.",
+  "experience": [
+    {
+      "title": "Mathematics Teacher and School Data Coordinator",
+      "employer": "Apo View Integrated High School",
+      "location": "Kidapawan City, Cotabato",
+      "start": "2020-06",
+      "end": "Present",
+      "paragraph": "Teach Grade 9 and 10 mathematics and, since 2024, also serve as the school's data coordinator for about 1,400 learners.",
+      "bullets": [
+        "Analyse quarterly test results by competency and section, and present item-analysis charts at school learning action cell meetings.",
+        "Built an Excel workbook that combines grades, attendance and reading levels, and flags learners at risk of failing.",
+        "Used simple statistical tests to check whether a remedial program raised scores; the gain was significant and the program was extended.",
+        "Write lesson plans and assessment tools aligned to the curriculum guide, and evaluate how well each unit worked."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Analysis",
+      "items": [
+        "data analysis",
+        "Microsoft Excel (pivot tables, Power Query, what-if analysis)",
+        "charts and data visualization",
+        "descriptive and inferential statistics"
+      ]
+    },
+    {
+      "label": "Education",
+      "items": [
+        "student assessment and item analysis",
+        "learning evaluation",
+        "lesson planning"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "presenting findings to school heads and parents",
+        "report writing"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Barangay nutrition survey",
+      "context": "volunteer",
+      "description": "Cleaned and summarised 800 household survey forms for a barangay health office and presented the results at a barangay assembly."
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Secondary Education, major in Mathematics",
+      "school": "Cotabato Foothills State College",
+      "location": "Kidapawan City, Cotabato",
+      "start": "2016",
+      "end": "2020",
+      "notes": [
+        "Licensed Professional Teacher, 2020"
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Statistics for Data Analysis",
+      "issuer": "online course",
+      "date": "2025-10"
+    },
+    {
+      "name": "Advanced Excel for Reporting",
+      "issuer": "online course",
+      "date": "2025-03"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano",
+    "Hiligaynon"
+  ]
+}

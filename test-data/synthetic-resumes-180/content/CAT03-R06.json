@@ -1,0 +1,86 @@
+{
+  "candidate_id": "CAT03-R06",
+  "full_name": "Diane Manalo",
+  "location": "Jordan, Guimaras",
+  "email": "diane.manalo@example.org",
+  "phone": "+63 955 649 5940",
+  "headline": "Junior SOC Analyst",
+  "skill_groups": [
+    {
+      "label": "Security",
+      "items": [
+        "cybersecurity awareness",
+        "log and alert triage",
+        "network security risks and common attack patterns",
+        "phishing analysis and countermeasures",
+        "Wireshark and Splunk basics"
+      ]
+    },
+    {
+      "label": "Support",
+      "items": [
+        "technical support (Tier 2)",
+        "customer service",
+        "complaint handling and de-escalation",
+        "Zendesk"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "clear written English for incident notes"
+      ]
+    }
+  ],
+  "summary": "Technical support professional with four years at a BPO, moving into security operations. I already triage account-takeover and phishing cases for our client, and I have spent the past year training in a home lab and on hands-on SOC courses. I bring calm customer handling and careful ticket notes to incident work.",
+  "experience": [
+    {
+      "title": "Technical Support Representative, Tier 2",
+      "employer": "Harbor Point Contact Solutions",
+      "location": "Iloilo City, Iloilo",
+      "start": "2022-09",
+      "end": "Present",
+      "bullets": [
+        "Handle escalated technical issues for a US software client, with a satisfaction score of 94% over the last year.",
+        "Joined the client's trust and safety queue in 2026, reviewing suspicious sign-in and phishing reports and escalating confirmed cases.",
+        "Write the team's troubleshooting articles in Zendesk and coach new agents on handling angry callers."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Home SOC lab",
+      "context": "self-study",
+      "bullets": [
+        "Set up a small lab with Security Onion and two virtual machines to generate and inspect attack traffic.",
+        "Worked through a SOC Level 1 learning path and wrote up each phishing investigation."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Guimaras Strait College",
+      "location": "Jordan, Guimaras",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "CompTIA Security+",
+      "issuer": "CompTIA",
+      "date": "2026-04"
+    },
+    {
+      "name": "Certified in Cybersecurity (CC)",
+      "issuer": "ISC2",
+      "date": "2025-07"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Hiligaynon"
+  ]
+}

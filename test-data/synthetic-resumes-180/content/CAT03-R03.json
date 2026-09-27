@@ -1,0 +1,72 @@
+{
+  "candidate_id": "CAT03-R03",
+  "full_name": "Rafael Bobis",
+  "location": "Naga City, Camarines Sur",
+  "email": "rafael.bobis@example.org",
+  "phone": "+63 989 839 9934",
+  "headline": "Network Administrator",
+  "experience": [
+    {
+      "title": "Network Administrator",
+      "employer": "Bicol Fiberlink Communications Inc.",
+      "location": "Naga City, Camarines Sur",
+      "start": "2023-05",
+      "end": "Present",
+      "bullets": [
+        "Run the core and distribution network for an internet provider with about 9,000 fibre subscribers in Camarines Sur.",
+        "Designed a redundant ring between three points of presence, so one cut fibre no longer takes a town offline.",
+        "Manage firewall policies, access control lists and VPNs, and review logs for unusual traffic every morning.",
+        "Harden servers and network devices after each vendor advisory and track what is still exposed.",
+        "Moved monitoring and backups to Microsoft Azure, cutting on-site hardware costs."
+      ]
+    },
+    {
+      "title": "Network Support Technician",
+      "employer": "Camsur Internet Services",
+      "location": "Iriga City, Camarines Sur",
+      "start": "2022-01",
+      "end": "2023-04",
+      "bullets": [
+        "Handled second-level technical support for business subscribers and configured their routers on site.",
+        "Kept the ticket queue under the two-day target during the 2022 typhoon season restorations."
+      ]
+    }
+  ],
+  "summary": "Network administrator with four years at regional internet providers. I design and run routed networks, manage firewalls and VPNs, keep devices patched and watch for suspicious traffic. I explain outages and changes clearly to managers and field teams.",
+  "skills": [
+    "Network administration and network engineering (OSPF, BGP, VLANs)",
+    "Firewall configuration (pfSense, FortiGate)",
+    "System security and device hardening",
+    "Network security risk assessment",
+    "Technical support",
+    "Cybersecurity awareness",
+    "Cloud computing on Microsoft Azure",
+    "Incident updates for managers"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Naga Riverside College of Technology",
+      "location": "Naga City, Camarines Sur",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Cisco Certified Network Associate (CCNA)",
+      "issuer": "Cisco",
+      "date": "2022-06"
+    },
+    {
+      "name": "Microsoft Certified: Azure Fundamentals",
+      "issuer": "Microsoft",
+      "date": "2024-10"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Bikol"
+  ]
+}

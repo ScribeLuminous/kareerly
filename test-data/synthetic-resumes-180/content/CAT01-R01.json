@@ -1,0 +1,101 @@
+{
+  "candidate_id": "CAT01-R01",
+  "full_name": "Melvin Ancheta",
+  "location": "Tabuk City, Kalinga",
+  "email": "melvin.ancheta@example.net",
+  "phone": "+63 981 525 3373",
+  "headline": "Junior Web Developer",
+  "summary": "Junior web developer with a year of full-time work building React interfaces for a cooperative's member portal in Kalinga. I handle both the screens members see and the MySQL queries behind their statements, and I test my changes before they reach the office staff. I want to grow into a full-stack role on a product team.",
+  "skill_groups": [
+    {
+      "label": "Front end",
+      "items": [
+        "JavaScript (ES6+)",
+        "React.js",
+        "HTML5 and CSS3",
+        "responsive layouts"
+      ]
+    },
+    {
+      "label": "Data",
+      "items": [
+        "SQL",
+        "MySQL views and stored queries"
+      ]
+    },
+    {
+      "label": "Workflow",
+      "items": [
+        "Git and GitHub pull requests",
+        "unit testing with Jest",
+        "clear written updates for non-technical users"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "title": "Junior Web Developer",
+      "employer": "Cordillera Dataworks Cooperative Services",
+      "location": "Tabuk City, Kalinga",
+      "start": "2025-08",
+      "end": "Present",
+      "bullets": [
+        "Built React components for a loan and share-capital portal used by about 1,200 members across Kalinga.",
+        "Wrote SQL queries and MySQL views for monthly member statements, cutting report preparation from two days to one afternoon.",
+        "Added Jest unit tests to the payment-schedule module and caught a centavo rounding error before it reached members.",
+        "Reviewed teammates' pull requests on GitHub and wrote short release notes the office staff could follow."
+      ]
+    },
+    {
+      "title": "Web Development Intern",
+      "employer": "Highland Signal Media",
+      "location": "Tabuk City, Kalinga",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Turned printed festival schedules for the provincial Ullalim season into responsive HTML and CSS pages that worked on low-end phones."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Palengke Price Watch",
+      "context": "capstone project",
+      "description": "A site where vendors in the Tabuk public market post daily prices of rice, vegetables and fish so buyers can compare before travelling to town.",
+      "bullets": [
+        "Built the price board and vendor sign-in screens in React.",
+        "Designed the MySQL tables and the SQL that averages prices by week.",
+        "Ran two rounds of hands-on trials with twelve vendors and fixed the confusing parts of the form."
+      ]
+    },
+    {
+      "name": "Barangay Clearance Queue",
+      "context": "class project, team of three",
+      "description": "A JavaScript page that gives residents a queue number and an estimated waiting time at the barangay hall, backed by a small MySQL table."
+    },
+    {
+      "name": "Personal portfolio",
+      "description": "Hand-written HTML, CSS and JavaScript site listing my projects, versioned on GitHub."
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Chico Valley State College",
+      "location": "Tabuk City, Kalinga",
+      "start": "2021",
+      "end": "2025",
+      "notes": [
+        "Dean's list, two semesters",
+        "Capstone: Palengke Price Watch"
+      ]
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ilocano",
+    "Kalinga"
+  ]
+}

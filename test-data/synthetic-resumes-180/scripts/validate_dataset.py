@@ -5,7 +5,12 @@ location, naming, layout and skill-origin rules, confirms the generator is
 reproducible, and prints the region x category, region x profile, layout and
 city tables. Exits non-zero when any check fails.
 
-Usage: python validate_dataset.py --matrix
+Phase 2 (``--content``): checks every content/<candidate_id>.json that exists
+against the matrix: header, approved locations, dates and experience years,
+section rules, forbidden testing terms and leakage of intentionally missing
+skills into the visible text.
+
+Usage: python validate_dataset.py --matrix | --content [--only CAT01 CAT02]
 """
 from __future__ import annotations
 
@@ -25,6 +30,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO_ROOT / "backend" / "app" / "services"))
 
 import generate_matrix as gm  # noqa: E402
+import layouts  # noqa: E402
 import reference as ref  # noqa: E402
 import specs  # noqa: E402
 
@@ -284,13 +290,153 @@ def validate_matrix(show_tables=True):
     return c
 
 
+# ---------------------------------------------------------------- content (Phase 2)
+
+HARD_FAIL = [r"\bFit[ -]Now\b", r"\bLow Match\b", r"\bAspiration candidate\b", r"strong_entry", r"partial_entry",
+             r"strong_mid", r"partial_mid", r"career_transition", r"mixed_boundary", r"cross_category",
+             r"dataset_group", r"CAT\d{2}", r"STRESS-\d{3}"]
+REVIEW = [r"\bboundary\b", r"\bstress test\b", r"\baspiration"]
+FULL_TIME_EXEMPT = {"part-time", "freelance", "internship", "volunteer"}
+REF_YEAR, REF_MONTH = (int(x) for x in ref.REFERENCE_DATE.split("-")[:2])
+
+
+def month_index(value):
+    if value == "Present":
+        return REF_YEAR * 12 + REF_MONTH - 1
+    parts = value.split("-")
+    return int(parts[0]) * 12 + (int(parts[1]) - 1 if len(parts) > 1 else 0)
+
+
+def experience_months(roles):
+    months = set()
+    for role in roles:
+        if role.get("type") == "internship":
+            continue
+        months.update(range(month_index(role["start"]), month_index(role["end"])))
+    return len(months)
+
+
+def alias_table():
+    table = defaultdict(lambda: {"verified": set(), "one_way": set()})
+    with open(DATA_DIR / "skill_aliases.csv", encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row["status"] in ("verified", "one_way"):
+                table[row["skill_id"]][row["status"]].add(row["alias"].strip())
+    return table
+
+
+def find_alias(alias, text):
+    return re.search(r"(?<![A-Za-z0-9])" + re.escape(alias) + r"(?![A-Za-z0-9])", text, re.IGNORECASE)
+
+
+def validate_content(only=None):
+    c = Checks()
+    rows = {r["candidate_id"]: r for r in json.loads((DATASET_DIR / "generation_matrix.json").read_text(encoding="utf-8"))["candidates"]}
+    lookup = {f"{city}, {prov}" for _, city, prov in ref.LOCATIONS}
+    aliases = alias_table()
+    files = sorted((DATASET_DIR / "content").glob("*.json"))
+    if only:
+        files = [f for f in files if any(f.stem.startswith(o) for o in only)]
+    problems, reviews, warnings = defaultdict(list), [], []
+    for path in files:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        cid = doc["candidate_id"]
+        r = rows[cid]
+        bad = problems[cid]
+        if path.stem != cid:
+            bad.append("file name != candidate_id")
+        for field, want in (("full_name", r["full_name"]), ("email", r["email"]), ("phone", r["phone"]),
+                            ("location", f"{r['city']}, {r['province']}")):
+            if doc.get(field) != want:
+                bad.append(f"{field} differs from matrix")
+        if not re.fullmatch(r"[a-z0-9.]+@example\.(com|org|net)", doc["email"]):
+            bad.append("email domain")
+        for item in doc.get("experience", []) + doc.get("education", []):
+            loc = item.get("location", "")
+            base = re.sub(r"\s*\((hybrid|remote)\)$", "", loc)
+            if not (base in lookup or loc.startswith("Remote")):
+                bad.append(f"unapproved location '{loc}'")
+        # dates
+        for item in doc.get("experience", []) + doc.get("education", []) + doc.get("certifications", []):
+            for key in ("start", "end", "date"):
+                value = item.get(key)
+                if value and value != "Present" and month_index(value) > REF_YEAR * 12 + REF_MONTH - 1:
+                    bad.append(f"date {value} after reference date")
+        for role in doc.get("experience", []):
+            if month_index(role["start"]) >= month_index(role["end"]):
+                bad.append(f"role '{role['title']}' ends before it starts")
+        years = experience_months(doc.get("experience", [])) / 12
+        if abs(years - r["experience_years"]) > 1:
+            bad.append(f"experience {years:.1f}y vs matrix {r['experience_years']}y")
+        full_time = [x for x in doc.get("experience", []) if x.get("type") not in FULL_TIME_EXEMPT]
+        for i, a in enumerate(full_time):
+            for b in full_time[i + 1:]:
+                overlap = min(month_index(a["end"]), month_index(b["end"])) - max(month_index(a["start"]), month_index(b["start"]))
+                if overlap > 1:
+                    bad.append(f"full-time roles overlap: {a['title']} / {b['title']}")
+        if r["profile_variant"] in ("strong_entry", "partial_entry"):
+            last = max(int(str(e["end"])[:4]) for e in doc["education"])
+            if not REF_YEAR - 3 <= last <= REF_YEAR:
+                bad.append(f"entry-level graduation year {last}")
+        # sections
+        sentences = [x for x in re.split(r"(?<=[.!?])\s+", doc["summary"].strip()) if x]
+        if not 2 <= len(sentences) <= 4:
+            bad.append(f"summary has {len(sentences)} sentences")
+        flat = doc.get("skills") or [i for g in doc.get("skill_groups", []) for i in g["items"]]
+        if not 5 <= len(flat) <= 16:
+            bad.append(f"{len(flat)} listed skills")
+        if not doc.get("experience"):
+            bad.append("no experience entries")
+        for role in doc.get("experience", []):
+            n = len(role.get("bullets", []))
+            lenient = role.get("type") in {"internship", "part-time"} or role.get("paragraph")
+            if not (1 if lenient else 2) <= n <= 5:
+                bad.append(f"role '{role['title']}' has {n} bullets")
+        if not doc.get("education"):
+            bad.append("no education")
+        # visible text
+        text = layouts.plain_text(doc, r["resume_template_variant"])
+        for pattern in HARD_FAIL:
+            if re.search(pattern, text, re.IGNORECASE if pattern[0] == "\\" else 0):
+                bad.append(f"forbidden term /{pattern}/")
+        for pattern in REVIEW:
+            if re.search(pattern, text, re.IGNORECASE):
+                reviews.append(f"{cid}: /{pattern}/")
+        for sid, name in zip(r["intentionally_missing_skill_ids"], r["intentionally_missing_skills"]):
+            for alias in sorted(aliases[sid]["verified"] | {name}):
+                if find_alias(alias, text):
+                    bad.append(f"missing skill {sid} '{name}' visible as '{alias}'")
+            for alias in sorted(aliases[sid]["one_way"]):
+                if find_alias(alias, text):
+                    warnings.append(f"{cid}: '{alias}' is one-way evidence for missing {sid} {name}")
+        held = r["core_skill_ids"] + r["supporting_skill_ids"] + r["adjacent_skill_ids"]
+        unseen = [sid for sid in held if not any(find_alias(a, text) for a in aliases[sid]["verified"])]
+        if unseen:
+            warnings.append(f"{cid}: held skills with no verified alias in text (natural wording): {' '.join(unseen)}")
+    ok_files = [cid for cid in problems if not problems[cid]]
+    c.check(f"content files checked ({len(files)})", files, "")
+    for cid in sorted(problems):
+        c.check(cid, not problems[cid], "; ".join(problems[cid]))
+    return c, reviews, warnings, ok_files
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--matrix", action="store_true", help="validate generation_matrix.json (Phase 1)")
-    parser.add_argument("--quiet", action="store_true", help="skip tables")
+    parser.add_argument("--content", action="store_true", help="validate content/*.json (Phase 2)")
+    parser.add_argument("--only", nargs="*", help="candidate ID prefixes, e.g. CAT01 CAT02")
+    parser.add_argument("--quiet", action="store_true", help="skip tables and warnings")
     args = parser.parse_args()
+    if args.content:
+        checks, reviews, warnings, _ = validate_content(args.only)
+        if reviews:
+            print("Flagged for manual review (not failures):\n  " + "\n  ".join(reviews))
+        if warnings and not args.quiet:
+            print("Warnings:\n  " + "\n  ".join(warnings))
+        print("\nChecks:")
+        sys.exit(0 if checks.report() else 1)
     if not args.matrix:
-        parser.error("only --matrix is available in Phase 1")
+        parser.error("choose --matrix or --content")
     checks = validate_matrix(show_tables=not args.quiet)
     print("\nChecks:")
     sys.exit(0 if checks.report() else 1)

@@ -1,0 +1,76 @@
+{
+  "candidate_id": "CAT03-R01",
+  "full_name": "Asnaira Ampaso",
+  "location": "Marawi City, Lanao del Sur",
+  "email": "asnaira.ampaso@example.com",
+  "phone": "+63 961 867 5751",
+  "headline": "IT Support Specialist",
+  "summary": "IT support specialist with a year of full-time experience looking after 70 users at a trading and logistics company in Marawi. I troubleshoot hardware and Microsoft Office problems, keep the office network and firewall running, and run short security-awareness sessions for staff. I am certified in networking and working toward a systems role.",
+  "certifications": [
+    {
+      "name": "Cisco Certified Network Associate (CCNA)",
+      "issuer": "Cisco",
+      "date": "2025-11"
+    },
+    {
+      "name": "Computer Systems Servicing NC II",
+      "issuer": "TESDA",
+      "date": "2024-08"
+    },
+    {
+      "name": "Fortinet Certified Fundamentals in Cybersecurity",
+      "issuer": "Fortinet",
+      "date": "2025-03"
+    }
+  ],
+  "skills": [
+    "Technical support for Windows laptops, desktops and printers",
+    "Help desk ticket handling and follow-up",
+    "Network administration: switches, VLANs, DHCP, Wi-Fi",
+    "Firewall rules and VPN setup on a FortiGate appliance",
+    "Cybersecurity awareness and phishing training",
+    "Microsoft Office and Outlook support",
+    "Writing step-by-step support procedures",
+    "Clear English, Filipino and Maranao communication"
+  ],
+  "experience": [
+    {
+      "title": "IT Support Specialist",
+      "employer": "Ranaw Trading and Logistics Corp.",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Resolve about 25 help desk tickets a week, most within the same working day.",
+        "Configured the office firewall and a VPN so the warehouse in Malabang can reach the inventory system.",
+        "Wrote the company's first support request process, with priority levels and a simple ticket form.",
+        "Ran quarterly phishing-awareness sessions; reported suspicious emails rose from almost none to about a dozen a month."
+      ]
+    },
+    {
+      "title": "IT Intern (OJT)",
+      "employer": "Ranaw Polytechnic College ICT Office",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Re-imaged 60 laboratory computers and labelled and documented every network drop in the building."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Ranaw Polytechnic College",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2021",
+      "end": "2025"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Maranao"
+  ]
+}
