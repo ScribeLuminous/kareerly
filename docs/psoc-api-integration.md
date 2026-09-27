@@ -167,7 +167,7 @@ The full PSOC-to-ISCO report contains 586 `isco_match`, 30 `ambiguous`, and 22
 `philippine_specific` groups; all 638 remain `proposed` for review.
 
 The nullable `psoc_unit_code` columns in migration
-`20260930090000_job_psoc_unit_codes.sql` allow an administrator to assign a
+`20260930100000_job_psoc_unit_codes.sql` allow an administrator to assign a
 reviewed 2012 unit code to an employer post. The backend validates the code
 against the published copy, and returns the code and title as job metadata.
 Matching scores and vacancy skill requirements do not use it. Apply the
