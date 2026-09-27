@@ -142,10 +142,10 @@ and is reported separately. Run:
 
 | Method | Requirements P / R / F1 | Look-alikes P / R / F1 (false matches) | Resume mentions P / R / F1 |
 |---|---|---|---|
-| A exact labels | 1.000 / 0.857 / 0.923 | 1.000 / 0.576 / 0.731 (0) | 1.000 / 0.846 / 0.917 |
-| **B verified (runtime)** | 0.974 / 0.881 / 0.925 | 1.000 / 1.000 / 1.000 (0) | 1.000 / 0.942 / 0.970 |
+| A exact labels | 1.000 / 0.861 / 0.925 | 1.000 / 0.611 / 0.759 (0) | 1.000 / 0.846 / 0.917 |
+| **B verified (runtime)** | 0.974 / 0.884 / 0.927 | 1.000 / 1.000 / 1.000 (0) | 1.000 / 0.942 / 0.970 |
 | B + filter-passing candidates | same as B | same as B | same as B |
-| B-raw (all ESCO labels as synonyms) | 0.974 / 0.881 / 0.925 | 0.917 / 1.000 / 0.957 (3) | 1.000 / 0.942 / 0.970 |
+| B-raw (all ESCO labels as synonyms) | 0.974 / 0.884 / 0.927 | 0.923 / 1.000 / 0.960 (3) | 1.000 / 0.942 / 0.970 |
 | C = B + difflib fuzzy | same as B | same as B | same as B |
 
 Decisions: B at runtime; provisional candidates off
@@ -164,6 +164,10 @@ precision 0.830, recall 0.907, F1 0.867. Remaining misses are certificates
 whose skill list was filled from a category template, which is not evidence.
 Caveat: the curated rows' skill lists were written by the catalogue curator
 in Kareerly skill names; they are not purely provider text.
+
+Figures after adding Node.js, MySQL, C++ and C# (section 11); four draft
+labels that said "not in taxonomy" for those names were changed to the new
+skills.
 
 ## 7. Match distribution (model and thresholds unchanged)
 
@@ -226,3 +230,28 @@ present in v1.2.1 with identical preferred labels; 10 duplicate-URI pairs;
 - `backend/.venv/bin/python -m backend.scripts.diagnose_match_distribution --output …`
 - `backend/.venv/bin/python -m backend.scripts.unreviewed_skill_dependencies --output …`
 - frontend: `npm run build`, `npx eslint`, `npm test`
+
+## 11. Additions after the first push
+
+- **Node.js (SK695), MySQL (SK696), C++ (SK697), C# (SK698)** are curated
+  skills. Before, "NodeJS" named nothing and SQL/MySQL, C++/C# looked
+  distinct only because one side was unknown. MySQL, C++ and C# are linked to
+  their ESCO v1.2.1 concepts (preferred label verified, alternative labels
+  candidates). "C#" is allowed as a two-character name in text; "C" alone
+  names nothing.
+- **Step 2 skill search.** `@app.get("/api/skills/search")` decorated the
+  `_search_form` helper instead of `search_skills`, so the endpoint never
+  answered a query (also on `main`). Fixed; search now reads the shared
+  vocabulary's verified names, shows the Kareerly skill name and does not
+  offer unreviewed auto-expansion skills or candidate ESCO labels.
+- **Supabase reference import.** `scripts/import_reference_data.py` reads the
+  ESCO zip directly (skipping `__MACOSX` copies), keeps the latest row of a
+  duplicated concept and writes `sql_editor/NN_<table>.sql`: upserts under
+  1 MB each, to run in name order in the Supabase SQL Editor after
+  `supabase/migrations/20260918090000_occupation_skill_reference.sql`, next to
+  the psql `load.sql`. Links of reviewed or mapped skills load as `reviewed`;
+  exact-label link proposals use ESCO preferred labels only (Trello, Asana
+  and SAP ERP are no longer proposed as broader concepts). Tested on
+  PostgreSQL 16: 13,939 skills, 3,039 occupations, 126,051 occupation-skill
+  relations and the Kareerly links; a second run changed nothing and kept a
+  reviewer's decision. The runtime does not read these tables.
