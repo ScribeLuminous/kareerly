@@ -143,6 +143,15 @@ class ValidationTests(unittest.TestCase):
     def test_clean_records_have_no_problems(self):
         self.assertEqual(ref.validate_psoc(RAW), [])
 
+    def test_armed_forces_major_code_zero_is_valid(self):
+        raw = {
+            "major": [{"majorcode": 0, "title": "Armed Forces Occupations", "version": "2012"}],
+            "sub-major": [{"submajorcode": 1, "title": "Commissioned Armed Forces Officers", "version": "2012"}],
+            "minor": [{"minorcode": 11, "title": "Commissioned Armed Forces Officers", "version": "2012"}],
+            "unit": [{"unitcode": 110, "title": "Commissioned Armed Forces Officers", "version": "2012"}],
+        }
+        self.assertEqual(ref.validate_psoc(raw), [])
+
     def test_invalid_codes_are_reported_not_corrected(self):
         raw = {**RAW, "unit": RAW["unit"] + [
             {"unitcode": "25A1", "title": "Bad", "version": "2012"},

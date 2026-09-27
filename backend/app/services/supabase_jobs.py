@@ -12,6 +12,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from .psoc_reference import validate_occupation_code
+
 
 SUPABASE_URL = (
     os.getenv("SUPABASE_URL")
@@ -92,9 +94,13 @@ def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
     source_note = _safe_text(record.get("source_note"))
     source_platform = _safe_text(record.get("source_platform"))
     description, responsibilities = _split_job_content(record.get("job_description"))
+    occupation = validate_occupation_code(record.get("psoc_unit_code")) if record.get("psoc_unit_code") else {}
+    psoc_code = str(occupation.get("code", "")) if occupation.get("valid") and occupation.get("level") == "unit" else ""
 
     return {
         "job_id": _safe_text(record.get("job_id")),
+        "psoc_unit_code": psoc_code,
+        "psoc_title": str(occupation.get("title", "")) if psoc_code else "",
         "category_id": _safe_text(record.get("category_code")),
         "job_category": _safe_text(record.get("category_name")),
         "job_subcategory": _safe_text(record.get("job_subcategory")),
@@ -155,10 +161,12 @@ def _format_salary_range(record: dict[str, Any]) -> str:
     return ""
 
 
-def _fetch_jobs_table(table_name: str, limit: int = 500) -> list[dict[str, Any]]:
+def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool = True) -> list[dict[str, Any]]:
     safe_limit = max(1, min(limit, 5000))
     common_fields = "job_id,category_code,category_name,job_subcategory,job_title,company_name,location,work_setup,employment_type,job_level,salary_min_php,salary_max_php,job_description,required_skills,preferred_skills,must_have_skill_ids,posting_status,created_at,updated_at"
     selected_fields = f"{common_fields},source_platform,source_url,source_note" if table_name == "internal_jobs" else f"{common_fields},application_deadline"
+    if include_psoc:
+        selected_fields += ",psoc_unit_code"
     page_size = min(500, safe_limit)
     rows: list[dict[str, Any]] = []
 
@@ -186,7 +194,14 @@ def _fetch_jobs_table(table_name: str, limit: int = 500) -> list[dict[str, Any]]
         try:
             with urlopen(request, timeout=12) as response:
                 payload = response.read().decode("utf-8")
-        except (HTTPError, URLError, TimeoutError, OSError):
+        except HTTPError as error:
+            # During rollout the API can start before the nullable column's
+            # migration has run. Keep the job catalogue available in that case.
+            detail = error.read().decode("utf-8", errors="replace") if error.code == 400 else ""
+            if include_psoc and error.code == 400 and "psoc_unit_code" in detail:
+                return _fetch_jobs_table(table_name, limit, include_psoc=False)
+            return rows
+        except (URLError, TimeoutError, OSError):
             return rows
 
         try:

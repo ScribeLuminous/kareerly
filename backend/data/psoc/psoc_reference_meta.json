@@ -1,0 +1,17 @@
+{
+  "classification": "PSOC",
+  "version": "2012",
+  "source": "PSA Classifications API",
+  "source_url": "https://classification.psa.gov.ph/psoc/2012/{major,sub-major,minor,unit}",
+  "retrieved_at": "2026-09-27T07:47:09+00:00",
+  "raw_sha256": "55c577817b577d8c69fa7a7244c9fccceea76f1cbc686c98f714a96bc80ba89d",
+  "groups_sha256": "6e3ab222df133f649022a0b0d66a20adf5189d5232ea04ce2b79324386e3019a",
+  "rows": 638,
+  "levels": {
+    "major": 10,
+    "sub_major": 43,
+    "minor": 130,
+    "unit": 455
+  },
+  "notes": "PSOC 2012 as served by the API. The PSA 2022 updates are not applied here; compare them with psoc-compare."
+}

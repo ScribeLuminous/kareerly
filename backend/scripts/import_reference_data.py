@@ -250,7 +250,7 @@ def parse_psoc(raw: dict[str, list[dict[str, Any]]]) -> list[dict[str, str]]:
                 "psoc_code": code,
                 "level": level,
                 "title": clean(item.get("title")),
-                "description": clean(item.get("description")),
+                "description": "\n".join(line.strip() for line in clean(item.get("description")).splitlines()),
                 "parent_code": code[:-1] if width > 1 else "",
                 "dataset_id": PSOC_DATASET,
             }
@@ -281,7 +281,8 @@ def validate_psoc(raw: dict[str, list[dict[str, Any]]]) -> list[dict[str, str]]:
             if str(item.get("version", PSOC_VERSION)) != PSOC_VERSION:
                 report(level, str(item.get(code_field, "")), "other_version", str(item.get("version")))
                 continue
-            value = str(item.get(code_field, "") or "").strip().split(".")[0]
+            raw_value = item.get(code_field)
+            value = "" if raw_value is None else str(raw_value).strip().split(".")[0]
             if not value.isdigit():
                 report(level, value, "invalid_code", f"{code_field} is not a number")
                 continue
