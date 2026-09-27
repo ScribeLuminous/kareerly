@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import { faBell, faCheck, faLanguage, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faCheck, faChevronDown, faLanguage, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import Logo from '../Logo';
 import { useDismiss } from './hooks';
 
@@ -16,7 +16,11 @@ export type ShellNavItem = {
   /** Count shown on the item (e.g. new message requests) and its spoken meaning. */
   badge?: number;
   badgeLabel?: (count: number) => string;
+  /** Sub-pages shown as a dropdown under this item in the centred desktop tabs. */
+  menu?: ShellSubItem[];
 };
+
+export type ShellSubItem = { id: string; href: string; label: string; current: boolean; onSelect: () => void; badge?: number; badgeLabel?: (count: number) => string };
 
 export type ShellNotification = {
   id: string;
@@ -88,6 +92,7 @@ export default function AppShell({ onHome, workspaceLabel, nav, layout = 'sideba
           </div>
           <nav className="k-centernav" aria-label="Main">
             {nav.map((item) => {
+              if (item.menu) return <CenterNavMenu key={item.id} item={item} />;
               const badge = item.badge || 0;
               return (
                 <a key={item.id} className="k-centernav-item" href={item.href} aria-current={item.current ? 'page' : undefined} onClick={plainClick(item.onSelect)}>
@@ -177,6 +182,55 @@ export default function AppShell({ onHome, workspaceLabel, nav, layout = 'sideba
       <main id="main-content" className="k-main" tabIndex={-1}>
         {children}
       </main>
+    </div>
+  );
+}
+
+function CountBadge({ count, label, className }: { count: number; label?: (count: number) => string; className: string }) {
+  if (count <= 0) return null;
+  return (
+    <>
+      <span className={className} aria-hidden="true">{count}</span>
+      <span className="sr-only">, {label ? label(count) : `${count} new`}</span>
+    </>
+  );
+}
+
+/** A centred desktop tab that opens a short list of its sub-pages. */
+function CenterNavMenu({ item }: { item: ShellNavItem }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useDismiss(ref, open, () => setOpen(false));
+  const choose = (onSelect: () => void) => (event: React.MouseEvent) => {
+    setOpen(false);
+    plainClick(onSelect)(event);
+  };
+  return (
+    <div ref={ref} className="k-popover-anchor k-centernav-group">
+      <button
+        className="k-centernav-item"
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-current={item.current ? 'page' : undefined}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {item.label}
+        <CountBadge count={item.badge || 0} label={item.badgeLabel} className="k-centernav-count" />
+        <FontAwesomeIcon className="k-centernav-caret" icon={faChevronDown} aria-hidden="true" />
+      </button>
+      {open && (
+        <ul className="k-popover k-centernav-menu">
+          {item.menu!.map((sub) => (
+            <li key={sub.id}>
+              <a className="k-menu-item" href={sub.href} aria-current={sub.current ? 'page' : undefined} onClick={choose(sub.onSelect)}>
+                <span className="flex-1">{sub.label}</span>
+                <CountBadge count={sub.badge || 0} label={sub.badgeLabel} className="k-centernav-count" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -1050,6 +1050,28 @@ a.k-row:hover {
   flex: 1 1 0;
 }
 
+/* Search, Filters and sort share one fixed height, so they line up whatever
+   the font or browser does to a field's natural height. */
+.k-toolbar {
+  --k-toolbar-control-h: 44px;
+}
+
+.k-toolbar .k-search .k-input,
+.k-toolbar-controls > .k-popover-anchor > .k-btn,
+.k-toolbar-controls > .k-sort > .k-select {
+  height: var(--k-toolbar-control-h);
+  min-height: var(--k-toolbar-control-h);
+}
+
+.k-toolbar-controls > .k-popover-anchor > .k-btn {
+  width: 100%;
+}
+
+.k-toolbar-controls > .k-sort > .k-select {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 @media (min-width: 640px) {
   .k-toolbar-controls {
     flex: 0 0 auto;
@@ -2269,6 +2291,46 @@ details.k-detail-section[open] > summary {
 
   .k-centernav-item:focus-visible {
     outline-offset: -3px;
+  }
+
+  .k-centernav-group {
+    display: flex;
+  }
+
+  .k-centernav-group > .k-centernav-item {
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+
+  .k-centernav-caret {
+    width: 10px;
+    height: 10px;
+    transition: transform 0.15s;
+  }
+
+  .k-centernav-item[aria-expanded='true'] .k-centernav-caret {
+    transform: rotate(180deg);
+  }
+
+  .k-centernav-menu {
+    top: calc(100% + 4px);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .k-centernav-menu .k-menu-item {
+    text-decoration: none;
+  }
+
+  .k-centernav-menu .k-menu-item:hover {
+    background: var(--bg);
+  }
+
+  .k-centernav-menu .k-menu-item[aria-current='page'] {
+    font-weight: 700;
+    background: var(--rust-l);
   }
 
   .k-centernav-count {
