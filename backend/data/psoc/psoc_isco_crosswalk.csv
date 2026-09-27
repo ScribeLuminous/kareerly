@@ -1,0 +1,639 @@
+psoc_code,psoc_title,isco_code,isco_title,status,title_overlap,note,review_status
+0,ARMED FORCES OCCUPATIONS,0,Armed forces occupations,isco_match,1.0,,proposed
+1,MANAGERS,1,Managers,isco_match,1.0,,proposed
+2,PROFESSIONALS,2,Professionals,isco_match,1.0,,proposed
+3,TECHNICIANS AND ASSOCIATE PROFESSIONALS,3,Technicians and associate professionals,isco_match,1.0,,proposed
+4,CLERICAL SUPPORT WORKERS,4,Clerical support workers,isco_match,1.0,,proposed
+5,SERVICE AND SALES WORKERS,5,Service and sales workers,isco_match,1.0,,proposed
+6,"SKILLED AGRICULTURAL, FORESTRY AND FISHERY WORKERS",6,"Skilled agricultural, forestry and fishery workers",isco_match,1.0,,proposed
+7,CRAFT AND RELATED TRADES WORKERS,7,Craft and related trades workers,isco_match,1.0,,proposed
+8,"PLANT AND MACHINE OPERATORS, AND ASSEMBLERS",8,Plant and machine operators and assemblers,isco_match,1.0,,proposed
+9,ELEMENTARY OCCUPATIONS,9,Elementary occupations,isco_match,1.0,,proposed
+01,Commissioned Armed forces Officers,01,Commissioned armed forces officers,isco_match,1.0,,proposed
+02,Non-commissioned Armed Forces Officers,02,Non-commissioned armed forces officers,isco_match,1.0,,proposed
+03,"Armed Forces Occupations, Other Ranks",03,"Armed forces occupations, other ranks",isco_match,1.0,,proposed
+11,"Chief Executives, Senior Officials and Legislators",11,"Chief executives, senior officials and legislators",isco_match,1.0,,proposed
+12,Administrative and Commercial Managers,12,Administrative and commercial managers,isco_match,1.0,,proposed
+13,Production and Specialized Services Managers,13,Production and specialised services managers,isco_match,0.6,,proposed
+14,"Hospitality, Retail and Other Services Managers",14,"Hospitality, retail and other services managers",isco_match,1.0,,proposed
+21,Science and Engineering Professionals,21,Science and engineering professionals,isco_match,1.0,,proposed
+22,Health Professionals,22,Health professionals,isco_match,1.0,,proposed
+23,Teaching Professionals,23,Teaching professionals,isco_match,1.0,,proposed
+24,Business and Administration Professionals,24,Business and administration professionals,isco_match,1.0,,proposed
+25,Information and Communications Technology Professionals,25,Information and communications technology professionals,isco_match,1.0,,proposed
+26,"Legal, Social and Cultural Professionals",26,"Legal, social and cultural professionals",isco_match,1.0,,proposed
+31,Science and Engineering Associate Professionals,31,Science and engineering associate professionals,isco_match,1.0,,proposed
+32,Health Associate Professionals,32,Health associate professionals,isco_match,1.0,,proposed
+33,Business and Administration Associate Professionals,33,Business and administration associate professionals,isco_match,1.0,,proposed
+34,"Legal, Social, Cultural and Related Associate Professionals",34,"Legal, social, cultural and related associate professionals",isco_match,1.0,,proposed
+35,Information and Communications Technicians,35,Information and communications technicians,isco_match,1.0,,proposed
+41,General and Keyboard Clerks,41,General and keyboard clerks,isco_match,1.0,,proposed
+42,Customer Services Clerks,42,Customer services clerks,isco_match,1.0,,proposed
+43,Numerical and Material Recording Clerks,43,Numerical and material recording clerks,isco_match,1.0,,proposed
+44,Other Clerical Support Workers,44,Other clerical support workers,isco_match,1.0,,proposed
+51,Personal Service Workers,51,Personal service workers,isco_match,1.0,,proposed
+52,Sales Workers,52,Sales workers,isco_match,1.0,,proposed
+53,Personal Care Workers,53,Personal care workers,isco_match,1.0,,proposed
+54,Protective Services Workers,54,Protective services workers,isco_match,1.0,,proposed
+61,Market-oriented Skilled Agricultural Workers,61,Market-oriented skilled agricultural workers,isco_match,1.0,,proposed
+62,"Market-Oriented Skilled Forestry, Fishery and Hunting Workers",62,"Market-oriented skilled forestry, fishery and hunting workers",isco_match,1.0,,proposed
+63,"Subsistence Farmers, Fishers, Hunters and Gatherers",63,"Subsistence farmers, fishers, hunters and gatherers",isco_match,1.0,,proposed
+71,Building and Related Trades Workers (excluding Electricians),71,"Building and related trades workers, excluding electricians",isco_match,1.0,,proposed
+72,"Metal, Machinery and Related Trades Workers",72,"Metal, machinery and related trades workers",isco_match,1.0,,proposed
+73,Handicraft and Printing Workers,73,Handicraft and printing workers,isco_match,1.0,,proposed
+74,Electrical and Electronics Trades Workers,74,Electrical and electronic trades workers,isco_match,0.6,,proposed
+75,"Food Processing, Woodworking, Garment and Other Craft and Related Trades Workers",75,"Food processing, wood working, garment and other craft and related trades workers",isco_match,0.667,,proposed
+81,Stationary Plant and Machine Operators,81,Stationary plant and machine operators,isco_match,1.0,,proposed
+82,Assemblers,82,Assemblers,isco_match,1.0,,proposed
+83,Drivers and Mobile Plant Operators,83,Drivers and mobile plant operators,isco_match,1.0,,proposed
+91,Cleaners and Helpers,91,Cleaners and helpers,isco_match,1.0,,proposed
+92,"Agricultural, Forestry and Fishery Labourers",92,"Agricultural, forestry and fishery labourers",isco_match,1.0,,proposed
+93,"Labourers in Mining, Construction, Manufacturing and Transport",93,"Labourers in mining, construction, manufacturing and transport",isco_match,1.0,,proposed
+94,Food Preparation Assistants,94,Food preparation assistants,isco_match,1.0,,proposed
+95,Street and Related Sales and Service Workers,95,Street and related sales and service workers,isco_match,1.0,,proposed
+96,Refuse Workers and Other Elementary Workers,96,Refuse workers and other elementary workers,isco_match,1.0,,proposed
+011,COMMISSIONED ARMED FORCES OFFICERS,011,Commissioned armed forces officers,isco_match,1.0,,proposed
+021,NON-COMMISSIONED ARMED FORCES OFFICERS,021,Non-commissioned armed forces officers,isco_match,1.0,,proposed
+031,"ARMED FORCES OCCUPATIONS, OTHER RANKS",031,"Armed forces occupations, other ranks",isco_match,1.0,,proposed
+111,LEGISLATORS AND SENIOR OFFICIALS,111,Legislators and senior officials,isco_match,1.0,,proposed
+112,MANAGING DIRECTORS AND CHIEF EXECUTIVES,112,Managing directors and chief executives,isco_match,1.0,,proposed
+121,BUSINESS SERVICES AND ADMINISTRATION MANAGERS,121,Business services and administration managers,isco_match,1.0,,proposed
+122,"SALES, MARKETING AND DEVELOPMENT MANAGERS",122,"Sales, marketing and development managers",isco_match,1.0,,proposed
+131,"PRODUCTION MANAGERS IN AGRICULTURE, FORESTRY AND FISHERIES",131,"Production managers in agriculture, forestry and fisheries",isco_match,1.0,,proposed
+132,"MANUFACTURING, MINING, CONSTRUCTION, AND DISTRIBUTION MANAGERS",132,"Manufacturing, mining, construction, and distribution managers",isco_match,1.0,,proposed
+133,INFORMATION AND COMMUNICATIONS TECHNOLOGY SERVICE MANAGERS,133,Information and communications technology service managers,isco_match,1.0,,proposed
+134,PROFESSIONAL SERVICES MANAGERS,134,Professional services managers,isco_match,1.0,,proposed
+141,HOTEL AND RESTAURANT MANAGERS,141,Hotel and restaurant managers,isco_match,1.0,,proposed
+142,RETAIL AND WHOLESALE TRADE MANAGERS,142,Retail and wholesale trade managers,isco_match,1.0,,proposed
+143,OTHER SERVICES MANAGERS,143,Other services managers,isco_match,1.0,,proposed
+211,PHYSICAL AND EARTH SCIENCE PROFESSIONALS,211,Physical and earth science professionals,isco_match,1.0,,proposed
+212,"MATHEMATICIANS, ACTUARIES AND STATISTICIANS",212,"Mathematicians, actuaries and statisticians",isco_match,1.0,,proposed
+213,LIFE SCIENCE PROFESSIONALS,213,Life science professionals,isco_match,1.0,,proposed
+214,ENGINEERING PROFESSIONALS (Excluding electrotechnology),214,Engineering professionals (excluding electrotechnology),isco_match,1.0,,proposed
+215,ELECTROTECHNOLOGY ENGINEERS,215,Electrotechnology engineers,isco_match,1.0,,proposed
+216,"ARCHITECTS, PLANNERS, SURVEYORS AND DESIGNERS",216,"Architects, planners, surveyors and designers",isco_match,1.0,,proposed
+221,MEDICAL DOCTORS,221,Medical doctors,isco_match,1.0,,proposed
+222,NURSING AND MIDWIFERY PROFESSIONALS,222,Nursing and midwifery professionals,isco_match,1.0,,proposed
+223,TRADITIONAL AND COMPLEMENTARY MEDICINE PROFESSIONALS,223,Traditional and complementary medicine professionals,isco_match,1.0,,proposed
+224,PARAMEDICAL PRACTITIONERS,224,Paramedical practitioners,isco_match,1.0,,proposed
+225,VETERINARIANS,225,Veterinarians,isco_match,1.0,,proposed
+226,OTHER HEALTH PROFESSIONALS,226,Other health professionals,isco_match,1.0,,proposed
+231,UNIVERSITY AND HIGHER EDUCATION TEACHERS,231,University and higher education teachers,isco_match,1.0,,proposed
+232,VOCATIONAL EDUCATION TEACHERS,232,Vocational education teachers,isco_match,1.0,,proposed
+233,SECONDARY EDUCATION TEACHERS,233,Secondary education teachers,isco_match,1.0,,proposed
+234,PRIMARY SCHOOL AND EARLY CHILDHOOD TEACHERS,234,Primary school and early childhood teachers,isco_match,1.0,,proposed
+235,OTHER TEACHING PROFESSIONALS,235,Other teaching professionals,isco_match,1.0,,proposed
+241,FINANCE PROFESSIONALS,241,Finance professionals,isco_match,1.0,,proposed
+242,ADMINISTRATION PROFESSIONALS,242,Administration professionals,isco_match,1.0,,proposed
+243,"SALES, MARKETING AND PUBLIC RELATIONS PROFESSIONALS",243,"Sales, marketing and public relations professionals",isco_match,1.0,,proposed
+251,SOFTWARE AND APPLICATIONS DEVELOPERS AND ANALYST,251,Software and applications developers and analysts,isco_match,0.6,,proposed
+252,DATABASE AND NETWORK PROFESSIONALS,252,Database and network professionals,isco_match,1.0,,proposed
+261,LEGAL PROFESSIONALS,261,Legal professionals,isco_match,1.0,,proposed
+262,"LIBRARIANS, ARCHIVISTS AND CURATORS",262,"Librarians, archivists and curators",isco_match,1.0,,proposed
+263,SOCIAL AND RELIGIOUS PROFESSIONALS,263,Social and religious professionals,isco_match,1.0,,proposed
+264,"AUTHORS, JOURNALISTS AND LINGUISTS",264,"Authors, journalists and linguists",isco_match,1.0,,proposed
+265,CREATIVE AND PERFORMING ARTISTS,265,Creative and performing artists,isco_match,1.0,,proposed
+311,PHYSICAL AND ENGINEERING SCIENCE TECHNICIANS,311,Physical and engineering science technicians,isco_match,1.0,,proposed
+312,"MINING, MANUFACTURING AND CONSTRUCTION SUPERVISORS",312,"Mining, manufacturing and construction supervisors",isco_match,1.0,,proposed
+313,PROCESS CONTROL TECHNICIANS,313,Process control technicians,isco_match,1.0,,proposed
+314,LIFE SCIENCE TECHNICIANS AND RELATED ASSOCIATE PROFESSIONALS,314,Life science technicians and related associate professionals,isco_match,1.0,,proposed
+315,SHIP AND AIRCRAFT CONTROLLERS AND TECHNICIANS,315,Ship and aircraft controllers and technicians,isco_match,1.0,,proposed
+321,MEDICAL AND PHARMACEUTICAL TECHNICIANS,321,Medical and pharmaceutical technicians,isco_match,1.0,,proposed
+322,NURSING AND MIDWIFERY ASSOCIATE PROFESSIONALS,322,Nursing and midwifery associate professionals,isco_match,1.0,,proposed
+323,TRADITIONAL AND COMPLEMENTARY MEDICINE ASSOCIATE PROFESSIONALS,323,Traditional and complementary medicine associate professionals,isco_match,1.0,,proposed
+324,VETERINARY TECHNICIANS AND ASSISTANTS,324,Veterinary technicians and assistants,isco_match,1.0,,proposed
+325,OTHER HEALTH ASSOCIATE PROFESSIONALS,325,Other health associate professionals,isco_match,1.0,,proposed
+331,FINANCIAL AND MATHEMATICAL ASSOCIATE PROFESSIONALS,331,Financial and mathematical associate professionals,isco_match,1.0,,proposed
+332,SALES AND PURCHASING AGENTS AND BROKERS,332,Sales and purchasing agents and brokers,isco_match,1.0,,proposed
+333,BUSINESS SERVICE AGENTS,333,Business services agents,isco_match,0.5,,proposed
+334,ADMINISTRATIVE AND SPECIALIZED SECRETARIES,334,Administrative and specialised secretaries,isco_match,0.5,,proposed
+335,REGULATORY GOVERNMENT ASSOCIATE PROFESSIONALS,335,Regulatory government associate professionals,isco_match,1.0,,proposed
+341,"LEGAL, SOCIAL AND RELIGIOUS ASSOCIATE PROFESSIONALS",341,"Legal, social and religious associate professionals",isco_match,1.0,,proposed
+342,SPORTS AND FITNESS WORKERS,342,Sports and fitness workers,isco_match,1.0,,proposed
+343,"ARTISTIC, CULTURAL AND CULINARY ASSOCIATE PROFESSIONALS",343,"Artistic, cultural and culinary associate professionals",isco_match,1.0,,proposed
+351,INFORMATION AND COMMUNICATIONS TECHNOLOGY OPERATIONS AND USER SUPPORT TECHNICIANS,351,Information and communications technology operations and user support technicians,isco_match,1.0,,proposed
+352,TELECOMMUNICATIONS AND BROADCASTING TECHNICIANS,352,Telecommunications and broadcasting technicians,isco_match,1.0,,proposed
+411,GENERAL OFFICE CLERKS,411,General office clerks,isco_match,1.0,,proposed
+412,SECRETARIES (GENERAL),412,Secretaries (general),isco_match,1.0,,proposed
+413,KEYBOARD OPERATORS,413,Keyboard operators,isco_match,1.0,,proposed
+421,"TELLERS, MONEY COLLECTORS AND RELATED CLERKS",421,"Tellers, money collectors and related clerks",isco_match,1.0,,proposed
+422,CLIENT INFORMATION WORKERS,422,Client information workers,isco_match,1.0,,proposed
+431,NUMERICAL CLERKS,431,Numerical clerks,isco_match,1.0,,proposed
+432,MATERIAL RECORDING AND TRANSPORT CLERKS,432,Material-recording and transport clerks,isco_match,1.0,,proposed
+441,OTHER CLERICAL SUPPORT WORKERS,441,Other clerical support workers,isco_match,1.0,,proposed
+511,"TRAVEL ATTENDANTS, CONDUCTORS AND GUIDES",511,"Travel attendants, conductors and guides",isco_match,1.0,,proposed
+512,COOKS,512,Cooks,isco_match,1.0,,proposed
+513,WAITERS AND BARTENDERS,513,Waiters and bartenders,isco_match,1.0,,proposed
+514,"HAIRDRESSERS, BEAUTICIANS AND RELATED WORKERS",514,"Hairdressers, beauticians and related workers",isco_match,1.0,,proposed
+515,BUILDING AND HOUSEKEEPING SUPERVISORS,515,Building and housekeeping supervisors,isco_match,1.0,,proposed
+516,OTHER PERSONAL SERVICES WORKERS,516,Other personal services workers,isco_match,1.0,,proposed
+521,STREET AND MARKET SALESPERSONS,521,Street and market salespersons,isco_match,1.0,,proposed
+522,SHOP SALESPERSONS,522,Shop salespersons,isco_match,1.0,,proposed
+523,CASHIERS AND TICKET CLERKS,523,Cashiers and ticket clerks,isco_match,1.0,,proposed
+524,OTHER SALES WORKERS,524,Other sales workers,isco_match,1.0,,proposed
+531,CHILD CARE WORKERS AND TEACHERS' AIDES,531,Child care workers and teachers’ aides,isco_match,1.0,,proposed
+532,PERSONAL CARE WORKERS IN HEALTH SERVICES,532,Personal care workers in health services,isco_match,1.0,,proposed
+541,PROCTECTIVE SERVICES WORKERS,541,Protective services workers,isco_match,0.5,,proposed
+611,MARKET GARDENERS AND CROP GROWERS,611,Market gardeners and crop growers,isco_match,1.0,,proposed
+612,ANIMAL PRODUCERS,612,Animal producers,isco_match,1.0,,proposed
+613,MIXED CROP AND ANIMAL PRODUCERS,613,Mixed crop and animal producers,isco_match,1.0,,proposed
+621,FORESTRY AND RELATED WORKERS,621,Forestry and related workers,isco_match,1.0,,proposed
+622,"FISHERY WORKERS, HUNTERS AND TRAPPERS",622,"Fishery workers, hunters and trappers",isco_match,1.0,,proposed
+631,SUBSISTENCE CROP FARMERS,631,Subsistence crop farmers,isco_match,1.0,,proposed
+632,SUBSISTENCE LIVESTOCK FARMERS,632,Subsistence livestock farmers,isco_match,1.0,,proposed
+633,SUBSISTENCE MIXED CROP AND LIVESTOCK FARMERS,633,Subsistence mixed crop and livestock farmers,isco_match,1.0,,proposed
+634,"SUBSISTENCE FISHERS, HUNTERS, TRAPPERS AND GATHERERS",634,"Subsistence fishers, hunters, trappers and gatherers",isco_match,1.0,,proposed
+711,BUILDING FRAME AND RELATED TRADES WORKERS,711,Building frame and related trades workers,isco_match,1.0,,proposed
+712,BUILDING FINISHERS AND RELATED TRADES WORKERS,712,Building finishers and related trades workers,isco_match,1.0,,proposed
+713,"PAINTERS, BUILDING STRUCTURE CLEANERS AND RELATED TRADES WORKERS",713,"Painters, building structure cleaners and related trades workers",isco_match,1.0,,proposed
+721,"SHEET AND STRUCTURAL METAL WORKERS, MOLDERS AND WELDERS, AND RELATED WORKERS",721,"Sheet and structural metal workers, moulders and welders, and related workers",isco_match,0.714,,proposed
+722,"BLACKSMITHS, TOOLMAKERS AND RELATED TRADES WORKERS",722,"Blacksmiths, toolmakers and related trades workers",isco_match,1.0,,proposed
+723,MACHINERY MECHANICS AND REPAIRERS,723,Machinery mechanics and repairers,isco_match,1.0,,proposed
+731,HANDICRAFT WORKERS,731,Handicraft workers,isco_match,1.0,,proposed
+732,PRINTING TRADES WORKERS,732,Printing trades workers,isco_match,1.0,,proposed
+741,ELECTRICAL EQUIPMENT INSTALLERS AND REPAIRERS,741,Electrical equipment installers and repairers,isco_match,1.0,,proposed
+742,ELECTRONICS AND TELECOMMUNICATIONS INSTALLERS AND REPAIRERS,742,Electronics and telecommunications installers and repairers,isco_match,1.0,,proposed
+751,FOOD PROCESSING AND RELATED TRADES WORKERS,751,Food processing and related trades workers,isco_match,1.0,,proposed
+752,"WOOD TREATERS, CABINET-MAKERS AND RELATED TRADES WORKERS",752,"Wood treaters, cabinet-makers and related trades workers",isco_match,1.0,,proposed
+753,GARMENT AND RELATED TRADES WORKERS,753,Garment and related trades workers,isco_match,1.0,,proposed
+754,OTHER CRAFT AND RELATED WORKERS,754,Other craft and related workers,isco_match,1.0,,proposed
+811,MINING AND MINERAL PROCESSING PLANT OPERATORS,811,Mining and mineral processing plant operators,isco_match,1.0,,proposed
+812,METAL PROCESSING AND FINISHING PLANT OPERATORS,812,Metal processing and finishing plant operators,isco_match,1.0,,proposed
+813,CHEMICAL AND PHOTOGRAPHIC PRODUCTS PLANT AND MACHINE OPERATORS,813,Chemical and photographic products plant and machine operators,isco_match,1.0,,proposed
+814,"RUBBER, PLASTIC AND PAPER PRODUCTS MACHINE OPERATORS",814,"Rubber, plastic and paper products machine operators",isco_match,1.0,,proposed
+815,"TEXTILE, FUR AND LEATHER PRODUCTS MACHINE OPERATORS",815,"Textile, fur and leather products machine operators",isco_match,1.0,,proposed
+816,FOOD AND RELATED PRODUCTS MACHINE OPERATORS,816,Food and related products machine operators,isco_match,1.0,,proposed
+817,WOOD PROCESSING AND PAPERMAKING PLANT OPERATORS,817,Wood processing and papermaking plant operators,isco_match,1.0,,proposed
+818,OTHER STATIONARY PLANT AND MACHINE OPERATORS,818,Other stationary plant and machine operators,isco_match,1.0,,proposed
+821,ASSEMBLERS,821,Assemblers,isco_match,1.0,,proposed
+831,LOCOMOTIVE ENGINE DRIVERS AND RELATED WORKERS,831,Locomotive engine drivers and related workers,isco_match,1.0,,proposed
+832,"CAR, VAN AND MOTORCYCLE DRIVERS",832,"Car, van and motorcycle drivers",isco_match,1.0,,proposed
+833,HEAVY TRUCK AND BUS DRIVERS,833,Heavy truck and bus drivers,isco_match,1.0,,proposed
+834,MOBILE PLANT OPERATORS,834,Mobile plant operators,isco_match,1.0,,proposed
+835,SHIPS' DECK CREWS AND RELATED WORKERS,835,Ships’ deck crews and related workers,isco_match,1.0,,proposed
+911,"DOMESTIC, HOTEL AND OFFICE CLEANERS AND HELPERS",911,"Domestic, hotel and office cleaners and helpers",isco_match,1.0,,proposed
+912,"VEHICLE, WINDOW, LAUNDRY AND OTHER HAND CLEANING WORKERS",912,"Vehicle, window, laundry and other hand cleaning workers",isco_match,1.0,,proposed
+921,"AGRICULTURAL, FORESTRY AND FISHERY LABORERS",921,"Agricultural, forestry and fishery labourers",isco_match,0.6,,proposed
+931,MINING AND CONSTRUCTION LABORERS,931,Mining and construction labourers,isco_match,0.5,,proposed
+932,MANUFACTURING LABORERS,932,Manufacturing labourers,ambiguous,0.333,"same code, different title",proposed
+933,TRANSPORT AND STORAGE LABORERS,933,Transport and storage labourers,isco_match,0.5,,proposed
+941,FOOD PREPARATION ASSISTANTS,941,Food preparation assistants,isco_match,1.0,,proposed
+951,STREET AND RELATED SERVICE WORKERS,951,Street and related service workers,isco_match,1.0,,proposed
+952,STREET VENDORS (excluding food),952,Street vendors (excluding food),isco_match,1.0,,proposed
+961,REFUSE WORKERS,961,Refuse workers,isco_match,1.0,,proposed
+962,OTHER ELEMENTARY WORKERS,962,Other elementary workers,isco_match,1.0,,proposed
+0110,COMMISSIONED ARMED FORCES OFFICERS,0110,Commissioned armed forces officers,isco_match,1.0,,proposed
+0210,NON-COMMISSIONED ARMED FORCES OFFICERS,0210,Non-commissioned armed forces officers,isco_match,1.0,,proposed
+0310,"ARMED FORCES OCCUPATIONS, OTHER RANKS",0310,"Armed forces occupations, other ranks",isco_match,1.0,,proposed
+1111,LEGISLATORS,1111,Legislators,isco_match,1.0,,proposed
+1112,SENIOR GOVERNMENT OFFICIALS,1112,Senior government officials,isco_match,1.0,,proposed
+1113,TRADITIONAL CHIEFS AND HEADS OF VILLAGES,1113,Traditional chiefs and heads of village,isco_match,0.6,,proposed
+1114,SENIOR OFFICIALS OF SPECIAL-INTEREST ORGANIZATIONS,1114,Senior officials of special-interest organisations,isco_match,0.667,,proposed
+1120,MANAGING DIRECTORS AND CHIEF EXECUTIVES,1120,Managing directors and chief executives,isco_match,1.0,,proposed
+1211,FINANCE MANAGERS,1211,Finance managers,isco_match,1.0,,proposed
+1212,HUMAN RESOURCE MANAGERS,1212,Human resource managers,isco_match,1.0,,proposed
+1213,POLICY AND PLANNING MANAGERS,1213,Policy and planning managers,isco_match,1.0,,proposed
+1219,BUSINESS SERVICES AND ADMINISTRATION MANAGERS NOT ELSEWHERE CLASSIFIED,1219,Business services and administration managers not elsewhere classified,isco_match,1.0,,proposed
+1221,SALES AND MARKETING MANAGERS,1221,Sales and marketing managers,isco_match,1.0,,proposed
+1222,ADVERTISING AND PUBLIC RELATIONS MANAGERS,1222,Advertising and public relations managers,isco_match,1.0,,proposed
+1223,RESEARCH AND DEVELOPMENT MANAGERS,1223,Research and development managers,isco_match,1.0,,proposed
+1311,AGRICULTURAL AND FORESTRY PRODUCTION MANAGERS,1311,Agricultural and forestry production managers,isco_match,1.0,,proposed
+1312,AQUACULTURE AND FISHERIES PRODUCTION MANAGERS,1312,Aquaculture and fisheries production managers,isco_match,1.0,,proposed
+1321,MANUFACTURING MANAGERS,1321,Manufacturing managers,isco_match,1.0,,proposed
+1322,MINING MANAGERS,1322,Mining managers,isco_match,1.0,,proposed
+1323,CONSTRUCTION MANAGERS,1323,Construction managers,isco_match,1.0,,proposed
+1324,"SUPPLY, DISTRIBUTION AND RELATED MANAGERS",1324,"Supply, distribution and related managers",isco_match,1.0,,proposed
+1330,INFORMATION AND COMMUNICATIONS TECHNOLOGY SERVICE MANAGERS,1330,Information and communications technology service managers,isco_match,1.0,,proposed
+1341,CHILD CARE SERVICE MANAGERS,1341,Child care services managers,isco_match,0.6,,proposed
+1342,HEALTH SERVICE MANAGERS,1342,Health services managers,isco_match,0.5,,proposed
+1343,AGED CARE SERVICE MANAGERS,1343,Aged care services managers,isco_match,0.6,,proposed
+1344,SOCIAL WELFARE MANAGERS,1344,Social welfare managers,isco_match,1.0,,proposed
+1345,EDUCATION MANAGERS,1345,Education managers,isco_match,1.0,,proposed
+1346,FINANCIAL AND INSURANCE SERVICES BRANCH MANAGERS,1346,Financial and insurance services branch managers,isco_match,1.0,,proposed
+1349,PROFESSIONAL SERVICES MANAGERS NOT ELSEWHERE CLASSIFIED,1349,Professional services managers not elsewhere classified,isco_match,1.0,,proposed
+1411,HOTEL MANAGERS,1411,Hotel managers,isco_match,1.0,,proposed
+1412,RESTAURANT MANAGERS,1412,Restaurant managers,isco_match,1.0,,proposed
+1420,RETAIL AND WHOLESALE TRADE MANAGERS,1420,Retail and wholesale trade managers,isco_match,1.0,,proposed
+1431,"SPORTS, RECREATION AND CULTURAL CENTRE MANAGERS",1431,"Sports, recreation and cultural centre managers",isco_match,1.0,,proposed
+1439,SERVICES MANAGERS NOT ELSEWHERE CLASSIFIED,1439,Services managers not elsewhere classified,isco_match,1.0,,proposed
+2111,PHYSICISTS AND ASTRONOMERS,2111,Physicists and astronomers,isco_match,1.0,,proposed
+2112,METEOROLOGISTS,2112,Meteorologists,isco_match,1.0,,proposed
+2113,CHEMISTS,2113,Chemists,isco_match,1.0,,proposed
+2114,GEOLOGISTS AND GEOPHYSICISTS,2114,Geologists and geophysicists,isco_match,1.0,,proposed
+2119,OTHER PHYSICAL AND EARTH SCIENCE PROFESSIONALS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+2121,MATHEMATICIANS AND ACTUARIES,,,philippine_specific,0.0,code not in ISCO-08,proposed
+2122,STATISTICIANS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+2131,"BIOLOGISTS, BOTANISTS, ZOOLOGISTS AND RELATED SCIENTISTS",2131,"Biologists, botanists, zoologists and related professionals",isco_match,0.6,,proposed
+2132,"FARMING, FORESTRY AND FISHERIES ADVISERS",2132,"Farming, forestry and fisheries advisers",isco_match,1.0,,proposed
+2133,ENVIRONMENTAL PROTECTION PROFESSIONALS,2133,Environmental protection professionals,isco_match,1.0,,proposed
+2141,INDUSTRIAL AND PRODUCTION ENGINEERS,2141,Industrial and production engineers,isco_match,1.0,,proposed
+2142,CIVIL ENGINEERS,2142,Civil engineers,isco_match,1.0,,proposed
+2143,ENVIRONMENTAL ENGINEERS,2143,Environmental engineers,isco_match,1.0,,proposed
+2144,MECHANICAL ENGINEERS,2144,Mechanical engineers,isco_match,1.0,,proposed
+2145,CHEMICAL ENGINEERS,2145,Chemical engineers,isco_match,1.0,,proposed
+2146,"MINING ENGINEERS, METALLURGISTS AND RELATED PROFESSIONALS",2146,"Mining engineers, metallurgists and related professionals",isco_match,1.0,,proposed
+2149,ENGINEERING PROFESSIONALS NOT ELSEWHERE CLASSIFIED,2149,Engineering professionals not elsewhere classified,isco_match,1.0,,proposed
+2151,ELECTRICAL ENGINEERS,2151,Electrical engineers,isco_match,1.0,,proposed
+2152,ELECTRONICS ENGINEERS,2152,Electronics engineers,isco_match,1.0,,proposed
+2153,TELECOMMUNICATIONS ENGINEERS,2153,Telecommunications engineers,isco_match,1.0,,proposed
+2161,BUILDING ARCHITECTS,2161,Building architects,isco_match,1.0,,proposed
+2162,LANDSCAPE ARCHITECTS,2162,Landscape architects,isco_match,1.0,,proposed
+2163,PRODUCT AND GARMENT DESIGNERS,2163,Product and garment designers,isco_match,1.0,,proposed
+2164,TOWN AND TRAFFIC PLANNERS,2164,Town and traffic planners,isco_match,1.0,,proposed
+2165,CARTOGRAPHER AND SURVEYORS,2165,Cartographers and surveyors,ambiguous,0.333,"same code, different title",proposed
+2166,GRAPHIC AND MULTIMEDIA DESIGNERS,2166,Graphic and multimedia designers,isco_match,1.0,,proposed
+2211,GENERALIST MEDICAL PRACTIONERS,2211,Generalist medical practitioners,isco_match,0.5,,proposed
+2212,SPECIALIST MEDICAL PRACTITIONERS,2212,Specialist medical practitioners,isco_match,1.0,,proposed
+2221,NURSING PROFESSIONALS,2221,Nursing professionals,isco_match,1.0,,proposed
+2222,MIDWIFERY PROFESSIONALS,2222,Midwifery professionals,isco_match,1.0,,proposed
+2230,TRADITIONAL AND COMPLEMENTARY MEDICINE PROFESSIONALS,2230,Traditional and complementary medicine professionals,isco_match,1.0,,proposed
+2240,PARAMEDICAL PRACTITIONERS,2240,Paramedical practitioners,isco_match,1.0,,proposed
+2250,VETERINARIANS,2250,Veterinarians,isco_match,1.0,,proposed
+2261,DENTISTS,2261,Dentists,isco_match,1.0,,proposed
+2262,PHARMACISTS,2262,Pharmacists,isco_match,1.0,,proposed
+2263,ENVIRONMENTAL AND OCCUPATIONAL HEALTH AND HYGIENE PROFESSIONALS,2263,Environmental and occupational health and hygiene professionals,isco_match,1.0,,proposed
+2264,PHYSIOTHERAPIST,2264,Physiotherapists,ambiguous,0.0,"same code, different title",proposed
+2265,DIETICIANS AND NUTRITIONIST,2265,Dieticians and nutritionists,ambiguous,0.333,"same code, different title",proposed
+2266,AUDIOLOGISTS AND SPEECH THERAPIST,2266,Audiologists and speech therapists,isco_match,0.5,,proposed
+2267,OPTOMETRISTS AND OPTHALMIC OPTICIANS,2267,Optometrists and ophthalmic opticians,isco_match,0.5,,proposed
+2269,HEALTH PROFESSIONALS NOT ELSEWHERE CLASSIFIED,2269,Health professionals not elsewhere classified,isco_match,1.0,,proposed
+2310,UNIVERSITY AND HIGHER EDUCATION TEACHERS,2310,University and higher education teachers,isco_match,1.0,,proposed
+2320,VOCATIONAL EDUCATION TEACHERS,2320,Vocational education teachers,isco_match,1.0,,proposed
+2330,SECONDARY EDUCATION TEACHERS,2330,Secondary education teachers,isco_match,1.0,,proposed
+2341,PRIMARY SCHOOL TEACHERS,2341,Primary school teachers,isco_match,1.0,,proposed
+2342,EARLY CHILHOOD EDUCATORS,2342,Early childhood educators,isco_match,0.5,,proposed
+2351,EDUCATION METHODS SPECIALISTS,2351,Education methods specialists,isco_match,1.0,,proposed
+2352,SPECIAL NEED TEACHERS,2352,Special needs teachers,isco_match,0.5,,proposed
+2353,OTHER LANGUAGE TEACHERS,2353,Other language teachers,isco_match,1.0,,proposed
+2354,OTHER MUSIC TEACHERS,2354,Other music teachers,isco_match,1.0,,proposed
+2355,OTHER ARTS TEACHERS,2355,Other arts teachers,isco_match,1.0,,proposed
+2356,INFORMATION TECHNOLOGY TRAINERS,2356,Information technology trainers,isco_match,1.0,,proposed
+2359,TEACHING PROFESSIONALS NOT ELSEWHERE CLASSIFIED,2359,Teaching professionals not elsewhere classified,isco_match,1.0,,proposed
+2411,ACCOUNTANTS,2411,Accountants,isco_match,1.0,,proposed
+2412,FINANCIAL AND INVESTMENT ADVISERS,2412,Financial and investment advisers,isco_match,1.0,,proposed
+2413,FINANCIAL ANALYST,2413,Financial analysts,ambiguous,0.333,"same code, different title",proposed
+2421,MANAGEMENT AND ORGANIZATION ANALYST,2421,Management and organisation analysts,ambiguous,0.2,"same code, different title",proposed
+2422,POLICY ADMINISTRATION PROFESSIONALS,2422,Policy administration professionals,isco_match,1.0,,proposed
+2423,PERSONNEL AND CAREERS PROFESSIONALS,2423,Personnel and careers professionals,isco_match,1.0,,proposed
+2424,TRAINING AND STAFF DEVELOPMENT PROFESSIONALS,2424,Training and staff development professionals,isco_match,1.0,,proposed
+2431,ADVERTISING AND MARKETING PROFESSIONALS,2431,Advertising and marketing professionals,isco_match,1.0,,proposed
+2432,PUBLIC RELATIONS PROFESSIONALS,2432,Public relations professionals,isco_match,1.0,,proposed
+2433,TECHNICAL AND MEDICAL SALE PROFESSIONALS (Excluding ICT),2433,Technical and medical sales professionals (excluding ICT),isco_match,0.714,,proposed
+2434,INFORMATION AND COMMUNICATIONS TECHNOLOGY SALE PROFESSIONALS,2434,Information and communications technology sales professionals,isco_match,0.667,,proposed
+2511,SYSTEMS ANALYSTS,2511,Systems analysts,isco_match,1.0,,proposed
+2512,SOFTWARE DEVELOPERS,2512,Software developers,isco_match,1.0,,proposed
+2513,WEB AND MULTIMEDIA DEVELOPERS,2513,Web and multimedia developers,isco_match,1.0,,proposed
+2514,APPLICATIONS PROGRAMMERS,2514,Applications programmers,isco_match,1.0,,proposed
+2519,SOFTWARE AND APPLICATIONS DEVELOPERS AND ANALYST NOT ELSEWHERE CLASSIFIED,2519,Software and applications developers and analysts not elsewhere classified,isco_match,0.6,,proposed
+2521,DATABASE DESIGNERS AND ADMINISTRATORS,2521,Database designers and administrators,isco_match,1.0,,proposed
+2522,SYSTEMS ADMINISTRATORS,2522,Systems administrators,isco_match,1.0,,proposed
+2523,COMPUTER NETWORK PROFESSIONALS,2523,Computer network professionals,isco_match,1.0,,proposed
+2529,DATABASE AND NETWORK PROFESSIONALS NOT ELSEWHERE CLASSIFIED,2529,Database and network professionals not elsewhere classified,isco_match,1.0,,proposed
+2611,LAWYERS,2611,Lawyers,isco_match,1.0,,proposed
+2612,JUDGES,2612,Judges,isco_match,1.0,,proposed
+2619,LEGAL PROFESSIONALS NOT ELSEWHERE CLASSIFIED,2619,Legal professionals not elsewhere classified,isco_match,1.0,,proposed
+2621,ARCHIVISTS AND CURATORS,2621,Archivists and curators,isco_match,1.0,,proposed
+2622,LIBRARIANS AND RELATED INFORMATION PROFESSIONALS,2622,Librarians and related information professionals,isco_match,1.0,,proposed
+2631,ECONOMISTS,2631,Economists,isco_match,1.0,,proposed
+2632,"SOCIOLOGISTS, ANTHROPOLOGISTS AND RELATED PROFESSIONALS",2632,"Sociologists, anthropologists and related professionals",isco_match,1.0,,proposed
+2633,"PHILOSOPHERS, HISTORIANS AND POLITICAL SCIENTISTS",2633,"Philosophers, historians and political scientists",isco_match,1.0,,proposed
+2634,PSYCHOLOGISTS,2634,Psychologists,isco_match,1.0,,proposed
+2635,SOCIAL WORK AND COUNSELLING PROFESSIONALS,2635,Social work and counselling professionals,isco_match,1.0,,proposed
+2636,RELIGIOUS PROFESSIONALS,2636,Religious professionals,isco_match,1.0,,proposed
+2641,AUTHORS AND RELATED WRITERS,2641,Authors and related writers,isco_match,1.0,,proposed
+2642,JOURNALISTS,2642,Journalists,isco_match,1.0,,proposed
+2643,"TRANSLATORS, INTERPRETERS AND OTHER LINGUISTS",2643,"Translators, interpreters and other linguists",isco_match,1.0,,proposed
+2651,VISUAL ARTISTS,2651,Visual artists,isco_match,1.0,,proposed
+2652,"MUSICIANS, SINGERS AND COMPOSERS",2652,"Musicians, singers and composers",isco_match,1.0,,proposed
+2653,DANCERS AND CHOREOGRAPHERS,2653,Dancers and choreographers,isco_match,1.0,,proposed
+2654,"FILM, STAGE AND RELATED DIRECTORS AND PRODUCERS",2654,"Film, stage and related directors and producers",isco_match,1.0,,proposed
+2655,ACTORS,2655,Actors,isco_match,1.0,,proposed
+2656,"ANNOUNCERS ON RADIO, TELEVISION AND OTHER MEDIA",2656,"Announcers on radio, television and other media",isco_match,1.0,,proposed
+2659,CREATIVE AND PERFORMING ARTISTS NOT ELSEWHERE CLASSIFIED,2659,Creative and performing artists not elsewhere classified,isco_match,1.0,,proposed
+3111,CHEMICAL AND PHYSICAL SCIENCE TECHNICIANS,3111,Chemical and physical science technicians,isco_match,1.0,,proposed
+3112,CIVIL ENGINEERING TECHNICIANS,3112,Civil engineering technicians,isco_match,1.0,,proposed
+3113,ELECTRICAL ENGINEERING TECHNICIANS,3113,Electrical engineering technicians,isco_match,1.0,,proposed
+3114,ELECTRONICS ENGINEERING TECHNICIANS,3114,Electronics engineering technicians,isco_match,1.0,,proposed
+3115,MECHANICAL ENGINEERING TECHNICIANS,3115,Mechanical engineering technicians,isco_match,1.0,,proposed
+3116,CHEMICAL ENGINEERING TECHNICIANS,3116,Chemical engineering technicians,isco_match,1.0,,proposed
+3117,MINING AND METALLURGICAL TECHNICIANS,3117,Mining and metallurgical technicians,isco_match,1.0,,proposed
+3118,DRAFTSMEN,3118,Draughtspersons,ambiguous,0.0,"same code, different title",proposed
+3119,PHYSICAL AND ENGINEERING SCIENCE TECHNICIANS NOT ELSEWHERE CLASSIFIED,3119,Physical and engineering science technicians not elsewhere classified,isco_match,1.0,,proposed
+3121,MINING SUPERVISORS,3121,Mining supervisors,isco_match,1.0,,proposed
+3122,MANUFACTURING SUPERVISORS,3122,Manufacturing supervisors,isco_match,1.0,,proposed
+3123,CONSTRUCTION SUPERVISORS,3123,Construction supervisors,isco_match,1.0,,proposed
+3131,POWER PRODUCTION PLANT OPERATORS,3131,Power production plant operators,isco_match,1.0,,proposed
+3132,INCINERATOR AND WATER TREATMENT PLANT OPERATORS,3132,Incinerator and water treatment plant operators,isco_match,1.0,,proposed
+3133,CHEMICAL PROCESSING PLANT CONTROLLERS,3133,Chemical processing plant controllers,isco_match,1.0,,proposed
+3134,PETROLEUM AND NATURAL GAS REFINING PLANT OPERATORS,3134,Petroleum and natural gas refining plant operators,isco_match,1.0,,proposed
+3135,METAL PRODUCTION PROCESS CONTROLLERS,3135,Metal production process controllers,isco_match,1.0,,proposed
+3139,PROCESS CONTROL TECHNICIANS NOT ELSEWHERE CLASSIFIED,3139,Process control technicians not elsewhere classified,isco_match,1.0,,proposed
+3141,LIFE SCIENCE TECHNICIANS (excluding medical),3141,Life science technicians (excluding medical),isco_match,1.0,,proposed
+3142,AGRICUTURAL TECHNICIANS,3142,Agricultural technicians,ambiguous,0.333,"same code, different title",proposed
+3143,FORESTRY TECHNICIANS,3143,Forestry technicians,isco_match,1.0,,proposed
+3151,SHIP'S ENGINEER,3151,Ships’ engineers,ambiguous,0.0,"same code, different title",proposed
+3152,SHIPS'S DECK OFFICERS AND PILOTS,3152,Ships' deck officers and pilots,isco_match,0.6,,proposed
+3153,AIRCRAFT PILOTS AND RELATED ASSOCIATE PROFESSIONALS,3153,Aircraft pilots and related associate professionals,isco_match,1.0,,proposed
+3154,AIR TRAFFIC CONTROLLERS,3154,Air traffic controllers,isco_match,1.0,,proposed
+3155,AIR TRAFFIC SAFETY ELECTRONICS TECHNICIANS,3155,Air traffic safety electronics technicians,isco_match,1.0,,proposed
+3211,MEDICAL IMAGING AND THERAPEUTIC EQUIPMENT TECHNICIANS,3211,Medical imaging and therapeutic equipment technicians,isco_match,1.0,,proposed
+3212,MEDICAL AND PATHOLOGY LABORATORY TECHNICIANS,3212,Medical and pathology laboratory technicians,isco_match,1.0,,proposed
+3213,PHARMACEUTICAL TECHNICIANS AND ASSISTANTS,3213,Pharmaceutical technicians and assistants,isco_match,1.0,,proposed
+3214,MEDICAL AND DENTAL PROSTHETIC TECHNICIANS,3214,Medical and dental prosthetic technicians,isco_match,1.0,,proposed
+3221,NURSING ASSOCIATE PROFESSIONALS,3221,Nursing associate professionals,isco_match,1.0,,proposed
+3222,MIDWIFERY ASSOCIATE PROFESSIONALS,3222,Midwifery associate professionals,isco_match,1.0,,proposed
+3230,TRADITIONAL AND COMPLEMENTARY MEDICINE ASSOCIATE PROFESSIONALS,3230,Traditional and complementary medicine associate professionals,isco_match,1.0,,proposed
+3240,VETERINARY TECHNICIANS AND ASSISTANTS,3240,Veterinary technicians and assistants,isco_match,1.0,,proposed
+3251,DENTAL ASSISTANTS AND THERAPISTS,3251,Dental assistants and therapists,isco_match,1.0,,proposed
+3252,MEDICAL RECORDS AND HEALTH INFORMATION TECHNICIANS,3252,Medical records and health information technicians,isco_match,1.0,,proposed
+3253,COMMUNITY HEALTH WORKERS,3253,Community health workers,isco_match,1.0,,proposed
+3254,DISPENSING OPTICIANS,3254,Dispensing opticians,isco_match,1.0,,proposed
+3255,PHYSIOTHERAPY TECHNICIANS AND ASSISTANTS,3255,Physiotherapy technicians and assistants,isco_match,1.0,,proposed
+3256,MEDICAL ASSISTANTS,3256,Medical assistants,isco_match,1.0,,proposed
+3257,ENVIRONMENTAL AND OCCUPATIONAL HEALTH INSPECTORS AND ASSOCIATES,3257,Environmental and occupational health inspectors and associates,isco_match,1.0,,proposed
+3258,AMBULANCE WORKERS,3258,Ambulance workers,isco_match,1.0,,proposed
+3259,HEALTH ASSOCIATE PROFESSIONALS NOT ELSEWHERE CLASSIFIED,3259,Health associate professionals not elsewhere classified,isco_match,1.0,,proposed
+3311,SECURITIES AND FINANCE DEALERS AND BROKERS,3311,Securities and finance dealers and brokers,isco_match,1.0,,proposed
+3312,CREDIT AND LOANS OFFICERS,3312,Credit and loans officers,isco_match,1.0,,proposed
+3313,ACCOUNTING ASSOCIATE PROFESSIONALS,3313,Accounting associate professionals,isco_match,1.0,,proposed
+3314,"STATISTICAL, MATHEMATICAL AND RELATED ASSOCIATE PROFESSIONALS",3314,"Statistical, mathematical and related associate professionals",isco_match,1.0,,proposed
+3315,VALUERS AND LOSS ASSESSORS,3315,Valuers and loss assessors,isco_match,1.0,,proposed
+3321,INSURANCE REPRESENTATIVES,3321,Insurance representatives,isco_match,1.0,,proposed
+3322,COMMERCIAL SALES REPRESENTATIVES,3322,Commercial sales representatives,isco_match,1.0,,proposed
+3323,BUYERS,3323,Buyers,isco_match,1.0,,proposed
+3324,TRADE BROKERS,3324,Trade brokers,isco_match,1.0,,proposed
+3331,CLEARING AND FORWARDING AGENTS,3331,Clearing and forwarding agents,isco_match,1.0,,proposed
+3332,CONFERENCE AND EVENT PLANNERS,3332,Conference and event planners,isco_match,1.0,,proposed
+3333,EMPLOYMENT AGENTS AND CONTRACTORS,3333,Employment agents and contractors,isco_match,1.0,,proposed
+3334,REAL ESTATE AGENTS AND PROPERTY MANAGERS,3334,Real estate agents and property managers,isco_match,1.0,,proposed
+3339,BUSINESS SERVICES AGENTS NOT ELSEWHERE CLASSIFIED,3339,Business services agents not elsewhere classified,isco_match,1.0,,proposed
+3341,OFFICE SUPERVISORS,3341,Office supervisors,isco_match,1.0,,proposed
+3342,LEGAL SECRETARIES,3342,Legal secretaries,isco_match,1.0,,proposed
+3343,ADMINISTRATIVE AND EXECUTIVE SECRETARIES,3343,Administrative and executive secretaries,isco_match,1.0,,proposed
+3344,MEDICAL SECRETARIES,3344,Medical secretaries,isco_match,1.0,,proposed
+3351,CUSTOMS AND BORDER INSPECTORS,3351,Customs and border inspectors,isco_match,1.0,,proposed
+3352,GOVERNMENT TAX AND EXCISE OFFICIALS,3352,Government tax and excise officials,isco_match,1.0,,proposed
+3353,GOVERNMENT SOCIAL BENEFITS OFFICIALS,3353,Government social benefits officials,isco_match,1.0,,proposed
+3354,GOVERNMENT LICENSING OFFICIALS,3354,Government licensing officials,isco_match,1.0,,proposed
+3355,POLICE INSPECTORS AND DETECTIVES,3355,Police inspectors and detectives,isco_match,1.0,,proposed
+3359,GOVERNMENT REGULATORY ASSOCIATE PROFESSIONALS NOT ELSEWHERE CLASSIFIED,3359,Regulatory government associate professionals not elsewhere classified,isco_match,1.0,,proposed
+3411,LEGAL AND RELATED ASSOCIATE PROFESSIONALS,3411,Legal and related associate professionals,isco_match,1.0,,proposed
+3412,SOCIAL WORK ASSOCIATE PROFESSIONALS,3412,Social work associate professionals,isco_match,1.0,,proposed
+3413,RELIGIOUS ASSOCIATE PROFESSIONALS,3413,Religious associate professionals,isco_match,1.0,,proposed
+3421,ATHLETES AND SPORTS PLAYERS,3421,Athletes and sports players,isco_match,1.0,,proposed
+3422,"SPORTS COACHES, INSTRUCTORS AND OFFICIALS",3422,"Sports coaches, instructors and officials",isco_match,1.0,,proposed
+3423,FITNESS AND RECREATION INSTRUCTORS AND PROGRAM LEADERS,3423,Fitness and recreation instructors and program leaders,isco_match,1.0,,proposed
+3431,PHOTOGRAPHERS,3431,Photographers,isco_match,1.0,,proposed
+3432,INTERIOR DESIGNERS AND DECORATORS,3432,Interior designers and decorators,isco_match,1.0,,proposed
+3433,"GALLERY, MUSEUM AND LIBRARY TECHNICIANS",3433,"Gallery, museum and library technicians",isco_match,1.0,,proposed
+3434,CHEFS,3434,Chefs,isco_match,1.0,,proposed
+3435,ARTISTIC AND CULTURAL ASSOCIATE PROFESSIONAL NOT ELSEWHERE CLASSIFIED,3435,Other artistic and cultural associate professionals,isco_match,0.6,,proposed
+3511,INFORMATION AND COMMUNICATIONS TECHNOLOGY OPERATIONS TECHNICIANS,3511,Information and communications technology operations technicians,isco_match,1.0,,proposed
+3512,INFORMATION AND COMMUNICATIONS TECHNOLOGY USER SUPPORT TECHNICIANS,3512,Information and communications technology user support technicians,isco_match,1.0,,proposed
+3513,COMPUTER NETWORK AND SYSTEMS TECHNICIANS,3513,Computer network and systems technicians,isco_match,1.0,,proposed
+3514,WEB TECHNICIANS,3514,Web technicians,isco_match,1.0,,proposed
+3521,BROADCASTING AND AUDIO-VISUAL TECHNICIANS,3521,Broadcasting and audiovisual technicians,isco_match,0.4,,proposed
+3522,TELECOMMUNICATIONS ENGINEERING TECHNICIANS,3522,Telecommunications engineering technicians,isco_match,1.0,,proposed
+4110,GENERAL OFFICE CLERKS,4110,General office clerks,isco_match,1.0,,proposed
+4120,SECRETARIES (GENERAL),4120,Secretaries (general),isco_match,1.0,,proposed
+4131,TYPISTS AND WORD PROCESSING OPERATORS,4131,Typists and word processing operators,isco_match,1.0,,proposed
+4132,DATA ENTRY CLERKS,4132,Data entry clerks,isco_match,1.0,,proposed
+4211,BANK TELLERS AND RELATED CLERKS,4211,Bank tellers and related clerks,isco_match,1.0,,proposed
+4212,"BOOKMAKERS, CROUPIERS/DEALERS AND RELATED GAMING WORKERS",4212,"Bookmakers, croupiers and related gaming workers",isco_match,0.8,,proposed
+4213,PAWNBROKERS AND MONEY LENDERS,4213,Pawnbrokers and money-lenders,isco_match,1.0,,proposed
+4214,DEBT COLLECTORS AND RELATED WORKERS,4214,Debt-collectors and related workers,isco_match,1.0,,proposed
+4221,TRAVEL CONSULTANTS AND CLERKS,4221,Travel consultants and clerks,isco_match,1.0,,proposed
+4222,CONTACT CENTER INFORMATION CLERKS,4222,Contact centre information clerks,isco_match,0.6,,proposed
+4223,TELEPHONE SWITCHBOARD OPERATORS,4223,Telephone switchboard operators,isco_match,1.0,,proposed
+4224,HOTEL RECEPTIONISTS,4224,Hotel receptionists,isco_match,1.0,,proposed
+4225,ENQUIRY CLERKS,4225,Enquiry clerks,isco_match,1.0,,proposed
+4226,RECEPTIONISTS (GENERAL),4226,Receptionists (general),isco_match,1.0,,proposed
+4227,SURVEY AND MARKET RESEARCH INTERVIEWERS,4227,Survey and market research interviewers,isco_match,1.0,,proposed
+4229,CLIENT INFORMATION WORKERS NOT ELSEWHERE CLASSIFIED,4229,Client information workers not elsewhere classified,isco_match,1.0,,proposed
+4311,ACCOUNTING AND BOOKEEPING CLERKS,4311,Accounting and bookkeeping clerks,isco_match,0.5,,proposed
+4312,"STATISTICAL, FINANCE AND INSURANCE CLERKS",4312,"Statistical, finance and insurance clerks",isco_match,1.0,,proposed
+4313,PAYROLL CLERKS,4313,Payroll clerks,isco_match,1.0,,proposed
+4321,STOCK CLERKS,4321,Stock clerks,isco_match,1.0,,proposed
+4322,PRODUCTION CLERKS,4322,Production clerks,isco_match,1.0,,proposed
+4323,TRANSPORT CLERKS,4323,Transport clerks,isco_match,1.0,,proposed
+4411,LIBRARY CLERKS,4411,Library clerks,isco_match,1.0,,proposed
+4412,MAIL CARRIERS AND SORTING CLERKS,4412,Mail carriers and sorting clerks,isco_match,1.0,,proposed
+4413,"CODING, PROOF-READING AND RELATED CLERKS",4413,"Coding, proof-reading and related clerks",isco_match,1.0,,proposed
+4414,SCRIBES AND RELATED WORKERS,4414,Scribes and related workers,isco_match,1.0,,proposed
+4415,FILING AND COPYING CLERKS,4415,Filing and copying clerks,isco_match,1.0,,proposed
+4416,PERSONNEL CLERK,4416,Personnel clerks,ambiguous,0.333,"same code, different title",proposed
+4419,CLERICAL SUPPORT WORKERS NOT ELSEWHERE CLASSIFIED,4419,Clerical support workers not elsewhere classified,isco_match,1.0,,proposed
+5111,TRAVEL ATTENDANTS AND TRAVEL STEWARDS,5111,Travel attendants and travel stewards,isco_match,1.0,,proposed
+5112,TRANSPORT CONDUCTORS,5112,Transport conductors,isco_match,1.0,,proposed
+5113,TRAVEL GUIDES,5113,Travel guides,isco_match,1.0,,proposed
+5120,COOKS,5120,Cooks,isco_match,1.0,,proposed
+5131,WAITERS,5131,Waiters,isco_match,1.0,,proposed
+5132,BARTENDERS,5132,Bartenders,isco_match,1.0,,proposed
+5141,HAIRDRESSERS,5141,Hairdressers,isco_match,1.0,,proposed
+5142,BEAUTICIANS AND RELATED WORKERS,5142,Beauticians and related workers,isco_match,1.0,,proposed
+5151,"CLEANING AND HOUSEKEEPING SUPERVISORS IN OFFICES, HOTELS AND OTHER ESTABLISHMENTS",5151,"Cleaning and housekeeping supervisors in offices, hotels and other establishments",isco_match,1.0,,proposed
+5152,HOUSEHOLD SERVICE PROVIDERS,5152,Domestic housekeepers,ambiguous,0.0,"same code, different title",proposed
+5153,BUILDING CARETAKERS,5153,Building caretakers,isco_match,1.0,,proposed
+5161,"ASTROLOGERS, FORTUNE-TELLERS AND RELATED WORKERS",5161,"Astrologers, fortune-tellers and related workers",isco_match,1.0,,proposed
+5162,COMPANIONS AND VALETS,5162,Companions and valets,isco_match,1.0,,proposed
+5163,UNDERTAKERS AND EMBALMERS,5163,Undertakers and embalmers,isco_match,1.0,,proposed
+5164,PET GROOMERS AND ANIMAL CARE WORKERS,5164,Pet groomers and animal care workers,isco_match,1.0,,proposed
+5165,PERSONAL SERVICES WORKERS NOT ELSEWHERE CLASSIFIED,5165,Driving instructors,ambiguous,0.0,"same code, different title",proposed
+5211,STALL AND MARKET SALESPERSONS,5211,Stall and market salespersons,isco_match,1.0,,proposed
+5212,STREET FOOD SALESPERSONS,5212,Street food salespersons,isco_match,1.0,,proposed
+5221,SHOPKEEPERS,5221,Shop keepers,ambiguous,0.0,"same code, different title",proposed
+5222,SHOP SUPERVISORS,5222,Shop supervisors,isco_match,1.0,,proposed
+5223,SHOP SALES ASSISTANTS,5223,Shop sales assistants,isco_match,1.0,,proposed
+5230,CASHIERS AND TICKET CLERKS,5230,Cashiers and ticket clerks,isco_match,1.0,,proposed
+5241,FASHION AND OTHER MODELS,5241,Fashion and other models,isco_match,1.0,,proposed
+5242,SALES DEMONSTRATORS,5242,Sales demonstrators,isco_match,1.0,,proposed
+5243,DOOR TO DOOR SALESPERSONS,5243,Door to door salespersons,isco_match,1.0,,proposed
+5244,CONTACT CENTER SALESPERSONS,5244,Contact centre salespersons,isco_match,0.5,,proposed
+5245,SERVICE STATION ATTENDANTS,5245,Service station attendants,isco_match,1.0,,proposed
+5246,FOOD SERVICE COUNTER ATTENDANTS,5246,Food service counter attendants,isco_match,1.0,,proposed
+5249,SALES WORKERS NOT ELSEWHERE CLASSIFIED,5249,Sales workers not elsewhere classified,isco_match,1.0,,proposed
+5311,CHILD CARE WORKERS,5311,Child care workers,isco_match,1.0,,proposed
+5312,TEACHERS' AIDES,5312,Teachers’ aides,isco_match,1.0,,proposed
+5321,HEALTH CARE ASSISTANTS,5321,Health care assistants,isco_match,1.0,,proposed
+5322,HOME-BASED PERSONAL CARE WORKERS,5322,Home-based personal care workers,isco_match,1.0,,proposed
+5329,PERSONAL CARE WORKERS IN HEALTH SERVICES NOT ELSEWHERE CLASSIFIED,5329,Personal care workers in health services not elsewhere classified,isco_match,1.0,,proposed
+5411,FIREFIGHTERS,5411,Fire-fighters,ambiguous,0.0,"same code, different title",proposed
+5412,POLICE OFFICERS,5412,Police officers,isco_match,1.0,,proposed
+5413,PRISON GUARDS,5413,Prison guards,isco_match,1.0,,proposed
+5414,SECURITY GUARDS,5414,Security guards,isco_match,1.0,,proposed
+5419,PROTECTIVE SERVICES WORKERS NOT ELSEWHERE CLASSIFIED,5419,Protective services workers not elsewhere classified,isco_match,1.0,,proposed
+6111,RICE FARMERS,6111,Field crop and vegetable growers,ambiguous,0.0,"same code, different title",proposed
+6112,CORN FARMERS,6112,Tree and shrub crop growers,ambiguous,0.0,"same code, different title",proposed
+6113,"VEGETABLE, LEGUMES AND ROOT CROPS FARMERS",6113,"Gardeners, horticultural and nursery growers",ambiguous,0.0,"same code, different title",proposed
+6114,SUGARCANE FARMERS,6114,Mixed crop growers,ambiguous,0.0,"same code, different title",proposed
+6115,COCONUT FARMERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6116,OTHER FIELD CROP FARMERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6117,TREE AND SHRUB CROP GROWERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6118,"GARDENERS, HORTICULTURAL AND NURSERY GROWERS",,,philippine_specific,0.0,code not in ISCO-08,proposed
+6119,"OTHER MARKET GARDENERS AND CROP GROWERS, NOT ELSEWHERE CLASSIFIED",,,philippine_specific,0.0,code not in ISCO-08,proposed
+6121,LIVESTOCK FARMER,6121,Livestock and dairy producers,ambiguous,0.25,"same code, different title",proposed
+6122,DAIRY FARMER,6122,Poultry producers,ambiguous,0.0,"same code, different title",proposed
+6123,EGGS PRODUCERS,6123,Apiarists and sericulturists,ambiguous,0.0,"same code, different title",proposed
+6124,CHICKEN FARMER,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6125,DUCK RAISERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6126,POULTRY PRODUCERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6127,HOG RAISING PRODUCERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6128,APIARISTS AND SERICULTURISTS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6129,ANIMAL PRODUCERS NOT ELSEWHERE CLASSIFIED,6129,Animal producers not elsewhere classified,isco_match,1.0,,proposed
+6130,MIXED CROP AND ANIMAL PRODUCERS,6130,Mixed crop and animal producers,isco_match,1.0,,proposed
+6211,FOREST TREE PLANTERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6212,CONCESSIONAIRES AND LOGGERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6213,CHARCOAL MAKERS AND RELATED WORKERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6214,MINOR FOREST PRODUCT GATHERERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6221,MILKFISH AND TILAPIA PRODUCERS,6221,Aquaculture workers,ambiguous,0.0,"same code, different title",proposed
+6222,SEAWEEDS PRODUCERS,6222,Inland and coastal waters fishery workers,ambiguous,0.0,"same code, different title",proposed
+6223,PRAWN PRODUCERS,6223,Deep-sea fishery workers,ambiguous,0.0,"same code, different title",proposed
+6224,OYSTERS AND MUSSELS PRODUCERS,6224,Hunters and trappers,ambiguous,0.0,"same code, different title",proposed
+6225,OTHER AQUA PRODUCTS PRODUCERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6226,INLAND AND COASTAL WATERS FISHERY WORKERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6227,DEEP-SEA FISHERY WORKERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6228,HUNTERS AND TRAPPERS,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6229,FISHERMEN NOT ELSEWHERE CLASSIFIED,,,philippine_specific,0.0,code not in ISCO-08,proposed
+6310,SUBSISTENCE CROP FARMERS,6310,Subsistence crop farmers,isco_match,1.0,,proposed
+6320,SUBSISTENCE LIVESTOCK FARMERS,6320,Subsistence livestock farmers,isco_match,1.0,,proposed
+6330,SUBSISTENCE MIXED CROP AND LIVESTOCK FARMERS,6330,Subsistence mixed crop and livestock farmers,isco_match,1.0,,proposed
+6340,"SUBSISTENCE FISHERS, HUNTERS, TRAPPERS AND GATHERERS",6340,"Subsistence fishers, hunters, trappers and gatherers",isco_match,1.0,,proposed
+7111,HOUSE BUILDERS,7111,House builders,isco_match,1.0,,proposed
+7112,BRICKLAYERS AND RELATED WORKERS,7112,Bricklayers and related workers,isco_match,1.0,,proposed
+7113,"STONEMASONS, STONE CUTTERS, SPLITTERS AND CARVERS",7113,"Stonemasons, stone cutters, splitters and carvers",isco_match,1.0,,proposed
+7114,"CONCRETE PLACERS, CONCRETE FINISHERS AND RELATED WORKERS",7114,"Concrete placers, concrete finishers and related workers",isco_match,1.0,,proposed
+7115,CARPENTERS AND JOINERS,7115,Carpenters and joiners,isco_match,1.0,,proposed
+7119,BUILDING FRAME AND RELATED TRADES WORKERS NOT ELSEWHERE CLASSIFIED,7119,Building frame and related trades workers not elsewhere classified,isco_match,1.0,,proposed
+7121,ROOFERS,7121,Roofers,isco_match,1.0,,proposed
+7122,FLOOR LAYERS AND TILE SETTERS,7122,Floor layers and tile setters,isco_match,1.0,,proposed
+7123,PLASTERERS,7123,Plasterers,isco_match,1.0,,proposed
+7124,INSULATION WORKERS,7124,Insulation workers,isco_match,1.0,,proposed
+7125,GLAZIERS,7125,Glaziers,isco_match,1.0,,proposed
+7126,PLUMBERS AND PIPE FITTERS,7126,Plumbers and pipe fitters,isco_match,1.0,,proposed
+7127,AIR CONDITIONING AND REFRIGERATION MECHANICS,7127,Air conditioning and refrigeration mechanics,isco_match,1.0,,proposed
+7131,PAINTERS AND RELATED WORKERS,7131,Painters and related workers,isco_match,1.0,,proposed
+7132,SPRAY PAINTERS AND VARNISHERS,7132,Spray painters and varnishers,isco_match,1.0,,proposed
+7133,BUILDING STRUCTURE CLEANERS,7133,Building structure cleaners,isco_match,1.0,,proposed
+7211,METAL MOLDERS AND COREMAKERS,7211,Metal moulders and coremakers,isco_match,0.5,,proposed
+7212,WELDERS AND FLAME CUTTERS,7212,Welders and flamecutters,ambiguous,0.25,"same code, different title",proposed
+7213,SHEET METAL WORKERS,7213,Sheet-metal workers,isco_match,1.0,,proposed
+7214,STRUCTURAL METAL PREPARERS AND ERECTORS,7214,Structural-metal preparers and erectors,isco_match,1.0,,proposed
+7215,RIGGERS AND CABLE SPLICERS,7215,Riggers and cable splicers,isco_match,1.0,,proposed
+7221,"BLACKSMITHS, HAMMERSMITHS AND FORGING PRESS WORKERS",7221,"Blacksmiths, hammersmiths and forging press workers",isco_match,1.0,,proposed
+7222,TOOLMAKERS AND RELATED WORKERS,7222,Toolmakers and related workers,isco_match,1.0,,proposed
+7223,METAL WORKING MACHINE TOOL SETTERS AND OPERATORS,7223,Metal working machine tool setters and operators,isco_match,1.0,,proposed
+7224,"METAL POLISHERS, WHEEL GRINDERS AND TOOL SHARPENERS",7224,"Metal polishers, wheel grinders and tool sharpeners",isco_match,1.0,,proposed
+7231,MOTOR VEHICLE MECHANICS AND REPAIRERS,7231,Motor vehicle mechanics and repairers,isco_match,1.0,,proposed
+7232,AIRCRAFT ENGINE MECHANICS AND REPAIRERS,7232,Aircraft engine mechanics and repairers,isco_match,1.0,,proposed
+7233,AGRICULTURAL AND INDUSTRIAL MACHINERY MECHANICS AND REPAIRERS,7233,Agricultural and industrial machinery mechanics and repairers,isco_match,1.0,,proposed
+7234,BICYCLE AND RELATED REPAIRERS,7234,Bicycle and related repairers,isco_match,1.0,,proposed
+7311,PRECISION-INSTRUMENT MAKERS AND REPAIRERS,7311,Precision-instrument makers and repairers,isco_match,1.0,,proposed
+7312,MUSICAL INSTRUMENT MAKERS AND TUNERS,7312,Musical instrument makers and tuners,isco_match,1.0,,proposed
+7313,JEWELLERY AND PRECIOUS METAL WORKERS,7313,Jewellery and precious-metal workers,isco_match,1.0,,proposed
+7314,POTTERS AND RELATED WORKERS,7314,Potters and related workers,isco_match,1.0,,proposed
+7315,"GLASS MAKERS, CUTTERS, GRINDERS AND FINISHERS",7315,"Glass makers, cutters, grinders and finishers",isco_match,1.0,,proposed
+7316,"SIGN WRITERS, DECORATIVE PAINTERS, ENGRAVERS AND ETCHERS",7316,"Sign writers, decorative painters, engravers and etchers",isco_match,1.0,,proposed
+7317,"HANDICRAFT WORKERS IN WOOD, BASKETRY AND RELATED MATERIALS",7317,"Handicraft workers in wood, basketry and related materials",isco_match,1.0,,proposed
+7318,"HANDICRAFT WORKERS IN TEXTILE, LEATHER AND RELATED MATERIALS",7318,"Handicraft workers in textile, leather and related materials",isco_match,1.0,,proposed
+7319,HANDICRAFT WORKERS NOT ELSEWHERE CLASSIFIED,7319,Handicraft workers not elsewhere classified,isco_match,1.0,,proposed
+7321,PRE-PRESS TECHNICIANS,7321,Pre-press technicians,isco_match,1.0,,proposed
+7322,PRINTERS,7322,Printers,isco_match,1.0,,proposed
+7323,PRINT FINISHING AND BINDING WORKERS,7323,Print finishing and binding workers,isco_match,1.0,,proposed
+7411,BUILDING AND RELATED ELECTRICIANS,7411,Building and related electricians,isco_match,1.0,,proposed
+7412,ELECTRICAL MECHANICS AND FITTERS,7412,Electrical mechanics and fitters,isco_match,1.0,,proposed
+7413,ELECTRICAL LINE INSTALLERS AND REPAIRERS,7413,Electrical line installers and repairers,isco_match,1.0,,proposed
+7421,ELECTRONICS MECHANICS AND SERVICERS,7421,Electronics mechanics and servicers,isco_match,1.0,,proposed
+7422,INFORMATION AND COMMUNICATIONS TECHNOLOGY INSTALLERS AND SERVICERS,7422,Information and communications technology installers and servicers,isco_match,1.0,,proposed
+7511,"BUTCHERS, FISHMONGERS AND RELATED FOOD PREPARERS",7511,"Butchers, fishmongers and related food preparers",isco_match,1.0,,proposed
+7512,"BAKERS, PASTRY-COOKS AND CONFECTIONERY MAKERS",7512,"Bakers, pastry-cooks and confectionery makers",isco_match,1.0,,proposed
+7513,DAIRY PRODUCTS MAKERS,7513,Dairy-products makers,isco_match,1.0,,proposed
+7514,"FRUIT, VEGETABLE AND RELATED PRESERVERS",7514,"Fruit, vegetable and related preservers",isco_match,1.0,,proposed
+7515,FOOD AND BEVERAGE TASTERS AND GRADERS,7515,Food and beverage tasters and graders,isco_match,1.0,,proposed
+7516,TOBACCO PREPARERS AND TOBACCO PRODUCTS MAKERS,7516,Tobacco preparers and tobacco products makers,isco_match,1.0,,proposed
+7521,WOOD TREATERS,7521,Wood treaters,isco_match,1.0,,proposed
+7522,CABINET-MAKERS AND RELATED WORKERS,7522,Cabinet-makers and related workers,isco_match,1.0,,proposed
+7523,WOODWORKING MACHINE TOOL SETTERS AND OPERATORS,7523,Woodworking-machine tool setters and operators,isco_match,1.0,,proposed
+7531,"TAILORS, DRESSMAKERS, FURRIERS AND HATTERS",7531,"Tailors, dressmakers, furriers and hatters",isco_match,1.0,,proposed
+7532,GARMENT AND RELATED PATTERNMAKERS AND CUTTERS,7532,Garment and related pattern-makers and cutters,isco_match,0.4,,proposed
+7533,"SEWING, EMBROIDERY AND RELATED WORKERS",7533,"Sewing, embroidery and related workers",isco_match,1.0,,proposed
+7534,UPHOLSTERERS AND RELATED WORKERS,7534,Upholsterers and related workers,isco_match,1.0,,proposed
+7535,"PELT DRESSERS, TANNERS AND FELLMONGERS",7535,"Pelt dressers, tanners and fellmongers",isco_match,1.0,,proposed
+7536,SHOEMAKERS AND RELATED WORKERS,7536,Shoemakers and related workers,isco_match,1.0,,proposed
+7541,UNDERWATER DIVERS,7541,Underwater divers,isco_match,1.0,,proposed
+7542,SHOTFIRERS AND BLASTERS,7542,Shotfirers and blasters,isco_match,1.0,,proposed
+7543,PRODUCT GRADERS AND TESTERS (EXCEPT FOODS AND BEVERAGES),7543,Product graders and testers (excluding foods and beverages),isco_match,0.714,,proposed
+7544,FUMIGATORS AND OTHER PEST AND WEED CONTROLLERS,7544,Fumigators and other pest and weed controllers,isco_match,1.0,,proposed
+7549,CRAFT AND RELATED WORKERS NOT ELSEWHERE CLASSIFIED,7549,Craft and related workers not elsewhere classified,isco_match,1.0,,proposed
+8111,MINERS AND QUARRIERS,8111,Miners and quarriers,isco_match,1.0,,proposed
+8112,MINERAL AND STONE PROCESSING PLANT OPERATORS,8112,Mineral and stone processing plant operators,isco_match,1.0,,proposed
+8113,WELL DRILLERS AND BORERS AND RELATED WORKERS,8113,Well drillers and borers and related workers,isco_match,1.0,,proposed
+8114,"CEMENT, STONE AND OTHER MINERAL PRODUCTS MACHINE OPERATORS",8114,"Cement, stone and other mineral products machine operators",isco_match,1.0,,proposed
+8121,METAL PROCESSING PLANT OPERATORS,8121,Metal processing plant operators,isco_match,1.0,,proposed
+8122,"METAL FINISHING, PLATING AND COATING MACHINE OPERATORS",8122,"Metal finishing, plating and coating machine operators",isco_match,1.0,,proposed
+8131,CHEMICAL PRODUCTS PLANT AND MACHINE OPERATORS,8131,Chemical products plant and machine operators,isco_match,1.0,,proposed
+8132,PHOTOGRAPHIC PRODUCTS MACHINE OPERATORS,8132,Photographic products machine operators,isco_match,1.0,,proposed
+8141,RUBBER PRODUCTS MACHINE OPERATORS,8141,Rubber products machine operators,isco_match,1.0,,proposed
+8142,PLASTIC PRODUCTS MACHINE OPERATORS,8142,Plastic products machine operators,isco_match,1.0,,proposed
+8143,PAPER PRODUCTS MACHINE OPERATORS,8143,Paper products machine operators,isco_match,1.0,,proposed
+8151,"FIBRE PREPARING, SPINNING AND WINDING MACHINE OPERATORS",8151,"Fibre preparing, spinning and winding machine operators",isco_match,1.0,,proposed
+8152,WEAVING AND KNITTING MACHINE OPERATORS,8152,Weaving and knitting machine operators,isco_match,1.0,,proposed
+8153,SEWING MACHINE OPERATORS,8153,Sewing machine operators,isco_match,1.0,,proposed
+8154,"BLEACHING, DYEING AND FABRIC CLEANING MACHINE OPERATORS",8154,"Bleaching, dyeing and fabric cleaning machine operators",isco_match,1.0,,proposed
+8155,FUR AND LEATHER PREPARING MACHINE OPERATORS,8155,Fur and leather preparing machine operators,isco_match,1.0,,proposed
+8156,SHOEMAKING AND RELATED MACHINE OPERATORS,8156,Shoemaking and related machine operators,isco_match,1.0,,proposed
+8157,LAUNDRY MACHINE OPERATORS,8157,Laundry machine operators,isco_match,1.0,,proposed
+8159,"TEXTILE, FUR AND LEATHER PRODUCTS MACHINE OPERATORS NOT ELSEWHERE CLASSIFIED",8159,"Textile, fur and leather products machine operators not elsewhere classified",isco_match,1.0,,proposed
+8160,FOOD AND RELATED PRODUCTS MACHINE OPERATORS,8160,Food and related products machine operators,isco_match,1.0,,proposed
+8171,PULP AND PAPERMAKING PLANT OPERATORS,8171,Pulp and papermaking plant operators,isco_match,1.0,,proposed
+8172,WOOD PROCESSING PLANT OPERATORS,8172,Wood processing plant operators,isco_match,1.0,,proposed
+8181,GLASS AND CERAMICS PLANT OPERATORS,8181,Glass and ceramics plant operators,isco_match,1.0,,proposed
+8182,STEAM ENGINE AND BOILER OPERATORS,8182,Steam engine and boiler operators,isco_match,1.0,,proposed
+8183,"PACKING, BOTTLING AND LABELLING MACHINE OPERATORS",8183,"Packing, bottling and labelling machine operators",isco_match,1.0,,proposed
+8189,STATIONARY PLANT AND MACHINE OPERATORS NOT ELSEWHERE CLASSIFIED,8189,Stationary plant and machine operators not elsewhere classified,isco_match,1.0,,proposed
+8211,MECHANICAL MACHINERY ASSEMBLERS,8211,Mechanical machinery assemblers,isco_match,1.0,,proposed
+8212,ELECTRICAL AND ELECTRONIC EQUIPMENT ASSEMBLERS,8212,Electrical and electronic equipment assemblers,isco_match,1.0,,proposed
+8219,ASSEMBLERS NOT ELSEWHERE CLASSIFIED,8219,Assemblers not elsewhere classified,isco_match,1.0,,proposed
+8311,LOCOMOTIVE ENGINE DRIVERS,8311,Locomotive engine drivers,isco_match,1.0,,proposed
+8312,"RAILWAY BRAKE, SIGNAL AND SWITCH OPERATORS",8312,"Railway brake, signal and switch operators",isco_match,1.0,,proposed
+8321,MOTORCYCLE DRIVERS,8321,Motorcycle drivers,isco_match,1.0,,proposed
+8322,"CAR, TAXI AND VAN DRIVERS",8322,"Car, taxi and van drivers",isco_match,1.0,,proposed
+8331,BUS AND TRAM DRIVERS,8331,Bus and tram drivers,isco_match,1.0,,proposed
+8332,HEAVY TRUCK AND LORRY DRIVERS,8332,Heavy truck and lorry drivers,isco_match,1.0,,proposed
+8341,MOBILE FARM AND FORESTRY PLANT OPERATORS,8341,Mobile farm and forestry plant operators,isco_match,1.0,,proposed
+8342,EARTHMOVING AND RELATED PLANT OPERATORS,8342,Earthmoving and related plant operators,isco_match,1.0,,proposed
+8343,"CRANE, HOIST AND RELATED PLANT OPERATORS",8343,"Crane, hoist and related plant operators",isco_match,1.0,,proposed
+8344,LIFTING TRUCK OPERATORS,8344,Lifting truck operators,isco_match,1.0,,proposed
+8350,SHIPS' DECK CREWS AND RELATED WORKERS,8350,Ships’ deck crews and related workers,isco_match,1.0,,proposed
+9111,DOMESTIC CLEANERS AND HELPERS,9111,Domestic cleaners and helpers,isco_match,1.0,,proposed
+9112,"CLEANERS AND HELPERS IN OFFICES, HOTELS AND OTHER ESTABLISHMENTS",9112,"Cleaners and helpers in offices, hotels and other establishments",isco_match,1.0,,proposed
+9121,HAND LAUNDERERS AND PRESSERS,9121,Hand launderers and pressers,isco_match,1.0,,proposed
+9122,VEHICLE CLEANERS,9122,Vehicle cleaners,isco_match,1.0,,proposed
+9123,WINDOW CLEANERS,9123,Window cleaners,isco_match,1.0,,proposed
+9129,OTHER CLEANING WORKERS,9129,Other cleaning workers,isco_match,1.0,,proposed
+9211,CROP FARM LABORERS,9211,Crop farm labourers,isco_match,0.5,,proposed
+9212,LIVESTOCK FARM LABORERS,9212,Livestock farm labourers,isco_match,0.5,,proposed
+9213,MIXED CROP AND LIVESTOCK FARM LABORERS,9213,Mixed crop and livestock farm labourers,isco_match,0.667,,proposed
+9214,GARDEN AND HORTICULTURAL LABORERS,9214,Garden and horticultural labourers,isco_match,0.5,,proposed
+9215,FORESTRY LABORERS,9215,Forestry labourers,ambiguous,0.333,"same code, different title",proposed
+9216,FISHERY AND AQUACULTURE LABORERS,9216,Fishery and aquaculture labourers,isco_match,0.5,,proposed
+9311,MINING AND QUARRYING LABORERS,9311,Mining and quarrying labourers,isco_match,0.5,,proposed
+9312,CIVIL ENGINEERING LABORERS,9312,Civil engineering labourers,isco_match,0.5,,proposed
+9313,BUILDING CONSTRUCTION LABORERS,9313,Building construction labourers,isco_match,0.5,,proposed
+9321,HAND PACKERS,9321,Hand packers,isco_match,1.0,,proposed
+9329,MANUFACTURING LABORERS NOT ELSEWHERE CLASSIFIED,9329,Manufacturing labourers not elsewhere classified,ambiguous,0.333,"same code, different title",proposed
+9331,HAND AND PEDAL VEHICLE DRIVERS,9331,Hand and pedal vehicle drivers,isco_match,1.0,,proposed
+9332,DRIVERS OF ANIMAL-DRAWN VEHICLES AND MACHINERY,9332,Drivers of animal-drawn vehicles and machinery,isco_match,1.0,,proposed
+9333,FREIGHT HANDLERS,9333,Freight handlers,isco_match,1.0,,proposed
+9334,SHELF FILLERS,9334,Shelf fillers,isco_match,1.0,,proposed
+9411,FAST FOOD PREPARERS,9411,Fast food preparers,isco_match,1.0,,proposed
+9412,KITCHEN HELPERS,9412,Kitchen helpers,isco_match,1.0,,proposed
+9510,STREET AND RELATED SERVICE WORKERS,9510,Street and related service workers,isco_match,1.0,,proposed
+9520,STREET VENDORS (excluding food),9520,Street vendors (excluding food),isco_match,1.0,,proposed
+9611,GARBAGE AND RECYCLING COLLECTORS,9611,Garbage and recycling collectors,isco_match,1.0,,proposed
+9612,REFUSE SORTERS,9612,Refuse sorters,isco_match,1.0,,proposed
+9613,SWEEPERS AND RELATED LABORERS,9613,Sweepers and related labourers,ambiguous,0.333,"same code, different title",proposed
+9621,"MESSENGERS, PACKAGE DELIVERERS AND LUGGAGE PORTERS",9621,"Messengers, package deliverers and luggage porters",isco_match,1.0,,proposed
+9622,ODD JOB PERSONS,9622,Odd job persons,isco_match,1.0,,proposed
+9623,METER READERS AND VENDING-MACHINE COLLECTORS,9623,Meter readers and vending-machine collectors,isco_match,1.0,,proposed
+9624,WATER AND FIREWOODS COLLECTOR,9624,Water and firewood collectors,ambiguous,0.2,"same code, different title",proposed
+9629,ELEMENTARY WORKERS NOT ELSEWHERE CLASSIFIED,9629,Elementary workers not elsewhere classified,isco_match,1.0,,proposed
