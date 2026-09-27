@@ -217,17 +217,19 @@ test('rubric drafts are validated and serialised for the database', () => {
   const starter = employerPage.starterRubric({ requiredSkills: ['SQL', 'Excel'], responsibilities: ['Build weekly sales reports'] });
   assert.equal(starter.length, 3);
   assert.equal(employerPage.validateRubricDraft(starter), null);
-  assert.match(starter[0].prompts[0], /SQL/);
+  assert.match(starter[0].question, /SQL/);
   assert.equal(employerPage.validateRubricDraft([]), 'Add at least one criterion.');
   assert.match(employerPage.validateRubricDraft([{ ...starter[0], name: ' ' }]), /needs a name/);
   assert.match(employerPage.validateRubricDraft([starter[0], { ...starter[1], name: 'sql' }]), /appears twice/);
   assert.match(employerPage.validateRubricDraft([{ ...starter[0], anchors: ['a', '', 'c', 'd'] }]), /four rating anchors/);
   assert.match(employerPage.validateRubricDraft(starter.map((item) => ({ ...item, isRequired: false }))), /at least one criterion as required/);
   const payload = employerPage.rubricPayload([{ ...starter[0], name: ' SQL ', prompts: ['Ask this', ' '] }]);
-  assert.deepEqual(Object.keys(payload[0]).sort(), ['anchors', 'description', 'is_required', 'name', 'prompts', 'weight']);
+  assert.deepEqual(Object.keys(payload[0]).sort(), ['anchors', 'description', 'is_required', 'name', 'prompts', 'question', 'weight']);
   assert.equal(payload[0].name, 'SQL');
   assert.deepEqual(payload[0].prompts, ['Ask this']);
   assert.deepEqual(employerPage.weightShares([{ weight: 3 }, { weight: 1 }]), [75, 25]);
+  assert.equal(employerPage.weightedRating([{ weight: 3, meanRating: 4 }, { weight: 1, meanRating: null }]), 4);
+  assert.equal(employerPage.weightedRating([{ weight: 3, meanRating: 4 }, { weight: 1, meanRating: 2 }]), 3.5);
 });
 
 const serverResult = (overrides = {}) => ({
@@ -251,8 +253,8 @@ test('reviewed evaluation results keep missing evidence visible and unscored', (
   const split = employerPage.parseEvaluationResult(serverResult({ criteria: [{ ...serverResult().criteria[0], spread: 2 }] }));
   assert.deepEqual(employerPage.disagreements(split), ['SQL']);
   const html = renderToStaticMarkup(React.createElement(employerPage.ReviewedEvaluationPanel, { result, olderVersions: [], hasRubric: true, isCurrentVersion: true }));
-  assert.match(html, /Not published/);
-  assert.match(html, /Missing evidence is not a low rating/);
+  assert.match(html, /4.0 \/ 4.0/);
+  assert.match(html, /not treated as low ratings/);
   assert.match(html, /Not assessed/);
   assert.match(html, /75%/);
 });
@@ -300,4 +302,29 @@ test('employer job metadata preserves employment type and unavailable dates', ()
   const actual = employerPage.toEmployerJob({ job_id: 'role-2', job_title: 'Role', employment_type: 'Part-time', created_at: '2026-09-15T10:00:00Z' });
   assert.equal(actual.employmentType, 'Part-time');
   assert.equal(actual.postedDate, '2026-09-15');
+});
+
+
+test('assessment form separates candidate answers from employer scorecard', async () => {
+  const { CandidateAssessmentModal } = await loadModule('../src/pages/candidate/CandidateAssessmentModal.tsx');
+  const assessment = { id: 'a1', status: 'pending', questions: [{ id: 'q1', sourceCriterionId: 'c1', name: 'SQL', description: 'Uses SQL at work', question: 'Describe a query you improved.', required: true, response: '' }] };
+  const html = renderToStaticMarkup(React.createElement(CandidateAssessmentModal, { assessment, jobTitle: 'Analyst', onClose: () => {}, onSaved: () => {} }));
+  assert.match(html, /Describe a query you improved/);
+  assert.match(html, /Save draft/);
+  assert.match(html, /Submit Assessment/);
+  assert.doesNotMatch(html, /Your Rating/);
+  const submitted = renderToStaticMarkup(React.createElement(CandidateAssessmentModal, { assessment: { ...assessment, status: 'submitted', questions: [{ ...assessment.questions[0], response: 'I improved a slow query.' }] }, jobTitle: 'Analyst', onClose: () => {}, onSaved: () => {} }));
+  assert.match(submitted, /read-only/);
+  assert.match(submitted, /I improved a slow query/);
+  assert.doesNotMatch(submitted, /Submit Assessment/);
+});
+
+test('scorecard shows submitted evidence before the employer rating', () => {
+  const rubric = { id: 'r1', criteria: [{ id: 'c1', name: 'SQL', description: 'Uses SQL at work', weight: 3, isRequired: true, anchors: ['No evidence', 'Partial', 'Clear', 'Strong'], prompts: [], question: 'Describe a query you improved.' }] };
+  const assessment = { status: 'submitted', questions: [{ sourceCriterionId: 'c1', question: 'Describe a query you improved.', response: 'I improved a slow query.' }] };
+  const html = renderToStaticMarkup(React.createElement(employerPage.ScorecardForm, { rubric, assessment, existing: null, saving: false, disabled: false, onSave: () => {} }));
+  assert.ok(html.indexOf('Candidate Response') < html.indexOf('Your Rating'));
+  assert.match(html, /I improved a slow query/);
+  assert.match(html, /Add notes supporting your rating/);
+  assert.match(html, /Not assessed/);
 });

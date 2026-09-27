@@ -149,6 +149,29 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const unreadCount = useMemo(() => notifications.filter((item) => item.unread).length, [notifications]);
 
+  useEffect(() => {
+    if (!employer.id) return;
+    let mounted = true;
+    const refresh = async () => {
+      const { data, error } = await supabase.from('candidate_notifications')
+        .select('id,title,message,created_at,read_at')
+        .eq('recipient_user_id', employer.id)
+        .eq('event_type', 'candidate_assessment_submitted')
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (error || !mounted) return;
+      const assessmentNotices: NotificationItem[] = (data || []).map((row) => ({
+        id: `assessment-${row.id}`, title: row.title, message: row.message,
+        time: new Date(row.created_at).toLocaleString(), type: 'app', unread: !row.read_at,
+      }));
+      setNotifications((current) => [...assessmentNotices, ...current.filter((row) => !row.id.startsWith('assessment-'))]);
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 10000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, [employer.id]);
+
+
   const showToast = (message: string, type: ToastType = '') => {
     if (!message) return;
     setToast({ message, type });
@@ -476,6 +499,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   }, [jobs, jobsLoadStatus]);
 
   const markNotificationsRead = () => {
+    const ids = notifications.filter((item) => item.id.startsWith('assessment-') && item.unread).map((item) => item.id.slice('assessment-'.length));
+    if (ids.length) void supabase.from('candidate_notifications').update({ read_at: new Date().toISOString() }).in('id', ids);
     setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
   };
 
@@ -707,6 +732,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       setSelectedJobId(newJob.id);
       showToast(mode === 'draft' ? 'Saved as a draft.' : 'Job posted.', 'success');
       goPage('jobs');
+      if (newJob.databaseId) setRubricEditor({ jobId: newJob.id, inUse: false });
     }
     setIsSavingJob(false);
     setJobsPanelMode('detail');
@@ -1013,7 +1039,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           unread: item.unread,
           icon: notificationIcon[item.type],
           onOpen: () => goPage(item.type === 'msg' ? 'messages' : item.type === 'job' ? 'jobs' : 'candidates'),
-          onMarkRead: () => setNotifications((current) => current.map((row) => (row.id === item.id ? { ...row, unread: false } : row))),
+          onMarkRead: () => {
+            if (item.id.startsWith('assessment-')) void supabase.from('candidate_notifications').update({ read_at: new Date().toISOString() }).eq('id', item.id.slice('assessment-'.length));
+            setNotifications((current) => current.map((row) => (row.id === item.id ? { ...row, unread: false } : row)));
+          },
         })),
         status: 'ready',
         unreadCount,
@@ -1126,6 +1155,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onCancel={cancelJobPanel}
           onSaveDraft={() => void saveJobForm('draft')}
           onPost={() => void saveJobForm('post')}
+          onConfigureAssessment={() => { if (selectedJobId) { setJobsPanelMode('detail'); void openRubricEditor(selectedJobId); } }}
         />
       )}
 

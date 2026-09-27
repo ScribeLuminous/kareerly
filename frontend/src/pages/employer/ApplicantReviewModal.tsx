@@ -11,6 +11,7 @@ import {
   type AuditEntry,
 } from '../../lib/evaluationApi';
 import { Modal } from '../../components/ui';
+import { assessmentStatusLabel, loadAssessments, sendAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
 import { AuditTrail, ProfileMatchPanel, ReviewedEvaluationPanel, ScorecardForm } from './EvaluationPanels';
 import { nextAction, profileMatch, type ApplicationEvaluation, type RatingDraft, type Rubric, type Scorecard } from './evaluation';
 import {
@@ -46,7 +47,7 @@ type ApplicantReviewModalProps = {
 };
 
 /** The stage moves open to the reviewer. Scores never move anyone. */
-function StatusActions({ candidate, onAction, onSendRequest, onOpenMessages }: Pick<ApplicantReviewModalProps, 'candidate' | 'onAction' | 'onSendRequest' | 'onOpenMessages'>) {
+function StatusActions({ candidate, assessment, onAction, onSendRequest, onOpenMessages }: Pick<ApplicantReviewModalProps, 'candidate' | 'onAction' | 'onSendRequest' | 'onOpenMessages'> & { assessment: CandidateAssessment | null }) {
   const { status, id } = candidate;
   const row = 'grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*:last-child:nth-child(odd)]:col-span-2';
   if (status === 'Hired' || status === 'Rejected' || status === 'Withdrawn') {
@@ -62,12 +63,11 @@ function StatusActions({ candidate, onAction, onSendRequest, onOpenMessages }: P
     return (
       <div className={row}>
         <button className="k-btn k-btn-secondary" type="button" onClick={() => onAction('shortlisted', id)}>Shortlist</button>
-        <button className="k-btn k-btn-secondary" type="button" onClick={() => onAction('interviewing', id)}>Move to Interviewing</button>
-        {reject}
       </div>
     );
   }
   if (status === 'Shortlisted') {
+    if (assessment?.status !== 'reviewed') return <p className="k-secondary">Review the submitted Candidate Assessment and scorecard before choosing a decision.</p>;
     return (
       <div className={row}>
         <button className="k-btn k-btn-secondary" type="button" onClick={() => onAction('interviewing', id)}>Move to Interviewing</button>
@@ -115,8 +115,29 @@ export function ApplicantReviewModal({
   const [data, setData] = useState<{ forId: string; status: 'ready' | 'error'; evaluation: ApplicationEvaluation | null; scorecards: Scorecard[]; audit: AuditEntry[] } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [assessment, setAssessment] = useState<CandidateAssessment | null>(null);
+  const [sending, setSending] = useState(false);
+  const [assessmentVersion, setAssessmentVersion] = useState(0);
+  useEffect(() => {
+    let mounted = true;
+    const refresh = () => void loadAssessments([candidate.id]).then((rows) => { if (mounted) setAssessment(rows.get(candidate.id) || null); }).catch(() => { if (mounted) setAssessment(null); });
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, [candidate.id, assessmentVersion]);
+  const send = async () => {
+    setSending(true);
+    try {
+      await sendAssessment(candidate.id);
+      onToast('Candidate Assessment sent.', 'success');
+      setAssessmentVersion((value) => value + 1);
+      onEvaluationChanged();
+    } catch (error) { onToast(error instanceof Error ? error.message : 'Unable to send assessment.', 'danger'); }
+    finally { setSending(false); }
+  };
 
   const currentRubric = rubrics[0] || null;
+  const reviewRubric = assessment ? rubrics.find((item) => item.id === assessment.rubricId) || null : null;
   const revealed = shouldRevealIdentity(candidate.status);
   const profile = profileMatch(candidate, job);
   const closed = ['Hired', 'Rejected', 'Withdrawn'].includes(candidate.status);
@@ -141,22 +162,26 @@ export function ApplicantReviewModal({
   const scorecards = current?.scorecards || [];
   const audit = current?.audit || [];
   const versions = evaluation?.versions || [];
-  const currentResult = versions.find((version) => version.rubricId === currentRubric?.id) || null;
+  const currentResult = versions.find((version) => version.rubricId === reviewRubric?.id) || null;
   const shownResult = currentResult || versions[0] || null;
   const olderVersions = versions.filter((version) => version !== shownResult);
-  const myCurrentCard = currentRubric ? scorecards.find((card) => card.rubricId === currentRubric.id && card.reviewerUserId === currentUserId) || null : null;
-  const myOlderCards = scorecards.filter((card) => card.reviewerUserId === currentUserId && card.rubricId !== currentRubric?.id);
-  const action = nextAction(candidate.status, candidate.messageRequestState, currentResult, Boolean(currentRubric), myCurrentCard?.status === 'submitted');
+  const myCurrentCard = reviewRubric ? scorecards.find((card) => card.rubricId === reviewRubric.id && card.reviewerUserId === currentUserId) || null : null;
+  const myOlderCards = scorecards.filter((card) => card.reviewerUserId === currentUserId && card.rubricId !== reviewRubric?.id);
+  const action = candidate.status === 'Shortlisted' && assessment?.status === 'pending'
+    ? { label: 'Awaiting candidate response', detail: 'The candidate can save a draft and submit when ready.' }
+    : candidate.status === 'Shortlisted' && !assessment
+      ? { label: currentRubric ? 'Send Assessment' : 'Configure Assessment', detail: 'Assessment questions are sent after shortlisting.' }
+      : nextAction(candidate.status, candidate.messageRequestState, currentResult, Boolean(reviewRubric), myCurrentCard?.status === 'submitted');
 
   const save = async (ratings: Record<string, RatingDraft>, summary: string, submit: boolean) => {
-    if (!currentRubric) return;
+    if (!reviewRubric || !assessment || !['submitted', 'reviewed'].includes(assessment.status)) return;
     setSaving(true);
     try {
-      await saveScorecard({ applicationId: candidate.id, rubricId: currentRubric.id, ratings, summary, submit });
+      await saveScorecard({ applicationId: candidate.id, rubricId: reviewRubric.id, ratings, summary, submit });
       onToast(submit ? 'Scorecard submitted.' : 'Draft saved.', 'success');
       setReloadKey((value) => value + 1);
       onEvaluationChanged();
-      if (submit) setTab('evidence');
+      if (submit) { setTab('evidence'); setAssessmentVersion((value) => value + 1); }
     } catch (error) {
       onToast(error instanceof Error ? error.message : 'Unable to save the scorecard.', 'danger');
     } finally {
@@ -195,7 +220,7 @@ export function ApplicantReviewModal({
       footer={(
         <div className="w-full">
           <p className="k-label mb-2">Decision</p>
-          <StatusActions candidate={candidate} onAction={onAction} onSendRequest={onSendRequest} onOpenMessages={onOpenMessages} />
+          <StatusActions candidate={candidate} assessment={assessment} onAction={onAction} onSendRequest={onSendRequest} onOpenMessages={onOpenMessages} />
           <p className="k-meta mt-2">Scores and matches don't move anyone. The team decides, from the evidence.</p>
         </div>
       )}
@@ -212,8 +237,8 @@ export function ApplicantReviewModal({
           <p className="k-label">{action.label}</p>
           <p className="k-secondary">{action.detail}</p>
         </div>
-        {!closed && !evaluationUnavailable && (
-          currentRubric ? (
+        {!closed && !evaluationUnavailable && assessment && ['submitted', 'reviewed'].includes(assessment.status) && (
+          reviewRubric ? (
             <button className="k-btn k-btn-primary k-btn-sm w-full sm:w-auto" type="button" onClick={() => setTab('scorecard')}>
               <FontAwesomeIcon icon={faClipboardCheck} aria-hidden="true" />{myCurrentCard ? 'Your scorecard' : 'Start scorecard'}
             </button>
@@ -229,6 +254,16 @@ export function ApplicantReviewModal({
           Name, age, gender and contact details stay hidden until you move this applicant to Interviewing.
         </p>
       )}
+
+      <section className="k-detail-section mt-4" aria-labelledby="candidate-assessment-heading">
+        <h3 id="candidate-assessment-heading" className="k-label">Candidate Assessment</h3>
+        <p className="k-secondary mt-1">{assessment ? assessmentStatusLabel(assessment) : currentRubric ? 'Not sent' : 'No assessment has been configured for this job.'}</p>
+        {!assessment && candidate.status === 'Shortlisted' && (currentRubric ?
+          <button className="k-btn k-btn-primary k-btn-sm mt-2" type="button" disabled={sending} onClick={() => void send()}>Send Assessment</button> :
+          <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => job && onEditRubric(job.id)}>Configure Assessment</button>)}
+        {assessment?.status === 'submitted' && <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => setTab('scorecard')}>Review Assessment</button>}
+        {assessment?.status === 'reviewed' && <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => setTab('scorecard')}>View Scorecard</button>}
+      </section>
 
       <div className="mt-4">
         <Tabs<ReviewTab>
@@ -258,8 +293,8 @@ export function ApplicantReviewModal({
               <ReviewedEvaluationPanel
                 result={shownResult}
                 olderVersions={olderVersions}
-                hasRubric={Boolean(currentRubric)}
-                isCurrentVersion={!shownResult || shownResult.rubricId === currentRubric?.id}
+                hasRubric={Boolean(reviewRubric)}
+                isCurrentVersion={!shownResult || shownResult.rubricId === reviewRubric?.id}
               />
             )}
             <section className="k-detail-section" aria-label="Details">
@@ -279,7 +314,9 @@ export function ApplicantReviewModal({
         {tab === 'scorecard' && (
           evaluationUnavailable ? (
             <p className="k-secondary">Scorecards aren't available on this database yet.</p>
-          ) : !currentRubric ? (
+          ) : !assessment || assessment.status === 'pending' ? (
+            <p className="k-secondary">The candidate must submit their assessment before the scorecard can be reviewed.</p>
+          ) : !reviewRubric ? (
             <div className="space-y-3">
               <p className="k-secondary">This job has no rubric yet. Set the criteria first so every reviewer rates the same things.</p>
               {job && <button className="k-btn k-btn-primary" type="button" onClick={() => onEditRubric(job.id)}>Set up rubric</button>}
@@ -290,10 +327,10 @@ export function ApplicantReviewModal({
             <>
               {myOlderCards.length > 0 && (
                 <Banner tone="info" className="mb-3">
-                  You also scored this applicant on rubric version{myOlderCards.length > 1 ? 's' : ''} {myOlderCards.map((card) => rubrics.find((rubric) => rubric.id === card.rubricId)?.version || '?').join(', ')}. Those stay as they were; this scorecard uses version {currentRubric.version}.
+                  You also scored this applicant on rubric version{myOlderCards.length > 1 ? 's' : ''} {myOlderCards.map((card) => rubrics.find((rubric) => rubric.id === card.rubricId)?.version || '?').join(', ')}. Those stay as they were; this scorecard uses version {reviewRubric.version}.
                 </Banner>
               )}
-              <ScorecardForm key={`${currentRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={currentRubric} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit) => void save(ratings, summary, submit)} />
+              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit) => void save(ratings, summary, submit)} />
             </>
           )
         )}

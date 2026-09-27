@@ -18,7 +18,7 @@ type RubricEditorModalProps = {
   job: EmployerJob;
   /** The job's latest rubric version, if any. */
   rubric: Rubric | null;
-  /** The latest version already has scorecards, so saving creates a new version. */
+  /** The latest version is used by scorecards or sent assessments, so saving creates a new version. */
   inUse: boolean;
   saving: boolean;
   onCancel: () => void;
@@ -45,7 +45,7 @@ export function RubricEditorModal({ job, rubric, inUse, saving, onCancel, onSave
 
   return (
     <Modal
-      title={rubric ? `Evaluation rubric · v${rubric.version}` : 'Set up evaluation rubric'}
+      title={rubric ? `Evaluation rubric · v${rubric.version}` : 'Configure Candidate Assessment'}
       subtitle={job.title}
       onClose={onCancel}
       size="lg"
@@ -60,11 +60,11 @@ export function RubricEditorModal({ job, rubric, inUse, saving, onCancel, onSave
       )}
     >
       <p className="k-secondary">
-        List what this job actually needs, how much each part matters, and what each rating looks like. Every reviewer scores applicants against the same criteria and questions.
+        Set the questions candidates will answer and the criteria employers will use to rate their responses.
       </p>
       {inUse && (
         <Banner tone="info" className="mt-3">
-          Scorecards already use version {rubric?.version}. Saving creates version {(rubric?.version || 0) + 1} for new scorecards; existing scorecards and their results stay on version {rubric?.version} and are never recalculated.
+          Sent assessments or scorecards already use version {rubric?.version}. Saving creates version {(rubric?.version || 0) + 1} for new scorecards; existing scorecards and their results stay on version {rubric?.version} and are never recalculated.
         </Banner>
       )}
       {error && <Banner tone="error" className="mt-3">{error}</Banner>}
@@ -95,9 +95,12 @@ export function RubricEditorModal({ job, rubric, inUse, saving, onCancel, onSave
             </FormField>
             <label className="mt-3 flex items-center gap-2">
               <input type="checkbox" checked={criterion.isRequired} onChange={(event) => update(criterion.key, { isRequired: event.target.checked })} />
-              <span className="k-label">Required before a score is shown</span>
+              <span className="k-label">Required answer</span>
               <InfoTip label="About required criteria">The team score stays hidden until every required criterion has been assessed by at least one reviewer.</InfoTip>
             </label>
+            <FormField label="Candidate Assessment question *" className="mt-3">
+              <textarea className="k-textarea" rows={3} maxLength={1000} required value={criterion.question} onChange={(event) => update(criterion.key, { question: event.target.value })} />
+            </FormField>
             <fieldset className="mt-3">
               <legend className="k-label">Rating guidance</legend>
               <div className="mt-1 grid gap-2 [&>.k-field+.k-field]:mt-0 sm:grid-cols-2">

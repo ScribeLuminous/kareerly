@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { faClipboardCheck, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Banner, EmptyState, FormField, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
+import { loadAssessments, type CandidateAssessment } from '../../lib/assessmentApi';
 import type { EvaluationSummary } from '../../lib/evaluationApi';
 import { ApplicantRow } from './ApplicantRow';
 import { APPLICANT_SORTS, visibleApplicants, type ApplicantSort, type CandidateFilters } from './evaluation';
@@ -43,6 +44,12 @@ export function EmployerCandidatesPage({
   onOpenJobs,
   onEditRubric,
 }: EmployerCandidatesPageProps) {
+  const [assessments, setAssessments] = useState<Map<string, CandidateAssessment>>(new Map());
+  useEffect(() => {
+    let mounted = true;
+    void loadAssessments(applications.map((item) => item.id)).then((rows) => { if (mounted) setAssessments(rows); }).catch(() => { if (mounted) setAssessments(new Map()); });
+    return () => { mounted = false; };
+  }, [applications]);
   const job = jobs.find((item) => item.id === filters.jobId) || null;
   const forJob = useMemo(() => applications.filter((candidate) => candidate.jobId === filters.jobId), [applications, filters.jobId]);
   const counts = useMemo(() => {
@@ -140,7 +147,7 @@ export function EmployerCandidatesPage({
               <ul className="k-list">
                 {visible.map((candidate) => (
                   <li key={candidate.id}>
-                    <ApplicantRow candidate={candidate} job={job} summary={summaries.get(candidate.id)} hasRubric={hasRubric} onReview={onReview} />
+                    <ApplicantRow candidate={candidate} job={job} summary={summaries.get(candidate.id)} assessment={assessments.get(candidate.id) || null} hasRubric={hasRubric} onReview={onReview} />
                   </li>
                 ))}
               </ul>
