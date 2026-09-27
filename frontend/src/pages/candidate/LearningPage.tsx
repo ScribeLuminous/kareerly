@@ -136,7 +136,7 @@ export function UpskillingPage({ courses, jobs, gaps, focusSkill, focusJobId, co
                           {gap && <span className={severityBadgeClass(gap.severity)}>{gap.severity}</span>}
                         </div>
                         {resources.length > 0 ? (
-                          <ul className="k-list">{resources.map((course) => <CourseRow key={course.id} course={course} {...actions} />)}</ul>
+                          <ul className="k-list">{resources.map((course) => <CourseRow key={course.id} course={course} note={selectedJob ? course.recommendationNoteByJob?.[selectedJob.id] : undefined} {...actions} />)}</ul>
                         ) : (
                           <p className="k-secondary">No resources listed for {skill} yet.</p>
                         )}
@@ -159,7 +159,7 @@ export function UpskillingPage({ courses, jobs, gaps, focusSkill, focusJobId, co
   );
 }
 
-export function CourseRow({ course, courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence }: CourseCompletionActions & { course: DashboardCourse }) {
+export function CourseRow({ course, note, courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence }: CourseCompletionActions & { course: DashboardCourse; note?: string }) {
   const url = learningResourceUrl(course);
   const completion = courseCompletions[course.id];
   const isCertification = ['industry_certification', 'professional_certificate'].includes(course.credentialType) || course.urlLabel === 'View certification';
@@ -171,6 +171,7 @@ export function CourseRow({ course, courseCompletions, onMarkCourseTaken, onUnma
       <div className="k-row-main basis-full sm:basis-auto">
         <div className="k-label">{course.title}</div>
         <div className="k-meta k-dot-sep mt-0.5">{meta.map((item) => <span key={item}>{item}</span>)}</div>
+        {note && <p className="k-meta mt-1">{note}</p>}
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           {completion && (
             <span className="k-badge k-badge-success">
