@@ -40,6 +40,7 @@ from .services.ph_regions import region_name, region_options, resolve_single_reg
 from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
+from .services import psoc_reference
 from .services.ocr import ocr_available
 from .services.resume_parser import (
     MAX_RESUME_BYTES,
@@ -1254,6 +1255,8 @@ def health_config() -> dict:
             "doc_libreoffice": soffice_path() is not None,
             "doc_antiword": antiword_path() is not None,
         },
+        # Local file only; the PSA API is never called while serving requests.
+        "psoc_reference": psoc_reference.reference_status(),
     }
 
 
