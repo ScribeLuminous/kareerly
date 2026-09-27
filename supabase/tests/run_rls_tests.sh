@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Applies the learning migration to a throwaway local PostgreSQL cluster and runs
-# the row-level security checks. Requires PostgreSQL server binaries (initdb).
+# Applies migrations to a throwaway local PostgreSQL cluster and runs the
+# row-level security and calculation checks. Requires PostgreSQL server
+# binaries (initdb).
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 bindir="${PG_BINDIR:-$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)}"
@@ -17,3 +18,13 @@ psql_run -f "$here/supabase_stub.sql"
 psql_run -f "$here/../migrations/20260925090000_match_feedback_learning.sql"
 psql_run -f "$here/../migrations/20260925090000_match_feedback_learning.sql"
 psql_run -f "$here/match_feedback_learning_rls.sql"
+
+psql_run -c "create database evaluation"
+psql_eval() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d evaluation -v ON_ERROR_STOP=1 -q "$@"; }
+psql_eval -f "$here/supabase_stub.sql"
+psql_eval -f "$here/employer_evaluation_stub.sql"
+psql_eval -f "$here/employer_evaluation_seed.sql"
+psql_eval -f "$here/../migrations/20260929090000_employer_structured_evaluation.sql"
+psql_eval -f "$here/../migrations/20260929090000_employer_structured_evaluation.sql"
+psql_eval -f "$here/employer_evaluation_tests.sql"
+echo "All RLS and evaluation checks passed."

@@ -1,85 +1,67 @@
-import { useMemo, useState } from 'react';
-import { faUsers } from '@fortawesome/free-solid-svg-icons';
-import { EmptyState, InfoTip, PageHeader, SearchField, SectionHead, Segmented, SkeletonRows } from '../../components/ui';
+import { useMemo } from 'react';
+import { faClipboardCheck, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { Banner, EmptyState, FormField, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
+import type { EvaluationSummary } from '../../lib/evaluationApi';
 import { ApplicantRow } from './ApplicantRow';
+import { APPLICANT_SORTS, visibleApplicants, type ApplicantSort, type CandidateFilters } from './evaluation';
 import {
-  ACTIVE_CANDIDATE_STATUSES,
-  applicantTitle,
-  candidateDisplayName,
-  candidateStatusBadgeClass,
-  formatDateLabel,
-  getMatchBucket,
-  MATCH_BAND_LABEL,
-  matchBandBadgeClass,
+  JOB_STATUS_LABEL,
   type CandidateApplication,
   type CandidateStatus,
   type EmployerJob,
-  type MatchBucket,
 } from './model';
-
-type CandidatesView = 'match' | 'all';
 
 type EmployerCandidatesPageProps = {
   applications: CandidateApplication[];
   jobs: EmployerJob[];
   isLoading: boolean;
   loadFailed: boolean;
-  jobFilter: string;
-  onJobFilter: (jobId: string) => void;
+  filters: CandidateFilters;
+  onFilters: (filters: CandidateFilters) => void;
+  summaries: Map<string, EvaluationSummary>;
+  hasRubric: boolean;
+  evaluationUnavailable: boolean;
   onReview: (candidateId: string) => void;
   onOpenJobs: () => void;
+  onEditRubric: (jobId: string) => void;
 };
 
 const STATUSES: CandidateStatus[] = ['Pending', 'Shortlisted', 'Interviewing', 'Hired', 'Rejected', 'Withdrawn'];
-const BANDS: MatchBucket[] = ['top', 'good', 'partial', 'unknown'];
-const BAND_HEADING: Record<MatchBucket, string> = { top: 'Top matches', good: 'Good matches', partial: 'Partial matches', unknown: 'No score yet' };
 
-export function EmployerCandidatesPage({ applications, jobs, isLoading, loadFailed, jobFilter, onJobFilter, onReview, onOpenJobs }: EmployerCandidatesPageProps) {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<'all' | CandidateStatus>('all');
-  const [view, setView] = useState<CandidatesView>('match');
-
-  const forJob = useMemo(() => (jobFilter ? applications.filter((candidate) => candidate.jobId === jobFilter) : applications), [applications, jobFilter]);
+export function EmployerCandidatesPage({
+  applications,
+  jobs,
+  isLoading,
+  loadFailed,
+  filters,
+  onFilters,
+  summaries,
+  hasRubric,
+  evaluationUnavailable,
+  onReview,
+  onOpenJobs,
+  onEditRubric,
+}: EmployerCandidatesPageProps) {
+  const job = jobs.find((item) => item.id === filters.jobId) || null;
+  const forJob = useMemo(() => applications.filter((candidate) => candidate.jobId === filters.jobId), [applications, filters.jobId]);
   const counts = useMemo(() => {
     const result = new Map<CandidateStatus, number>();
     forJob.forEach((candidate) => result.set(candidate.status, (result.get(candidate.status) || 0) + 1));
     return result;
   }, [forJob]);
-  const visible = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return forJob.filter((candidate) => {
-      if (status !== 'all' && candidate.status !== status) return false;
-      if (!query) return true;
-      const corpus = [
-        candidate.publicId,
-        candidateDisplayName(candidate),
-        candidate.role,
-        candidate.status,
-        MATCH_BAND_LABEL[getMatchBucket(candidate.matchPercent, candidate.hasMatchScore)],
-        ...candidate.matchedSkills,
-        ...candidate.missingSkills,
-      ].join(' ').toLowerCase();
-      return corpus.includes(query);
-    });
-  }, [forJob, search, status]);
-
-  const active = visible.filter((candidate) => ACTIVE_CANDIDATE_STATUSES.includes(candidate.status));
-  const hired = visible.filter((candidate) => candidate.status === 'Hired');
-  const closed = visible.filter((candidate) => candidate.status === 'Rejected' || candidate.status === 'Withdrawn');
-  const byBand = BANDS.map((band) => ({
-    band,
-    rows: active.filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) === band),
-  })).filter((group) => group.rows.length > 0);
-  // Job titles in the filter come from every job that has applicants, plus open ones.
-  const jobOptions = jobs.filter((job) => job.status !== 'closed' || applications.some((candidate) => candidate.jobId === job.id));
-  const isFiltered = Boolean(search.trim()) || status !== 'all' || Boolean(jobFilter);
-  const reset = () => { setSearch(''); setStatus('all'); onJobFilter(''); };
+  const visible = useMemo(() => visibleApplicants(applications, jobs, filters, summaries), [applications, jobs, filters, summaries]);
+  const applicantCount = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId).length;
+  const jobOptions = jobs.filter((item) => item.status !== 'draft' || applicantCount(item.id) > 0);
+  const set = (patch: Partial<CandidateFilters>) => onFilters({ ...filters, ...patch });
+  const isFiltered = Boolean(filters.search.trim()) || filters.status !== 'all';
+  const scoreSort = filters.sort === 'profile-match' || filters.sort === 'reviewed';
 
   return (
     <div className="k-page">
       <PageHeader title="Candidates">
         <p className="k-secondary mt-1 flex items-center gap-1">
-          Applicants to your jobs only.
+          Review applicants one job at a time, against that job's criteria.
           <InfoTip label="How applicant privacy works" align="left">
             Identity stays masked while an applicant is Pending or Shortlisted and is shown from Interviewing on. Withdrawn applications are read-only. You can't search or browse candidates who haven't applied to you.
           </InfoTip>
@@ -88,7 +70,7 @@ export function EmployerCandidatesPage({ applications, jobs, isLoading, loadFail
 
       {isLoading ? (
         <SkeletonRows count={4} label="Loading applicants" />
-      ) : applications.length === 0 ? (
+      ) : jobs.length === 0 || applications.length === 0 ? (
         <EmptyState
           icon={faUsers}
           title={loadFailed ? "Applicants couldn't load" : 'No applicants yet'}
@@ -97,115 +79,73 @@ export function EmployerCandidatesPage({ applications, jobs, isLoading, loadFail
         />
       ) : (
         <>
-          <div className="k-toolbar">
-            <SearchField value={search} onChange={setSearch} label="Search applicants" placeholder="Search ID, role or skill" />
-            <div className="k-toolbar-controls">
-              <label className="k-sort">
-                <span className="sr-only">Filter by job</span>
-                <select className="k-select" value={jobFilter} onChange={(event) => onJobFilter(event.target.value)}>
-                  <option value="">All jobs</option>
-                  {jobOptions.map((job) => <option key={job.id} value={job.id}>{job.title}</option>)}
-                </select>
-              </label>
+          <div className="grid gap-3 [&>.k-field+.k-field]:mt-0 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end">
+            <FormField label="Job">
+              <select className="k-select" value={filters.jobId} onChange={(event) => onFilters({ ...filters, jobId: event.target.value, status: 'all' })}>
+                {jobOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title} · {JOB_STATUS_LABEL[item.status]} · {applicantCount(item.id)} applicant{applicantCount(item.id) === 1 ? '' : 's'}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Sort by">
+              <select className="k-select" value={filters.sort} onChange={(event) => set({ sort: event.target.value as ApplicantSort })}>
+                {APPLICANT_SORTS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </FormField>
+            <div className="sm:col-span-2 lg:col-span-1">
+              <SearchField value={filters.search} onChange={(search) => set({ search })} label="Search applicants" placeholder="Search ID or skill" />
             </div>
           </div>
 
-          <div className="k-chip-scroller mb-4" role="group" aria-label="Filter by status">
-            <button className="k-chip" type="button" aria-pressed={status === 'all'} onClick={() => setStatus('all')}>
-              All <span className="k-chip-count">{forJob.length}</span>
+          <div className="k-chip-scroller my-4" role="group" aria-label="Filter by stage">
+            <button className="k-chip" type="button" aria-pressed={filters.status === 'all'} onClick={() => set({ status: 'all' })}>
+              Every stage <span className="k-chip-count">{forJob.length}</span>
             </button>
-            {STATUSES.filter((value) => counts.get(value) || status === value).map((value) => (
-              <button key={value} className="k-chip" type="button" aria-pressed={status === value} onClick={() => setStatus(value)}>
+            {STATUSES.filter((value) => counts.get(value) || filters.status === value).map((value) => (
+              <button key={value} className="k-chip" type="button" aria-pressed={filters.status === value} onClick={() => set({ status: value })}>
                 {value} <span className="k-chip-count">{counts.get(value) || 0}</span>
               </button>
             ))}
           </div>
 
-          <Segmented<CandidatesView>
-            label="Group applicants"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: 'match', label: 'By match' },
-              { value: 'all', label: 'All', count: visible.length },
-            ]}
-          />
+          {evaluationUnavailable ? (
+            <Banner tone="warn" className="mb-4">Structured evaluation isn't available on this database yet. Profile match and stage changes still work.</Banner>
+          ) : !hasRubric && job ? (
+            <Banner
+              tone="info"
+              className="mb-4"
+              actions={<button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => onEditRubric(job.id)}><FontAwesomeIcon icon={faClipboardCheck} aria-hidden="true" />Set up rubric</button>}
+            >
+              Agree the criteria for {job.title} before scoring applicants, so every reviewer rates the same job-related evidence.
+            </Banner>
+          ) : null}
 
-          <div className="mt-4">
-            {visible.length === 0 ? (
-              <EmptyState
-                title="No applicants match"
-                text={isFiltered ? 'Try another search, status or job.' : undefined}
-                actions={isFiltered ? <button className="k-btn k-btn-secondary" type="button" onClick={reset}>Reset</button> : undefined}
-              />
-            ) : view === 'match' ? (
-              <div className="space-y-7">
-                {byBand.map(({ band, rows }) => (
-                  <section key={band} aria-labelledby={`band-${band}`}>
-                    <SectionHead id={`band-${band}`} title={BAND_HEADING[band]} count={rows.length} />
-                    <ul className="k-list">
-                      {rows.map((candidate) => <li key={candidate.id}><ApplicantRow candidate={candidate} onReview={onReview} showRole={!jobFilter} /></li>)}
-                    </ul>
-                  </section>
+          {scoreSort && (
+            <p className="k-meta mb-3">
+              Sorted within {job?.title || 'this job'} only. Applicants without a figure are listed after the rest, not ranked as zero. A score is one input: read the evidence before deciding.
+            </p>
+          )}
+
+          {visible.length === 0 ? (
+            <EmptyState
+              title="No applicants match"
+              text={isFiltered ? 'Try another search or stage.' : 'No one has applied to this job yet.'}
+              actions={isFiltered ? <button className="k-btn k-btn-secondary" type="button" onClick={() => set({ search: '', status: 'all' })}>Reset</button> : undefined}
+            />
+          ) : (
+            <section aria-label={`Applicants for ${job?.title || 'this job'}`}>
+              <p className="k-meta mb-2" aria-live="polite">{visible.length} applicant{visible.length === 1 ? '' : 's'} shown</p>
+              <ul className="k-list">
+                {visible.map((candidate) => (
+                  <li key={candidate.id}>
+                    <ApplicantRow candidate={candidate} job={job} summary={summaries.get(candidate.id)} hasRubric={hasRubric} onReview={onReview} />
+                  </li>
                 ))}
-                {byBand.length === 0 && <p className="k-secondary">No active applicants in this view.</p>}
-                {[{ id: 'hired', title: 'Hired', rows: hired }, { id: 'closed', title: 'Rejected and withdrawn', rows: closed }]
-                  .filter((group) => group.rows.length > 0)
-                  .map((group) => (
-                    <details key={group.id} className="k-detail-section border-t border-bdr pt-4">
-                      <summary><span>{group.title}<span className="k-meta ml-2">{group.rows.length}</span></span></summary>
-                      <ul className="k-list mt-3">
-                        {group.rows.map((candidate) => <li key={candidate.id}><ApplicantRow candidate={candidate} onReview={onReview} showRole={!jobFilter} /></li>)}
-                      </ul>
-                    </details>
-                  ))}
-              </div>
-            ) : (
-              <>
-                <ul className="k-list md:hidden">
-                  {visible.map((candidate) => <li key={candidate.id}><ApplicantRow candidate={candidate} onReview={onReview} showRole={!jobFilter} /></li>)}
-                </ul>
-                <div className="k-list hidden md:block">
-                  <table className="w-full text-left">
-                    <caption className="sr-only">Applicants</caption>
-                    <thead className="bg-bg">
-                      <tr className="k-meta">
-                        <th scope="col" className="rounded-tl-[11px] px-4 py-3 font-semibold">Applicant</th>
-                        <th scope="col" className="px-4 py-3 font-semibold">Job</th>
-                        <th scope="col" className="px-4 py-3 font-semibold">Match</th>
-                        <th scope="col" className="px-4 py-3 font-semibold">Applied</th>
-                        <th scope="col" className="rounded-tr-[11px] px-4 py-3 font-semibold">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-bdr border-t border-bdr">
-                      {visible.map((candidate) => {
-                        const bucket = getMatchBucket(candidate.matchPercent, candidate.hasMatchScore);
-                        return (
-                          <tr key={candidate.id} className={candidate.status === 'Withdrawn' ? 'opacity-70' : undefined}>
-                            <td className="px-4 py-3">
-                              <button className="min-h-[32px] text-left" type="button" onClick={() => onReview(candidate.id)}>
-                                <span className="k-label block hover:underline">{applicantTitle(candidate)}</span>
-                                {candidate.publicId && applicantTitle(candidate) !== candidate.publicId && <span className="k-meta block">{candidate.publicId}</span>}
-                              </button>
-                            </td>
-                            <td className="k-secondary px-4 py-3">{candidate.role}</td>
-                            <td className="px-4 py-3">
-                              <span className="flex flex-wrap items-center gap-1.5">
-                                {candidate.hasMatchScore && <span className="k-num k-label">{candidate.matchPercent}%</span>}
-                                <span className={matchBandBadgeClass(bucket)}>{MATCH_BAND_LABEL[bucket]}</span>
-                              </span>
-                            </td>
-                            <td className="k-secondary whitespace-nowrap px-4 py-3">{formatDateLabel(candidate.appliedDate)}</td>
-                            <td className="px-4 py-3"><span className={candidateStatusBadgeClass(candidate.status)}>{candidate.status}</span></td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
+              </ul>
+            </section>
+          )}
         </>
       )}
     </div>

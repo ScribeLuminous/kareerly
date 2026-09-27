@@ -474,13 +474,32 @@ def update_employer_application_status(payload: EmployerApplicationStatusRequest
     if not isinstance(owned, list) or not owned:
         raise HTTPException(status_code=403, detail="This application does not belong to your employer account.")
 
-    body = {"status": status, "updated_at": _safe_timestamp()}
-    if status == "rejected":
-        body["rejection_reason"] = payload.rejection_reason.strip()
-    updated = _supabase_request(f"/rest/v1/job_applications?id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
+    updated = _set_application_stage_as_employer(authorization, payload.application_id, status, payload.rejection_reason)
+    if updated is None:
+        # Databases without the structured-evaluation migration: update directly.
+        body = {"status": status, "updated_at": _safe_timestamp()}
+        if status == "rejected":
+            body["rejection_reason"] = payload.rejection_reason.strip()
+        updated = _supabase_request(f"/rest/v1/job_applications?id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
     if status == "rejected":
         _supabase_request(f"/rest/v1/message_threads?application_id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body={"status": "closed"})
-    return {"application": updated[0] if isinstance(updated, list) and updated else body}
+    return {"application": updated[0] if isinstance(updated, list) and updated else updated}
+
+
+def _set_application_stage_as_employer(authorization: str | None, application_id: str, status: str, reason: Optional[str]) -> object | None:
+    """Change the stage through ``set_application_stage`` with the employer's own
+    token, so the audit trail records who decided. Returns None when the
+    function is not deployed yet."""
+    token = (authorization or "").split(" ", 1)[1].strip() if authorization and " " in authorization else ""
+    try:
+        return _supabase_request(
+            "/rest/v1/rpc/set_application_stage", method="POST", token=token,
+            body={"target_application_id": application_id, "next_status": status, "reason": (reason or "").strip() or None},
+        )
+    except HTTPException as exc:
+        if exc.status_code == 404 or "PGRST202" in str(exc.detail):
+            return None
+        raise
 
 
 def _supabase_request(

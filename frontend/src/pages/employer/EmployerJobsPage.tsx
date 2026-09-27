@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBriefcase, faPen, faPlus, faUsers, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faBriefcase, faClipboardCheck, faPen, faPlus, faUsers, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { EmptyState, InfoTip, Modal, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
 import { formatJobDescription } from '../../lib/jobDescription';
 import {
@@ -17,6 +17,7 @@ import {
 
 type JobHandlers = {
   onEdit: (job: EmployerJob) => void;
+  onEditRubric: (jobId: string) => void;
   onViewApplicants: (jobId: string) => void;
   onCloseJob: (job: EmployerJob) => void;
 };
@@ -24,6 +25,8 @@ type JobHandlers = {
 type EmployerJobsPageProps = JobHandlers & {
   jobs: EmployerJob[];
   jobStats: Map<string, JobStats>;
+  /** Latest rubric version per job id, when one exists. */
+  rubricVersions: Map<string, number>;
   isLoading: boolean;
   isDesktop: boolean;
   selectedJobId: string;
@@ -60,20 +63,20 @@ function JobPostCard({ job, stats, selected, onOpen }: { job: EmployerJob; stats
               {job.title}
             </button>
           </h3>
-          {meta.length > 0 && <p className="k-meta k-dot-sep mt-0.5">{meta.map((part) => <span key={part}>{part}</span>)}</p>}
+          {meta.length > 0 && <p className="k-meta k-dot-sep mt-0.5">{meta.map((part, index) => <span key={`${index}-${part}`}>{part}</span>)}</p>}
         </div>
         <span className={jobStatusBadgeClass(job.status)}>{JOB_STATUS_LABEL[job.status]}</span>
       </div>
       <p className="k-secondary k-dot-sep">
         <span><strong className="k-num text-dark">{stats.applications}</strong> applicant{stats.applications === 1 ? '' : 's'}</span>
-        {stats.top > 0 && <span>{stats.top} top match{stats.top === 1 ? '' : 'es'}</span>}
+        {stats.pending > 0 && <span>{stats.pending} awaiting review</span>}
         {deadline && <span>{deadline}</span>}
       </p>
     </article>
   );
 }
 
-function JobActions({ job, stats, onEdit, onViewApplicants, onCloseJob }: JobHandlers & { job: EmployerJob; stats: JobStats }) {
+function JobActions({ job, stats, rubricVersion, onEdit, onEditRubric, onViewApplicants, onCloseJob }: JobHandlers & { job: EmployerJob; stats: JobStats; rubricVersion?: number }) {
   return (
     <div className="k-detail-actions mt-0">
       <button className="k-btn k-btn-primary" type="button" onClick={() => onViewApplicants(job.id)}>
@@ -81,6 +84,9 @@ function JobActions({ job, stats, onEdit, onViewApplicants, onCloseJob }: JobHan
       </button>
       <button className="k-btn k-btn-secondary" type="button" onClick={() => onEdit(job)}>
         <FontAwesomeIcon icon={faPen} aria-hidden="true" />Edit
+      </button>
+      <button className="k-btn k-btn-secondary" type="button" onClick={() => onEditRubric(job.id)}>
+        <FontAwesomeIcon icon={faClipboardCheck} aria-hidden="true" />{rubricVersion ? `Rubric v${rubricVersion}` : 'Set up rubric'}
       </button>
       {job.status !== 'closed' && (
         <button className="k-btn k-btn-ghost" type="button" onClick={() => onCloseJob(job)}>
@@ -107,15 +113,15 @@ function JobDetailBody({ job, stats }: { job: EmployerJob; stats: JobStats }) {
     <>
       <section className="k-detail-section" aria-label="Applicants">
         <h3 className="k-label mb-2 flex items-center gap-1">
-          Applicants
-          <InfoTip label="About match bands">Top is 90% or more, Good is 75–89%, Partial is below 75%.</InfoTip>
+          Applicants by stage
+          <InfoTip label="About applicant review">Applicants are compared only with others who applied to the same job, using this job's rubric.</InfoTip>
         </h3>
         <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
             { label: 'Total', value: stats.applications },
-            { label: 'Top', value: stats.top },
-            { label: 'Good', value: stats.good },
-            { label: 'Partial', value: stats.partial },
+            { label: 'Awaiting review', value: stats.pending },
+            { label: 'In progress', value: stats.inReview },
+            { label: 'Closed', value: stats.closed },
           ].map((item) => (
             <div key={item.label} className="rounded-[10px] bg-bg px-3 py-2">
               <dt className="k-meta">{item.label}</dt>
@@ -175,6 +181,7 @@ function JobDetailBody({ job, stats }: { job: EmployerJob; stats: JobStats }) {
 export function EmployerJobsPage({
   jobs,
   jobStats,
+  rubricVersions,
   isLoading,
   isDesktop,
   selectedJobId,
@@ -183,6 +190,7 @@ export function EmployerJobsPage({
   onCloseDetail,
   onPostJob,
   onEdit,
+  onEditRubric,
   onViewApplicants,
   onCloseJob,
 }: EmployerJobsPageProps) {
@@ -209,7 +217,7 @@ export function EmployerJobsPage({
     if (isDesktop && !selectedIsVisible && visible.length > 0) onSelect(visible[0].id);
   }, [isDesktop, selectedIsVisible, visible, onSelect]);
 
-  const handlers = { onEdit, onViewApplicants, onCloseJob };
+  const handlers = { onEdit, onEditRubric, onViewApplicants, onCloseJob };
   const selectedStats = selected ? jobStats.get(selected.id) || EMPTY_JOB_STATS : EMPTY_JOB_STATS;
   const isFiltered = Boolean(search.trim()) || status !== 'all';
 
@@ -275,8 +283,8 @@ export function EmployerJobsPage({
                       <h2 className="k-page-title text-[22px] leading-7">{selected.title}</h2>
                       <span className={jobStatusBadgeClass(selected.status)}>{JOB_STATUS_LABEL[selected.status]}</span>
                     </div>
-                    <p className="k-secondary k-dot-sep mt-1">{jobMeta(selected).map((part) => <span key={part}>{part}</span>)}</p>
-                    <div className="mt-4"><JobActions job={selected} stats={selectedStats} {...handlers} /></div>
+                    <p className="k-secondary k-dot-sep mt-1">{jobMeta(selected).map((part, index) => <span key={`${index}-${part}`}>{part}</span>)}</p>
+                    <div className="mt-4"><JobActions job={selected} stats={selectedStats} rubricVersion={rubricVersions.get(selected.id)} {...handlers} /></div>
                   </header>
                   <div className="k-detail-scroll">
                     <JobDetailBody job={selected} stats={selectedStats} />
@@ -291,13 +299,13 @@ export function EmployerJobsPage({
       {!isDesktop && detailOpen && selected && (
         <Modal
           title={selected.title}
-          subtitle={<span className="k-dot-sep">{jobMeta(selected).map((part) => <span key={part}>{part}</span>)}</span>}
+          subtitle={<span className="k-dot-sep">{jobMeta(selected).map((part, index) => <span key={`${index}-${part}`}>{part}</span>)}</span>}
           onClose={onCloseDetail}
           size="lg"
           fullOnMobile
           closeStyle="back"
           closeLabel="Close job details"
-          footer={<div className="w-full"><JobActions job={selected} stats={selectedStats} {...handlers} /></div>}
+          footer={<div className="w-full"><JobActions job={selected} stats={selectedStats} rubricVersion={rubricVersions.get(selected.id)} {...handlers} /></div>}
         >
           <span className={jobStatusBadgeClass(selected.status)}>{JOB_STATUS_LABEL[selected.status]}</span>
           <JobDetailBody job={selected} stats={selectedStats} />
