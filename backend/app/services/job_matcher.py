@@ -324,6 +324,8 @@ class JobMatcher:
                 {
                     "job_id": safe_text(job.get("job_id")),
                     "job_title": safe_text(job.get("job_title")),
+                    "psoc_unit_code": safe_text(job.get("psoc_unit_code")),
+                    "psoc_title": safe_text(job.get("psoc_title")),
                     "job_category": safe_text(job.get("job_category")),
                     "job_subcategory": safe_text(job.get("job_subcategory")),
                     "company": safe_text(job.get("company_name")),
@@ -494,6 +496,8 @@ def list_available_jobs(limit: int = 5000) -> list[dict[str, Any]]:
             {
                 "job_id": safe_text(record.get("job_id")) or f"JOB-{index + 1}",
                 "job_title": safe_text(record.get("job_title")) or "Untitled role",
+                "psoc_unit_code": safe_text(record.get("psoc_unit_code")),
+                "psoc_title": safe_text(record.get("psoc_title")),
                 "job_category": safe_text(record.get("job_category")),
                 "job_subcategory": safe_text(record.get("job_subcategory")),
                 "experience_level_required": safe_text(record.get("experience_level_required")),

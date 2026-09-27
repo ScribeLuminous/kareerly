@@ -40,6 +40,7 @@ from .services.ph_regions import region_name, region_options, resolve_single_reg
 from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
+from .services import psoc_reference
 from .services.ocr import ocr_available
 from .services.resume_parser import (
     MAX_RESUME_BYTES,
@@ -188,6 +189,7 @@ class AdminJobUpdateRequest(BaseModel):
     job_title: Optional[str] = None
     company_name: Optional[str] = None
     posting_status: Optional[str] = None
+    psoc_unit_code: Optional[str] = None
 
 
 class AdminApplicationUpdateRequest(BaseModel):
@@ -484,6 +486,65 @@ def update_employer_application_status(payload: EmployerApplicationStatusRequest
     if status == "rejected":
         _supabase_request(f"/rest/v1/message_threads?application_id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body={"status": "closed"})
     return {"application": updated[0] if isinstance(updated, list) and updated else updated}
+
+
+DOCUMENT_REVEAL_STATUSES = {"interviewing", "hired"}
+
+
+@app.get("/api/employer/applications/{application_id}/documents")
+def get_employer_application_documents(application_id: str, authorization: Annotated[Optional[str], Header()] = None):
+    """The resume and portfolio a candidate chose to share with this employer.
+    Available once the application reaches Interviewing, the same point the
+    candidate's identity is revealed."""
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    app_query = urllib.parse.urlencode({"id": f"eq.{application_id}", "select": "id,job_id,job_source,status", "limit": "1"})
+    app_rows = _supabase_request(f"/rest/v1/job_applications?{app_query}", service_role=True)
+    application = app_rows[0] if isinstance(app_rows, list) and app_rows else None
+    if not isinstance(application, dict) or application.get("job_source") != "employer":
+        raise HTTPException(status_code=404, detail="Application was not found.")
+    employer_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "id", "limit": "1"})
+    employer_rows = _supabase_request(f"/rest/v1/employer_profiles?{employer_query}", service_role=True)
+    employer = employer_rows[0] if isinstance(employer_rows, list) and employer_rows else None
+    if not isinstance(employer, dict):
+        raise HTTPException(status_code=404, detail="Employer profile was not found.")
+    owner_query = urllib.parse.urlencode({"job_id": f"eq.{application.get('job_id')}", "employer_id": f"eq.{employer['id']}", "select": "id", "limit": "1"})
+    owned = _supabase_request(f"/rest/v1/employer_job_posts?{owner_query}", service_role=True)
+    if not isinstance(owned, list) or not owned:
+        raise HTTPException(status_code=403, detail="This application does not belong to your employer account.")
+
+    status = str(application.get("status") or "").lower()
+    if status not in DOCUMENT_REVEAL_STATUSES:
+        return {"available": False, "reason": "stage", "resume": None, "portfolio_url": None}
+
+    doc_query = urllib.parse.urlencode({"application_id": f"eq.{application_id}", "select": "resume_id,share_resume,portfolio_url", "limit": "1"})
+    doc_rows = _supabase_request(f"/rest/v1/application_shared_documents?{doc_query}", service_role=True)
+    shared = doc_rows[0] if isinstance(doc_rows, list) and doc_rows and isinstance(doc_rows[0], dict) else {}
+
+    resume = None
+    if shared.get("share_resume") and shared.get("resume_id"):
+        resume_rows = _rest_rows("resumes", {"id": f"eq.{shared['resume_id']}", "select": "id,original_filename,file_mime_type,file_size_bytes,storage_bucket,storage_path", "limit": "1"})
+        row = resume_rows[0] if resume_rows else None
+        if row and row.get("storage_bucket") and row.get("storage_path"):
+            try:
+                signed = _supabase_request(
+                    f"/storage/v1/object/sign/{_quote(row['storage_bucket'])}/{urllib.parse.quote(str(row['storage_path']))}",
+                    method="POST", service_role=True, body={"expiresIn": 300},
+                )
+            except HTTPException as exc:
+                if exc.status_code not in {400, 404}:
+                    raise
+                signed = None
+            path = (signed.get("signedURL") or signed.get("signedUrl")) if isinstance(signed, dict) else None
+            if path:
+                resume = {
+                    "file_name": row.get("original_filename") or "Resume",
+                    "mime_type": row.get("file_mime_type"),
+                    "size_bytes": row.get("file_size_bytes"),
+                    "download_url": path if path.startswith("http") else f"{SUPABASE_URL}/storage/v1{path}",
+                }
+    return {"available": True, "reason": None, "resume": resume, "portfolio_url": shared.get("portfolio_url") or None}
 
 
 def _set_application_stage_as_employer(authorization: str | None, application_id: str, status: str, reason: Optional[str]) -> object | None:
@@ -1253,6 +1314,8 @@ def health_config() -> dict:
             "doc_libreoffice": soffice_path() is not None,
             "doc_antiword": antiword_path() is not None,
         },
+        # Local file only; the PSA API is never called while serving requests.
+        "psoc_reference": psoc_reference.reference_status(),
     }
 
 
@@ -1265,12 +1328,18 @@ def admin_overview(authorization: Annotated[Optional[str], Header()] = None) -> 
         limit=500,
         order="created_at.desc",
     )
-    job_posts = _admin_select(
-        "employer_job_posts",
-        "id,job_id,job_title,company_name,posting_status,created_at,updated_at",
-        limit=500,
-        order="updated_at.desc",
-    )
+    job_select = "id,job_id,job_title,company_name,psoc_unit_code,posting_status,created_at,updated_at"
+    try:
+        job_posts = _admin_select("employer_job_posts", job_select, limit=500, order="updated_at.desc")
+    except HTTPException as error:
+        if error.status_code != 400 or "psoc_unit_code" not in str(error.detail):
+            raise
+        job_posts = _admin_select("employer_job_posts", job_select.replace("psoc_unit_code,", ""),
+                                  limit=500, order="updated_at.desc")
+    for job_post in job_posts:
+        code = job_post.get("psoc_unit_code")
+        occupation = psoc_reference.validate_occupation_code(code) if code else {}
+        job_post["psoc_title"] = occupation.get("title", "") if occupation.get("valid") and occupation.get("level") == "unit" else ""
     applications = _admin_select(
         "job_applications",
         "id,user_id,job_id,job_title,company_name,status,message_request_state,applied_at,updated_at",
@@ -1364,13 +1433,20 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
 @app.patch("/api/admin/jobs")
 def admin_update_job(payload: AdminJobUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
     _require_admin_user(authorization)
-    body = {key: value.strip() for key, value in {
+    body: dict[str, str | None] = {key: value.strip() for key, value in {
         "job_title": payload.job_title,
         "company_name": payload.company_name,
         "posting_status": payload.posting_status,
     }.items() if value is not None and value.strip()}
     if body.get("posting_status") and body["posting_status"] not in {"active", "draft", "closed"}:
         raise HTTPException(status_code=400, detail="Job status must be active, draft, or closed.")
+    if payload.psoc_unit_code is not None:
+        code = payload.psoc_unit_code.strip()
+        if code:
+            occupation = psoc_reference.validate_occupation_code(code)
+            if not occupation["valid"] or occupation["level"] != "unit":
+                raise HTTPException(status_code=400, detail="Enter a valid four-digit PSOC 2012 unit code.")
+        body["psoc_unit_code"] = code or None
     if not body:
         raise HTTPException(status_code=400, detail="No job changes were provided.")
     rows = _supabase_request(f"/rest/v1/employer_job_posts?id=eq.{urllib.parse.quote(payload.job_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
@@ -1915,6 +1991,49 @@ def _format_detail_salary(record: dict) -> str:
     return ""
 
 
+def _clean_screening_questions(value: object, *, include_expected: bool) -> list[dict]:
+    """Screening questions as stored on a job post. Candidates never see the
+    employer's expected answer."""
+    items = value if isinstance(value, list) else []
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question") or "").strip()
+        if not question:
+            continue
+        entry = {"question": question}
+        if include_expected:
+            entry["expected_answer"] = str(item.get("expected_answer") or "").strip() or None
+        cleaned.append(entry)
+    return cleaned
+
+
+def _clean_hiring_stages(value: object) -> list[dict]:
+    items = value if isinstance(value, list) else []
+    return [
+        {"stage": str(item.get("stage") or "").strip(), "description": str(item.get("description") or "").strip() or None}
+        for item in items
+        if isinstance(item, dict) and str(item.get("stage") or "").strip()
+    ]
+
+
+def _job_applicant_count(job_id: str) -> int | None:
+    """Applicants on an open employer post, withdrawn excluded. None when the
+    count function is not deployed yet."""
+    if not job_id:
+        return None
+    try:
+        rows = _supabase_request("/rest/v1/rpc/get_job_applicant_counts", method="POST", body={"target_job_ids": [job_id]})
+    except HTTPException as exc:
+        if exc.status_code == 404 or "PGRST202" in str(exc.detail):
+            return None
+        raise
+    if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+        return int(rows[0].get("applicant_count") or 0)
+    return 0
+
+
 @app.get("/api/jobs/detail")
 def job_detail(job_id: str, job_source: str = "internal") -> dict:
     source = "employer" if job_source == "employer" else "internal"
@@ -1938,10 +2057,14 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
         raise HTTPException(status_code=404, detail="This job posting is closed and is no longer accepting applications.")
 
     description, embedded_responsibilities = _split_job_description_sections(row.get("job_description"))
+    occupation = psoc_reference.validate_occupation_code(row.get("psoc_unit_code")) if row.get("psoc_unit_code") else {}
+    psoc_code = str(occupation.get("code", "")) if occupation.get("valid") and occupation.get("level") == "unit" else ""
     job = {
         "job_id": str(row.get("job_id") or ""),
         "job_source": source,
         "job_title": str(row.get("job_title") or ""),
+        "psoc_unit_code": psoc_code,
+        "psoc_title": str(occupation.get("title", "")) if psoc_code else "",
         "company_name": str(row.get("company_name") or ""),
         "job_category": str(row.get("category_name") or ""),
         "job_subcategory": str(row.get("job_subcategory") or ""),
@@ -1955,6 +2078,10 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
         "required_skills": _split_detail_list(row.get("required_skills")),
         "preferred_skills": _split_detail_list(row.get("preferred_skills")),
         "external_job_link_optional": str(row.get("source_url") or ""),
+        "posted_at": str(row.get("created_at") or ""),
+        "applicant_count": _job_applicant_count(str(row.get("job_id") or "")) if source == "employer" else None,
+        "screening_questions": _clean_screening_questions(row.get("screening_questions"), include_expected=False) if source == "employer" else [],
+        "hiring_stages": _clean_hiring_stages(row.get("hiring_stages")) if source == "employer" else [],
     }
 
     return {
