@@ -1,12 +1,10 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronRight, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { NextStepCard, PageHeader, SectionHead, SeeAllLink, SkeletonRows, type NextStep } from '../../components/ui';
-import { ApplicantRow } from './ApplicantRow';
 import {
   formatDateLabel,
   JOB_STATUS_LABEL,
   jobStatusBadgeClass,
-  type CandidateApplication,
   type EmployerJob,
 } from './model';
 
@@ -14,16 +12,17 @@ type EmployerHomePageProps = {
   isLoading: boolean;
   nextSteps: NextStep[];
   pipeline: Array<{ label: string; count: number }>;
-  topApplicants: CandidateApplication[];
+  /** Jobs with applicants still at Pending, most waiting first. Never ranked by score. */
+  reviewQueue: Array<{ job: EmployerJob; pending: number; oldestApplied: string }>;
   openJobs: Array<EmployerJob & { applicantCount: number }>;
-  onReview: (candidateId: string) => void;
   onOpenCandidates: () => void;
+  onOpenJobApplicants: (jobId: string) => void;
   onOpenJobs: () => void;
   onOpenJob: (jobId: string) => void;
   onPostJob: () => void;
 };
 
-export function EmployerHomePage({ isLoading, nextSteps, pipeline, topApplicants, openJobs, onReview, onOpenCandidates, onOpenJobs, onOpenJob, onPostJob }: EmployerHomePageProps) {
+export function EmployerHomePage({ isLoading, nextSteps, pipeline, reviewQueue, openJobs, onOpenCandidates, onOpenJobApplicants, onOpenJobs, onOpenJob, onPostJob }: EmployerHomePageProps) {
   const totalApplicants = pipeline.reduce((sum, stage) => sum + stage.count, 0);
   return (
     <div className="k-page">
@@ -41,15 +40,27 @@ export function EmployerHomePage({ isLoading, nextSteps, pipeline, topApplicants
 
           {isLoading ? (
             <section aria-label="Loading applicants">
-              <SectionHead title="Top applicants" />
+              <SectionHead title="Waiting for review" />
               <SkeletonRows count={3} label="Loading applicants" />
             </section>
-          ) : topApplicants.length > 0 && (
-            <section aria-labelledby="home-top-applicants">
-              <SectionHead id="home-top-applicants" title="Top applicants" action={<SeeAllLink onClick={onOpenCandidates} />} />
+          ) : reviewQueue.length > 0 && (
+            <section aria-labelledby="home-review-queue">
+              <SectionHead id="home-review-queue" title="Waiting for review" action={<SeeAllLink onClick={onOpenCandidates} />} />
               <ul className="k-list">
-                {topApplicants.map((candidate) => (
-                  <li key={candidate.id}><ApplicantRow candidate={candidate} onReview={onReview} /></li>
+                {reviewQueue.map(({ job, pending, oldestApplied }) => (
+                  <li key={job.id}>
+                    <button className="k-row" type="button" onClick={() => onOpenJobApplicants(job.id)}>
+                      <span className="k-row-main">
+                        <span className="k-label block truncate">{job.title}</span>
+                        <span className="k-meta k-dot-sep mt-0.5 block">
+                          <span>{pending} new applicant{pending === 1 ? '' : 's'}</span>
+                          {oldestApplied && <span>Oldest applied {formatDateLabel(oldestApplied)}</span>}
+                        </span>
+                      </span>
+                      <span className="k-meta">Review</span>
+                      <FontAwesomeIcon className="k-row-chevron" icon={faChevronRight} aria-hidden="true" />
+                    </button>
+                  </li>
                 ))}
               </ul>
             </section>

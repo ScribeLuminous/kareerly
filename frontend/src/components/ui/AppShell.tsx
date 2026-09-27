@@ -36,6 +36,11 @@ type AppShellProps = {
   /** Short workspace label beside the logo, e.g. "Employer". */
   workspaceLabel?: string;
   nav: ShellNavItem[];
+  /**
+   * sidebar: bottom bar on phones, rail on tablets, labelled sidebar on desktop.
+   * topnav: bottom bar on phones, labelled tabs in the top bar from tablets up.
+   */
+  layout?: 'sidebar' | 'topnav';
   /** One secondary action at the foot of the desktop sidebar. */
   sidebarAction?: { label: string; icon: IconDefinition; href: string; current: boolean; onSelect: () => void };
   notifications: {
@@ -68,19 +73,38 @@ const plainClick = (onSelect: () => void) => (event: React.MouseEvent) => {
  * on phones, an icon rail on tablets and a labelled sidebar on desktop, with
  * notifications and the account menu in the top bar.
  */
-export default function AppShell({ onHome, workspaceLabel, nav, sidebarAction, notifications, account, children }: AppShellProps) {
+export default function AppShell({ onHome, workspaceLabel, nav, layout = 'sidebar', sidebarAction, notifications, account, children }: AppShellProps) {
   return (
-    <div className="k-shell cand-dashboard">
+    <div className={`k-shell cand-dashboard ${layout === 'topnav' ? 'k-shell-topnav' : ''}`}>
       <a className="k-btn k-btn-primary sr-only-focusable fixed left-2 top-2 z-[1001]" href="#main-content">Skip to content</a>
       <header className="k-topbar">
         <Logo size="module" onClick={onHome} />
         {workspaceLabel && <span className="k-badge k-badge-info ml-2 hidden sm:inline-flex">{workspaceLabel}</span>}
+        {layout === 'topnav' && (
+          <nav className="k-topnav" aria-label="Main">
+            {nav.map((item) => {
+              const badge = item.badge || 0;
+              return (
+                <a key={item.id} className="k-topnav-item" href={item.href} aria-current={item.current ? 'page' : undefined} onClick={plainClick(item.onSelect)}>
+                  <FontAwesomeIcon icon={item.icon} aria-hidden="true" />
+                  <span>{item.label}</span>
+                  {badge > 0 && (
+                    <>
+                      <span className="k-topnav-count" aria-hidden="true">{badge}</span>
+                      <span className="sr-only">, {item.badgeLabel ? item.badgeLabel(badge) : `${badge} new`}</span>
+                    </>
+                  )}
+                </a>
+              );
+            })}
+          </nav>
+        )}
         <div className="k-topbar-spacer" />
         <NotificationsMenu {...notifications} />
         <AccountMenu {...account} />
       </header>
 
-      <nav className="k-nav" aria-label="Main" style={{ gridTemplateColumns: nav.length === 4 ? 'repeat(4, minmax(0, 1fr))' : undefined }}>
+      <nav className="k-nav" aria-label={layout === 'topnav' ? 'Main, mobile' : 'Main'} style={{ gridTemplateColumns: nav.length === 4 ? 'repeat(4, minmax(0, 1fr))' : undefined }}>
         {nav.map((item) => {
           const badge = item.badge || 0;
           return (

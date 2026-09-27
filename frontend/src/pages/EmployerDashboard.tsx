@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { faBriefcase, faBuilding, faComments, faHouse, faLayerGroup, faPlus, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faBriefcase, faBuilding, faComments, faHouse, faLayerGroup, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { AppShell, ConfirmDialog, DESKTOP_QUERY, FormField, ToastRegion, useMediaQuery, type NextStep, type ToastState } from '../components/ui';
 import { loadApplicationMessages, loadEmployerAccountSettings, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { joinJobContent } from '../lib/jobDescription';
+import { isEvaluationUnavailable, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveRubric, type EvaluationSummary } from '../lib/evaluationApi';
 import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
 import { EmployerAccountPage, type EmployerAccountForm } from './employer/EmployerAccountPage';
 import { EmployerCandidatesPage } from './employer/EmployerCandidatesPage';
+import { RubricEditorModal } from './employer/RubricEditorModal';
+import { DEFAULT_CANDIDATE_FILTERS, visibleApplicants, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
 import { EmployerHomePage } from './employer/EmployerHomePage';
 import { EmployerJobsPage } from './employer/EmployerJobsPage';
 import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
@@ -19,7 +22,6 @@ import {
   emptyJobForm,
   getCategoryCode,
   getInitials,
-  getMatchBucket,
   getSalaryAmounts,
   initialApplications,
   initialJobs,
@@ -111,7 +113,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [requiredSkillInput, setRequiredSkillInput] = useState('');
   const [niceSkillInput, setNiceSkillInput] = useState('');
   const [closeJobTarget, setCloseJobTarget] = useState<EmployerJob | null>(null);
-  const [candidateJobFilter, setCandidateJobFilter] = useState<string>('');
+  const [rawCandidateFilters, setCandidateFilters] = useState<CandidateFilters>(DEFAULT_CANDIDATE_FILTERS);
+  const [rubrics, setRubrics] = useState<Rubric[]>([]);
+  const [evaluationUnavailable, setEvaluationUnavailable] = useState(false);
+  const [summaryState, setSummaryState] = useState<{ jobPostId: string; rows: Map<string, EvaluationSummary> }>({ jobPostId: '', rows: new Map() });
+  const [summaryVersion, setSummaryVersion] = useState(0);
+  const [rubricEditor, setRubricEditor] = useState<{ jobId: string; inUse: boolean } | null>(null);
+  const [isSavingRubric, setIsSavingRubric] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string>('');
   const [messageDraft, setMessageDraft] = useState('');
   const [draftRequestCandidateId, setDraftRequestCandidateId] = useState<string>('');
@@ -253,12 +261,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     return new Map<string, JobStats>(
       jobs.map((job) => {
         const candidates = applications.filter((candidate) => candidate.jobId === job.id);
-        const top = candidates.filter((candidate) => candidate.matchPercent >= 90).length;
-        const good = candidates.filter(
-          (candidate) => candidate.matchPercent >= 75 && candidate.matchPercent < 90,
-        ).length;
-        const partial = candidates.filter((candidate) => candidate.hasMatchScore && candidate.matchPercent < 75).length;
-        return [job.id, { applications: candidates.length, top, good, partial }];
+        const count = (statuses: CandidateStatus[]) => candidates.filter((candidate) => statuses.includes(candidate.status)).length;
+        return [job.id, {
+          applications: candidates.length,
+          pending: count(['Pending']),
+          inReview: count(['Shortlisted', 'Interviewing']),
+          closed: count(['Hired', 'Rejected', 'Withdrawn']),
+        }];
       }),
     );
   }, [applications, jobs]);
@@ -282,6 +291,59 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const reviewCandidate = applications.find((candidate) => candidate.id === reviewModalId) || null;
   const reviewJob = reviewCandidate ? jobMap.get(reviewCandidate.jobId) || null : null;
+
+  // Rubric versions per job (newest first), keyed by the public job id.
+  const rubricsByJob = useMemo(() => {
+    const byPostId = new Map(jobs.map((job) => [job.databaseId || '', job.id]));
+    const result = new Map<string, Rubric[]>();
+    rubrics.forEach((rubric) => {
+      const jobId = byPostId.get(rubric.jobPostId);
+      if (!jobId) return;
+      result.set(jobId, [...(result.get(jobId) || []), rubric].sort((left, right) => right.version - left.version));
+    });
+    return result;
+  }, [jobs, rubrics]);
+  const rubricVersions = useMemo(() => new Map(Array.from(rubricsByJob.entries()).map(([jobId, list]) => [jobId, list[0].version])), [rubricsByJob]);
+
+  // The Candidates page always shows one job; start with the one with the most waiting applicants.
+  const defaultCandidateJobId = useMemo(() => {
+    const pendingCount = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId && candidate.status === 'Pending').length;
+    const total = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId).length;
+    return [...jobs].sort((left, right) => pendingCount(right.id) - pendingCount(left.id) || total(right.id) - total(left.id))[0]?.id || '';
+  }, [jobs, applications]);
+  const candidateFilters = useMemo<CandidateFilters>(() => (
+    rawCandidateFilters.jobId && jobMap.has(rawCandidateFilters.jobId) ? rawCandidateFilters : { ...rawCandidateFilters, jobId: defaultCandidateJobId }
+  ), [rawCandidateFilters, jobMap, defaultCandidateJobId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const postIds = jobs.map((job) => job.databaseId).filter((id): id is string => Boolean(id));
+    if (postIds.length === 0) return;
+    loadRubrics(postIds)
+      .then((rows) => { if (isMounted) { setRubrics(rows); setEvaluationUnavailable(false); } })
+      .catch((error) => {
+        console.warn('Unable to load evaluation rubrics:', error);
+        if (isMounted && isEvaluationUnavailable(error)) setEvaluationUnavailable(true);
+      });
+    return () => { isMounted = false; };
+  }, [jobs]);
+
+  const filterJobPostId = jobMap.get(candidateFilters.jobId)?.databaseId || '';
+  useEffect(() => {
+    let isMounted = true;
+    if (!filterJobPostId || evaluationUnavailable) return;
+    loadJobEvaluationSummaries(filterJobPostId)
+      .then((rows) => { if (isMounted) setSummaryState({ jobPostId: filterJobPostId, rows }); })
+      .catch((error) => {
+        console.warn('Unable to load evaluation summaries:', error);
+        if (isMounted && isEvaluationUnavailable(error)) setEvaluationUnavailable(true);
+      });
+    return () => { isMounted = false; };
+  }, [filterJobPostId, evaluationUnavailable, summaryVersion, rubrics]);
+
+  const summaries = useMemo(() => (summaryState.jobPostId === filterJobPostId && !evaluationUnavailable ? summaryState.rows : new Map<string, EvaluationSummary>()), [summaryState, filterJobPostId, evaluationUnavailable]);
+  const reviewList = useMemo(() => visibleApplicants(applications, jobs, candidateFilters, summaries), [applications, jobs, candidateFilters, summaries]);
+  const reviewIndex = reviewCandidate ? reviewList.findIndex((candidate) => candidate.id === reviewCandidate.id) : -1;
 
   useEffect(() => {
     let isMounted = true;
@@ -663,7 +725,44 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   };
 
   const openReview = (candidateId: string) => {
+    const candidate = applications.find((item) => item.id === candidateId);
+    // Reviews always happen inside one job's list, so moving between applicants stays within that job.
+    if (candidate && candidate.jobId !== candidateFilters.jobId) {
+      setCandidateFilters((current) => ({ ...current, jobId: candidate.jobId, status: 'all', search: '' }));
+    }
     setReviewModalId(candidateId);
+  };
+
+  const openRubricEditor = async (jobId: string) => {
+    const latest = rubricsByJob.get(jobId)?.[0] || null;
+    let inUse = false;
+    if (latest) {
+      try {
+        inUse = await rubricHasScorecards(latest.id);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Unable to open the rubric.', 'danger');
+        return;
+      }
+    }
+    setRubricEditor({ jobId, inUse });
+  };
+
+  const saveRubricDraft = async (criteria: RubricCriterionDraft[]) => {
+    const job = rubricEditor ? jobMap.get(rubricEditor.jobId) : null;
+    if (!job?.databaseId) return;
+    setIsSavingRubric(true);
+    try {
+      await saveRubric(job.databaseId, criteria);
+      const postIds = jobs.map((item) => item.databaseId).filter((id): id is string => Boolean(id));
+      setRubrics(await loadRubrics(postIds));
+      setSummaryVersion((value) => value + 1);
+      showToast(rubricEditor?.inUse ? 'Saved as a new rubric version. Earlier scorecards keep their version.' : 'Rubric saved.', 'success');
+      setRubricEditor(null);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save the rubric.', 'danger');
+    } finally {
+      setIsSavingRubric(false);
+    }
   };
 
   const closeReview = () => {
@@ -720,8 +819,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       showToast(`${label} moved to ${nextStatus}.`, 'success');
     }
     closeConfirm();
-    // Keep the review open after Interviewing so the message request is one tap away.
-    if (nextStatus !== 'Interviewing') closeReview();
+    setSummaryVersion((value) => value + 1);
   };
 
   const sendMessageRequest = (candidateId: string) => {
@@ -835,7 +933,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   };
 
   const viewApplicants = (jobId: string) => {
-    setCandidateJobFilter(jobId);
+    setCandidateFilters((current) => ({ ...current, jobId, status: 'all', search: '' }));
     setJobDetailOpen(false);
     goPage('candidates');
   };
@@ -861,11 +959,14 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     ...(closingSoon ? [{ id: 'closing', title: `${closingSoon.title} ${closingDays === 0 ? 'closes today' : `closes in ${closingDays} day${closingDays === 1 ? '' : 's'}`}`, detail: 'Extend the deadline if you need more applicants.', actionLabel: 'Edit job', onAction: () => startEditJobForm(closingSoon) }] : []),
     ...(draftJob ? [{ id: 'draft', title: `Finish your draft: ${draftJob.title}`, detail: 'Drafts are hidden from candidates until you post them.', actionLabel: 'Continue editing', onAction: () => startEditJobForm(draftJob) }] : []),
   ];
-  const topApplicants = applications
-    .filter((candidate) => candidate.status === 'Pending' || candidate.status === 'Shortlisted' || candidate.status === 'Interviewing')
-    .filter((candidate) => getMatchBucket(candidate.matchPercent, candidate.hasMatchScore) !== 'unknown')
-    .sort((left, right) => right.matchPercent - left.matchPercent)
-    .slice(0, 4);
+  const reviewQueue = jobs
+    .map((job) => {
+      const waiting = pendingApplicants.filter((candidate) => candidate.jobId === job.id);
+      return { job, pending: waiting.length, oldestApplied: waiting.map((candidate) => candidate.appliedDate).filter(Boolean).sort()[0] || '' };
+    })
+    .filter((row) => row.pending > 0)
+    .sort((left, right) => right.pending - left.pending)
+    .slice(0, 5);
   const pipeline = (['Pending', 'Shortlisted', 'Interviewing', 'Hired'] as CandidateStatus[]).map((status) => ({
     label: status,
     count: applications.filter((candidate) => candidate.status === status).length,
@@ -878,6 +979,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     <AppShell
       onHome={() => goPage('dashboard')}
       workspaceLabel="Employer"
+      layout="topnav"
       nav={[
         { id: 'dashboard', href: EMPLOYER_PAGE_PATHS.dashboard, label: 'Home', icon: faHouse, current: activePage === 'dashboard', onSelect: () => goPage('dashboard') },
         { id: 'jobs', href: EMPLOYER_PAGE_PATHS.jobs, label: 'Jobs', icon: faBriefcase, current: activePage === 'jobs', onSelect: () => goPage('jobs') },
@@ -902,7 +1004,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           badgeLabel: (count) => `${count} request${count === 1 ? '' : 's'} awaiting a reply`,
         },
       ]}
-      sidebarAction={{ label: 'Post a job', icon: faPlus, href: EMPLOYER_PAGE_PATHS.jobs, current: jobsPanelMode === 'new', onSelect: postJob }}
       notifications={{
         items: notifications.map((item) => ({
           id: item.id,
@@ -931,10 +1032,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           isLoading={isLoadingJobs || isLoadingApplicants}
           nextSteps={nextSteps}
           pipeline={pipeline}
-          topApplicants={topApplicants}
+          reviewQueue={reviewQueue}
           openJobs={openJobsList}
-          onReview={openReview}
           onOpenCandidates={() => goPage('candidates')}
+          onOpenJobApplicants={viewApplicants}
           onOpenJobs={() => goPage('jobs')}
           onOpenJob={openJob}
           onPostJob={postJob}
@@ -945,6 +1046,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         <EmployerJobsPage
           jobs={jobs}
           jobStats={jobStats}
+          rubricVersions={rubricVersions}
           isLoading={isLoadingJobs}
           isDesktop={isDesktop}
           selectedJobId={selectedJobId}
@@ -953,6 +1055,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onCloseDetail={() => setJobDetailOpen(false)}
           onPostJob={postJob}
           onEdit={startEditJobForm}
+          onEditRubric={(jobId) => void openRubricEditor(jobId)}
           onViewApplicants={viewApplicants}
           onCloseJob={setCloseJobTarget}
         />
@@ -964,10 +1067,14 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           jobs={jobs}
           isLoading={isLoadingJobs || isLoadingApplicants}
           loadFailed={applicationsLoadStatus === 'error'}
-          jobFilter={candidateJobFilter}
-          onJobFilter={setCandidateJobFilter}
+          filters={candidateFilters}
+          onFilters={setCandidateFilters}
+          summaries={summaries}
+          hasRubric={rubricsByJob.has(candidateFilters.jobId)}
+          evaluationUnavailable={evaluationUnavailable}
           onReview={openReview}
           onOpenJobs={() => goPage('jobs')}
+          onEditRubric={(jobId) => void openRubricEditor(jobId)}
         />
       )}
 
@@ -1026,10 +1133,30 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         <ApplicantReviewModal
           candidate={reviewCandidate}
           job={reviewJob}
+          rubrics={rubricsByJob.get(reviewCandidate.jobId) || []}
+          currentUserId={employer.id || ''}
+          position={reviewIndex >= 0 ? { index: reviewIndex, total: reviewList.length } : null}
+          evaluationUnavailable={evaluationUnavailable}
+          onPrevious={reviewIndex > 0 ? () => setReviewModalId(reviewList[reviewIndex - 1].id) : null}
+          onNext={reviewIndex >= 0 && reviewIndex < reviewList.length - 1 ? () => setReviewModalId(reviewList[reviewIndex + 1].id) : null}
+          onEditRubric={(jobId) => void openRubricEditor(jobId)}
+          onEvaluationChanged={() => setSummaryVersion((value) => value + 1)}
+          onToast={showToast}
           onClose={closeReview}
           onAction={openConfirmStatus}
           onSendRequest={sendMessageRequest}
           onOpenMessages={selectThreadFromCandidates}
+        />
+      )}
+
+      {rubricEditor && jobMap.get(rubricEditor.jobId) && (
+        <RubricEditorModal
+          job={jobMap.get(rubricEditor.jobId)!}
+          rubric={rubricsByJob.get(rubricEditor.jobId)?.[0] || null}
+          inUse={rubricEditor.inUse}
+          saving={isSavingRubric}
+          onCancel={() => setRubricEditor(null)}
+          onSave={(criteria) => void saveRubricDraft(criteria)}
         />
       )}
 

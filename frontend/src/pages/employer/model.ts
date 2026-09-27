@@ -13,8 +13,6 @@ export type MessageRequestState = 'none' | 'pending' | 'accepted' | 'declined' |
 
 export type ToastType = '' | 'success' | 'warn' | 'danger';
 
-export type MatchBucket = 'top' | 'good' | 'partial' | 'unknown';
-
 export type ReviewAction = 'shortlisted' | 'interviewing' | 'hired' | 'rejected';
 
 export type JobsPanelMode = 'detail' | 'edit' | 'new';
@@ -75,17 +73,20 @@ export type CandidateApplication = {
   fullName: string;
   role: string;
   jobId: string;
-  matchPercent: number;
-  hasMatchScore: boolean;
+  /**
+   * The candidate-side ranking score saved when they applied (semantic text
+   * similarity plus skill coverage). Kept for reference only: its text
+   * similarity part is not stored, so it cannot be explained to a reviewer
+   * and is not shown as a match figure.
+   */
+  applyTimeRankingScore: number | null;
   matchedSkills: string[];
   missingSkills: string[];
   status: CandidateStatus;
   appliedDate: string;
+  /** Latest of applying, a stage change or a message (ISO timestamp). */
+  lastActivity: string;
   location: string;
-  matchSummary: string;
-  strengthNote: string;
-  gapNote: string;
-  recommendation: string;
   messageRequestState: MessageRequestState;
   messages: MessageEntry[];
 };
@@ -107,6 +108,7 @@ export type JobApplicationRow = {
   status?: string | null;
   created_at?: string | null;
   applied_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type ApplicationMessageRow = {
@@ -382,8 +384,6 @@ export const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob
   const status = mapApplicationStatus(row.status);
   const matchedSkills = Array.isArray(row.matched_skills) ? row.matched_skills.filter(Boolean) : [];
   const missingSkills = Array.isArray(row.missing_skills) ? row.missing_skills.filter(Boolean) : [];
-  const savedScore = savedMatchScore(row.match_score);
-  const matchPercent = savedScore ?? 0;
 
   return {
     id: row.id,
@@ -391,17 +391,16 @@ export const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob
     fullName: row.candidate_name || row.candidate_email || `Candidate ${String(row.user_id || row.id).slice(0, 8)}`,
     role: row.job_title || relatedJob?.title || 'Untitled role',
     jobId: row.job_id,
-    matchPercent,
-    hasMatchScore: savedScore !== null,
+    applyTimeRankingScore: savedMatchScore(row.match_score),
     matchedSkills,
     missingSkills,
     status,
     appliedDate: (row.applied_at || row.created_at || '').slice(0, 10),
+    lastActivity: [row.applied_at, row.created_at, row.updated_at, ...messages.map((message) => message.created_at)]
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .pop() || '',
     location: row.candidate_location || 'Location not provided',
-    matchSummary: savedScore !== null ? `${matchPercent}% candidate-side match at application time.` : 'Candidate applied without a saved match score.',
-    strengthNote: matchedSkills.length > 0 ? `Matched skills: ${matchedSkills.slice(0, 4).join(', ')}` : 'Matched skills were not captured yet.',
-    gapNote: missingSkills.length > 0 ? `Potential gaps: ${missingSkills.slice(0, 4).join(', ')}` : 'Missing skill information was not captured.',
-    recommendation: status === 'Withdrawn' ? 'Application withdrawn by candidate.' : 'Review candidate application details and decide next status.',
     messageRequestState: mapMessageRequestState(row.message_request_state),
     messages: messages.map(toMessageEntry),
   };
@@ -443,13 +442,6 @@ export function maskedName(name: string): string {
       return `${part[0]}${'*'.repeat(Math.max(4, part.length - 1))}`;
     })
     .join(' ');
-}
-
-export function getMatchBucket(score: number, hasMatchScore = true): MatchBucket {
-  if (!hasMatchScore) return 'unknown';
-  if (score >= 90) return 'top';
-  if (score >= 75) return 'good';
-  return 'partial';
 }
 
 export function formatDateLabel(value: string): string {
@@ -506,20 +498,6 @@ export function candidateStatusBadgeClass(status: CandidateStatus): string {
   return 'k-badge k-badge-high';
 }
 
-export const MATCH_BAND_LABEL: Record<MatchBucket, string> = {
-  top: 'Top match',
-  good: 'Good match',
-  partial: 'Partial match',
-  unknown: 'No score',
-};
-
-export function matchBandBadgeClass(bucket: MatchBucket): string {
-  if (bucket === 'top') return 'k-badge k-badge-fit';
-  if (bucket === 'good') return 'k-badge k-badge-info';
-  if (bucket === 'partial') return 'k-badge';
-  return 'k-badge k-badge-outline';
-}
-
 export function jobStatusBadgeClass(status: JobStatus): string {
   if (status === 'open') return 'k-badge k-badge-success';
   if (status === 'draft') return 'k-badge k-badge-high';
@@ -559,5 +537,5 @@ export const EXPERIENCE_LEVELS = ['Entry-level / Fresh Graduate', 'Junior (1-2 y
 export const WORK_SETUPS = ['Remote', 'Hybrid', 'On-site'];
 export const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Temporary', 'Internship'];
 
-export type JobStats = { applications: number; top: number; good: number; partial: number };
-export const EMPTY_JOB_STATS: JobStats = { applications: 0, top: 0, good: 0, partial: 0 };
+export type JobStats = { applications: number; pending: number; inReview: number; closed: number };
+export const EMPTY_JOB_STATS: JobStats = { applications: 0, pending: 0, inReview: 0, closed: 0 };
