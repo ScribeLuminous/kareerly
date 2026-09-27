@@ -576,7 +576,9 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
   const normalizedScore = extractMatchPercent(match, scoreContext);
   const score = normalizedScore === null ? 0 : Math.round(normalizedScore);
   const dynamic = match as unknown as Record<string, unknown>;
-  const externalUrl = typeof dynamic.job_url === 'string' ? dynamic.job_url : typeof dynamic.url === 'string' ? dynamic.url : undefined;
+  const linkFields = [match.external_job_link_optional, dynamic.job_url, dynamic.url];
+  // Catalogue jobs listed elsewhere (e.g. imported from Jooble) carry their link as external_job_link_optional.
+  const externalUrl = linkFields.find((value): value is string => typeof value === 'string' && value.trim() !== '');
   const jobSource = dynamic.job_source === 'employer' ? 'employer' : 'internal';
   const sourceType: 'internal' | 'external' = externalUrl ? 'external' : 'internal';
   const location = match.location || 'Location not specified';
@@ -726,6 +728,7 @@ export function mergeSupabaseJobDetails(job: DashboardJob, detail?: AvailableJob
     subCategory: titleCase(detail.job_subcategory || job.subCategory || ''),
     jobLevel: titleCase(detail.experience_level_required || detail.job_level || job.jobLevel || ''),
     externalUrl: detail.external_job_link_optional || job.externalUrl,
+    sourceType: detail.external_job_link_optional ? 'external' : job.sourceType,
   };
 }
 
