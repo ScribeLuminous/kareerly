@@ -4,7 +4,7 @@ from typing import Any, Optional, Union
 
 import pandas as pd
 
-from .skill_variants import any_case_variants, exact_case_matches, merge_variants_into_rows
+from .skill_variants import any_case_variants, exact_case_matches, merge_variants_into_rows, remove_excluded_aliases
 from .split_words import build_split_word_vocabulary
 from .taxonomy_additions import merge_reference_rows
 
@@ -201,6 +201,8 @@ class SkillExtractor:
         self.rows = merge_reference_rows(self.rows, self.extra_rows)
         # Reviewed spellings ("Zen Desk", "GWorkspace", "O365"); see skill_variants.py.
         merge_variants_into_rows(self.rows)
+        # Reviewed labels that name something else ("XPath" on SQL); see skill_alias_exclusions.csv.
+        remove_excluded_aliases(self.rows)
         self._row_by_skill_id = {row["skill_id"].upper(): index for index, row in enumerate(self.rows)}
 
     def _category_label_terms(self) -> set[str]:

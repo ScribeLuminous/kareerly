@@ -35,3 +35,6 @@ SK662,Photo Shop,true,,,"Title Case only; ""a photo shop"" is a store"
 SK662,Adobe Photo Shop,false,,,
 SK636,Click Up,true,,,"Title Case only; ""click up"" is an ordinary phrase"
 SK642,Hub-Spot,false,,,"hyphenated or spaced; ""hub spot"" is not ordinary English"
+SK002,Java Script,false,,,"spaced spelling of JavaScript; listed so ""Java Script"" is read as JavaScript, not as Java"
+SK678,React,true,,"(?i)^\s+(?:to|quickly|promptly|calmly|appropriately|positively)\b","Title Case only; ""react"" in lower case is an ordinary verb, and ""React to ..."" is left alone"
+SK678,React JS,false,,,spaced spelling of React.js
