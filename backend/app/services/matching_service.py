@@ -1878,6 +1878,7 @@ def _score_single_normalized_job(
     semantic_section = clean_text(job.get("semantic_evidence_section", ""))
     return {
         "job_id": job.get("job_id", ""), "job_title": job.get("job_title", ""),
+        "psoc_unit_code": job.get("psoc_unit_code", ""), "psoc_title": job.get("psoc_title", ""),
         "company": job.get("company_name", ""), "company_name": job.get("company_name", ""),
         "job_source": job.get("job_source", "internal"), "job_category": job.get("job_category", ""),
         "job_subcategory": job.get("job_subcategory", ""), "category_id": job.get("category_id_norm", ""),

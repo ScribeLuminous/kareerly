@@ -189,6 +189,7 @@ class AdminJobUpdateRequest(BaseModel):
     job_title: Optional[str] = None
     company_name: Optional[str] = None
     posting_status: Optional[str] = None
+    psoc_unit_code: Optional[str] = None
 
 
 class AdminApplicationUpdateRequest(BaseModel):
@@ -1269,12 +1270,18 @@ def admin_overview(authorization: Annotated[Optional[str], Header()] = None) -> 
         limit=500,
         order="created_at.desc",
     )
-    job_posts = _admin_select(
-        "employer_job_posts",
-        "id,job_id,job_title,company_name,posting_status,created_at,updated_at",
-        limit=500,
-        order="updated_at.desc",
-    )
+    job_select = "id,job_id,job_title,company_name,psoc_unit_code,posting_status,created_at,updated_at"
+    try:
+        job_posts = _admin_select("employer_job_posts", job_select, limit=500, order="updated_at.desc")
+    except HTTPException as error:
+        if error.status_code != 400 or "psoc_unit_code" not in str(error.detail):
+            raise
+        job_posts = _admin_select("employer_job_posts", job_select.replace("psoc_unit_code,", ""),
+                                  limit=500, order="updated_at.desc")
+    for job_post in job_posts:
+        code = job_post.get("psoc_unit_code")
+        occupation = psoc_reference.validate_occupation_code(code) if code else {}
+        job_post["psoc_title"] = occupation.get("title", "") if occupation.get("valid") and occupation.get("level") == "unit" else ""
     applications = _admin_select(
         "job_applications",
         "id,user_id,job_id,job_title,company_name,status,message_request_state,applied_at,updated_at",
@@ -1368,13 +1375,20 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
 @app.patch("/api/admin/jobs")
 def admin_update_job(payload: AdminJobUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
     _require_admin_user(authorization)
-    body = {key: value.strip() for key, value in {
+    body: dict[str, str | None] = {key: value.strip() for key, value in {
         "job_title": payload.job_title,
         "company_name": payload.company_name,
         "posting_status": payload.posting_status,
     }.items() if value is not None and value.strip()}
     if body.get("posting_status") and body["posting_status"] not in {"active", "draft", "closed"}:
         raise HTTPException(status_code=400, detail="Job status must be active, draft, or closed.")
+    if payload.psoc_unit_code is not None:
+        code = payload.psoc_unit_code.strip()
+        if code:
+            occupation = psoc_reference.validate_occupation_code(code)
+            if not occupation["valid"] or occupation["level"] != "unit":
+                raise HTTPException(status_code=400, detail="Enter a valid four-digit PSOC 2012 unit code.")
+        body["psoc_unit_code"] = code or None
     if not body:
         raise HTTPException(status_code=400, detail="No job changes were provided.")
     rows = _supabase_request(f"/rest/v1/employer_job_posts?id=eq.{urllib.parse.quote(payload.job_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
@@ -1942,10 +1956,14 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
         raise HTTPException(status_code=404, detail="This job posting is closed and is no longer accepting applications.")
 
     description, embedded_responsibilities = _split_job_description_sections(row.get("job_description"))
+    occupation = psoc_reference.validate_occupation_code(row.get("psoc_unit_code")) if row.get("psoc_unit_code") else {}
+    psoc_code = str(occupation.get("code", "")) if occupation.get("valid") and occupation.get("level") == "unit" else ""
     job = {
         "job_id": str(row.get("job_id") or ""),
         "job_source": source,
         "job_title": str(row.get("job_title") or ""),
+        "psoc_unit_code": psoc_code,
+        "psoc_title": str(occupation.get("title", "")) if psoc_code else "",
         "company_name": str(row.get("company_name") or ""),
         "job_category": str(row.get("category_name") or ""),
         "job_subcategory": str(row.get("job_subcategory") or ""),

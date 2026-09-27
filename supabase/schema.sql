@@ -121,6 +121,9 @@ create table if not exists public.internal_jobs (
   id uuid primary key default gen_random_uuid(),
   job_id text not null unique,
 
+  psoc_unit_code text constraint internal_jobs_psoc_unit_code_format
+    check (psoc_unit_code is null or psoc_unit_code ~ '^[0-9]{4}$'),
+
   category_code text,
   category_name text,
   job_subcategory text,
@@ -160,6 +163,9 @@ create table if not exists public.employer_job_posts (
   id uuid primary key default gen_random_uuid(),
   job_id text not null unique,
   employer_id uuid not null references public.employer_profiles(id) on delete cascade,
+
+  psoc_unit_code text constraint employer_job_posts_psoc_unit_code_format
+    check (psoc_unit_code is null or psoc_unit_code ~ '^[0-9]{4}$'),
 
   category_code text,
   category_name text,
