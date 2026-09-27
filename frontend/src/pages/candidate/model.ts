@@ -160,6 +160,8 @@ export type DashboardCourse = {
   /** Passed the catalog review (reviewer, evidence, verified date). */
   verified: boolean;
   recommendationNote?: string;
+  /** Per job ID, the reason for that job's gap; preferred over recommendationNote when a job is selected. */
+  recommendationNoteByJob?: Record<string, string>;
   fees: string;
   certificateCost: string;
   prerequisites: string;
@@ -962,6 +964,7 @@ export function mapRunLearningRecommendation(rec: RunLearningRecommendation): Da
     reviewed: Boolean(rec.resource_id || rec.title) && mappedSkills.length > 0,
     verified: rec.review_status === 'verified',
     recommendationNote: rec.why_recommended || undefined,
+    recommendationNoteByJob: rec.why_by_job || undefined,
     fees: rec.cost_type || 'Unknown', certificateCost: rec.certificate_cost || 'Unknown',
     prerequisites: rec.prerequisites || 'Unknown', credentialConditions: rec.credential_conditions || 'Unknown',
     verifiedAt: rec.last_verified_at,
