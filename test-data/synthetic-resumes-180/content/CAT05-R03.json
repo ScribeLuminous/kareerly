@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT05-R03",
+  "full_name": "Jan Carlo Sornito",
+  "location": "San Jose de Buenavista, Antique",
+  "email": "jan.sornito@example.org",
+  "phone": "+63 975 444 9655",
+  "headline": "Executive Assistant",
+  "experience": [
+    {
+      "title": "Executive Assistant to the President",
+      "employer": "Antique Sugar and Agro-Industrial Corp.",
+      "location": "San Jose de Buenavista, Antique",
+      "start": "2023-01",
+      "end": "Present",
+      "bullets": [
+        "Run the president's calendar across three sites and two time zones for overseas buyers, and prepare a briefing folder for each meeting.",
+        "Screen and answer routine email, drafting replies for approval, so the president sees only what needs a decision.",
+        "Keep board and contract files in order in Google Drive, with access limited by role.",
+        "Organise the annual planters' assembly for 400 guests, from invitations to the minutes."
+      ]
+    },
+    {
+      "title": "Administrative Officer",
+      "employer": "Western Panay Rural Electric Service Co.",
+      "location": "San Jose de Buenavista, Antique",
+      "start": "2021-06",
+      "end": "2022-12",
+      "bullets": [
+        "Managed the general manager's schedule, visitors and correspondence records.",
+        "Set up a document tracking sheet for incoming letters and their replies."
+      ]
+    }
+  ],
+  "summary": "Executive assistant with five years supporting company presidents and general managers in Antique. I manage complex calendars, inboxes and travel, prepare meeting papers and minutes, and keep sensitive documents organised and confidential. Equally comfortable in Microsoft Office and Google Workspace.",
+  "skills": [
+    "Executive assistance",
+    "Office administration",
+    "Calendar and travel management",
+    "Email management",
+    "Appointment scheduling",
+    "Document management",
+    "Microsoft Office",
+    "Google Workspace (Gmail, Calendar, Drive)",
+    "Correspondence records and minutes",
+    "Business writing"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in English Language Studies",
+      "school": "Antique Western State College",
+      "location": "San Jose de Buenavista, Antique",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Kinaray-a",
+    "Hiligaynon"
+  ]
+}

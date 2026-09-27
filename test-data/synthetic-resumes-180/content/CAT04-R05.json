@@ -1,0 +1,83 @@
+{
+  "candidate_id": "CAT04-R05",
+  "full_name": "Melvin Villanueva",
+  "location": "Siquijor, Siquijor",
+  "email": "melvin.villanueva@example.com",
+  "phone": "+63 919 891 8680",
+  "headline": "Accounting Manager, CPA",
+  "summary": "CPA and accounting manager with eleven years in audit, manufacturing and island hospitality. I lead the month-end close and statutory reporting under PFRS, run cost accounting and treasury, and keep the company compliant with BIR, SEC and lender requirements. I manage a team of five and report risks and results directly to the owners.",
+  "highlights": [
+    "Shortened the month-end close from 12 working days to 6 after moving the group to SAP.",
+    "Led three clean external audits with no material adjustments.",
+    "Introduced product costing that showed two loss-making tour packages, which were repriced."
+  ],
+  "skills": [
+    "Financial statements under PFRS / IFRS",
+    "Financial reporting and consolidation",
+    "Cost accounting and product costing",
+    "Treasury and cash-flow management",
+    "Budget and expense control",
+    "Internal audit techniques",
+    "BIR, SEC and lender compliance",
+    "SAP ERP (FI/CO)",
+    "Team leadership",
+    "Risk reporting to owners and lenders"
+  ],
+  "experience": [
+    {
+      "title": "Accounting Manager",
+      "employer": "Lazi Bay Hospitality Group",
+      "location": "Siquijor, Siquijor",
+      "start": "2020-01",
+      "end": "Present",
+      "bullets": [
+        "Lead a team of five covering payables, receivables, payroll accounting and tax for three resorts and a dive centre.",
+        "Prepare the consolidated financial statements and the reports required by the group's lenders.",
+        "Oversaw the move from spreadsheets to SAP and wrote the new close checklist."
+      ]
+    },
+    {
+      "title": "Senior Accountant",
+      "employer": "Negros Oriental Coco Products Inc.",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2017-06",
+      "end": "2019-12",
+      "bullets": [
+        "Ran the monthly close and product costing for a desiccated-coconut plant with 300 workers.",
+        "Prepared tax returns and the working papers for the annual audit."
+      ]
+    },
+    {
+      "title": "Audit Associate",
+      "employer": "Reyes Dumaguete and Company, CPAs",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2015-06",
+      "end": "2017-05",
+      "bullets": [
+        "Audited manufacturing, school and cooperative clients and drafted management letters.",
+        "Tested internal controls over purchasing and cash disbursements."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Accountancy",
+      "school": "Negros Oriental College of Commerce",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Public Accountant (CPA)",
+      "issuer": "Professional Regulation Commission",
+      "date": "2015-10"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}
