@@ -136,3 +136,41 @@ Before committing, check that no file under `data/psoc/` contains the token. The
 - no PSA access from `backend/app`.
 
 `test_import_reference_data.py` is unchanged and passes.
+
+## 7. Live follow-up on 2026-09-27
+
+The original limitations above describe the state of PR #72. A later authenticated
+run reached the PSA API and published a local PSOC 2012 copy. The live response is
+paginated JSON with `count`, `next`, `previous`, and `results`. PSA returned 10
+major, 43 sub-major, 130 minor, and 455 unit groups (638 total). The [PSOC API
+documentation](https://psa.gov.ph/classifications-api/psoc) says 456 unit groups,
+but the API's own `count` field says 455. The snapshot preserves the API data and
+records the actual counts; no missing unit was invented.
+
+The first publish attempt found a validator bug: PSA sends major code `0` as a
+number, and validation treated it as empty. This also falsely reported missing
+parents for `01`, `02`, and `03`. Validation now accepts zero and a fixture test
+covers the armed-forces hierarchy. A second download validated cleanly and
+published `data/psoc/psoc_2012_groups.csv` with its provenance metadata.
+
+This is **PSOC 2012**, not the complete 2022 update. The API has code `2121`
+as "MATHEMATICIANS AND ACTUARIES" and no `2123`; [PSA's 2022 technical
+notes](https://psa.gov.ph/statistics/technical-notes/1684075911) describe the
+split into `2121` Mathematician and `2123` Actuaries. The [official 2022
+workbook](https://psa.gov.ph/sites/default/files/kmcd/files/2022-Updates-to-the-2012-PSOC.xlsx)
+returned HTTP 403 in this environment, so a complete 2012-versus-2022 comparison
+remains pending. Do not describe the API snapshot as the current 2022 list.
+
+`psoc-check` found 16 title differences and one stored skill code (`6210`)
+missing from the API reference. These are review items, not automatic changes.
+The full PSOC-to-ISCO report contains 586 `isco_match`, 30 `ambiguous`, and 22
+`philippine_specific` groups; all 638 remain `proposed` for review.
+
+The nullable `psoc_unit_code` columns in migration
+`20260930090000_job_psoc_unit_codes.sql` allow an administrator to assign a
+reviewed 2012 unit code to an employer post. The backend validates the code
+against the published copy, and returns the code and title as job metadata.
+Matching scores and vacancy skill requirements do not use it. Apply the
+migration before using the admin occupation action. Existing jobs remain
+unclassified until a reviewer assigns a code; title similarity alone is not
+treated as approval.
