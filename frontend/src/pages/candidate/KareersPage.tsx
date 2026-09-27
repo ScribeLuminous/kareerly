@@ -96,7 +96,8 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
   return (
     <div className="k-page">
       <PageHeader title="Kareers" />
-      <section className="mb-6" aria-labelledby="kareers-tools">
+      {/* Desktop reaches these from the Kareers dropdown in the top bar. */}
+      <section className="mb-6 lg:hidden" aria-labelledby="kareers-tools">
         <h2 id="kareers-tools" className="k-eyebrow mb-2">Career tools</h2>
         <ul className="grid gap-2 sm:grid-cols-2">
           <li className="k-list">
