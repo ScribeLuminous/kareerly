@@ -217,3 +217,5 @@ taxonomy; two `.doc` conversion tests depend on the local LibreOffice).
    are no longer read as languages, so a developer who lists only "Ruby" is
    not credited. Those rows are unreviewed and no job requires them; an
    upper-case-only spelling (like "JS") is an option once they are reviewed.
+
+Learning recommendations built on these gaps are reviewed in `docs/learning-recommendations.md`.

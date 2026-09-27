@@ -354,3 +354,61 @@ class JobSkillSyncTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PastedJobFallbackTests(unittest.TestCase):
+    """Without Gemma, requirement levels come from the posting's headings, not from every mention."""
+
+    POSTING = """About us
+We are a fintech startup that uses Python and Power BI internally.
+Responsibilities
+- Keep calendar management and email management running for the finance team.
+Requirements:
+- Microsoft Excel and Bookkeeping
+Nice to have
+- Power BI
+Tableau experience is a plus.
+Benefits: free Canva Pro license"""
+
+    def test_headings_decide_required_preferred_and_ignored(self):
+        from backend.app.services.external_job_analysis import classify_requirements
+
+        result = classify_requirements(self.POSTING)
+        self.assertEqual(sorted(result["required"]), ["Bookkeeping", "Microsoft Excel"])
+        self.assertEqual(sorted(result["preferred"]), ["Power BI", "Tableau"])
+        # Responsibilities do not say whether the employer requires a skill.
+        self.assertEqual(sorted(result["unclassified"]), ["Calendar Management", "Email Management"])
+        # "About us" and "Benefits" name no requirement.
+        flat = result["required"] + result["preferred"] + result["unclassified"]
+        self.assertNotIn("Python Programming", flat)
+        self.assertNotIn("Canva", flat)
+
+    def test_inline_markers_apply_to_their_sentence(self):
+        from backend.app.services.external_job_analysis import classify_requirements
+
+        result = classify_requirements("We need someone with SQL and Excel. Tableau is a plus. The role requires Python.")
+        self.assertEqual(result["preferred"], ["Tableau"])
+        self.assertEqual(result["required"], ["Python Programming"])
+        self.assertEqual(sorted(result["unclassified"]), ["Microsoft Excel", "SQL"])
+
+    def test_unclassified_skills_are_never_required_and_are_reported(self):
+        from backend.app.services import external_job_analysis
+        from backend.app.services.gemma_service import GemmaUnavailable
+
+        class Unavailable:
+            def extract_external_job(self, *args, **kwargs):
+                raise GemmaUnavailable("test")
+
+            explain_match = extract_external_job
+
+        with patch.object(external_job_analysis, "gemma_service", Unavailable()), \
+             patch.object(matching, "score_jobs", return_value=np.asarray([0.45])), \
+             patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
+             patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
+            result = external_job_analysis.analyze_external_job(job_description=self.POSTING, resume_text=ASSISTANT_RESUME)
+        self.assertEqual(result["metadata"]["extraction_source"], "deterministic_fallback")
+        self.assertEqual(sorted(result["metadata"]["unclassified_skills"]), ["Calendar Management", "Email Management"])
+        self.assertTrue(any("does not say whether it requires" in warning for warning in result["warnings"]))
+        # Only the two skills under "Requirements" are required.
+        self.assertEqual(sorted(result["matched_skills"] + result["missing_skills"]), ["Bookkeeping", "Microsoft Excel"])
+        self.assertEqual(result["match"]["match_breakdown"]["required_skill_count"], 2)

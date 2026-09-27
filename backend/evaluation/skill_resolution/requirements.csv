@@ -1,0 +1,98 @@
+item_id,text,gold_skill_id,label_status,labeled_by
+R001,Handle cash flow,SK235,draft,assistant-draft
+R002,CompTIA Security+,NONE,draft,assistant-draft
+R003,Lean project management,SK211,draft,assistant-draft
+R004,Supply chain management,SK553,draft,assistant-draft
+R005,Application Risk Assessment,NONE,draft,assistant-draft
+R006,AutoCAD,SK680,draft,assistant-draft
+R007,Public relations,SK313,draft,assistant-draft
+R008,Bloomberg Terminal,NONE,draft,assistant-draft
+R009,IT Audit,SK163,draft,assistant-draft
+R010,SaaS Sales,NONE,draft,assistant-draft
+R011,ATL & BTL,NONE,draft,assistant-draft
+R012,Pricing,NONE,draft,assistant-draft
+R013,Data Warehousing,NONE,draft,assistant-draft
+R014,Analysis,NONE,draft,assistant-draft
+R015,Basic networking knowledge,NONE,draft,assistant-draft
+R016,Meta Business Suite,NONE,draft,assistant-draft
+R017,Market analysis,SK279,draft,assistant-draft
+R018,Audit techniques,SK187,draft,assistant-draft
+R019,Drone Footage,NONE,draft,assistant-draft
+R020,BIR,NONE,draft,assistant-draft
+R021,Records Organization,SK054,draft,assistant-draft
+R022,MBA,NONE,draft,assistant-draft
+R023,Attention to Detail,NONE,draft,assistant-draft
+R024,Responsive Design,NONE,draft,assistant-draft
+R025,Change Management Controls,NONE,draft,assistant-draft
+R026,Deployment,NONE,draft,assistant-draft
+R027,SPSS,NONE,draft,assistant-draft
+R028,Audio Mixing,NONE,draft,assistant-draft
+R029,Risk Reporting,SK119,draft,assistant-draft
+R030,Sales Operations,SK648,draft,assistant-draft
+R031,Legal Documentation,SK114,draft,assistant-draft
+R032,Apply information security policies,SK151,draft,assistant-draft
+R033,Debugging Tools,SK190,draft,assistant-draft
+R034,AP/AR,NONE,draft,assistant-draft
+R035,Relationship Building,NONE,draft,assistant-draft
+R036,ClickUp,SK636,draft,assistant-draft
+R037,Focus Group Moderation,NONE,draft,assistant-draft
+R038,Market Research,SK028,draft,assistant-draft
+R039,Python Programming,SK001,draft,assistant-draft
+R040,Carpentry,SK072,draft,assistant-draft
+R041,Rewrite manuscripts,SK322,draft,assistant-draft
+R042,Google,NONE,draft,assistant-draft
+R043,Report Writing,NONE,draft,assistant-draft
+R044,Tree Planting,SK107,draft,assistant-draft
+R045,Creative Leadership,NONE,draft,assistant-draft
+R046,Budget,NONE,draft,assistant-draft
+R047,SaaS or FMCG Background,NONE,draft,assistant-draft
+R048,Typography,NONE,draft,assistant-draft
+R049,STATA,NONE,draft,assistant-draft
+R050,Cross-functional Collaboration,NONE,draft,assistant-draft
+R051,Java,SK133,draft,assistant-draft
+R052,Bookkeeping,SK012,draft,assistant-draft
+R053,Reservation Management,SK083,draft,assistant-draft
+R054,Audio Editing,SK043,draft,assistant-draft
+R055,SIEM Tools,NONE,draft,assistant-draft
+R056,Data Governance,NONE,draft,assistant-draft
+R057,POSM,NONE,draft,assistant-draft
+R058,Proofreading,SK036,draft,assistant-draft
+R059,Media Planning,SK278,draft,assistant-draft
+R060,Google Tag Manager (GTM),NONE,draft,assistant-draft
+R061,OOH Coordination,NONE,draft,assistant-draft
+R062,Version Control,NONE,draft,assistant-draft
+R063,Network Troubleshooting,NONE,draft,assistant-draft
+R064,Invoicing and Billing,SK651,draft,assistant-draft
+R065,Front Desk Support,SK078,draft,assistant-draft
+R066,Email Copywriting,NONE,draft,assistant-draft
+R067,Creative Concept Development,SK037,draft,assistant-draft
+R068,E-commerce Background,SK649,draft,assistant-draft
+R069,Risk Identification,NONE,draft,assistant-draft
+R070,Full Lifecycle Development (End-to-End),NONE,draft,assistant-draft
+R071,Production Validation,NONE,draft,assistant-draft
+R072,PMP Certification,NONE,draft,assistant-draft
+R073,ICT project management,SK210,draft,assistant-draft
+R074,Multimedia Design,SK041,draft,assistant-draft
+R075,FMCG Background,NONE,draft,assistant-draft
+R076,SEMrush,NONE,draft,assistant-draft
+R077,Workflow Optimization,NONE,draft,assistant-draft
+R078,UI Design,SK042,draft,assistant-draft
+R079,Waste Management,SK108,draft,assistant-draft
+R080,ICT network security risks,SK198,draft,assistant-draft
+R081,CompTIA Server+,NONE,draft,assistant-draft
+R082,Photoshop Retouching,SK662,draft,assistant-draft
+R083,Marketing Automation,NONE,draft,assistant-draft
+R084,B2B SaaS,NONE,draft,assistant-draft
+R085,Risk Analysis,NONE,draft,assistant-draft
+R086,Technical Documentation,SK661,draft,assistant-draft
+R087,Improvement,NONE,draft,assistant-draft
+R088,Technical Support,SK007,draft,assistant-draft
+R089,RSS Distribution,NONE,draft,assistant-draft
+R090,Node.js,NONE,draft,assistant-draft
+R091,Audit Reporting,NONE,draft,assistant-draft
+R092,Blender 3D,NONE,draft,assistant-draft
+R093,Execute email marketing,SK264,draft,assistant-draft
+R094,Patient Assessment Support,SK056,draft,assistant-draft
+R095,Audio Editing (Audacity,SK043,draft,assistant-draft
+R096,Google Analytics,SK671,draft,assistant-draft
+R097,Root Cause Analysis,NONE,draft,assistant-draft
