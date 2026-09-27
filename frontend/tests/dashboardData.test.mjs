@@ -88,7 +88,13 @@ const page = await loadPage([
   candidate('HomePage.tsx'),
   candidate('JobDetailModal.tsx'),
 ]);
-const employerPage = await loadPage(['../src/pages/employer/model.ts']);
+const { renderToStaticMarkup } = require('react-dom/server');
+const employerPage = await loadPage([
+  '../src/pages/employer/model.ts',
+  '../src/pages/employer/evaluation.ts',
+  '../src/pages/employer/EvaluationPanels.tsx',
+  '../src/pages/employer/ApplicantRow.tsx',
+]);
 
 test('unmatched job listings do not invent work setup, level, employer, or missing skills', () => {
   const job = page.mapAvailableJob({ job_id: 'role-1', job_title: 'Senior Data Engineer', required_skills: ['SQL'] });
@@ -170,15 +176,120 @@ test('unmatched job detail rendering does not claim aspiration or low confidence
 });
 
 
-test('employer applicants without saved scores stay outside scored match groups', () => {
+test('employer applications keep the apply-time ranking score apart from profile match', () => {
   const row = { id: 'app-1', job_id: 'role-1', status: 'pending' };
   const missing = employerPage.toCandidateApplication(row, []);
-  assert.equal(missing.hasMatchScore, false);
+  assert.equal(missing.applyTimeRankingScore, null);
   assert.equal(missing.appliedDate, '');
-  assert.equal(employerPage.getMatchBucket(missing.matchPercent, missing.hasMatchScore), 'unknown');
+  assert.equal(missing.lastActivity, '');
   const zero = employerPage.toCandidateApplication({ ...row, match_score: 0 }, []);
-  assert.equal(zero.hasMatchScore, true);
-  assert.equal(employerPage.getMatchBucket(zero.matchPercent, zero.hasMatchScore), 'partial');
+  assert.equal(zero.applyTimeRankingScore, 0);
+  const active = employerPage.toCandidateApplication({ ...row, applied_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-03T00:00:00Z' }, [], [{ id: 'm', application_id: 'app-1', sender_role: 'employer', message_kind: 'message', message_text: 'Hi', created_at: '2026-09-05T00:00:00Z' }]);
+  assert.equal(active.lastActivity, '2026-09-05T00:00:00Z');
+});
+
+// The UI case from the audit: "5 of 6 skills" shown next to "57% match". The 57%
+// was the candidate-side composite (0.45 text similarity + 0.45 required skills
+// + 0.10 preferred skills), whose similarity part is not stored. Profile match
+// is now the explainable required-skill coverage alone.
+test('profile match is the share of the job required skills found in the application', () => {
+  const application = { matchedSkills: ['SQL', 'excel', 'Python', 'Tableau', 'Statistics'], missingSkills: ['R'] };
+  const job = { requiredSkills: ['SQL', 'Excel', 'Python', 'Tableau', 'Statistics', 'R'] };
+  const match = employerPage.profileMatch(application, job);
+  assert.equal(match.percent, 83);
+  assert.deepEqual(match.notFound, ['R']);
+  assert.equal(employerPage.profileMatchLabel(match), '5 of 6 required skills');
+  // Skills added to the job after the application are not found, not guessed.
+  const grown = employerPage.profileMatch(application, { requiredSkills: [...job.requiredSkills, 'dbt', 'Airflow'] });
+  assert.equal(grown.percent, 63);
+  assert.deepEqual(grown.notFound, ['R', 'dbt', 'Airflow']);
+  // Without the job, fall back to the lists recorded at apply time.
+  assert.equal(employerPage.profileMatch(application, null).percent, 83);
+  // No evidence recorded: no number, rather than 0%.
+  const empty = employerPage.profileMatch({ matchedSkills: [], missingSkills: [] }, job);
+  assert.equal(empty.percent, null);
+  assert.equal(employerPage.profileMatchLabel(empty), 'No skill evidence recorded');
+  assert.deepEqual(empty.notFound, []);
+  assert.equal(employerPage.profileMatch(application, { requiredSkills: [] }).percent, 83);
+});
+
+test('rubric drafts are validated and serialised for the database', () => {
+  const starter = employerPage.starterRubric({ requiredSkills: ['SQL', 'Excel'], responsibilities: ['Build weekly sales reports'] });
+  assert.equal(starter.length, 3);
+  assert.equal(employerPage.validateRubricDraft(starter), null);
+  assert.match(starter[0].prompts[0], /SQL/);
+  assert.equal(employerPage.validateRubricDraft([]), 'Add at least one criterion.');
+  assert.match(employerPage.validateRubricDraft([{ ...starter[0], name: ' ' }]), /needs a name/);
+  assert.match(employerPage.validateRubricDraft([starter[0], { ...starter[1], name: 'sql' }]), /appears twice/);
+  assert.match(employerPage.validateRubricDraft([{ ...starter[0], anchors: ['a', '', 'c', 'd'] }]), /four rating anchors/);
+  assert.match(employerPage.validateRubricDraft(starter.map((item) => ({ ...item, isRequired: false }))), /at least one criterion as required/);
+  const payload = employerPage.rubricPayload([{ ...starter[0], name: ' SQL ', prompts: ['Ask this', ' '] }]);
+  assert.deepEqual(Object.keys(payload[0]).sort(), ['anchors', 'description', 'is_required', 'name', 'prompts', 'weight']);
+  assert.equal(payload[0].name, 'SQL');
+  assert.deepEqual(payload[0].prompts, ['Ask this']);
+  assert.deepEqual(employerPage.weightShares([{ weight: 3 }, { weight: 1 }]), [75, 25]);
+});
+
+const serverResult = (overrides = {}) => ({
+  rubric_id: 'r1', rubric_version: 1, submitted_scorecards: 1, criteria_count: 2, assessed_count: 1,
+  required_count: 2, required_assessed: 1, coverage_percent: 75, is_complete: false, score: null,
+  criteria: [
+    { criterion_id: 'c1', name: 'SQL', weight: 3, is_required: true, rating_count: 1, not_assessed_count: 0, mean_rating: 4, spread: 0 },
+    { criterion_id: 'c2', name: 'Communication', weight: 1, is_required: true, rating_count: 0, not_assessed_count: 1, mean_rating: null, spread: null },
+  ],
+  ...overrides,
+});
+
+test('reviewed evaluation results keep missing evidence visible and unscored', () => {
+  const parsed = employerPage.parseApplicationEvaluation({ current_rubric_id: 'r1', versions: [serverResult()] });
+  const result = parsed.versions[0];
+  assert.equal(result.score, null);
+  assert.deepEqual(employerPage.unassessedRequired(result), ['Communication']);
+  assert.equal(result.criteria[1].meanRating, null);
+  assert.equal(employerPage.evaluationLabel(result, true), 'In progress · 75% covered');
+  assert.equal(employerPage.evaluationLabel(null, false), 'No rubric yet');
+  const split = employerPage.parseEvaluationResult(serverResult({ criteria: [{ ...serverResult().criteria[0], spread: 2 }] }));
+  assert.deepEqual(employerPage.disagreements(split), ['SQL']);
+  const html = renderToStaticMarkup(React.createElement(employerPage.ReviewedEvaluationPanel, { result, olderVersions: [], hasRubric: true, isCurrentVersion: true }));
+  assert.match(html, /Not published/);
+  assert.match(html, /Missing evidence is not a low rating/);
+  assert.match(html, /Not assessed/);
+  assert.match(html, /75%/);
+});
+
+test('next action never advances or rejects on a score', () => {
+  const complete = employerPage.parseEvaluationResult(serverResult({ score: 90, required_assessed: 2, is_complete: true, criteria: serverResult().criteria.map((item) => ({ ...item, rating_count: 1, mean_rating: 3 })) }));
+  assert.equal(employerPage.nextAction('Pending', 'none', complete, true, true).label, 'Decide the next stage');
+  assert.equal(employerPage.nextAction('Pending', 'none', null, false, false).label, 'Set up a rubric');
+  assert.equal(employerPage.nextAction('Pending', 'none', null, true, false).label, 'Complete your scorecard');
+  assert.equal(employerPage.nextAction('Shortlisted', 'none', employerPage.parseEvaluationResult(serverResult()), true, true).label, 'Gather evidence');
+  assert.equal(employerPage.nextAction('Interviewing', 'none', complete, true, true).label, 'Send message request');
+  assert.equal(employerPage.nextAction('Withdrawn', 'none', complete, true, true).label, 'No action');
+});
+
+test('applicant lists stay within one job and never rank missing scores as zero', () => {
+  const app = (id, jobId, appliedDate, matched, status = 'Pending') => ({
+    id, jobId, appliedDate, lastActivity: `${appliedDate}T00:00:00Z`, status, publicId: id, fullName: id, matchedSkills: matched, missingSkills: [], messageRequestState: 'none',
+  });
+  const jobs = [{ id: 'J1', requiredSkills: ['SQL', 'Excel'] }, { id: 'J2', requiredSkills: ['SQL'] }];
+  const applications = [app('A', 'J1', '2026-09-03', ['SQL']), app('B', 'J1', '2026-09-01', ['SQL', 'Excel']), app('C', 'J1', '2026-09-02', []), app('D', 'J2', '2026-09-01', ['SQL'], 'Shortlisted')];
+  const filters = { ...employerPage.DEFAULT_CANDIDATE_FILTERS, jobId: 'J1' };
+  const ids = (list) => list.map((item) => item.id);
+  assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, filters, new Map())), ['B', 'C', 'A']);
+  assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, { ...filters, sort: 'profile-match' }, new Map())), ['B', 'A', 'C']);
+  const summaries = new Map([['A', { result: employerPage.parseEvaluationResult(serverResult({ score: 70 })) }]]);
+  assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, { ...filters, sort: 'reviewed' }, summaries)), ['A', 'B', 'C']);
+  assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, { ...filters, search: 'excel' }, new Map())), ['B']);
+  assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, { ...filters, jobId: 'J2', status: 'Shortlisted' }, new Map())), ['D']);
+});
+
+test('applicant rows state both measures in words, with the next step', () => {
+  const candidate = employerPage.toCandidateApplication({ id: 'app-1', job_id: 'J1', status: 'pending', applied_at: '2026-09-01T00:00:00Z', matched_skills: ['SQL'], missing_skills: ['Excel'], match_score: 57 }, [], [], 'KR-001');
+  const html = renderToStaticMarkup(React.createElement(employerPage.ApplicantRow, { candidate, job: { id: 'J1', requiredSkills: ['SQL', 'Excel'] }, hasRubric: false, onReview: () => {} }));
+  assert.match(html, /Profile match: <\/span>1 of 2 required skills/);
+  assert.match(html, /Reviewed evaluation: <\/span>No rubric/);
+  assert.match(html, /Next: Set up a rubric/);
+  assert.doesNotMatch(html, /57%/);
 });
 
 test('employer job metadata preserves employment type and unavailable dates', () => {
