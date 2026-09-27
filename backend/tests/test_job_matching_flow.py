@@ -325,10 +325,10 @@ class ConfirmedSkillTests(MatchingFlowCase):
         shown, beyond = self.step_two()
         self.assertIn("SK029", [skill["skill_id"] for skill in beyond])
         confirmed = [{"skill_id": skill["skill_id"], "skill_name": skill["skill_name"]} for skill in shown]
-        # The earlier rule (confirmed skills plus canonical labels in the text)
-        # reported this documented skill missing.
+        # Coverage reads the resume text with the same verified names as
+        # extraction (skill_resolver), so the text itself shows the skill.
         self.assertEqual(matching.compute_skill_coverage([skill["skill_id"] for skill in shown], ["SK029"],
-            self.RESUME)["missing_skills"], [LABELS["SK029"]])
+            self.RESUME)["missing_skills"], [])
         result = self.run_match(resume=self.RESUME, jobs=self.JOBS, confirmed_skills=confirmed)
         item = self.returned(result)[0]
         self.assertIn(LABELS["SK029"], item["matched_skills"])

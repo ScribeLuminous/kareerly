@@ -7,6 +7,7 @@ import pandas as pd
 from .skill_variants import any_case_variants, exact_case_matches, merge_variants_into_rows, remove_excluded_aliases
 from .split_words import build_split_word_vocabulary
 from .taxonomy_additions import merge_reference_rows
+from . import skill_resolver
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -17,32 +18,10 @@ JOB_INDEX_PATH = BACKEND_DIR / "baseline_models" / "job_index.csv"
 MAX_CONFIRMED_SKILLS = 20
 
 
-def _normalize_alias(value: str) -> str:
-    if not isinstance(value, str):
-        return ""
+# One normalisation for all skill text; see skill_resolver.normalize.
+_normalize_alias = skill_resolver.normalize
 
-    value = value.strip().lower()
-    value = re.sub(r"[\u2019'`]+", "'", value)
-    value = re.sub(r"[\-_/]+", " ", value)
-    value = re.sub(r"[^a-z0-9+#.'\s]", " ", value)
-    value = re.sub(r"\s+", " ", value)
-    # "E-mail" and "E mail" are "email" ("E-mail Support", "e-mail management").
-    value = re.sub(r"\be mail", "email", value)
-
-    return value.strip()
-
-SHORT_ALIAS_ALLOWLIST = {
-    "sql",
-    "git",
-    "aws",
-    "crm",
-    "seo",
-    "css",
-    "php",
-    "api",
-    "ui",
-    "ux",
-}
+SHORT_ALIAS_ALLOWLIST = skill_resolver.SHORT_ALIAS_ALLOWLIST
 
 BROAD_SKILL_TERMS = {
     "adaptability",
@@ -97,23 +76,6 @@ def _has_fragmented_spacing(text: str) -> bool:
 
     return re.search(r"(?:\b[A-Za-z0-9]\b\s*){5,}", text) is not None
 
-def _split_alias_terms(value: Any) -> list[str]:
-    """Split a reference list field into its entries.
-
-    The reference lists are ';'-separated. Commas belong to the labels
-    themselves ("Education, Training, and Community Services"), so splitting on
-    them would turn single words such as "education" into aliases.
-    """
-    if value is None or pd.isna(value):
-        return []
-
-    text = str(value)
-    text = text.replace("\n", ";")
-    text = text.replace("|", ";")
-
-    return [part.strip() for part in text.split(";") if part.strip()]
-
-
 EVIDENCE_WINDOW_CHARS = 60
 
 
@@ -132,20 +94,18 @@ def _evidence_window(normalized_text: str, position: int, length: int) -> str:
     return ("... " if start > 0 else "") + snippet + (" ..." if end < len(normalized_text) else "")
 
 
-def _is_group_label(value: str) -> bool:
-    """Taxonomy group labels such as "Healthcare, Caregiving, and Wellness"."""
-    return bool(re.search(r",\s*(?:and|&)\s+\S", value))
-
-
 class SkillExtractor:
     def __init__(
         self,
         skills_path: Union[str, Path] = SKILLS_REFERENCE_PATH,
         extra_rows: Optional[list[dict[str, Any]]] = None,
+        include_inactive: bool = False,
     ):
         """``extra_rows`` are approved taxonomy additions (see taxonomy_additions.py)."""
         self.skills_path = Path(skills_path)
         self.extra_rows = extra_rows or []
+        # Course evidence reads unreviewed skills' names too; resumes never do.
+        self.include_inactive = include_inactive
         self.rows: list[dict[str, Any]] = []
         self.alias_map: dict[str, list[int]] = {}
         self.ordered_aliases: list[str] = []
@@ -193,6 +153,8 @@ class SkillExtractor:
                 "esco_preferred_label": row.get("esco_preferred_label", "").strip(),
                 "esco_alternative_labels": row.get("esco_alternative_labels", "").strip(),
                 "approved_aliases": row.get("approved_aliases", "").strip(),
+                "mapping_status": row.get("mapping_status", "").strip(),
+                "source_note": row.get("source_note", "").strip(),
             }
 
             if skill_row["skill_id"] and skill_row["skill_name"]:
@@ -205,65 +167,20 @@ class SkillExtractor:
         remove_excluded_aliases(self.rows)
         self._row_by_skill_id = {row["skill_id"].upper(): index for index, row in enumerate(self.rows)}
 
-    def _category_label_terms(self) -> set[str]:
-        """Words that only name a taxonomy category, such as "data" or "business".
-
-        related_skills also lists the skill's category and subcategory labels, and
-        splitting "Technology, Data, and Digital Systems" on commas turns ordinary
-        resume words into aliases for every skill in that category.
-        """
-        terms: set[str] = set()
-        for row in self.rows:
-            labels = [row.get("skill_category", ""), row.get("skill_subcategory", "")]
-            # related_skills also carries the parent group labels, which never
-            # appear in the category columns.
-            labels += [part for part in _split_alias_terms(row.get("related_skills", "")) if _is_group_label(part)]
-            for label in labels:
-                terms.add(_normalize_alias(label))
-                terms.update(_normalize_alias(part) for part in re.split(r",|\band\b|&", label))
-        terms.discard("")
-        return terms
+    def _build_vocabulary(self) -> skill_resolver.SkillVocabulary:
+        # Names a reviewer approved at runtime (skill discovery) and the
+        # reviewed spellings merged into approved_aliases are verified names.
+        approved = {row["skill_id"].upper(): skill_resolver.split_list(row.get("approved_aliases", "")) for row in self.rows}
+        return skill_resolver.build_vocabulary(self.rows, extra_verified=approved, include_inactive=self.include_inactive)
 
     def _build_alias_index(self) -> None:
-        category_terms = self._category_label_terms()
-
-        for row_index, row in enumerate(self.rows):
-            alias_candidates = []
-
-            alias_candidates.append(row.get("skill_name", ""))
-
-            for field in [
-                "related_skills",
-                "esco_preferred_label",
-                "esco_alternative_labels",
-                "approved_aliases",
-            ]:
-                alias_candidates.extend(_split_alias_terms(row.get(field, "")))
-
-            normalized_aliases = set()
-            own_names = {
-                _normalize_alias(row.get("skill_name", "")),
-                _normalize_alias(row.get("esco_preferred_label", "")),
-            }
-
-            for alias in alias_candidates:
-                normalized_alias = _normalize_alias(alias)
-
-                if not normalized_alias:
-                    continue
-
-                # Avoid noisy aliases like "ai", "hr", "pr" unless intentionally handled later.
-                if len(normalized_alias) < 3:
-                    continue
-
-                # A category word stays an alias only for a skill actually named that.
-                if normalized_alias in category_terms and normalized_alias not in own_names:
-                    continue
-
-                normalized_aliases.add(normalized_alias)
-
-            for normalized_alias in normalized_aliases:
-                self.alias_map.setdefault(normalized_alias, []).append(row_index)
+        """Index the verified names of active skills (skill_resolver decides which)."""
+        self.vocabulary = self._build_vocabulary()
+        for alias, skill_ids in self.vocabulary.extract_aliases.items():
+            for skill_id in sorted(skill_ids):
+                row_index = self._row_by_skill_id.get(skill_id)
+                if row_index is not None:
+                    self.alias_map.setdefault(alias, []).append(row_index)
 
         # Longer aliases first prevents "data" from matching before "data analysis".
         self.ordered_aliases = sorted(
@@ -300,19 +217,14 @@ class SkillExtractor:
             )
 
     def split_word_vocabulary(self) -> dict[str, tuple[str, ...]]:
-        """Single-word skill names and aliases, as written, for rejoining split words.
+        """Single-word verified names of active skills, as written, for rejoining split words.
 
-        Built from names and aliases only (never descriptions), so a split is
-        rejoined only into a word that names a skill. See split_words.py.
+        Built from names only (never descriptions), so a split is rejoined only
+        into a word that names a skill. See split_words.py.
         """
         if self._split_word_vocabulary is None:
-            names: list[str] = []
-            for row in self.rows:
-                names.append(row.get("skill_name", ""))
-                for field in ["related_skills", "esco_preferred_label", "esco_alternative_labels", "approved_aliases"]:
-                    names.extend(
-                        part for part in _split_alias_terms(row.get(field, "")) if not _is_group_label(part)
-                    )
+            names = [name for skill_id, values in self.vocabulary.evidence_names.items()
+                     if self.vocabulary.is_active(skill_id) for name in values]
             self._split_word_vocabulary = build_split_word_vocabulary(names)
         return self._split_word_vocabulary
 

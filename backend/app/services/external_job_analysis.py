@@ -72,15 +72,98 @@ def _requirement_names(values: list[str]) -> tuple[list[str], list[str]]:
     return list(names.values()), [key for key in names if key in labels]
 
 
-def _deterministic_extraction(description: str, title: str, company: str) -> ExternalJobExtraction:
-    extracted = extract_skills_from_text(description, max_skills=40)
-    skills = _clean_list([item.get("skill_name", "") for item in extracted])
+# Headings that say whether the skills under them are required, preferred or
+# not requirements at all. Matched at the start of a short line.
+REQUIRED_HEADING = re.compile(
+    r"^(?:(?:minimum|basic|key|job|mandatory)\s+)?(?:requirements?|qualifications?|required\s+skills?|skills\s+required|"
+    r"must[\s-]*haves?|what\s+you(?:'ll|\s+will)?\s+need|what\s+we(?:'re|\s+are)\s+looking\s+for|who\s+you\s+are|"
+    r"you\s+have|you\s+must\s+have|skills(?:\s+and\s+(?:qualifications|experience))?|competenc(?:y|ies))\b", re.IGNORECASE)
+PREFERRED_HEADING = re.compile(
+    r"^(?:preferred(?:\s+(?:qualifications?|skills?|requirements?))?|nice[\s-]*to[\s-]*haves?|good[\s-]*to[\s-]*haves?|"
+    r"bonus(?:\s+points?)?|desirable|pluses|plus\s+points?|advantages?|it(?:'s|\s+is)\s+a\s+plus)\b", re.IGNORECASE)
+IGNORED_HEADING = re.compile(
+    r"^(?:about\s+(?:us|the\s+company|the\s+team|our\s+company)|who\s+we\s+are|our\s+(?:company|story|mission)|"
+    r"benefits|perks|what\s+we\s+offer|why\s+(?:join|work)|compensation|salary|how\s+to\s+apply|equal\s+opportunity)\b",
+    re.IGNORECASE)
+# Other section headings end a requirements section ("Responsibilities").
+OTHER_HEADING = re.compile(r"^(?:(?:key\s+|main\s+|job\s+)?(?:responsibilities|duties)|role|the\s+role|what\s+you(?:'ll|\s+will)\s+do|"
+                           r"job\s+description|overview|summary)\b", re.IGNORECASE)
+PREFERRED_INLINE = re.compile(r"\b(?:is\s+a\s+plus|a\s+plus|nice[\s-]to[\s-]have|preferred|preferably|is\s+an\s+advantage|"
+                              r"an\s+advantage|advantageous|bonus|desirable|good\s+to\s+have)\b", re.IGNORECASE)
+REQUIRED_INLINE = re.compile(r"\b(?:required|requires?|must\s+have|must\s+be|mandatory|essential|at\s+least\s+\d)\b", re.IGNORECASE)
+MAX_HEADING_CHARS = 60
+
+REQUIRED, PREFERRED, IGNORED, UNCLASSIFIED = "required", "preferred", "ignored", "unclassified"
+
+
+def _heading(line: str) -> tuple[str, str]:
+    """(section, rest of the line) when the line starts with a section heading, else ("", line)."""
+    stripped = re.sub(r"^[\s#*\-•–—]+", "", line).strip()
+    head, colon, rest = stripped.partition(":")
+    candidate = head.strip() if colon else stripped.rstrip(".")
+    if not candidate or len(candidate) > MAX_HEADING_CHARS:
+        return "", line
+    for section, pattern in ((PREFERRED, PREFERRED_HEADING), (REQUIRED, REQUIRED_HEADING),
+                             (IGNORED, IGNORED_HEADING), (UNCLASSIFIED, OTHER_HEADING)):
+        match = pattern.match(candidate)
+        # The heading must be the whole label ("Requirements", "Preferred skills:"),
+        # not the start of a sentence ("Skills in Excel are needed").
+        if match and (colon or match.end() >= len(candidate.rstrip(" ."))):
+            return section, rest.strip() if colon else ""
+    return "", line
+
+
+def classify_requirements(text: str) -> dict[str, list[str]]:
+    """Skills named in a pasted posting, by where they appear.
+
+    Skills under a requirements heading, or on a line that says "required" or
+    "must have", are required; under a preferred heading, or on a line that
+    says "a plus" or "preferred", preferred. Skills under "About us" or
+    "Benefits" are not requirements. Anything else (responsibilities, a
+    posting without headings) is unclassified: Kareerly cannot tell from the
+    text whether the employer requires it.
+    """
+    found: dict[str, dict[str, str]] = {REQUIRED: {}, PREFERRED: {}, UNCLASSIFIED: {}}
+    section = UNCLASSIFIED
+    for raw_line in (text or "").splitlines():
+        line = clean_text(raw_line)
+        if not line:
+            continue
+        heading, rest = _heading(line)
+        if heading:
+            section = heading
+            line = rest
+            if not line:
+                continue
+        if section == IGNORED:
+            continue
+        # An inline marker ("Tableau is a plus") speaks for its own sentence only.
+        for sentence in re.split(r"(?<=[.;!?])\s+", line):
+            kind = section
+            if PREFERRED_INLINE.search(sentence):
+                kind = PREFERRED
+            elif section == UNCLASSIFIED and REQUIRED_INLINE.search(sentence):
+                kind = REQUIRED
+            for item in extract_skills_from_text(sentence, max_skills=None):
+                name = clean_text(item.get("skill_name", ""))
+                if name:
+                    found[kind].setdefault(name.lower(), name)
+    required = list(found[REQUIRED].values())
+    preferred = [name for key, name in found[PREFERRED].items() if key not in found[REQUIRED]]
+    unclassified = [name for key, name in found[UNCLASSIFIED].items() if key not in found[REQUIRED] and key not in found[PREFERRED]]
+    return {REQUIRED: required, PREFERRED: preferred, UNCLASSIFIED: unclassified}
+
+
+def _deterministic_extraction(description: str, title: str, company: str) -> tuple[ExternalJobExtraction, list[str]]:
+    """The posting's skills by heading; unclassified ones are scored as nice-to-have, never required."""
+    classified = classify_requirements(description)
     return ExternalJobExtraction(
         job_title=title or None,
         company_name=company or None,
-        summary=description[:400],
-        required_skills=skills,
-    )
+        summary=clean_text(description)[:400],
+        required_skills=classified[REQUIRED][:40],
+        preferred_skills=(classified[PREFERRED] + classified[UNCLASSIFIED])[:40],
+    ), classified[UNCLASSIFIED]
 
 
 def _normalize_extraction(extraction: ExternalJobExtraction, description: str, title: str, company: str) -> dict[str, Any]:
@@ -141,11 +224,14 @@ def analyze_external_job(
         raise ValueError("PROFILE_REQUIRED")
 
     extraction_source = "gemma4"
+    unclassified: list[str] = []
     try:
         extraction = gemma_service.extract_external_job(description, clean_text(job_title), clean_text(company_name))
     except GemmaUnavailable:
         extraction_source = "deterministic_fallback"
-        extraction = _deterministic_extraction(description, clean_text(job_title), clean_text(company_name))
+        # Read the pasted text with its line breaks, so headings can be seen.
+        extraction, unclassified = _deterministic_extraction(
+            html.unescape(job_description or "").replace("\x00", " "), clean_text(job_title), clean_text(company_name))
 
     normalized_job = _normalize_extraction(extraction, description, clean_text(job_title), clean_text(company_name))
     result = analyze_candidate_job_match(
@@ -177,6 +263,10 @@ def analyze_external_job(
         explanation = fallback_explanation
 
     warnings = []
+    if unclassified:
+        warnings.append(
+            "The posting does not say whether it requires these skills, so they are treated as nice-to-have: "
+            + ", ".join(unclassified[:8]) + ("…" if len(unclassified) > 8 else "") + ".")
     if not normalized_job["required_skills_for_eval"]:
         warnings.append("Kareerly could not identify enough explicit canonical skills from this job description for a complete skill-gap analysis.")
 
@@ -208,6 +298,8 @@ def analyze_external_job(
         "warnings": warnings,
         "metadata": {
             "extraction_source": extraction_source,
+            # Deterministic fallback only: skills whose requirement level the posting does not state.
+            "unclassified_skills": unclassified,
             "explanation_source": explanation_source,
             "matching_source": "shared_kareerly_matching_service",
             "model_used": result["metadata"]["model_version"],

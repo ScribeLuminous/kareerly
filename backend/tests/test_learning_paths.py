@@ -1,4 +1,5 @@
 """Offline catalog contract checks. Fixtures are fictional, never seeded."""
+import re
 import unittest
 from unittest.mock import patch
 import pandas as pd
@@ -9,9 +10,18 @@ from app.services.learning_recommender import (
     resource_is_reviewed, provider_url, LEARNING_RESOURCES_PATH,
 )
 
+def fixture_skill_evidence(text):
+    """Fixture IDs are words ("SQL", "PY"); a resource's text names them as words."""
+    return {word.upper() for word in re.findall(r"[A-Za-z]+", text)}
+
+
 class LearningPathsTests(unittest.TestCase):
     def setUp(self):
+        evidence = patch.object(learning_recommender, "default_resource_skill_evidence", fixture_skill_evidence)
+        evidence.start()
+        self.addCleanup(evidence.stop)
         self.row = dict(resource_id="test-1", course_or_certification_title="Certificate title is not evidence",
+            skills_youll_gain="SQL; PY",
             offered_by_provider="Test provider", status="active", skill_ids="SQL;PY",
             skill_id_mapping_status="reviewed", review_status="verified", reviewer="test reviewer",
             source_evidence="https://example.org/syllabus", skill_id_mapping_notes="Explicit outcomes",
@@ -23,8 +33,8 @@ class LearningPathsTests(unittest.TestCase):
             pd.DataFrame([{**self.row, **changes}]), skills_lookup={})
 
     def test_unreviewed_catalog_rows_are_listed_but_flagged(self):
-        for changes in [dict(status="Generated - Review Needed"), dict(status="Active/Review"),
-                        dict(review_status=""), dict(skill_id_mapping_status="generated_mapped"),
+        for changes in [dict(status="Active/Review"),
+                        dict(review_status=""), dict(skill_id_mapping_status="curated_mapped"),
                         dict(source_evidence=""), dict(reviewer=""), dict(last_verified_at="2099-01-01")]:
             with self.subTest(changes=changes):
                 result = self.recommend(**changes)
@@ -32,6 +42,12 @@ class LearningPathsTests(unittest.TestCase):
                 self.assertEqual(result[0]["review_status"], "unreviewed")
                 self.assertEqual(result[0]["relevance_method"], "catalog_skill_id_mapping")
         self.assertEqual(self.recommend()[0]["review_status"], "verified")
+
+    def test_generated_placeholders_are_not_offered_as_courses(self):
+        # "Certificate Pathway: SQL" pointing at a provider search page names no real course.
+        self.assertEqual(self.recommend(status="Generated - Review Needed", review_status=""), [])
+        # A template-filled skill list is not evidence of what the resource teaches.
+        self.assertEqual(self.recommend(skill_id_mapping_status="template_category_skills", review_status=""), [])
 
     def test_inactive_or_linkless_unreviewed_rows_are_excluded(self):
         self.assertEqual(self.recommend(status="Retired", review_status=""), [])
@@ -57,13 +73,18 @@ class LearningPathsTests(unittest.TestCase):
         result = recommend_learning_resources_for_gap(dict(skill_id="SQL", skill_name="SQL"), frame, skills_lookup={})
         self.assertEqual([item["resource_id"] for item in result], ["test-1"])
 
-    def test_category_fallback_for_custom_skill(self):
+    def test_same_category_is_not_a_reason_to_recommend(self):
+        # A resource in the job's field that does not teach the skill is not shown;
+        # the gap is left without a resource instead.
         row = {**self.row, "category_id": "K05", "category_name": "Customer Service and Retail"}
         gap = dict(skill_id="", skill_name="Onboarding", category_ids=["K05"], category_names=[])
-        result = recommend_learning_resources_for_gap(gap, pd.DataFrame([row]), skills_lookup={})
-        self.assertEqual(result[0]["relevance_method"], "category_match")
-        self.assertEqual(result[0]["matched_gap_skill_names"], ["Onboarding"])
-        self.assertEqual(recommend_learning_resources_for_gap({**gap, "category_ids": ["K99"]}, pd.DataFrame([row]), skills_lookup={}), [])
+        self.assertEqual(recommend_learning_resources_for_gap(gap, pd.DataFrame([row]), skills_lookup={}), [])
+
+    def test_unreviewed_mapping_needs_the_resource_to_name_the_skill(self):
+        # The catalog maps SQL, but the course only teaches social media: not shown.
+        self.assertEqual(self.recommend(review_status="", skills_youll_gain="Social media strategy"), [])
+        # A reviewer-verified mapping is trusted as reviewed.
+        self.assertEqual(len(self.recommend(skills_youll_gain="Social media strategy")), 1)
 
     def test_no_unrelated_fallback(self):
         self.assertEqual(self.recommend(skill_ids="JAVA", skills_youll_gain="Java"), [])
@@ -153,10 +174,12 @@ class BundledCatalogCoverageTests(unittest.TestCase):
         cls.jobs = pd.read_csv(LEARNING_RESOURCES_PATH.parent / "reference_jobs.csv", dtype=str, keep_default_na=False)
 
     def test_every_category_has_listable_resources_and_jobs(self):
+        # Auto-generated placeholders do not count; each category has at least
+        # eight real courses (docs/learning-paths.md).
         listable = self.catalog[[learning_recommender.resource_is_listable(row) for _, row in self.catalog.iterrows()]]
         for category in [f"K{number:02d}" for number in range(1, 25)]:
             with self.subTest(category=category):
-                self.assertGreaterEqual((listable["category_id"] == category).sum(), 10)
+                self.assertGreaterEqual((listable["category_id"] == category).sum(), 8)
                 self.assertGreaterEqual((self.jobs["category_id"] == category).sum(), 10)
 
     def test_nice_to_have_gaps_from_the_report_get_resources(self):

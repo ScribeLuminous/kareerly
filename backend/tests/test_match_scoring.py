@@ -170,8 +170,10 @@ class SkillCoverageTests(unittest.TestCase):
     def test_resume_naming_a_taxonomy_skill_satisfies_it_but_an_alias_does_not(self):
         # Step 2 confirms at most 20 skills, so a skill the resume names outright still counts.
         self.assertEqual(matching.compute_skill_coverage([], ["SK004"], resume_text="I know SQL.")["skill_coverage"], 1.0)
-        # Imported ESCO aliases are too broad to stand in for a confirmed skill.
-        self.assertEqual(matching.compute_skill_coverage([], ["SK029"], resume_text="Provided customer care.")["skill_coverage"], 0.0)
+        # An unreviewed ESCO alternative label ("customer satisfaction" names an
+        # outcome) does not stand in for the skill; only verified names do.
+        self.assertEqual(matching.compute_skill_coverage([], ["SK029"], resume_text="Improved customer satisfaction scores.")["skill_coverage"], 0.0)
+        self.assertEqual(matching.compute_skill_coverage([], ["SK029"], resume_text="Provided customer care.")["skill_coverage"], 1.0)
 
 
 class PipelineRegressionTests(unittest.TestCase):

@@ -40,6 +40,7 @@ from .services.ph_regions import region_name, region_options, resolve_single_reg
 from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
+from .services import psoc_reference
 from .services.ocr import ocr_available
 from .services.resume_parser import (
     MAX_RESUME_BYTES,
@@ -1060,12 +1061,18 @@ def _apply_report_access_control(
     limited_gaps = prioritize_skill_gaps(limited_fit_now + limited_aspiration, limit=gap_limit) \
         if limited_fit_now or limited_aspiration else []
 
+    shown_job_ids = {str(item.get("job_id", "")) for item in limited_fit_now + limited_aspiration}
     result["limited_report"] = {
         "fit_now_matches": limited_fit_now,
         "aspiration_matches": limited_aspiration,
         "closest_matches": all_closest_matches[:job_limit],
         "skill_gaps": limited_gaps,
-        "learning_recommendations": result.get("learning_recommendations", [])[:learning_limit],
+        # Resources for the gaps of the jobs this report shows, in gap order.
+        "learning_recommendations": [
+            item for item in result.get("learning_recommendations", [])
+            if "gap_matches" not in item or any(
+                job_id in shown_job_ids for gap in item["gap_matches"] for job_id in gap.get("job_ids", []))
+        ][:learning_limit],
         "development_progress": result.get("development_progress", []),
     }
 
@@ -1248,6 +1255,8 @@ def health_config() -> dict:
             "doc_libreoffice": soffice_path() is not None,
             "doc_antiword": antiword_path() is not None,
         },
+        # Local file only; the PSA API is never called while serving requests.
+        "psoc_reference": psoc_reference.reference_status(),
     }
 
 
