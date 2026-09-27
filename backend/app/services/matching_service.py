@@ -1624,6 +1624,37 @@ def reviewed_learning_skill_ids() -> set:
     return covered
 
 
+@lru_cache(maxsize=4096)
+def resource_skill_evidence(text: str) -> frozenset:
+    """Taxonomy skills a learning resource's own text names, read like a resume.
+
+    A catalog skill mapping is trusted only for skills listed here (or when a
+    reviewer verified the resource); see learning_recommender._prepare_resources.
+    """
+    equivalents = skill_id_equivalents()
+    found = set()
+    for item in current_skill_extractor().extract_skills(text, limit=None):
+        skill_id = clean_text(item.get("skill_id", "")).upper()
+        if skill_id:
+            found.add(equivalents.get(skill_id, skill_id))
+    return frozenset(found)
+
+
+def learning_skill_id(value: str) -> str:
+    """A missing skill's taxonomy ID as matching resolves it, or "" for a named-only skill."""
+    labels, _ = canonical_skill_lookup()
+    key = _skill_key(value)
+    return key if key in labels else ""
+
+
+def learning_recommendations_for(matches: List[Dict[str, Any]], preferences: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """Learning resources for the matches' gaps, resolved exactly as the matches were."""
+    equivalents = skill_id_equivalents()
+    return recommend_learning_resources_for_matches(
+        matches, preferences=preferences or {}, skill_evidence=resource_skill_evidence,
+        resolve_skill_id=learning_skill_id, canonical_id=lambda skill_id: equivalents.get(skill_id, skill_id))
+
+
 def compute_learning_readiness(missing_skills: List[str], available_skill_ids: Optional[set] = None) -> float:
     if not missing_skills:
         return 0.0
@@ -2113,7 +2144,7 @@ def analyze_candidate_job_match(
             "missing_skill_status": scored_match["missing_skill_status"],
             "explanation": scored_match["explanation"],
         },
-        "learning_recommendations": recommend_learning_resources_for_matches([scored_match], preferences=preferences or {}),
+        "learning_recommendations": learning_recommendations_for([scored_match], preferences),
         "candidate_skill_records": context.skill_records,
         "metadata": {"model_version": MODEL_ID, "matching_source": "shared_kareerly_matching_service"},
     }
@@ -2253,9 +2284,9 @@ def match_text_to_jobs(
     prioritized_gaps = all_gaps[:MAX_PRIORITIZED_GAPS]
     # Cover every missing skill of the jobs the dashboard can show, so the
     # learning page has resources for whichever job the candidate focuses on.
-    learning_recommendations = recommend_learning_resources_for_matches(
+    learning_recommendations = learning_recommendations_for(
         all_fit_now_matches[:LEARNING_MATCHES_PER_TYPE] + all_aspiration_matches[:LEARNING_MATCHES_PER_TYPE],
-        preferences=preferences,
+        preferences,
     ) if fit_now_matches or aspiration_matches else []
     top_10_scores = (
         results_df.sort_values("final_score", ascending=False)
