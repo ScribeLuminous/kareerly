@@ -522,7 +522,7 @@ SkillEvidence = Callable[[str], set]
 def _default_extractor():
     from .skill_extractor import SkillExtractor
 
-    return SkillExtractor()
+    return SkillExtractor(include_inactive=True)
 
 
 @lru_cache(maxsize=4096)

@@ -171,3 +171,19 @@ class UnreviewedInventoryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EvaluationSetTests(unittest.TestCase):
+    def test_gold_labels_name_real_skills_and_resources(self):
+        from backend.evaluation import run_skill_resolution_eval as evaluation
+
+        skills = {row["skill_id"] for row in read("skills_reference.csv")}
+        resources = {row["resource_id"] for row in read("learning_resources.csv")}
+        for name in ("requirements.csv", "lookalikes.csv"):
+            for item in evaluation.read(name):
+                self.assertIn(item["gold_skill_id"], skills | {"NONE"}, item)
+        for item in evaluation.read("resume_mentions.csv"):
+            self.assertLessEqual({value for value in item["gold_skill_ids"].split(";") if value}, skills, item)
+        for item in evaluation.read("course_links.csv"):
+            self.assertIn(item["resource_id"], resources, item)
+            self.assertIn(item["gold_teaches"], {"yes", "no"}, item)

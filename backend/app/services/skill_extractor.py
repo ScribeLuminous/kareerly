@@ -99,10 +99,13 @@ class SkillExtractor:
         self,
         skills_path: Union[str, Path] = SKILLS_REFERENCE_PATH,
         extra_rows: Optional[list[dict[str, Any]]] = None,
+        include_inactive: bool = False,
     ):
         """``extra_rows`` are approved taxonomy additions (see taxonomy_additions.py)."""
         self.skills_path = Path(skills_path)
         self.extra_rows = extra_rows or []
+        # Course evidence reads unreviewed skills' names too; resumes never do.
+        self.include_inactive = include_inactive
         self.rows: list[dict[str, Any]] = []
         self.alias_map: dict[str, list[int]] = {}
         self.ordered_aliases: list[str] = []
@@ -168,7 +171,7 @@ class SkillExtractor:
         # Names a reviewer approved at runtime (skill discovery) and the
         # reviewed spellings merged into approved_aliases are verified names.
         approved = {row["skill_id"].upper(): skill_resolver.split_list(row.get("approved_aliases", "")) for row in self.rows}
-        return skill_resolver.build_vocabulary(self.rows, extra_verified=approved)
+        return skill_resolver.build_vocabulary(self.rows, extra_verified=approved, include_inactive=self.include_inactive)
 
     def _build_alias_index(self) -> None:
         """Index the verified names of active skills (skill_resolver decides which)."""

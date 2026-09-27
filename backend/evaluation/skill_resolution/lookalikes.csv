@@ -1,0 +1,51 @@
+item_id,text,gold_skill_id,label_status,labeled_by
+L001,Java,SK133,draft,assistant-draft
+L002,JavaScript,SK002,draft,assistant-draft
+L003,Java Script,SK002,draft,assistant-draft
+L004,C,NONE,draft,assistant-draft
+L005,C++,NONE,draft,assistant-draft
+L006,C#,NONE,draft,assistant-draft
+L007,MySQL,NONE,draft,assistant-draft
+L008,PostgreSQL,NONE,draft,assistant-draft
+L009,SQL,SK004,draft,assistant-draft
+L010,UX Design,NONE,draft,assistant-draft
+L011,UI Design,SK042,draft,assistant-draft
+L012,Adobe Illustrator,SK663,draft,assistant-draft
+L013,Photoshop,SK662,draft,assistant-draft
+L014,Excel,SK629,draft,assistant-draft
+L015,MS Excel,SK629,draft,assistant-draft
+L016,Microsoft Office,SK628,draft,assistant-draft
+L017,Microsoft 365,SK628,draft,assistant-draft
+L018,Google Sheets,SK197,draft,assistant-draft
+L019,Data Science,SK130,draft,assistant-draft
+L020,Data Analysis,SK005,draft,assistant-draft
+L021,Deep Learning,NONE,draft,assistant-draft
+L022,React,SK678,draft,assistant-draft
+L023,React Native,NONE,draft,assistant-draft
+L024,TypeScript,NONE,draft,assistant-draft
+L025,SEO,SK672,draft,assistant-draft
+L026,SEM,NONE,draft,assistant-draft
+L027,Search Engine Marketing,NONE,draft,assistant-draft
+L028,Mocha,NONE,draft,assistant-draft
+L029,XPath,NONE,draft,assistant-draft
+L030,Customer Service,SK029,draft,assistant-draft
+L031,Customer Success,SK639,draft,assistant-draft
+L032,Customer Experience,SK694,draft,assistant-draft
+L033,CRM,SK276,draft,assistant-draft
+L034,HubSpot,SK642,draft,assistant-draft
+L035,Salesforce,SK643,draft,assistant-draft
+L036,Bookkeeping,SK012,draft,assistant-draft
+L037,Candidate Screening,NONE,draft,assistant-draft
+L038,Project Management,SK021,draft,assistant-draft
+L039,Scrum,NONE,draft,assistant-draft
+L040,Jira,SK632,draft,assistant-draft
+L041,Trello,SK634,draft,assistant-draft
+L042,Git,SK657,draft,assistant-draft
+L043,Web Development,SK003,draft,assistant-draft
+L044,Web Design,NONE,draft,assistant-draft
+L045,HTML,SK677,draft,assistant-draft
+L046,CSS,SK677,draft,assistant-draft
+L047,Power BI,SK669,draft,assistant-draft
+L048,Tableau,SK670,draft,assistant-draft
+L049,Data Visualization,SK006,draft,assistant-draft
+L050,Illustration,NONE,draft,assistant-draft
