@@ -12,7 +12,11 @@ import time
 
 import pandas as pd
 
+from functools import lru_cache
+from typing import Callable
+
 from .supabase_learning_resources import load_learning_resources_dataframe
+from .skill_variants import remove_excluded_aliases
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -75,7 +79,8 @@ def load_skills_reference() -> pd.DataFrame:
 
     df = pd.read_csv(SKILLS_REFERENCE_PATH, dtype=str, keep_default_na=False)
     df.columns = [column.strip() for column in df.columns]
-    return df
+    # The same reviewed exclusions as extraction and matching ("XPath" is not SQL).
+    return pd.DataFrame(remove_excluded_aliases(df.to_dict(orient="records")), columns=df.columns)
 
 
 def split_ids(value: Any) -> list[str]:
@@ -171,18 +176,6 @@ def _skill_ids_by_alias(skills_lookup: dict[str, dict[str, Any]]) -> dict[str, s
             if normalized:
                 owners.setdefault(normalized, set()).add(str(skill_id).strip().upper())
     return {alias: next(iter(ids)) for alias, ids in owners.items() if len(ids) == 1}
-
-
-def _resource_text(resource: pd.Series) -> str:
-    return " ".join(
-        [
-            str(resource.get("course_or_certification_title", "")),
-            str(resource.get("course_or_certification_description", "")),
-            str(resource.get("skills_youll_gain", "")),
-            str(resource.get("mapped_skill_names", "")),
-            str(resource.get("category_name", "")),
-        ]
-    ).lower()
 
 
 def add_skill_gap_fields(
@@ -469,8 +462,11 @@ def resource_is_reviewed(resource: Any) -> bool:
     )
 
 
+PLACEHOLDER_RESOURCE_STATUSES = {"generated - review needed"}
+# Mapping statuses whose "skills you'll gain" list was filled from the
+# category template, not from the provider, so it is not evidence.
+TEMPLATE_SKILL_LIST_STATUSES = {"template_category_skills", "generated_mapped", "category_fallback_review"}
 INACTIVE_RESOURCE_STATUSES = {"inactive", "retired", "archived", "deprecated", "removed", "rejected"}
-MAX_CATEGORY_FALLBACK_RESOURCES = 3
 
 
 def _clean_text(value: Any) -> str:
@@ -491,7 +487,13 @@ def resource_is_listable(resource: Any) -> bool:
     Unreviewed rows are still listed (flagged ``review_status="unreviewed"``) so
     the learning page is never empty while the catalog review is in progress.
     """
-    if _clean_text(resource.get("status", "")).lower() in INACTIVE_RESOURCE_STATUSES:
+    status = _clean_text(resource.get("status", "")).lower()
+    if status in INACTIVE_RESOURCE_STATUSES:
+        return False
+    # Auto-generated placeholders ("Certificate Pathway: SQL" pointing at a
+    # provider search page): the course itself was never identified, so it is
+    # not offered as one until a person reviews it.
+    if status in PLACEHOLDER_RESOURCE_STATUSES:
         return False
     return bool(
         _clean_text(resource.get("resource_id", ""))
@@ -500,29 +502,68 @@ def resource_is_listable(resource: Any) -> bool:
     )
 
 
+def _provider_skill_list(resource: Any) -> str:
+    """The provider's own "skills you'll gain" list, or "" when a template filled it."""
+    if _clean_text(resource.get("skill_id_mapping_status", "")).lower() in TEMPLATE_SKILL_LIST_STATUSES:
+        return ""
+    return _clean_text(resource.get("skills_youll_gain", ""))
+
+
 def _resource_skill_names(resource: Any) -> set[str]:
+    """Skills the provider says the resource teaches, as normalized names.
+
+    Only the provider's own list counts. ``mapped_skill_names`` mirrors the
+    catalog's generated skill-ID mapping, so it is not evidence of what the
+    resource teaches.
+    """
+    if not _provider_skill_list(resource):
+        return set()
     names = set()
-    for field in ("mapped_skill_names", "skills_youll_gain"):
-        for item in split_text_values(resource.get(field, "")):
-            normalized = _normalize_skill_text(item)
-            if normalized:
-                names.add(normalized)
+    for item in split_text_values(resource.get("skills_youll_gain", "")):
+        normalized = _normalize_skill_text(item)
+        if normalized:
+            names.add(normalized)
     return names
 
 
-def _category_matches_resource(gap: dict[str, Any], resource: Any) -> bool:
-    category_ids = {_clean_text(item).upper() for item in gap.get("category_ids", []) or [] if _clean_text(item)}
-    category_names = {_normalize_skill_text(item) for item in gap.get("category_names", []) or [] if _clean_text(item)}
-    if category_ids and _clean_text(resource.get("category_id", "")).upper() in category_ids:
-        return True
-    return bool(category_names and _normalize_skill_text(resource.get("category_name", "")) in category_names)
+def _resource_text(resource: Any) -> str:
+    """What the provider says about the resource: title, description and skills."""
+    return "\n".join([_clean_text(resource.get("course_or_certification_title", "")),
+                      _clean_text(resource.get("course_or_certification_description", "")),
+                      _provider_skill_list(resource)])
+
+
+SkillEvidence = Callable[[str], set]
+
+
+@lru_cache(maxsize=1)
+def _default_extractor():
+    from .skill_extractor import SkillExtractor
+
+    return SkillExtractor()
+
+
+@lru_cache(maxsize=4096)
+def default_resource_skill_evidence(text: str) -> frozenset:
+    """Taxonomy skills a resource's own text names, read like a resume is read."""
+    return frozenset(
+        str(item.get("skill_id", "")).strip().upper()
+        for item in _default_extractor().extract_skills(text, limit=None)
+        if item.get("skill_id")
+    )
 
 
 RELEVANCE_RANK = {
     "reviewed_skill_id_mapping": 0,
     "catalog_skill_id_mapping": 1,
     "skill_name_match": 2,
-    "category_match": 3,
+}
+
+# Why a resource is shown for a skill, in words a candidate can check.
+RELEVANCE_PHRASES = {
+    "reviewed_skill_id_mapping": "a reviewer confirmed it teaches {skill}",
+    "catalog_skill_id_mapping": "the provider's course details name {skill}",
+    "skill_name_match": "its title or listed skills name {skill}",
 }
 
 
@@ -540,12 +581,6 @@ def _build_recommendation(resource: Any, skill_id: str, skill_name: str, reviewe
     else:
         action = "Start learning"
     credential_verified = value("credential_review_status").lower() == "verified" and bool(value("credential_conditions")) and bool(provider_url(value("credential_evidence")))
-    why = {
-        "reviewed_skill_id_mapping": f"Reviewed catalog mapping to {skill_name}.",
-        "catalog_skill_id_mapping": f"Catalog maps this resource to {skill_name}.",
-        "skill_name_match": f"Covers {skill_name} according to the provider's listed skills.",
-        "category_match": f"Related training for roles that require {skill_name}.",
-    }[method]
     return {
         "resource_id": value("resource_id"), "title": value("course_or_certification_title"),
         "description": value("course_or_certification_description"), "provider": value("offered_by_provider", "Course provider"),
@@ -565,9 +600,13 @@ def _build_recommendation(resource: Any, skill_id: str, skill_name: str, reviewe
         "language": value("language"), "delivery_mode": value("delivery_mode"),
         "url": provider_url(value("external_course_or_certification_link")), "url_label": action,
         "last_verified_at": value("last_verified_at"),
+        # No recommendation score is calculated; these stay zero for older clients.
         "certification_score": 0, "recommendation_percentage": 0,
-        "why_recommended": why,
+        "why_recommended": f"Recommended for {skill_name}: {RELEVANCE_PHRASES[method].format(skill=skill_name)}.",
         "relevance_method": method,
+        # Every resource here teaches the skill directly; supporting or
+        # prerequisite learning is not modelled (see docs/learning-recommendations.md).
+        "learning_relation": "direct",
     }
 
 
@@ -577,19 +616,28 @@ def recommend_learning_resources_for_gap(
     skills_lookup: Optional[dict[str, dict[str, Any]]] = None,
     preferences: Optional[dict] = None,
     max_recommendations: int = 3,
+    skill_evidence: Optional[SkillEvidence] = None,
 ) -> list[dict[str, Any]]:
-    """Resources for one gap, strongest evidence first.
+    """Resources that teach one gap's skill, strongest evidence first.
 
-    Skill-ID mappings win; when a gap has none (custom employer skills such as
-    "Onboarding" have no taxonomy ID), fall back to the provider's listed
-    skills, then to training in the same job category.
+    A skill-ID mapping counts when a reviewer verified the resource, or when
+    the resource's own text names the skill. Without one, the provider's
+    listed skills or title must name the gap. Nothing broader is used: a
+    resource in the same field that does not teach the skill is not shown,
+    and a gap with no such resource gets none.
     """
     if learning_df is None:
         learning_df = load_learning_resources()
-    return _recommend_for_gap(gap, _prepare_resources(learning_df), skills_lookup, max_recommendations)
+    return _recommend_for_gap(gap, _prepare_resources(learning_df, skill_evidence), skills_lookup, max_recommendations)
 
 
-def _prepare_resources(learning_df: pd.DataFrame) -> list[dict[str, Any]]:
+def _prepare_resources(
+    learning_df: pd.DataFrame,
+    skill_evidence: Optional[SkillEvidence] = None,
+    canonical_id: Optional[Callable[[str], str]] = None,
+) -> list[dict[str, Any]]:
+    evidence = skill_evidence or default_resource_skill_evidence
+    canonical = canonical_id or (lambda skill_id: skill_id)
     # The gathered catalog repeats some offerings under several resource IDs;
     # show each (title, link) once, keeping a reviewed copy when there is one.
     prepared: dict[tuple[str, str], dict[str, Any]] = {}
@@ -597,12 +645,17 @@ def _prepare_resources(learning_df: pd.DataFrame) -> list[dict[str, Any]]:
         reviewed = resource_is_reviewed(resource)
         if not reviewed and not resource_is_listable(resource):
             continue
+        mapped = {canonical(skill_id) for skill_id in split_ids(resource.get("skill_ids", ""))}
+        # Generated catalog mappings put SQL on a social-media certificate and
+        # Bookkeeping on a marketing course. An unreviewed mapping is kept only
+        # when the resource's own text names the skill.
+        skill_ids = mapped if reviewed else mapped & {canonical(skill_id) for skill_id in evidence(_resource_text(resource))}
         title = _normalize_skill_text(resource.get("course_or_certification_title", ""))
         key = (title, provider_url(_clean_text(resource.get("external_course_or_certification_link", ""))) or _clean_text(resource.get("resource_id", "")))
         item = {
             "resource": resource,
             "reviewed": reviewed,
-            "skill_ids": set(split_ids(resource.get("skill_ids", ""))),
+            "skill_ids": skill_ids,
             "skill_names": _resource_skill_names(resource),
             "title": title,
         }
@@ -633,7 +686,6 @@ def _recommend_for_gap(
     name_pattern = re.compile(rf"(^| ){re.escape(normalized_name)}( |$)") if len(normalized_name) >= 3 else None
     id_matches: list[dict[str, Any]] = []
     name_matches: list[dict[str, Any]] = []
-    category_matches: list[dict[str, Any]] = []
     for item in prepared:
         resource, reviewed = item["resource"], item["reviewed"]
         if skill_id and skill_id in item["skill_ids"]:
@@ -641,18 +693,13 @@ def _recommend_for_gap(
             id_matches.append(_build_recommendation(resource, skill_id, skill_name, reviewed, method))
         elif name_pattern and (normalized_name in item["skill_names"] or name_pattern.search(item["title"])):
             name_matches.append(_build_recommendation(resource, skill_id, skill_name, reviewed, "skill_name_match"))
-        elif _category_matches_resource(gap, resource):
-            category_matches.append(_build_recommendation(resource, skill_id, skill_name, reviewed, "category_match"))
-    recommendations = id_matches or name_matches or category_matches
+    recommendations = id_matches or name_matches
     recommendations.sort(key=lambda entry: (
         entry["review_status"] != "verified",
         not entry["url"],
         entry["resource_id"],
     ))
-    limit = max(0, max_recommendations)
-    if recommendations is category_matches:
-        limit = min(limit, MAX_CATEGORY_FALLBACK_RESOURCES)
-    return recommendations[:limit]
+    return recommendations[:max(0, max_recommendations)]
 
 
 def recommend_learning_resources(
@@ -675,17 +722,51 @@ def recommend_learning_resources(
     return list(resources.values())[:max(0, max_recommendations)]
 
 
+ESSENTIAL = "essential"
+PREFERRED = "preferred"
+REMOVED_BY_CANDIDATE = "removed_by_candidate"
+
+
+def _gap_reason(skill: str, gap: dict[str, Any], job_ids: Optional[list[str]] = None) -> str:
+    """Why this skill is a gap, from the matches: which job needs it and how."""
+    jobs = [job for job in gap["jobs"] if job_ids is None or job["job_id"] in job_ids]
+    if not jobs:
+        return ""
+    requirement = ESSENTIAL if any(job["requirement"] == ESSENTIAL for job in jobs) else PREFERRED
+    kind = "a required skill" if requirement == ESSENTIAL else "a nice-to-have skill"
+    titles = list(dict.fromkeys(job["job_title"] for job in jobs if job["job_title"]))
+    if len(titles) == 1:
+        where = f"for {titles[0]}"
+    elif titles:
+        where = f"for {len(titles)} of your matches ({', '.join(titles[:3])}{', …' if len(titles) > 3 else ''})"
+    else:
+        where = "for this job"
+    removed = any(job["removed"] for job in jobs)
+    evidence = "that you removed from your skill list" if removed else "that your resume does not show"
+    return f"{skill} is {kind} {where} {evidence}"
+
+
 def recommend_learning_resources_for_matches(
     matches: list[dict],
     learning_df: Optional[pd.DataFrame] = None,
     preferences: Optional[dict] = None,
     max_per_skill: int = 3,
+    skill_evidence: Optional[SkillEvidence] = None,
+    resolve_skill_id: Optional[Callable[[str], str]] = None,
+    canonical_id: Optional[Callable[[str], str]] = None,
 ) -> list[dict]:
-    """Resources for every missing skill of the shown matches, not just the top gaps.
+    """Resources for every missing skill of the shown matches, in gap priority order.
 
-    The learning page filters by the selected job's missing skills, so each of
-    them needs a chance at a resource. Custom skills carry the job's category
-    so they can fall back to related training.
+    Gaps come only from the matches' missing skills, so a skill a match
+    credits is never a learning gap for it. Each resource says which gaps it
+    teaches (``gap_matches``) and, per job, why it is recommended
+    (``why_by_job``), so the learning page can show only the selected job's
+    resources and the reason for that job. A gap with no resource that
+    teaches it is left without one.
+
+    ``resolve_skill_id`` turns a missing skill's name into its taxonomy ID the
+    way matching does; ``skill_evidence`` reads which taxonomy skills a
+    resource's own text names.
     """
     if learning_df is None:
         learning_df = load_learning_resources()
@@ -693,55 +774,90 @@ def recommend_learning_resources_for_matches(
         skills_lookup = _skills_lookup_by_id(load_skills_reference())
     except (FileNotFoundError, ValueError):
         skills_lookup = {}
-    alias_ids = _skill_ids_by_alias(skills_lookup)
+    if resolve_skill_id is None:
+        alias_ids = _skill_ids_by_alias(skills_lookup)
+
+        def resolve_skill_id(name: str) -> str:
+            return alias_ids.get(_normalize_skill_text(name), "")
+
     gaps: dict[str, dict[str, Any]] = {}
 
-    def add_gap(key: str, skill_id: str, skill_name: str, category_id: str, category_name: str) -> None:
-        gap = gaps.setdefault(key, {"skill_id": skill_id, "skill_name": skill_name, "category_ids": [], "category_names": []})
-        if category_id and category_id not in gap["category_ids"]:
-            gap["category_ids"].append(category_id)
-        if category_name and category_name not in gap["category_names"]:
-            gap["category_names"].append(category_name)
+    def add_gap(key: str, skill_id: str, skill_name: str, match: dict[str, Any], requirement: str, removed: bool) -> None:
+        gap = gaps.setdefault(key, {"skill_id": skill_id, "skill_name": skill_name, "jobs": [], "must_have": False})
+        job_id = _clean_text(match.get("job_id", ""))
+        entry = next((job for job in gap["jobs"] if job["job_id"] == job_id), None)
+        if entry is None:
+            gap["jobs"].append({"job_id": job_id, "job_title": _clean_text(match.get("job_title", "")),
+                                "requirement": requirement, "removed": removed})
+        elif requirement == ESSENTIAL:
+            entry["requirement"] = ESSENTIAL
+        if skill_name in (match.get("missing_must_have_skills") or []):
+            gap["must_have"] = True
 
     for match in matches:
-        category_id = _clean_text(match.get("category_id", ""))
-        category_name = _clean_text(match.get("job_category", ""))
-        id_names: set[str] = set()
+        removed_names = {_normalize_skill_text(item.get("skill")) for item in match.get("missing_skill_status", []) or []
+                         if item.get("status") == REMOVED_BY_CANDIDATE}
+        seen: dict[str, str] = {}
+        id_by_name: dict[str, str] = {}
         for raw_id in match.get("missing_skill_ids", []) or []:
             skill_id = str(raw_id).strip().upper()
-            if not skill_id:
-                continue
-            skill_name = _clean_text(skills_lookup.get(skill_id, {}).get("skill_name", "")) or skill_id
-            id_names.add(_normalize_skill_text(skill_name))
-            add_gap(skill_id, skill_id, skill_name, category_id, category_name)
-        # Nice-to-have gaps are listed on the Skill Gaps page too, so they need
-        # resources as well; a job with only preferred gaps otherwise has none.
-        missing_names = list(match.get("missing_skills", []) or []) + list(match.get("missing_preferred_skills", []) or [])
-        for raw_name in missing_names:
-            skill_name = _clean_text(raw_name)
-            normalized = _normalize_skill_text(skill_name)
-            # Names that belong to a taxonomy ID above are already covered.
-            if not normalized or normalized in id_names:
-                continue
-            id_names.add(normalized)
-            # Employer posts list skills by name; a name that is a taxonomy
-            # skill or alias (e.g. "Canva") reaches the ID-mapped resources.
-            # Keyed by name too, so the resource lists the name the job used.
-            skill_id = alias_ids.get(normalized, "")
-            add_gap(f"{skill_id}:NAME:{normalized}", skill_id, skill_name, category_id, category_name)
-    prepared = _prepare_resources(learning_df)
+            if skill_id:
+                name = _clean_text(skills_lookup.get(skill_id, {}).get("skill_name", "")) or skill_id
+                id_by_name[_normalize_skill_text(name)] = skill_id
+        # Required gaps first, then nice-to-have ones (listed on the Skill Gaps page too).
+        for requirement, names in ((ESSENTIAL, match.get("missing_skills", []) or []),
+                                   (PREFERRED, match.get("missing_preferred_skills", []) or [])):
+            for raw_name in names:
+                skill_name = _clean_text(raw_name)
+                normalized = _normalize_skill_text(skill_name)
+                if not normalized or normalized in seen:
+                    continue
+                skill_id = id_by_name.get(normalized) or resolve_skill_id(skill_name)
+                key = skill_id or f"NAME:{normalized}"
+                seen[normalized] = key
+                add_gap(key, skill_id, skill_name, match, requirement, normalized in removed_names)
+        # IDs whose name was not in the missing list (older clients send IDs only).
+        for normalized, skill_id in id_by_name.items():
+            if normalized not in seen:
+                add_gap(skill_id, skill_id, _clean_text(skills_lookup.get(skill_id, {}).get("skill_name", "")) or skill_id,
+                        match, ESSENTIAL, normalized in removed_names)
+
+    def gap_order(gap: dict[str, Any]) -> tuple:
+        essential = sum(job["requirement"] == ESSENTIAL for job in gap["jobs"])
+        return (essential == 0, not gap["must_have"], -essential, -len(gap["jobs"]), gap["skill_name"].lower())
+
+    ordered_gaps = sorted(gaps.values(), key=gap_order)
+    prepared = _prepare_resources(learning_df, skill_evidence, canonical_id)
     resources: dict[str, dict] = {}
-    for gap in gaps.values():
+    for rank, gap in enumerate(ordered_gaps):
         for resource in _recommend_for_gap(gap, prepared, skills_lookup, max_per_skill):
+            method = resource["relevance_method"]
+            detail = {
+                "skill_id": gap["skill_id"], "skill_name": gap["skill_name"], "relevance_method": method,
+                "requirement": ESSENTIAL if any(job["requirement"] == ESSENTIAL for job in gap["jobs"]) else PREFERRED,
+                "job_ids": [job["job_id"] for job in gap["jobs"]],
+                "job_titles": list(dict.fromkeys(job["job_title"] for job in gap["jobs"])),
+            }
             existing = resources.get(resource["resource_id"])
-            if existing:
+            if existing is None:
+                existing = resources[resource["resource_id"]] = {**resource, "gap_matches": [], "why_by_job": {}, "_rank": rank}
+                existing["why_recommended"] = f"Recommended because {_gap_reason(gap['skill_name'], gap)}; " \
+                                              f"{RELEVANCE_PHRASES[method].format(skill=gap['skill_name'])}."
+            else:
                 for id_key in ("matched_gap_skill_ids", "matched_gap_skill_names"):
                     existing[id_key] = list(dict.fromkeys(existing[id_key] + resource[id_key]))
-                if RELEVANCE_RANK[resource["relevance_method"]] < RELEVANCE_RANK[existing["relevance_method"]]:
-                    existing["relevance_method"] = resource["relevance_method"]
-                    existing["why_recommended"] = resource["why_recommended"]
-            else:
-                resources[resource["resource_id"]] = resource
-    return sorted(resources.values(), key=lambda item: (
-        RELEVANCE_RANK[item["relevance_method"]], item["review_status"] != "verified", item["resource_id"],
+                if RELEVANCE_RANK[method] < RELEVANCE_RANK[existing["relevance_method"]]:
+                    existing["relevance_method"] = method
+            existing["gap_matches"].append(detail)
+            # Per job, the reason names that job's own gap, never another job's.
+            for job in gap["jobs"]:
+                if job["job_id"] not in existing["why_by_job"]:
+                    existing["why_by_job"][job["job_id"]] = (
+                        f"Recommended because {_gap_reason(gap['skill_name'], gap, [job['job_id']])}; "
+                        f"{RELEVANCE_PHRASES[method].format(skill=gap['skill_name'])}.")
+    ordered = sorted(resources.values(), key=lambda item: (
+        item["_rank"], RELEVANCE_RANK[item["relevance_method"]], item["review_status"] != "verified", item["resource_id"],
     ))
+    for item in ordered:
+        item.pop("_rank", None)
+    return ordered
