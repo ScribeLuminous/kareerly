@@ -17,6 +17,8 @@ Candidates choose where they want to work (anywhere in the Philippines, their cu
 
 Candidates can rate matches (Good/Bad). A scheduled job uses those ratings to adjust the order within Fit-Now and Aspiration once enough feedback exists, and proposes new skills for admin review. See `docs/feedback-learning.md` for what runs automatically, what needs review, and how to roll back.
 
+Employers review applicants one job at a time. Each applicant has a **Profile match** (the job's required skills found in the application) and, once the job has a rubric, a **Reviewed evaluation** from team scorecards, calculated in the database with its coverage shown and no score until every required criterion is assessed. Rubrics are versioned, and scorecard and stage changes are audited. See `docs/employer-evaluation.md`; it needs migration `supabase/migrations/20260929090000_employer_structured_evaluation.sql`.
+
 ## Run locally
 
 ```bash

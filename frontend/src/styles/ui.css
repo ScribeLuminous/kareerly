@@ -2001,3 +2001,184 @@ details.k-detail-section[open] > summary {
   width: auto;
   flex: 1 1 auto;
 }
+
+/* ---------- Top navigation layout (employer workspace) ---------- */
+/* Phones keep the bottom bar; tablets and desktop get labelled tabs in the top bar. */
+
+.k-topnav {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .k-shell-topnav .k-nav {
+    display: none;
+  }
+
+  .k-shell-topnav .k-main {
+    margin-left: 0;
+    padding-bottom: 0;
+  }
+
+  .k-shell-topnav .k-topnav {
+    display: flex;
+    align-items: stretch;
+    align-self: stretch;
+    gap: 4px;
+    margin-left: 24px;
+  }
+
+  .k-topnav-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    color: var(--mid);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 3px solid transparent;
+    border-top: 3px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .k-topnav-item svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .k-topnav-item:hover {
+    color: var(--dark);
+  }
+
+  .k-topnav-item[aria-current='page'] {
+    color: var(--rust);
+    border-bottom-color: var(--rust);
+  }
+
+  .k-topnav-item:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .k-topnav-count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--rust);
+    color: #fff;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 899px) {
+  .k-topnav-item svg {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .k-shell-topnav .k-main {
+    margin-left: 0;
+  }
+}
+
+/* ---------- Structured evaluation ---------- */
+
+.k-meter {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bdr);
+  overflow: hidden;
+}
+
+.k-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--forest);
+}
+
+.k-rating-group {
+  display: grid;
+  gap: 6px;
+}
+
+@media (min-width: 640px) {
+  .k-rating-group {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.k-rating-option {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--bdr);
+  border-radius: 10px;
+  background: var(--card);
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .k-rating-option {
+    flex-direction: column;
+  }
+}
+
+.k-rating-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.k-rating-option:has(input:focus-visible) {
+  outline: 3px solid rgba(196, 83, 26, 0.45);
+  outline-offset: 2px;
+}
+
+.k-rating-option:has(input:checked) {
+  border-color: var(--forest);
+  background: var(--forest-l);
+}
+
+.k-rating-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--bg);
+  font-weight: 700;
+}
+
+.k-rating-option:has(input:checked) .k-rating-value {
+  background: var(--forest);
+  color: #fff;
+}
+
+/* "Not assessed" is visibly different from any rating. */
+.k-rating-na {
+  border-style: dashed;
+  background: transparent;
+}
+
+.k-rating-na:has(input:checked) {
+  border-color: var(--mid);
+  background: var(--bg);
+}
+
+.k-rating-na:has(input:checked) .k-rating-value {
+  background: var(--mid);
+}
+
+fieldset:disabled .k-rating-option {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
