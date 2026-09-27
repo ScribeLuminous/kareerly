@@ -3,9 +3,9 @@ L001,Java,SK133,draft,assistant-draft
 L002,JavaScript,SK002,draft,assistant-draft
 L003,Java Script,SK002,draft,assistant-draft
 L004,C,NONE,draft,assistant-draft
-L005,C++,NONE,draft,assistant-draft
-L006,C#,NONE,draft,assistant-draft
-L007,MySQL,NONE,draft,assistant-draft
+L005,C++,SK697,draft,assistant-draft
+L006,C#,SK698,draft,assistant-draft
+L007,MySQL,SK696,draft,assistant-draft
 L008,PostgreSQL,NONE,draft,assistant-draft
 L009,SQL,SK004,draft,assistant-draft
 L010,UX Design,NONE,draft,assistant-draft

@@ -100,16 +100,21 @@ class ReferenceImportTests(unittest.TestCase):
         skills, _, _, _ = ref.parse_esco(self.esco_dir, "esco-test")
         reference = [
             {"skill_id": "SK134", "skill_name": "Python (computer programming)", "esco_skill_uri": "http://data.europa.eu/esco/skill/python", "mapping_status": "mapped", "mapping_confidence": "0.98"},
-            {"skill_id": "SK900", "skill_name": "Calendar Management", "esco_skill_uri": ""},
+            {"skill_id": "SK900", "skill_name": "Manage schedule of tasks", "esco_skill_uri": ""},
             {"skill_id": "SK901", "skill_name": "Canva", "esco_skill_uri": ""},
             {"skill_id": "SK902", "skill_name": "Old", "esco_skill_uri": "http://data.europa.eu/esco/skill/retired"},
+            # Only an alternative label of "manage schedule of tasks": not proposed.
+            {"skill_id": "SK903", "skill_name": "Calendar Management", "esco_skill_uri": ""},
         ]
         links, outcome = ref.propose_skill_links(reference, skills)
         by_id = {l["skill_id"]: l for l in links}
         self.assertEqual(by_id["SK134"]["method"], "taxonomy_esco_uri")
+        self.assertEqual(by_id["SK134"]["review_status"], "reviewed")
         self.assertEqual(by_id["SK900"]["method"], "exact_label")
+        self.assertEqual(by_id["SK900"]["review_status"], "proposed")
         self.assertEqual(by_id["SK900"]["skill_uri"], "http://data.europa.eu/esco/skill/calendar")
         self.assertNotIn("SK901", by_id)
+        self.assertNotIn("SK903", by_id)
         self.assertEqual(outcome["ESCO URI not in this ESCO version"], 1)
 
     def test_load_sql_never_overwrites_review_decisions(self):
@@ -119,6 +124,39 @@ class ReferenceImportTests(unittest.TestCase):
         link_insert = sql.split("insert into public.kareerly_skill_esco_links")[1].split(";")[0]
         self.assertIn("evidence = excluded.evidence", link_insert)
         self.assertNotIn("review_status = excluded", link_insert)
+
+    def test_esco_zip_is_read_without_macos_copies_and_duplicates(self):
+        import zipfile
+        archive = self.tmp / "esco.zip"
+        with zipfile.ZipFile(archive, "w") as handle:
+            for path in self.esco_dir.iterdir():
+                handle.write(path, path.name)
+                handle.writestr(f"__MACOSX/._{path.name}", b"\x00\x05\x16\x07 not a csv")
+        directory = ref._esco_directory(archive)
+        self.assertFalse(any("__MACOSX" in str(path) for path in directory.rglob("*")))
+        skills, occupations, relations, _ = ref.parse_esco(directory, "esco-test")
+        self.assertEqual(len(skills), 2)
+        self.assertEqual(len(occupations), 3)
+
+    def test_sql_editor_files_upsert_in_load_order_and_keep_reviews(self):
+        skills, occupations, relations, _ = ref.parse_esco(self.esco_dir, "esco-test")
+        ref.write_table(self.tmp, "reference_datasets", [{"dataset_id": "esco-test", "name": "ESCO", "version": "test"}])
+        ref.write_table(self.tmp, "esco_skills", skills)
+        ref.write_table(self.tmp, "esco_occupations", occupations)
+        ref.write_table(self.tmp, "esco_occupation_skills", relations)
+        ref.write_table(self.tmp, "kareerly_skill_esco_links", [
+            {"skill_id": "SK1", "skill_uri": skills[0]["concept_uri"], "method": "manual", "evidence": "O'Brien's note", "review_status": "reviewed"}])
+        files = ref.write_sql_editor_files(self.tmp, max_bytes=200)
+        names = [path.name for path in files]
+        self.assertEqual(names, sorted(names))
+        tables = [name.split("_", 1)[1].rsplit("_", 1)[0] for name in names]
+        self.assertEqual(tables, sorted(tables, key=ref.LOAD_ORDER.index))
+        self.assertGreater(tables.count("esco_skills"), 1)
+        link_sql = files[-1].read_text()
+        self.assertIn("'O''Brien''s note'", link_sql)
+        self.assertIn("on conflict (skill_id, skill_uri) do update set", link_sql)
+        self.assertNotIn("review_status = excluded", link_sql)
+        self.assertTrue(all(path.read_text().rstrip().endswith("commit;") for path in files))
 
 
 if __name__ == "__main__":
