@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faFileLines, faForward, faSliders, faUpload, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faCircleInfo, faFileLines, faForward, faSliders, faUpload, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, Modal } from '../../components/ui';
 import type { EvidenceUploadRecord, EvidenceType } from '../../lib/evidence';
 import type { MessageReportReason } from '../../lib/api';
 import { formatFileSize } from '../../lib/fileUtils';
 import { RESUME_FILE_ACCEPT } from '../../lib/resumeFreshness';
-import { MESSAGE_REPORT_REASONS, type EvidencePrefill } from './model';
+import { EMPLOYER_CHECK_REMINDER, MESSAGE_REPORT_REASONS, type EvidencePrefill } from './model';
 import { FormField } from './common';
 
 export function ResumeUpdateModal({
@@ -196,8 +196,8 @@ export function EvidenceFormModal({
   const [file, setFile] = useState<File | null>(null);
   return (
     <Modal
-      title={record ? 'Replace proof' : prefill ? 'Add proof of completion' : 'Upload proof'}
-      subtitle={prefill ? 'Optional. You can add it later from the course.' : undefined}
+      title={record ? 'Replace proof' : prefill ? 'Add proof (optional)' : 'Upload proof'}
+      subtitle={prefill ? 'You can skip this and add it later.' : undefined}
       onClose={onClose}
       fullOnMobile
       footer={(
@@ -214,6 +214,12 @@ export function EvidenceFormModal({
         </>
       )}
     >
+      {prefill && !record && (
+        <p className="k-banner k-banner-info mb-4" role="note">
+          <FontAwesomeIcon icon={faCircleInfo} aria-hidden="true" />
+          <span className="k-banner-body">Proof is not required to mark this done. {EMPLOYER_CHECK_REMINDER}</span>
+        </p>
+      )}
       <div className="k-form-grid">
         <FormField label="Title" className="k-span-2">
           <input className="k-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. SQL for Data Analysis certificate" />
