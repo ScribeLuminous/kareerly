@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-09-27",
+  "filter_version": "2026-09-27.1",
+  "esco_version": "v1.2.1",
+  "esco_skills_csv_sha256": "d03b10efca94b4bcfa260a992cfde89c375f0fa12095d6662a663cfd2f9f2950",
+  "esco_archive_sha256": "9608b20a6a6ee0b3ca0a31cecff850c870c66c76040b241bd1e34b0e214221ad",
+  "rows": 5359,
+  "by_status": {
+    "excluded": 49,
+    "verified": 955,
+    "candidate": 4298,
+    "one_way": 57
+  },
+  "by_source_and_status": {
+    "esco_alt/candidate": 3732,
+    "esco_alt/verified": 4,
+    "esco_preferred/candidate": 6,
+    "esco_preferred/verified": 101,
+    "evidence_relation/one_way": 57,
+    "evidence_relation/verified": 1,
+    "exclusion/excluded": 49,
+    "kareerly_curated/verified": 115,
+    "kareerly_label/verified": 694,
+    "kareerly_related/candidate": 560,
+    "language_name/verified": 3,
+    "variant/verified": 37
+  },
+  "candidates_passing_filter": 1125
+}

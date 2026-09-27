@@ -48,7 +48,7 @@ from .skill_variants import (
 )
 from .supabase_jobs import load_internal_jobs_dataframe
 from .ph_regions import RegionPreference, region_preference, regions_in_location
-from . import taxonomy_additions
+from . import skill_resolver, taxonomy_additions
 from ..learning.ranking_model import BASELINE_VERSION, active_ranker, rank_category
 
 # ============================================================
@@ -616,86 +616,6 @@ def get_skill_name_column(skills_df: pd.DataFrame) -> str:
     raise ValueError("No usable skill name column found in skills_reference.csv")
 
 
-def build_skill_alias_index(skills_df: pd.DataFrame) -> List[Dict[str, Any]]:
-    skill_name_col = get_skill_name_column(skills_df)
-
-    alias_columns = []
-    possible_alias_cols = [
-        "aliases",
-        "alias",
-        "alt_labels",
-        "alternative_labels",
-        "altLabel",
-        "skill_aliases",
-        "preferred_label",
-        "preferredLabel",
-        "esco_preferred_label",
-        "esco_alternative_labels",
-        "skill_name",
-        taxonomy_additions.APPROVED_ALIASES_FIELD,
-    ]
-
-    for col in possible_alias_cols:
-        if col in skills_df.columns:
-            alias_columns.append(col)
-
-    if skill_name_col not in alias_columns:
-        alias_columns.append(skill_name_col)
-
-    alias_index = []
-
-    for _, row in skills_df.iterrows():
-        canonical_name = clean_text(row.get(skill_name_col, ""))
-        if not canonical_name:
-            continue
-
-        category_id = clean_text(row.get("category_id_norm", ""))
-        skill_category = clean_text(row.get("skill_category", ""))
-
-        aliases = set()
-        aliases.add(canonical_name)
-
-        for col in alias_columns:
-            raw_value = clean_text(row.get(col, ""))
-
-            if not raw_value:
-                continue
-
-            # split possible alias lists
-            parts = re.split(r"[;,|]", raw_value)
-            for part in parts:
-                part = clean_text(part)
-                if part:
-                    aliases.add(part)
-
-        for alias in aliases:
-            normalized_alias = normalize_for_match(alias)
-
-            # skip very short generic aliases
-            if len(normalized_alias) < 2:
-                continue
-
-            alias_index.append({
-                "alias": alias,
-                "alias_norm": normalized_alias,
-                "skill_name": canonical_name,
-                "category_id": category_id,
-                "skill_category": skill_category,
-            })
-
-    # longest aliases first to reduce weak matches
-    alias_index = sorted(alias_index, key=lambda x: len(x["alias_norm"]), reverse=True)
-
-    return alias_index
-
-
-@lru_cache(maxsize=1)
-def get_skill_alias_index_cached() -> Tuple[List[Dict[str, Any]], str]:
-    skills_df = load_skills_reference()
-    skill_name_col = get_skill_name_column(skills_df)
-    return build_skill_alias_index(skills_df), skill_name_col
-
-
 @lru_cache(maxsize=1)
 def get_weighted_skill_extractor() -> SkillExtractor:
     return SkillExtractor(SKILLS_REFERENCE_PATH, extra_rows=_taxonomy_state["additions"])
@@ -714,8 +634,9 @@ def ensure_taxonomy_current() -> None:
         if fingerprint == _taxonomy_state["fingerprint"]:
             return
         _taxonomy_state.update(fingerprint=fingerprint, additions=additions)
-        for cache in (load_skills_reference, get_skill_alias_index_cached, get_weighted_skill_extractor,
-                canonical_skill_lookup, skill_id_equivalents, get_skill_labels_by_id, get_skill_categories_by_id):
+        for cache in (load_skills_reference, get_weighted_skill_extractor,
+                skill_vocabulary, skill_id_equivalents, get_skill_labels_by_id, get_skill_categories_by_id,
+                _spaced_spellings, resource_skill_evidence):
             cache.cache_clear()
     if additions:
         logger.info("Skill taxonomy includes %d approved additions", len(additions))
@@ -728,38 +649,12 @@ def current_skill_extractor() -> SkillExtractor:
 
 
 def extract_skills_from_text(text: str, max_skills: Optional[int] = 30) -> List[Dict[str, Any]]:
-    """Skills with evidence in the text, ranked as Step 2 ranks them; ``max_skills=None`` returns all."""
-    weighted_skills = extract_resume_skills(text, get_weighted_skill_extractor(), limit=max_skills)
-    if weighted_skills:
-        return weighted_skills
-    max_skills = max_skills or 10_000
+    """Skills with evidence in the text, ranked as Step 2 ranks them; ``max_skills=None`` returns all.
 
-    text_norm = normalize_for_match(text)
-    alias_index, _ = get_skill_alias_index_cached()
-
-    found = {}
-
-    for item in alias_index:
-        alias_norm = item["alias_norm"]
-
-        # exact phrase boundary matching
-        pattern = r"(?<![a-zA-Z0-9+#.])" + re.escape(alias_norm) + r"(?![a-zA-Z0-9+#.])"
-
-        if re.search(pattern, text_norm):
-            skill_name = item["skill_name"]
-
-            if skill_name not in found:
-                found[skill_name] = {
-                    "skill_name": skill_name,
-                    "matched_alias": item["alias"],
-                    "category_id": item["category_id"],
-                    "skill_category": item["skill_category"],
-                }
-
-        if len(found) >= max_skills:
-            break
-
-    return list(found.values())
+    The shared extractor is the only way skills are found in text; there is no
+    broader fallback (see skill_resolver).
+    """
+    return extract_resume_skills(text, get_weighted_skill_extractor(), limit=max_skills)
 
 
 def split_skill_list(value: Any) -> List[str]:
@@ -800,66 +695,23 @@ def skill_tokens(value: Any) -> List[str]:
 # RULE-BASED SCORING
 # ============================================================
 
-# Rows added by hand with curated spellings ("MS Excel", "Adobe Photoshop") in
-# related_skills. Unlike the imported ESCO labels, every one of them is a name
-# people use for exactly that skill, so they identify it like the label does.
-CURATED_SKILL_SOURCE = "workplace_tools_expansion_2026_09"
-
-
-def _curated_aliases(row: Any) -> List[str]:
-    if clean_text(row.get("source_note", "")) != CURATED_SKILL_SOURCE:
-        return []
-    return split_skill_list(row.get("related_skills", ""))
-
-
-# "Python Programming", "Java (computer programming)": the label of a
-# programming language skill is the language's name plus a generic suffix.
-PROGRAMMING_LANGUAGE_LABEL = re.compile(r"^(?P<name>.+?)\s*(?:\(computer programming\)|programming)$", re.IGNORECASE)
-# Only reviewed rows: auto-generated ones include languages named with
-# everyday words ("Scratch", "Assembly", "Swift") that a resume uses otherwise.
-REVIEWED_MAPPING_STATUSES = {"reviewed", "mapped"}
-
-
-def _programming_language_names(row: Any) -> List[str]:
-    """The bare language name ("Python") that resumes use for a reviewed language skill.
-
-    Step 1 extraction finds "Python" as Python Programming, so gap calculation
-    must accept the same name or a resume listing Python reports it missing
-    whenever the skill falls outside the twenty confirmed in Step 2.
-    """
-    if clean_text(row.get("mapping_status", "")) not in REVIEWED_MAPPING_STATUSES:
-        return []
-    # The stripped name must itself be a label of the skill ("Python" is an
-    # ESCO label of Python). "Web programming" is a paradigm, not a language
-    # called "Web": reading "web" as Web Development credited any resume that
-    # mentions the web, and "use scripting" is not a name at all.
-    own_labels = {
-        normalize_for_match(label)
-        for label in [row.get("skill_name", ""), row.get("esco_preferred_label", ""),
-                      *split_skill_list(row.get("esco_alternative_labels", "")),
-                      *split_skill_list(row.get(taxonomy_additions.APPROVED_ALIASES_FIELD, ""))]
-    }
-    names = []
-    for value in (row.get("skill_name", ""), row.get("esco_preferred_label", "")):
-        match = PROGRAMMING_LANGUAGE_LABEL.match(clean_text(value))
-        if match and len(match.group("name")) >= 3 and normalize_for_match(match.group("name")) in own_labels:
-            names.append(match.group("name"))
-    return list(dict.fromkeys(names))
-
-
 @lru_cache(maxsize=1)
+def skill_vocabulary() -> skill_resolver.SkillVocabulary:
+    """The shared skill vocabulary (skill_resolver) over the current taxonomy.
+
+    Resume extraction builds the same vocabulary from the same rows, so a name
+    means the same skill in a resume, a job requirement, a typed skill, a
+    pasted job and a course description.
+    """
+    rows = load_skills_reference().to_dict(orient="records")
+    approved = {clean_text(row.get("skill_id", "")).upper(): skill_resolver.split_list(row.get(taxonomy_additions.APPROVED_ALIASES_FIELD, ""))
+                for row in rows}
+    return skill_resolver.build_vocabulary(rows, extra_verified=approved)
+
+
 def skill_evidence_phrases() -> Dict[str, List[str]]:
-    """Names that show a taxonomy skill in resume text: its label, curated spellings
-    and, for a reviewed programming language, the language name alone."""
-    phrases: Dict[str, List[str]] = {}
-    variants = any_case_variants()
-    for _, row in load_skills_reference().iterrows():
-        skill_id = clean_text(row.get("skill_id", "")).upper()
-        label = clean_text(row.get("skill_name", ""))
-        if skill_id and label:
-            phrases[skill_id] = list(dict.fromkeys([label, *_curated_aliases(row), *_programming_language_names(row),
-                                                    *variants.get(skill_id, [])]))
-    return phrases
+    """Verified names that show a taxonomy skill in resume text, label first."""
+    return skill_vocabulary().evidence_names
 
 
 @lru_cache(maxsize=1)
@@ -882,48 +734,10 @@ def related_skill_evidence() -> Dict[str, List[str]]:
     return relations
 
 
-@lru_cache(maxsize=1)
 def canonical_skill_lookup() -> Tuple[Dict[str, str], Dict[str, str]]:
-    """Canonical IDs and unambiguous, explicitly mapped aliases; no token partial credit."""
-    labels = {}
-    owners = {}
-    for _, row in load_skills_reference().iterrows():
-        skill_id = clean_text(row.get("skill_id", "")).upper()
-        label = clean_text(row.get("skill_name", ""))
-        if not skill_id or not label:
-            continue
-        labels[skill_id] = label
-        # A reviewed language's bare name ("Python") names it in a requirement or
-        # a typed skill as it does in resume text.
-        aliases = [label, *_curated_aliases(row), *_programming_language_names(row)]
-        if clean_text(row.get("mapping_status", "")) == "mapped":
-            aliases += [clean_text(row.get("esco_preferred_label", ""))]
-            aliases += split_skill_list(row.get("esco_alternative_labels", ""))
-        # Aliases approved by a reviewer through skill discovery.
-        aliases += split_skill_list(row.get(taxonomy_additions.APPROVED_ALIASES_FIELD, ""))
-        for alias in aliases:
-            normalized = normalize_for_match(alias)
-            if normalized:
-                owners.setdefault(normalized, set()).add(skill_id)
-    aliases = {alias: next(iter(ids)) for alias, ids in owners.items() if len(ids) == 1}
-    # Canonical labels are authoritative even when an imported alias conflicts.
-    for skill_id, label in labels.items():
-        aliases[normalize_for_match(label)] = skill_id
-    # A job requirement is a name on its own, so "CS" or "JS" there names the
-    # skill; in resume text these match only in upper case (skill_variants.py).
-    for item in load_skill_variants():
-        if item.exact_case and item.skill_id in labels:
-            aliases.setdefault(normalize_for_match(item.variant), item.skill_id)
-    # A multi-word name written as one word ("MSExcel", "GoogleWorkspace").
-    joined: Dict[str, set] = {}
-    for alias, skill_id in aliases.items():
-        compact = _compact(alias)
-        if len(re.split(r"[\s/-]+", alias)) > 1 and len(compact) >= 5:
-            joined.setdefault(compact, set()).add(skill_id)
-    for compact, ids in joined.items():
-        if len(ids) == 1:
-            aliases.setdefault(compact, next(iter(ids)))
-    return labels, aliases
+    """Canonical labels, and verified names (skill_resolver.normalize) to the one skill each names."""
+    vocabulary = skill_vocabulary()
+    return vocabulary.labels, vocabulary.resolve_aliases
 
 
 @lru_cache(maxsize=1)
@@ -958,7 +772,7 @@ TAXONOMY_SKILL_ID = re.compile(r"SK\d+")
 
 
 def _skill_key(value: str) -> str:
-    labels, aliases = canonical_skill_lookup()
+    labels, _ = canonical_skill_lookup()
     text = clean_text(value)
     if LEGACY_SKILL_ID.fullmatch(text.upper()):
         # Legacy job IDs such as SK_EXCEL have no taxonomy row; compare them by
@@ -972,8 +786,9 @@ def _skill_key(value: str) -> str:
         # "G-Suite" are "ms excel" and "g suite"; "MSExcel" is looked up joined.
         # The whole name is tried first, so a short one ("CS") is not skipped.
         spaced = re.sub(r"[\s/-]+", " ", normalized).strip()
-        candidates = [normalized, *_phrase_variants(normalized), spaced, *_phrase_variants(spaced), _compact(normalized)]
-        key = next((aliases[variant] for variant in candidates if variant in aliases), "CUSTOM:" + normalized)
+        candidates = [normalized, *_phrase_variants(normalized), spaced, *_phrase_variants(spaced)]
+        vocabulary = skill_vocabulary()
+        key = next((skill_id for variant in candidates if (skill_id := vocabulary.resolve(variant))), "CUSTOM:" + normalized)
     return skill_id_equivalents().get(key, key)
 
 
