@@ -1,3 +1,4 @@
+import type { CandidateAssessment } from '../../lib/assessmentApi';
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faCircleQuestion, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
@@ -8,6 +9,7 @@ import {
   RATING_SCALE,
   unassessedRequired,
   weightShares,
+  weightedRating,
   type EvaluationResult,
   type ProfileMatch,
   type RatingDraft,
@@ -82,7 +84,7 @@ export function ReviewedEvaluationPanel({ result, olderVersions, hasRubric, isCu
       <h3 id="reviewed-evaluation-heading" className="k-label mb-1 flex items-center gap-1">
         Reviewed evaluation
         <InfoTip label="How reviewed evaluation is worked out">
-          From submitted team scorecards only. Each criterion's ratings (1 to 4) are averaged across reviewers, rescaled to 0–100 and weighted by the rubric. Criteria nobody assessed are left out, not counted as zero. No score is shown until every required criterion has at least one rating. Coverage is the share of rubric weight that has been assessed.
+          From submitted team scorecards only. Ratings are averaged across reviewers and weighted by the rubric. Not assessed criteria are excluded from the weighted average, never counted as zero. The assessed count and coverage show how much evidence the score represents.
         </InfoTip>
       </h3>
       {!hasRubric ? (
@@ -94,16 +96,16 @@ export function ReviewedEvaluationPanel({ result, olderVersions, hasRubric, isCu
           {!isCurrentVersion && <Banner tone="info" className="mb-3">These scorecards use rubric version {result.rubricVersion}. The job's rubric has changed since; results stay on the version they were scored with.</Banner>}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-[10px] bg-bg px-3 py-2">
-              <p className="k-meta">Score (rubric v{result.rubricVersion})</p>
-              <p className="k-num text-[22px] font-bold leading-8 text-dark">{result.score === null ? 'Not published' : `${result.score} / 100`}</p>
-              <p className="k-meta">{result.submittedScorecards} scorecard{result.submittedScorecards === 1 ? '' : 's'} submitted</p>
+              <p className="k-meta">Weighted Score (rubric v{result.rubricVersion})</p>
+              <p className="k-num text-[22px] font-bold leading-8 text-dark">{result.assessedCount === 0 ? 'Not assessed' : `${weightedRating(result.criteria)?.toFixed(1)} / 4.0`}</p>
+              <p className="k-meta">{result.assessedCount} of {result.criteriaCount} criteria assessed · {result.submittedScorecards} scorecard{result.submittedScorecards === 1 ? '' : 's'} submitted</p>
             </div>
             <div className="rounded-[10px] bg-bg px-3 py-2">
               <CoverageMeter percent={result.coveragePercent} label="Evaluation coverage" />
               <p className="k-meta mt-1">{result.requiredAssessed} of {result.requiredCount} required criteria assessed</p>
             </div>
           </div>
-          {missing.length > 0 && <Banner tone="warn" className="mt-3">Score held back until these required criteria are assessed: {missing.join(', ')}. Missing evidence is not a low rating.</Banner>}
+          {missing.length > 0 && <Banner tone="warn" className="mt-3">Required criteria without enough evidence: {missing.join(', ')}. They are excluded from the weighted score, not treated as low ratings.</Banner>}
           {split.length > 0 && (
             <p className="k-secondary mt-3 flex items-start gap-2">
               <FontAwesomeIcon icon={faTriangleExclamation} className="mt-1 text-amber" aria-hidden="true" />
@@ -142,7 +144,7 @@ export function ReviewedEvaluationPanel({ result, olderVersions, hasRubric, isCu
           <ul className="mt-2 space-y-1">
             {olderVersions.map((version) => (
               <li key={version.rubricId} className="k-secondary">
-                Version {version.rubricVersion}: {version.score === null ? 'no published score' : `${version.score} / 100`}, {version.coveragePercent}% covered, {version.submittedScorecards} scorecard{version.submittedScorecards === 1 ? '' : 's'}. Kept as scored.
+                Version {version.rubricVersion}: {weightedRating(version.criteria) === null ? 'not assessed' : `${weightedRating(version.criteria)?.toFixed(1)} / 4.0`}, {version.coveragePercent}% covered, {version.submittedScorecards} scorecard{version.submittedScorecards === 1 ? '' : 's'}. Kept as scored.
               </li>
             ))}
           </ul>
@@ -154,6 +156,7 @@ export function ReviewedEvaluationPanel({ result, olderVersions, hasRubric, isCu
 
 type ScorecardFormProps = {
   rubric: Rubric;
+  assessment: CandidateAssessment;
   existing: Scorecard | null;
   saving: boolean;
   disabled: boolean;
@@ -161,7 +164,7 @@ type ScorecardFormProps = {
 };
 
 /** One reviewer's ratings for one applicant on one rubric version. Key it by scorecard so it resets after a save. */
-export function ScorecardForm({ rubric, existing, saving, disabled, onSave }: ScorecardFormProps) {
+export function ScorecardForm({ rubric, assessment, existing, saving, disabled, onSave }: ScorecardFormProps) {
   const initial = useMemo(() => {
     const ratings: Record<string, RatingDraft> = {};
     rubric.criteria.forEach((criterion) => {
@@ -195,6 +198,7 @@ export function ScorecardForm({ rubric, existing, saving, disabled, onSave }: Sc
       {existing?.status === 'submitted' && <Banner tone="info" className="mb-3">You submitted this scorecard on {formatDateLabel((existing.submittedAt || existing.updatedAt).slice(0, 10))}. Changes are saved to the activity history.</Banner>}
       <ol className="space-y-4">
         {rubric.criteria.map((criterion, index) => {
+          const answer = assessment.questions.find((item) => item.sourceCriterionId === criterion.id);
           const value = ratings[criterion.id] || { rating: null, evidence: '' };
           const name = `rating-${criterion.id}`;
           return (
@@ -206,12 +210,11 @@ export function ScorecardForm({ rubric, existing, saving, disabled, onSave }: Sc
                   <span className="k-meta">Weight {shares[index]}%</span>
                 </legend>
                 {criterion.description && <p className="k-secondary mt-1">{criterion.description}</p>}
-                {criterion.prompts.length > 0 && (
-                  <div className="mt-2">
-                    <p className="k-meta">Questions to ask</p>
-                    <ul className="k-secondary ml-4 list-disc">{criterion.prompts.map((prompt) => <li key={prompt}>{prompt}</li>)}</ul>
-                  </div>
-                )}
+                <div className="mt-3 space-y-2">
+                  <div><p className="k-meta">Assessment Question</p><p className="k-secondary">{answer?.question || criterion.prompts[0] || 'No question recorded'}</p></div>
+                  <div><p className="k-meta">Candidate Response</p><p className="k-body whitespace-pre-wrap rounded-[10px] bg-bg p-3">{answer?.response || 'No response provided.'}</p></div>
+                </div>
+                <p className="k-label mt-3">Your Rating</p>
                 <div className="k-rating-group mt-3" role="radiogroup" aria-label={`Rating for ${criterion.name}`}>
                   {RATING_SCALE.map((option) => (
                     <label key={option.value} className="k-rating-option">
@@ -232,14 +235,14 @@ export function ScorecardForm({ rubric, existing, saving, disabled, onSave }: Sc
                     </span>
                   </label>
                 </div>
-                <label className="k-meta mt-3 block" htmlFor={`evidence-${criterion.id}`}>Evidence</label>
+                <label className="k-meta mt-3 block" htmlFor={`evidence-${criterion.id}`}>Assessment Notes</label>
                 <textarea
                   id={`evidence-${criterion.id}`}
                   className="k-textarea mt-1"
                   rows={2}
                   maxLength={2000}
                   value={value.evidence}
-                  placeholder={value.rating === null ? 'Optional: why this was not assessed' : 'What did the candidate say, show or produce?'}
+                  placeholder="Add notes supporting your rating"
                   onChange={(event) => update(criterion.id, { evidence: event.target.value })}
                   aria-invalid={touched[criterion.id] && value.rating !== null && !value.evidence.trim() ? true : undefined}
                 />
@@ -266,6 +269,11 @@ export function ScorecardForm({ rubric, existing, saving, disabled, onSave }: Sc
 
 const AUDIT_LABEL: Record<string, string> = {
   stage_changed: 'Stage changed',
+  assessment_sent: 'Candidate Assessment sent',
+  assessment_submitted: 'Candidate Assessment submitted',
+  scorecard_reviewed: 'Scorecard reviewed',
+  candidate_moved_to_interviewing: 'Moved to Interviewing',
+  candidate_declined: 'Candidate declined',
   scorecard_saved: 'Scorecard saved',
   scorecard_submitted: 'Scorecard submitted',
   rubric_saved: 'Rubric saved',

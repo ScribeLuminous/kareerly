@@ -30,6 +30,7 @@ type JobEditorModalProps = {
   onCancel: () => void;
   onSaveDraft: () => void;
   onPost: () => void;
+  onConfigureAssessment: () => void;
 };
 
 const blockNonDigits = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -107,6 +108,7 @@ export function JobEditorModal({
   onCancel,
   onSaveDraft,
   onPost,
+  onConfigureAssessment,
 }: JobEditorModalProps) {
   const subcategories = form.category ? jobSubcategoryMap[form.category] || [] : [];
   const [salaryMinimum = '', salaryMaximum = ''] = form.salaryRange.split('-');
@@ -274,6 +276,12 @@ export function JobEditorModal({
             />
           </div>
         </section>
+
+        {editing && <section className="k-section" aria-labelledby="job-assessment">
+          <h3 id="job-assessment" className="k-section-title">Candidate Assessment</h3>
+          <p className="k-secondary mt-1">Set questions candidates answer and the scorecard criteria employers use to review them.</p>
+          <button className="k-btn k-btn-secondary mt-3" type="button" onClick={onConfigureAssessment}>Configure Assessment</button>
+        </section>}
 
         {editing && (
           <section className="k-section" aria-labelledby="job-status">

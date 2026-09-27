@@ -15,7 +15,7 @@ import {
 } from '../pages/employer/evaluation';
 
 type RubricRow = { id: string; job_post_id: string; version: number; created_at: string; superseded_at: string | null };
-type CriterionRow = { id: string; rubric_id: string; position: number; name: string; description: string; weight: number; is_required: boolean; anchors: unknown; prompts: string[] | null };
+type CriterionRow = { id: string; rubric_id: string; position: number; name: string; description: string; weight: number; is_required: boolean; anchors: unknown; prompts: string[] | null; question: string };
 type ScorecardRow = { id: string; application_id: string; rubric_id: string; reviewer_user_id: string; status: 'draft' | 'submitted'; summary_notes: string; updated_at: string; submitted_at: string | null };
 type RatingRow = { scorecard_id: string; criterion_id: string; rating: number | null; evidence: string };
 
@@ -47,6 +47,7 @@ async function loadCriteria(rubricIds: string[]): Promise<Map<string, Rubric['cr
       isRequired: row.is_required,
       anchors: Array.isArray(row.anchors) ? row.anchors.map(String) : [],
       prompts: row.prompts || [],
+      question: row.question || row.prompts?.[0] || '',
     });
     result.set(row.rubric_id, list);
   });
@@ -161,5 +162,8 @@ export async function loadAuditTrail(applicationId: string): Promise<AuditEntry[
 export async function rubricHasScorecards(rubricId: string): Promise<boolean> {
   const { count, error } = await supabase.from('evaluation_scorecards').select('id', { count: 'exact', head: true }).eq('rubric_id', rubricId);
   if (error) fail(error, 'Unable to check the rubric.');
-  return (count || 0) > 0;
+  if ((count || 0) > 0) return true;
+  const { count: assessmentCount, error: assessmentError } = await supabase.from('candidate_assessments').select('id', { count: 'exact', head: true }).eq('rubric_id', rubricId);
+  if (assessmentError) fail(assessmentError, 'Unable to check sent assessments.');
+  return (assessmentCount || 0) > 0;
 }
