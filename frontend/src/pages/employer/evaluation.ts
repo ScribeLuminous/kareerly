@@ -80,6 +80,7 @@ export type RubricCriterionDraft = {
   isRequired: boolean;
   anchors: string[];
   prompts: string[];
+  question: string;
 };
 
 export type RubricCriterion = Omit<RubricCriterionDraft, 'key'> & { id: string; position: number };
@@ -97,7 +98,7 @@ let draftCounter = 0;
 export const newDraftKey = () => `draft-${Date.now()}-${draftCounter++}`;
 
 export function emptyCriterion(): RubricCriterionDraft {
-  return { key: newDraftKey(), name: '', description: '', weight: 2, isRequired: true, anchors: [...DEFAULT_ANCHORS], prompts: [''] };
+  return { key: newDraftKey(), name: '', description: '', weight: 2, isRequired: true, anchors: [...DEFAULT_ANCHORS], prompts: [''], question: '' };
 }
 
 /** A starting point built from the job itself; employers edit it before saving. */
@@ -107,7 +108,8 @@ export function starterRubric(job: Pick<EmployerJob, 'requiredSkills' | 'respons
     name: skill,
     description: `Can apply ${skill} to the work this role does.`,
     weight: 3,
-    prompts: [`Tell us about a time you used ${skill}. What did you do and what was the result?`],
+    prompts: [],
+    question: `Tell us about a time you used ${skill}. What did you do and what was the result?`,
   }));
   const fromDuties = job.responsibilities.slice(0, 2).map((duty) => ({
     ...emptyCriterion(),
@@ -115,7 +117,8 @@ export function starterRubric(job: Pick<EmployerJob, 'requiredSkills' | 'respons
     description: `Shows they can: ${duty}`,
     weight: 2,
     isRequired: false,
-    prompts: [`How would you approach this part of the role: ${duty}?`],
+    prompts: [],
+    question: `How would you approach this part of the role: ${duty}?`,
   }));
   const criteria = [...fromSkills, ...fromDuties];
   return criteria.length > 0 ? criteria : [emptyCriterion()];
@@ -130,6 +133,7 @@ export function rubricToDraft(rubric: Rubric): RubricCriterionDraft[] {
     isRequired: criterion.isRequired,
     anchors: criterion.anchors.length === 4 ? [...criterion.anchors] : [...DEFAULT_ANCHORS],
     prompts: criterion.prompts.length > 0 ? [...criterion.prompts] : [''],
+    question: criterion.question || criterion.prompts[0] || '',
   }));
 }
 
@@ -143,6 +147,8 @@ export function validateRubricDraft(criteria: RubricCriterionDraft[]): string | 
     if (names.has(name.toLowerCase())) return `"${name}" appears twice. Merge or rename it.`;
     names.add(name.toLowerCase());
     if (!Number.isInteger(criterion.weight) || criterion.weight < 1 || criterion.weight > 5) return 'Weights run from 1 to 5.';
+    if (!criterion.question.trim()) return `Add an assessment question for "${name}".`;
+    if (criterion.question.length > 1000) return `Keep the question for "${name}" under 1000 characters.`;
     if (criterion.anchors.some((anchor) => !anchor.trim())) return `Give all four rating anchors for "${name}".`;
   }
   if (!criteria.some((criterion) => criterion.isRequired)) return 'Mark at least one criterion as required.';
@@ -157,6 +163,7 @@ export function rubricPayload(criteria: RubricCriterionDraft[]) {
     is_required: criterion.isRequired,
     anchors: criterion.anchors.map((anchor) => anchor.trim()),
     prompts: criterion.prompts.map((prompt) => prompt.trim()).filter(Boolean),
+    question: criterion.question.trim(),
   }));
 }
 
@@ -357,3 +364,15 @@ export function visibleApplicants(applications: CandidateApplication[], jobs: Em
   return sortApplicants(rows, filters.sort).map((row) => row.candidate);
 }
 
+
+/** Four-point descriptive score; unanswered criteria have no effect on the denominator. */
+export function weightedRating(criteria: Array<{ weight: number; meanRating: number | null }>): number | null {
+  const assessed = criteria.filter((item) => item.meanRating !== null && Number.isFinite(item.meanRating));
+  const weight = assessed.reduce((sum, item) => sum + item.weight, 0);
+  return weight ? assessed.reduce((sum, item) => sum + item.weight * (item.meanRating as number), 0) / weight : null;
+}
+
+export function assessmentStatusLabel(assessment: { status: 'pending' | 'submitted' | 'reviewed' } | null): string {
+  if (!assessment) return 'Not sent';
+  return assessment.status === 'pending' ? 'Awaiting response' : assessment.status === 'submitted' ? 'Submitted' : 'Reviewed';
+}
