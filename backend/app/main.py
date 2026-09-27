@@ -487,6 +487,65 @@ def update_employer_application_status(payload: EmployerApplicationStatusRequest
     return {"application": updated[0] if isinstance(updated, list) and updated else updated}
 
 
+DOCUMENT_REVEAL_STATUSES = {"interviewing", "hired"}
+
+
+@app.get("/api/employer/applications/{application_id}/documents")
+def get_employer_application_documents(application_id: str, authorization: Annotated[Optional[str], Header()] = None):
+    """The resume and portfolio a candidate chose to share with this employer.
+    Available once the application reaches Interviewing, the same point the
+    candidate's identity is revealed."""
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    app_query = urllib.parse.urlencode({"id": f"eq.{application_id}", "select": "id,job_id,job_source,status", "limit": "1"})
+    app_rows = _supabase_request(f"/rest/v1/job_applications?{app_query}", service_role=True)
+    application = app_rows[0] if isinstance(app_rows, list) and app_rows else None
+    if not isinstance(application, dict) or application.get("job_source") != "employer":
+        raise HTTPException(status_code=404, detail="Application was not found.")
+    employer_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "id", "limit": "1"})
+    employer_rows = _supabase_request(f"/rest/v1/employer_profiles?{employer_query}", service_role=True)
+    employer = employer_rows[0] if isinstance(employer_rows, list) and employer_rows else None
+    if not isinstance(employer, dict):
+        raise HTTPException(status_code=404, detail="Employer profile was not found.")
+    owner_query = urllib.parse.urlencode({"job_id": f"eq.{application.get('job_id')}", "employer_id": f"eq.{employer['id']}", "select": "id", "limit": "1"})
+    owned = _supabase_request(f"/rest/v1/employer_job_posts?{owner_query}", service_role=True)
+    if not isinstance(owned, list) or not owned:
+        raise HTTPException(status_code=403, detail="This application does not belong to your employer account.")
+
+    status = str(application.get("status") or "").lower()
+    if status not in DOCUMENT_REVEAL_STATUSES:
+        return {"available": False, "reason": "stage", "resume": None, "portfolio_url": None}
+
+    doc_query = urllib.parse.urlencode({"application_id": f"eq.{application_id}", "select": "resume_id,share_resume,portfolio_url", "limit": "1"})
+    doc_rows = _supabase_request(f"/rest/v1/application_shared_documents?{doc_query}", service_role=True)
+    shared = doc_rows[0] if isinstance(doc_rows, list) and doc_rows and isinstance(doc_rows[0], dict) else {}
+
+    resume = None
+    if shared.get("share_resume") and shared.get("resume_id"):
+        resume_rows = _rest_rows("resumes", {"id": f"eq.{shared['resume_id']}", "select": "id,original_filename,file_mime_type,file_size_bytes,storage_bucket,storage_path", "limit": "1"})
+        row = resume_rows[0] if resume_rows else None
+        if row and row.get("storage_bucket") and row.get("storage_path"):
+            try:
+                signed = _supabase_request(
+                    f"/storage/v1/object/sign/{_quote(row['storage_bucket'])}/{urllib.parse.quote(str(row['storage_path']))}",
+                    method="POST", service_role=True, body={"expiresIn": 300},
+                )
+            except HTTPException as exc:
+                if exc.status_code not in {400, 404}:
+                    raise
+                signed = None
+            path = (signed.get("signedURL") or signed.get("signedUrl")) if isinstance(signed, dict) else None
+            if path:
+                resume = {
+                    "file_name": row.get("original_filename") or "Resume",
+                    "mime_type": row.get("file_mime_type"),
+                    "size_bytes": row.get("file_size_bytes"),
+                    "download_url": path if path.startswith("http") else f"{SUPABASE_URL}/storage/v1{path}",
+                }
+    return {"available": True, "reason": None, "resume": resume, "portfolio_url": shared.get("portfolio_url") or None}
+
+
 def _set_application_stage_as_employer(authorization: str | None, application_id: str, status: str, reason: Optional[str]) -> object | None:
     """Change the stage through ``set_application_stage`` with the employer's own
     token, so the audit trail records who decided. Returns None when the
@@ -1919,6 +1978,49 @@ def _format_detail_salary(record: dict) -> str:
     return ""
 
 
+def _clean_screening_questions(value: object, *, include_expected: bool) -> list[dict]:
+    """Screening questions as stored on a job post. Candidates never see the
+    employer's expected answer."""
+    items = value if isinstance(value, list) else []
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question") or "").strip()
+        if not question:
+            continue
+        entry = {"question": question}
+        if include_expected:
+            entry["expected_answer"] = str(item.get("expected_answer") or "").strip() or None
+        cleaned.append(entry)
+    return cleaned
+
+
+def _clean_hiring_stages(value: object) -> list[dict]:
+    items = value if isinstance(value, list) else []
+    return [
+        {"stage": str(item.get("stage") or "").strip(), "description": str(item.get("description") or "").strip() or None}
+        for item in items
+        if isinstance(item, dict) and str(item.get("stage") or "").strip()
+    ]
+
+
+def _job_applicant_count(job_id: str) -> int | None:
+    """Applicants on an open employer post, withdrawn excluded. None when the
+    count function is not deployed yet."""
+    if not job_id:
+        return None
+    try:
+        rows = _supabase_request("/rest/v1/rpc/get_job_applicant_counts", method="POST", body={"target_job_ids": [job_id]})
+    except HTTPException as exc:
+        if exc.status_code == 404 or "PGRST202" in str(exc.detail):
+            return None
+        raise
+    if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+        return int(rows[0].get("applicant_count") or 0)
+    return 0
+
+
 @app.get("/api/jobs/detail")
 def job_detail(job_id: str, job_source: str = "internal") -> dict:
     source = "employer" if job_source == "employer" else "internal"
@@ -1959,6 +2061,10 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
         "required_skills": _split_detail_list(row.get("required_skills")),
         "preferred_skills": _split_detail_list(row.get("preferred_skills")),
         "external_job_link_optional": str(row.get("source_url") or ""),
+        "posted_at": str(row.get("created_at") or ""),
+        "applicant_count": _job_applicant_count(str(row.get("job_id") or "")) if source == "employer" else None,
+        "screening_questions": _clean_screening_questions(row.get("screening_questions"), include_expected=False) if source == "employer" else [],
+        "hiring_stages": _clean_hiring_stages(row.get("hiring_stages")) if source == "employer" else [],
     }
 
     return {
