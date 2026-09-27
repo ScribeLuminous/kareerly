@@ -9,6 +9,20 @@ them to skills, with the shared code as evidence.
         Downloads all PSOC 2012 groups from the PSA API (token: PSA_API_TOKEN in
         backend/.env) and keeps the raw responses for provenance.
 
+        Add --publish to replace the last-known-good reference in data/psoc/
+        that the backend reads; nothing is published when the records fail
+        validation or the API cannot be read. The backend never calls the API.
+
+    python3 scripts/import_reference_data.py psoc-compare --against <file> --code-column C --title-column T
+    python3 scripts/import_reference_data.py psoc-check
+        Report differences between the reference and another list (the PSA 2022
+        updates, stored psoc_groups) or skills_reference.csv. Nothing is rewritten.
+
+    python3 scripts/import_reference_data.py psoc-crosswalk --isco <ESCO ISCOGroups_en.csv>
+        Classify each PSOC group against ISCO-08: isco_match, ambiguous or
+        philippine_specific. link then proposes ESCO occupations for isco_match
+        units only.
+
     python3 scripts/import_reference_data.py esco --dir <unzipped ESCO CSV folder> --version v1.2.0
         Reads the English ESCO CSV download (skills_en.csv, occupations_en.csv,
         occupationSkillRelations_en.csv).
@@ -37,10 +51,11 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -62,6 +77,11 @@ PSOC_LEVELS = {
     "unit": ("unit", "unitcode", 4),
 }
 PAGE_SIZE = 500
+# The last-known-good reference the backend reads; see app/services/psoc_reference.py.
+PSOC_REFERENCE_DIR = BACKEND_DIR / "data" / "psoc"
+PSOC_GROUPS_FILE = f"psoc_{PSOC_VERSION}_groups.csv"
+PSOC_META_FILE = "psoc_reference_meta.json"
+PSOC_CROSSWALK_FILE = "psoc_isco_crosswalk.csv"
 
 TABLE_COLUMNS = {
     "reference_datasets": ["dataset_id", "name", "version", "source_url", "retrieved_at", "source_sha256", "license_note", "notes"],
@@ -140,6 +160,23 @@ def _psoc_token() -> str:
     return token
 
 
+class PsocApiError(RuntimeError):
+    """The PSA API could not be read. The message never contains the token."""
+
+
+class PsocResponseError(PsocApiError, ValueError):
+    """The PSA API answered, but not with the expected JSON shape."""
+
+
+_TOKEN_IN_TEXT = re.compile(r"(token=)[^&\s'\"]+", re.IGNORECASE)
+
+
+def redact(text: Any, token: str = "") -> str:
+    """Text safe to print or log: the token query value and the token itself are removed."""
+    value = _TOKEN_IN_TEXT.sub(r"\1[REDACTED]", str(text))
+    return value.replace(token, "[REDACTED]") if token else value
+
+
 def _psoc_items(body: Any) -> tuple[list[dict[str, Any]], bool]:
     """Items in one API response, and whether the response says more pages exist."""
     if isinstance(body, list):
@@ -148,24 +185,54 @@ def _psoc_items(body: Any) -> tuple[list[dict[str, Any]], bool]:
         for key in ("results", "data", "items"):
             if isinstance(body.get(key), list):
                 return body[key], bool(body.get("next"))
-    raise ValueError(f"Unexpected PSOC response shape: {str(body)[:200]}")
+    raise PsocResponseError(f"Unexpected PSOC response shape: {redact(str(body)[:200])}")
 
 
-def fetch_psoc_group(group: str, token: str, pause: float = 0.5) -> list[dict[str, Any]]:
+PSOC_TIMEOUT_SECONDS = 30.0
+PSOC_RETRIES = 2  # after the first attempt; 4xx answers other than 429 are not retried
+
+
+def _get_json(url: str, token: str, *, timeout: float, retries: int, backoff: float,
+              opener: Callable[..., Any] | None = None, sleep: Callable[[float], None] = time.sleep) -> Any:
+    opener = opener or urllib.request.urlopen
+    safe_url = redact(url, token)
+    last = ""
+    for attempt in range(retries + 1):
+        request = urllib.request.Request(url, headers={"User-Agent": "Kareerly thesis research"})
+        try:
+            with opener(request, timeout=timeout) as response:
+                return json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            if 400 <= error.code < 500 and error.code != 429:
+                hint = " (check PSA_API_TOKEN)" if error.code in (401, 403) else ""
+                raise PsocApiError(f"PSA API answered HTTP {error.code} for {safe_url}{hint}") from None
+            last = f"HTTP {error.code}"
+        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            last = type(error).__name__
+        except json.JSONDecodeError:
+            last = "invalid JSON"
+        if attempt < retries:
+            sleep(backoff * (2 ** attempt))
+    raise PsocApiError(f"PSA API unavailable after {retries + 1} attempts ({last}) for {safe_url}") from None
+
+
+def fetch_psoc_group(group: str, token: str, pause: float = 0.5, *, timeout: float = PSOC_TIMEOUT_SECONDS,
+                     retries: int = PSOC_RETRIES, opener: Callable[..., Any] | None = None,
+                     sleep: Callable[[float], None] = time.sleep) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     seen_ids: set[Any] = set()
     for page in range(1, 1000):
         query = urllib.parse.urlencode({"token": token, "page": page, "page_size": PAGE_SIZE})
-        request = urllib.request.Request(f"{PSOC_BASE}/{PSOC_VERSION}/{group}?{query}", headers={"User-Agent": "Kareerly thesis research"})
-        with urllib.request.urlopen(request, timeout=60) as response:
-            batch, has_next = _psoc_items(json.loads(response.read()))
+        url = f"{PSOC_BASE}/{PSOC_VERSION}/{group}?{query}"
+        batch, has_next = _psoc_items(_get_json(url, token, timeout=timeout, retries=retries, backoff=max(pause, 0.1),
+                                                opener=opener, sleep=sleep))
         fresh = [item for item in batch if item.get("id", json.dumps(item, sort_keys=True)) not in seen_ids]
         seen_ids.update(item.get("id", json.dumps(item, sort_keys=True)) for item in fresh)
         items.extend(fresh)
         # Unpaginated endpoints return the same list for every page, so stop on no new items.
         if not fresh or (not has_next and len(batch) < PAGE_SIZE):
             break
-        time.sleep(pause)
+        sleep(pause)
     return items
 
 
@@ -188,23 +255,122 @@ def parse_psoc(raw: dict[str, list[dict[str, Any]]]) -> list[dict[str, str]]:
                 "dataset_id": PSOC_DATASET,
             }
     for row in rows.values():
+        # The table's foreign key needs an existing parent; validate_psoc reports
+        # every orphan so it is reviewed rather than silently accepted.
         if row["parent_code"] and row["parent_code"] not in rows:
             row["parent_code"] = ""
     return sorted(rows.values(), key=lambda row: (len(row["psoc_code"]), row["psoc_code"]))
 
 
+def validate_psoc(raw: dict[str, list[dict[str, Any]]]) -> list[dict[str, str]]:
+    """Problems in raw API records, one row each. An empty list means the download is usable.
+
+    Nothing is corrected here: a code with the wrong length, a missing title,
+    a group whose parent is absent, a duplicate code or another version is
+    reported for review.
+    """
+    problems: list[dict[str, str]] = []
+    seen: dict[str, str] = {}
+    widths = {level: width for level, (_, _, width) in PSOC_LEVELS.items()}
+
+    def report(level: str, code: str, problem: str, detail: str = "") -> None:
+        problems.append({"level": level, "psoc_code": code, "problem": problem, "detail": detail})
+
+    for level, (group, code_field, width) in PSOC_LEVELS.items():
+        for item in raw.get(group, []):
+            if str(item.get("version", PSOC_VERSION)) != PSOC_VERSION:
+                report(level, str(item.get(code_field, "")), "other_version", str(item.get("version")))
+                continue
+            value = str(item.get(code_field, "") or "").strip().split(".")[0]
+            if not value.isdigit():
+                report(level, value, "invalid_code", f"{code_field} is not a number")
+                continue
+            if len(value) > width:
+                report(level, value, "invalid_code", f"longer than {width} digits for a {level} group")
+                continue
+            code = value.zfill(width)
+            if not clean(item.get("title")):
+                report(level, code, "missing_title")
+            if code in seen:
+                report(level, code, "duplicate_code", f"also a {seen[code]} group")
+            seen[code] = level
+    for code, level in seen.items():
+        if widths[level] > 1 and code[:-1] not in seen:
+            report(level, code, "missing_parent", f"no group {code[:-1]}")
+    return problems
+
+
+def _write_csv(path: Path, columns: list[str], rows: Iterable[dict[str, Any]]) -> int:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore", lineterminator="\n")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in columns})
+            count += 1
+    return count
+
+
+PSOC_PROBLEM_COLUMNS = ["level", "psoc_code", "problem", "detail"]
+
+
+def publish_psoc_reference(rows: list[dict[str, str]], raw_sha256: str, retrieved: dt.datetime,
+                           reference_dir: Path = PSOC_REFERENCE_DIR) -> Path:
+    """Replace the last-known-good reference the backend reads (no network at runtime).
+
+    Both files are written beside the old ones and swapped in only when complete,
+    so a failed run leaves the previous reference in place.
+    """
+    reference_dir.mkdir(parents=True, exist_ok=True)
+    groups = reference_dir / PSOC_GROUPS_FILE
+    meta_path = reference_dir / PSOC_META_FILE
+    staged_groups = groups.with_suffix(".csv.tmp")
+    count = _write_csv(staged_groups, ["psoc_code", "level", "title", "description", "parent_code"], rows)
+    meta = {
+        "classification": "PSOC",
+        "version": PSOC_VERSION,
+        "source": "PSA Classifications API",
+        # The token is a query parameter of every request; it is never stored.
+        "source_url": f"{PSOC_BASE}/{PSOC_VERSION}/{{major,sub-major,minor,unit}}",
+        "retrieved_at": retrieved.isoformat(timespec="seconds"),
+        "raw_sha256": raw_sha256,
+        "groups_sha256": hashlib.sha256(staged_groups.read_bytes()).hexdigest(),
+        "rows": count,
+        "levels": dict(collections.Counter(row["level"] for row in rows)),
+        "notes": "PSOC 2012 as served by the API. The PSA 2022 updates are not applied here; compare them with psoc-compare.",
+    }
+    staged_meta = meta_path.with_suffix(".json.tmp")
+    staged_meta.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    staged_groups.replace(groups)
+    staged_meta.replace(meta_path)
+    return groups
+
+
 def command_psoc(args: argparse.Namespace) -> int:
     token = _psoc_token()
     raw = {}
-    for level, (group, _, _) in PSOC_LEVELS.items():
-        raw[group] = fetch_psoc_group(group, token)
-        print(f"  {group}: {len(raw[group])} items")
+    try:
+        for level, (group, _, _) in PSOC_LEVELS.items():
+            raw[group] = fetch_psoc_group(group, token, timeout=args.timeout, retries=args.retries)
+            print(f"  {group}: {len(raw[group])} items")
+    except PsocApiError as error:
+        # The message is already redacted; redact again in case a caller changed it.
+        print(f"! {redact(error, token)}", file=sys.stderr)
+        print("! Nothing was written; the published reference in data/psoc/ is unchanged.", file=sys.stderr)
+        return 2
     raw_bytes = json.dumps(raw, ensure_ascii=False, sort_keys=True, indent=1).encode("utf-8")
+    if token in raw_bytes.decode("utf-8"):
+        print("! The API response contains the token; it was not saved.", file=sys.stderr)
+        return 2
+    raw_sha256 = hashlib.sha256(raw_bytes).hexdigest()
     raw_dir = REFERENCE_DIR / "psoc"
     raw_dir.mkdir(parents=True, exist_ok=True)
     retrieved = dt.datetime.now(dt.timezone.utc)
     (raw_dir / f"psoc_{PSOC_VERSION}_{retrieved.date().isoformat()}.json").write_bytes(raw_bytes)
 
+    problems = validate_psoc(raw)
+    _write_csv(args.out_dir / "psoc_validation.csv", PSOC_PROBLEM_COLUMNS, problems)
     rows = parse_psoc(raw)
     count = write_table(args.out_dir, "psoc_groups", rows)
     upsert_dataset(args.out_dir, {
@@ -213,12 +379,202 @@ def command_psoc(args: argparse.Namespace) -> int:
         "version": PSOC_VERSION,
         "source_url": f"{PSOC_BASE}/{PSOC_VERSION}",
         "retrieved_at": retrieved.isoformat(timespec="seconds"),
-        "source_sha256": hashlib.sha256(raw_bytes).hexdigest(),
+        "source_sha256": raw_sha256,
         "license_note": "Philippine Statistics Authority. Used under the PSA Classifications API terms.",
         "notes": "PSA lists 2022 updates in the PSOC technical notes; reconcile before calling this current.",
     })
     levels = collections.Counter(row["level"] for row in rows)
     print(f"psoc_groups: {count} rows ({', '.join(f'{k} {v}' for k, v in levels.items())}) -> {args.out_dir}")
+    if problems:
+        print(f"! {len(problems)} problems in the API records: {collections.Counter(p['problem'] for p in problems)}")
+        print(f"  see {args.out_dir / 'psoc_validation.csv'}")
+    if args.publish:
+        if problems or not levels.get("unit"):
+            print("! Not published: review the problems first. The previous reference is unchanged.", file=sys.stderr)
+            return 3
+        print(f"published {publish_psoc_reference(rows, raw_sha256, retrieved, args.reference_dir)}")
+    return 0
+
+
+def _code_digits(value: Any) -> str:
+    text = clean(value)
+    return text[:-2] if text.endswith(".0") else text
+
+
+def load_code_table(path: Path, code_column: str, title_column: str, level_column: str = "",
+                    sheet: str = "") -> list[dict[str, str]]:
+    """Rows of a CSV or Excel file as {code, title, level}; codes stay exactly as written."""
+    if path.suffix.lower() in {".xlsx", ".xlsm", ".xls"}:
+        import pandas as pd
+
+        frame = pd.read_excel(path, sheet_name=sheet or 0, dtype=str).fillna("")
+        records = frame.to_dict(orient="records")
+    else:
+        with path.open(encoding="utf-8-sig", newline="") as handle:
+            records = list(csv.DictReader(handle))
+    missing = [c for c in (code_column, title_column, level_column) if c and records and c not in records[0]]
+    if missing:
+        raise SystemExit(f"! {path.name} has no column {', '.join(missing)}")
+    return [{"code": _code_digits(r.get(code_column)), "title": clean(r.get(title_column)),
+             "level": clean(r.get(level_column)) if level_column else ""}
+            for r in records if _code_digits(r.get(code_column))]
+
+
+def compare_psoc(reference: list[dict[str, str]], other: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Differences between the published reference and another code list. Nothing is rewritten.
+
+    A code in the other list that only matches after zero-padding (110 vs 0110)
+    is reported as code_format, because spreadsheets drop leading zeros.
+    """
+    by_code = {row["psoc_code"]: row for row in reference}
+    widths = {level: width for level, (_, _, width) in PSOC_LEVELS.items()}
+    found: set[str] = set()
+    out: list[dict[str, str]] = []
+
+    def add(code: str, other_code: str, kind: str, reference_value: str = "", other_value: str = "") -> None:
+        out.append({"psoc_code": code, "other_code": other_code, "discrepancy": kind,
+                    "reference_value": reference_value, "other_value": other_value})
+
+    for row in other:
+        code = row["code"]
+        match = by_code.get(code)
+        if match is None and code.isdigit():
+            level_width = widths.get(row["level"].lower().replace("-", "_").replace(" ", "_"))
+            padded = [code.zfill(w) for w in ([level_width] if level_width else range(len(code) + 1, 5))]
+            candidates = [c for c in padded if c in by_code]
+            if len(candidates) == 1:
+                match = by_code[candidates[0]]
+                add(match["psoc_code"], code, "code_format", match["psoc_code"], code)
+        if match is None:
+            add("", code, "missing_in_reference", "", row["title"])
+            continue
+        found.add(match["psoc_code"])
+        if row["title"] and normalize_label(row["title"]) != normalize_label(match["title"]):
+            add(match["psoc_code"], code, "title_differs", match["title"], row["title"])
+        level = row["level"].lower().replace("-", "_").replace(" ", "_")
+        if level and level in widths and level != match["level"]:
+            add(match["psoc_code"], code, "level_differs", match["level"], row["level"])
+    for code, row in by_code.items():
+        if code not in found:
+            add(code, "", "missing_in_other", row["title"], "")
+    return out
+
+
+PSOC_DISCREPANCY_COLUMNS = ["psoc_code", "other_code", "discrepancy", "reference_value", "other_value"]
+
+
+def read_psoc_reference(args: argparse.Namespace) -> list[dict[str, str]]:
+    path = args.reference_dir / PSOC_GROUPS_FILE
+    if path.exists():
+        with path.open(encoding="utf-8", newline="") as handle:
+            return list(csv.DictReader(handle))
+    rows = read_table(args.out_dir, "psoc_groups")
+    if not rows:
+        raise SystemExit("! No PSOC reference: run the psoc step (with --publish) first.")
+    return rows
+
+
+def command_psoc_compare(args: argparse.Namespace) -> int:
+    reference = read_psoc_reference(args)
+    other = load_code_table(args.against, args.code_column, args.title_column, args.level_column, args.sheet)
+    rows = compare_psoc(reference, other)
+    out = args.output or args.out_dir / f"psoc_discrepancies_{args.against.stem}.csv"
+    _write_csv(out, PSOC_DISCREPANCY_COLUMNS, rows)
+    counts = collections.Counter(row["discrepancy"] for row in rows)
+    print(f"{len(other)} codes in {args.against.name} vs {len(reference)} reference groups")
+    print(f"discrepancies: {dict(counts) or 'none'} -> {out}")
+    print("Nothing was changed; review the file and update the source you trust.")
+    return 0
+
+
+def command_psoc_check(args: argparse.Namespace) -> int:
+    """Check the PSOC codes stored in skills_reference.csv against the reference."""
+    reference = read_psoc_reference(args)
+    groups = [{"code": row["psoc_code"], "title": row["title"], "level": "unit"} for row in stored_skill_psoc_groups()]
+    rows = [row for row in compare_psoc(reference, groups) if row["discrepancy"] != "missing_in_other"]
+    out = args.output or args.out_dir / "psoc_discrepancies_skills_reference.csv"
+    _write_csv(out, PSOC_DISCREPANCY_COLUMNS, rows)
+    print(f"{len(groups)} PSOC codes in skills_reference.csv; discrepancies: "
+          f"{dict(collections.Counter(r['discrepancy'] for r in rows)) or 'none'} -> {out}")
+    return 0
+
+
+# ---------------------------------------------------------------- PSOC -> ISCO-08
+
+
+CROSSWALK_COLUMNS = ["psoc_code", "psoc_title", "isco_code", "isco_title", "status", "title_overlap", "note", "review_status"]
+
+
+def _title_overlap(a: str, b: str) -> float:
+    stop = {"and", "of", "the", "not", "elsewhere", "classified", "other", "related", "n.e.c", "nec"}
+    left = {w for w in normalize_label(a).split() if w not in stop}
+    right = {w for w in normalize_label(b).split() if w not in stop}
+    if not left or not right:
+        return 0.0
+    return round(len(left & right) / len(left | right), 3)
+
+
+def read_isco_groups(path: Path) -> dict[str, str]:
+    """ISCO-08 code -> title from ESCO's ISCOGroups_en.csv."""
+    if path.is_dir():
+        path = _esco_file(path, "ISCOGroups")
+    return {clean(row["code"]): clean(row["preferredLabel"]) for row in _read_csv(path) if clean(row.get("code"))}
+
+
+def classify_crosswalk(psoc_rows: list[dict[str, str]], isco: dict[str, str],
+                       min_overlap: float = 0.34) -> list[dict[str, str]]:
+    """PSOC group -> ISCO-08 group with the same code, and how sure that is.
+
+    PSOC 2012 adopts ISCO-08 codes, but the PSA added and renamed groups for the
+    Philippines. The code alone is therefore not proof:
+
+    - isco_match: the same code exists in ISCO-08 and the titles share words.
+    - ambiguous: the same code exists but the titles differ; a person decides.
+    - philippine_specific: the code is not in ISCO-08.
+
+    Every row starts 'proposed'. Only isco_match rows are used to propose ESCO
+    occupation links, and those are proposals too.
+    """
+    out = []
+    for row in psoc_rows:
+        code = row["psoc_code"]
+        isco_title = isco.get(code, "")
+        overlap = _title_overlap(row["title"], isco_title) if isco_title else 0.0
+        if not isco_title:
+            status, note = "philippine_specific", "code not in ISCO-08"
+        elif overlap >= min_overlap or normalize_label(row["title"]) == normalize_label(isco_title):
+            status, note = "isco_match", ""
+        else:
+            status, note = "ambiguous", "same code, different title"
+        out.append({"psoc_code": code, "psoc_title": row["title"], "isco_code": code if isco_title else "",
+                    "isco_title": isco_title, "status": status, "title_overlap": overlap, "note": note,
+                    "review_status": "proposed"})
+    return out
+
+
+def stored_skill_psoc_groups() -> list[dict[str, str]]:
+    """The PSOC unit codes and titles hand-entered in skills_reference.csv."""
+    with SKILLS_REFERENCE_PATH.open(encoding="utf-8-sig", newline="") as handle:
+        stored = list(csv.DictReader(handle))
+    groups: dict[str, dict[str, str]] = {}
+    for row in stored:
+        if row.get("psoc_code"):
+            groups.setdefault(row["psoc_code"], {"psoc_code": row["psoc_code"], "title": row.get("psoc_category", ""), "level": "unit"})
+    return sorted(groups.values(), key=lambda row: row["psoc_code"])
+
+
+def command_psoc_crosswalk(args: argparse.Namespace) -> int:
+    if args.stored_skill_codes:
+        # Offline check of the codes already in skills_reference.csv; the result is
+        # a report, not the published crosswalk.
+        rows = classify_crosswalk(stored_skill_psoc_groups(), read_isco_groups(args.isco))
+        path = args.output or args.out_dir / "psoc_isco_crosswalk_skills_reference.csv"
+    else:
+        rows = classify_crosswalk(read_psoc_reference(args), read_isco_groups(args.isco))
+        path = args.output or args.reference_dir / PSOC_CROSSWALK_FILE
+    _write_csv(path, CROSSWALK_COLUMNS, rows)
+    counts = collections.Counter(row["status"] for row in rows)
+    print(f"{len(rows)} PSOC groups: {dict(counts)} -> {path}")
     return 0
 
 
@@ -343,8 +699,19 @@ def _title_similarity(pairs: list[tuple[str, str]]) -> list[float]:
     return [round(float(score), 3) for score in (left * right).sum(axis=1)]
 
 
-def propose_occupation_links(psoc_rows: list[dict], occupations: list[dict], with_similarity: bool = True) -> list[dict]:
+def propose_occupation_links(psoc_rows: list[dict], occupations: list[dict], with_similarity: bool = True,
+                             crosswalk: list[dict] | None = None) -> list[dict]:
+    """PSOC unit -> ESCO occupation proposals through the shared ISCO-08 code.
+
+    With a crosswalk (classify_crosswalk), only units whose code and title agree
+    with ISCO-08 are linked; Philippine-specific and ambiguous units are left
+    for a reviewer. These links say which ESCO occupations a PSOC group
+    resembles. They are never a source of a vacancy's required skills.
+    """
     units = {row["psoc_code"]: row for row in psoc_rows if row["level"] == "unit"}
+    if crosswalk is not None:
+        agreed = {row["psoc_code"] for row in crosswalk if row["status"] == "isco_match"}
+        units = {code: row for code, row in units.items() if code in agreed}
     links = []
     for occupation in occupations:
         code = occupation["isco_group"].strip()
@@ -450,8 +817,11 @@ def command_link(args: argparse.Namespace) -> int:
     summary = [f"# Reference import summary ({dt.date.today().isoformat()})", "", "## Kareerly skills -> ESCO skills", ""]
     summary += [f"- {key}: {value}" for key, value in outcome.most_common()]
 
+    crosswalk_path = args.reference_dir / PSOC_CROSSWALK_FILE
+    crosswalk = _read_csv(crosswalk_path) if crosswalk_path.exists() else None
     if psoc_rows:
-        occupation_links = propose_occupation_links(psoc_rows, occupations, with_similarity=not args.no_similarity)
+        occupation_links = propose_occupation_links(psoc_rows, occupations, with_similarity=not args.no_similarity,
+                                                    crosswalk=crosswalk)
         write_table(args.out_dir, "psoc_esco_occupation_links", occupation_links)
         units = [row for row in psoc_rows if row["level"] == "unit"]
         linked_units = {link["psoc_code"] for link in occupation_links}
@@ -464,6 +834,11 @@ def command_link(args: argparse.Namespace) -> int:
             f"- PSOC units with no ESCO occupation: {', '.join(sorted({u['psoc_code'] for u in units} - linked_units)) or 'none'}",
             f"- ISCO-08 groups used by ESCO but absent from PSOC: {', '.join(unmatched_isco) or 'none'}",
         ]
+        if crosswalk is None:
+            summary.append("- No PSOC -> ISCO-08 crosswalk: every same-code unit was proposed. Run psoc-crosswalk to hold back ambiguous and Philippine-specific units.")
+        else:
+            held = collections.Counter(row["status"] for row in crosswalk if row["status"] != "isco_match")
+            summary.append(f"- held back by the crosswalk (not linked): {dict(held) or 'none'}")
     else:
         summary += ["", "PSOC not imported yet: run the psoc step, then link again."]
 
@@ -478,14 +853,35 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("psoc", help="download PSOC 2012 from the PSA API")
+    parser.add_argument("--reference-dir", type=Path, default=PSOC_REFERENCE_DIR,
+                        help="the published PSOC reference the backend reads (default data/psoc)")
+    psoc = commands.add_parser("psoc", help="download PSOC 2012 from the PSA API")
+    psoc.add_argument("--timeout", type=float, default=PSOC_TIMEOUT_SECONDS, help="seconds per request")
+    psoc.add_argument("--retries", type=int, default=PSOC_RETRIES, help="retries after a failed request (not for 4xx)")
+    psoc.add_argument("--publish", action="store_true",
+                      help="replace the last-known-good reference in --reference-dir when the download validates")
+    compare = commands.add_parser("psoc-compare", help="list differences between the reference and another PSOC list")
+    compare.add_argument("--against", type=Path, required=True, help="CSV or Excel file, e.g. the PSA 2022 updates workbook")
+    compare.add_argument("--code-column", required=True)
+    compare.add_argument("--title-column", required=True)
+    compare.add_argument("--level-column", default="")
+    compare.add_argument("--sheet", default="")
+    compare.add_argument("--output", type=Path)
+    check = commands.add_parser("psoc-check", help="check the PSOC codes stored in skills_reference.csv")
+    check.add_argument("--output", type=Path)
+    crosswalk = commands.add_parser("psoc-crosswalk", help="classify PSOC groups against ISCO-08")
+    crosswalk.add_argument("--isco", type=Path, required=True, help="ESCO ISCOGroups_en.csv or the ESCO CSV folder")
+    crosswalk.add_argument("--stored-skill-codes", action="store_true",
+                           help="classify the PSOC codes in skills_reference.csv instead (works without the API)")
+    crosswalk.add_argument("--output", type=Path)
     esco = commands.add_parser("esco", help="read the ESCO English CSV download")
     esco.add_argument("--dir", required=True)
     esco.add_argument("--version", required=True, help="ESCO version of the download, e.g. v1.2.0")
     link = commands.add_parser("link", help="propose PSOC-ESCO and Kareerly-ESCO links, write load.sql")
     link.add_argument("--no-similarity", action="store_true", help="skip title similarity (no model download)")
     args = parser.parse_args(argv)
-    handler = {"psoc": command_psoc, "esco": command_esco, "link": command_link}[args.command]
+    handler = {"psoc": command_psoc, "psoc-compare": command_psoc_compare, "psoc-check": command_psoc_check,
+               "psoc-crosswalk": command_psoc_crosswalk, "esco": command_esco, "link": command_link}[args.command]
     return handler(args)
 
 
