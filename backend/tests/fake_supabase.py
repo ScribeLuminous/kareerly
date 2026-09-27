@@ -1,4 +1,4 @@
-"""In-memory stand-in for learning.supabase_client.SupabaseRest (eq/in/is filters only)."""
+"""In-memory stand-in for learning.supabase_client.SupabaseRest (eq/neq/lt/in/is and or filters only)."""
 from __future__ import annotations
 
 import copy
@@ -6,17 +6,32 @@ import itertools
 import uuid
 
 
+def _condition(row, column, expression):
+    op, _, value = expression.partition(".")
+    current = row.get(column)
+    if op == "eq":
+        return str(current) == value
+    if op == "neq":
+        return current is not None and str(current) != value
+    if op == "lt":
+        return current is not None and str(current) < value
+    if op == "in":
+        return str(current) in [item.strip('"') for item in value.strip("()").split(",")]
+    if op == "is" and value == "null":
+        return current is None
+    return True
+
+
 def _matches(row, filters):
     for column, expression in filters.items():
         if column in {"select", "order", "limit", "offset", "on_conflict"}:
             continue
-        op, _, value = expression.partition(".")
-        current = row.get(column)
-        if op == "eq" and str(current) != value:
-            return False
-        if op == "in" and str(current) not in value.strip("()").split(","):
-            return False
-        if op == "is" and value == "null" and current is not None:
+        if column == "or":
+            # "(a.is.null,a.neq.x)": any one condition.
+            parts = [part.split(".", 1) for part in expression.strip("()").split(",")]
+            if not any(_condition(row, name, rest) for name, rest in parts):
+                return False
+        elif not _condition(row, column, expression):
             return False
     return True
 
