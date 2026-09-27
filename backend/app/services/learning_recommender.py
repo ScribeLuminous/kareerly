@@ -17,6 +17,7 @@ from typing import Callable
 
 from .supabase_learning_resources import load_learning_resources_dataframe
 from .skill_variants import remove_excluded_aliases
+from . import skill_resolver
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -157,25 +158,6 @@ def _skills_lookup_by_id(skills_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
     if "skill_id" not in df.columns:
         raise ValueError("skills_reference.csv must contain a skill_id column.")
     return df.set_index("skill_id").to_dict(orient="index")
-
-
-def _skill_aliases(skill: dict[str, Any]) -> set[str]:
-    aliases: set[str] = set()
-    for field in ["skill_name", "related_skills", "esco_preferred_label", "esco_alternative_labels"]:
-        for item in split_text_values(skill.get(field, "")):
-            aliases.add(item.strip().lower())
-    return {alias for alias in aliases if alias}
-
-
-def _skill_ids_by_alias(skills_lookup: dict[str, dict[str, Any]]) -> dict[str, str]:
-    """Normalized skill name or alias -> taxonomy ID, for names naming exactly one skill."""
-    owners: dict[str, set[str]] = {}
-    for skill_id, skill in skills_lookup.items():
-        for alias in _skill_aliases(skill):
-            normalized = _normalize_skill_text(alias)
-            if normalized:
-                owners.setdefault(normalized, set()).add(str(skill_id).strip().upper())
-    return {alias: next(iter(ids)) for alias, ids in owners.items() if len(ids) == 1}
 
 
 def add_skill_gap_fields(
@@ -646,16 +628,19 @@ def _prepare_resources(
         if not reviewed and not resource_is_listable(resource):
             continue
         mapped = {canonical(skill_id) for skill_id in split_ids(resource.get("skill_ids", ""))}
+        # What the resource's own text names, read by the shared resolver.
+        named = {canonical(skill_id) for skill_id in evidence(_resource_text(resource))}
         # Generated catalog mappings put SQL on a social-media certificate and
         # Bookkeeping on a marketing course. An unreviewed mapping is kept only
         # when the resource's own text names the skill.
-        skill_ids = mapped if reviewed else mapped & {canonical(skill_id) for skill_id in evidence(_resource_text(resource))}
+        skill_ids = mapped if reviewed else mapped & named
         title = _normalize_skill_text(resource.get("course_or_certification_title", ""))
         key = (title, provider_url(_clean_text(resource.get("external_course_or_certification_link", ""))) or _clean_text(resource.get("resource_id", "")))
         item = {
             "resource": resource,
             "reviewed": reviewed,
             "skill_ids": skill_ids,
+            "named_skill_ids": named,
             "skill_names": _resource_skill_names(resource),
             "title": title,
         }
@@ -667,6 +652,7 @@ def _prepare_resources(
         # Unreviewed duplicates only widen the unreviewed copy's mappings.
         if not keep["reviewed"]:
             keep["skill_ids"] |= other["skill_ids"]
+            keep["named_skill_ids"] |= other["named_skill_ids"]
             keep["skill_names"] |= other["skill_names"]
         prepared[key] = keep
     return list(prepared.values())
@@ -683,7 +669,9 @@ def _recommend_for_gap(
     if (not skill_id and not skill_name) or not prepared:
         return []
     normalized_name = _normalize_skill_text(skill_name)
-    name_pattern = re.compile(rf"(^| ){re.escape(normalized_name)}( |$)") if len(normalized_name) >= 3 else None
+    # A named-only gap (no taxonomy skill, e.g. "Node.js") is taught by a
+    # resource whose title or provider skill list names it as a whole phrase.
+    name_pattern = re.compile(rf"(^| ){re.escape(normalized_name)}( |$)") if not skill_id and len(normalized_name) >= 3 else None
     id_matches: list[dict[str, Any]] = []
     name_matches: list[dict[str, Any]] = []
     for item in prepared:
@@ -691,6 +679,9 @@ def _recommend_for_gap(
         if skill_id and skill_id in item["skill_ids"]:
             method = "reviewed_skill_id_mapping" if reviewed else "catalog_skill_id_mapping"
             id_matches.append(_build_recommendation(resource, skill_id, skill_name, reviewed, method))
+        elif skill_id and skill_id in item["named_skill_ids"]:
+            # Not mapped, but its own text names the skill (read by the shared resolver).
+            name_matches.append(_build_recommendation(resource, skill_id, skill_name, reviewed, "skill_name_match"))
         elif name_pattern and (normalized_name in item["skill_names"] or name_pattern.search(item["title"])):
             name_matches.append(_build_recommendation(resource, skill_id, skill_name, reviewed, "skill_name_match"))
     recommendations = id_matches or name_matches
@@ -775,10 +766,11 @@ def recommend_learning_resources_for_matches(
     except (FileNotFoundError, ValueError):
         skills_lookup = {}
     if resolve_skill_id is None:
-        alias_ids = _skill_ids_by_alias(skills_lookup)
-
-        def resolve_skill_id(name: str) -> str:
-            return alias_ids.get(_normalize_skill_text(name), "")
+        # The shared resolver over the bundled taxonomy (matching passes its own,
+        # which also includes approved runtime additions).
+        vocabulary = skill_resolver.build_vocabulary(
+            [{"skill_id": skill_id, **skill} for skill_id, skill in skills_lookup.items()])
+        resolve_skill_id = vocabulary.resolve
 
     gaps: dict[str, dict[str, Any]] = {}
 
