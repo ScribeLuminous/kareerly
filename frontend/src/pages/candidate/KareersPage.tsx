@@ -23,9 +23,12 @@ type KareersPageProps = {
   isDesktop: boolean;
   selectedJobId: string | null;
   renderDetail: (job: DashboardJob) => ReactNode;
+  onOpenApplications: () => void;
+  onAnalyzeJob: () => void;
+  messageRequestCount: number;
 };
 
-export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, getApplicationStatus, onSave, onApply, onOpenJob, isDesktop, selectedJobId, renderDetail }: KareersPageProps) {
+export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, getApplicationStatus, onSave, onApply, onOpenJob, isDesktop, selectedJobId, renderDetail, onOpenApplications, onAnalyzeJob, messageRequestCount }: KareersPageProps) {
   const [searchValue, setSearchValue] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
@@ -92,7 +95,18 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
 
   return (
     <div className="k-page">
-      <PageHeader title="Kareers" />
+      <PageHeader title="Kareers">
+        {/* Phones and tablets have no Kareers dropdown, so its tools are linked here. */}
+        <nav className="mt-1 flex flex-wrap gap-x-5 lg:hidden" aria-label="Kareers tools">
+          <button className="k-link min-h-11" type="button" onClick={onOpenApplications}>
+            Applications
+            {messageRequestCount > 0 && (
+              <span className="k-count k-count-alert ml-1" aria-label={`${messageRequestCount} message request${messageRequestCount === 1 ? '' : 's'}`}>{messageRequestCount}</span>
+            )}
+          </button>
+          <button className="k-link min-h-11" type="button" onClick={onAnalyzeJob}>Analyze a job</button>
+        </nav>
+      </PageHeader>
       <div className="k-toolbar">
         <SearchField value={searchValue} onChange={setSearchValue} label="Search jobs" placeholder="Search role, skill or location" />
         <div className="k-toolbar-controls">
