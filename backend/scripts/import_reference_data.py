@@ -9,9 +9,11 @@ them to skills, with the shared code as evidence.
         Downloads all PSOC 2012 groups from the PSA API (token: PSA_API_TOKEN in
         backend/.env) and keeps the raw responses for provenance.
 
-    python3 scripts/import_reference_data.py esco --dir <unzipped ESCO CSV folder> --version v1.2.0
+    python3 scripts/import_reference_data.py esco --dir <ESCO CSV zip or folder> --version v1.2.1
         Reads the English ESCO CSV download (skills_en.csv, occupations_en.csv,
-        occupationSkillRelations_en.csv).
+        occupationSkillRelations_en.csv). A zip is read directly; macOS
+        __MACOSX copies are skipped; a concept listed twice keeps the row with
+        the latest modifiedDate.
 
     python3 scripts/import_reference_data.py link
         Proposes PSOC unit -> ESCO occupation links (same ISCO-08 code) and
@@ -20,9 +22,12 @@ them to skills, with the shared code as evidence.
         'proposed'; only a reviewer marks them 'reviewed'.
 
 Each step writes table-shaped CSVs to data/corpus/reference/import/, and link
-also writes load.sql, which loads every CSV into the tables created by
-supabase/migrations/20260918090000_occupation_skill_reference.sql. Nothing is
-written to Supabase by this script.
+also writes load.sql (for psql) and sql_editor/NN_<table>.sql (to paste into
+the Supabase SQL Editor, in order), which upsert every CSV into the tables
+created by supabase/migrations/20260918090000_occupation_skill_reference.sql.
+Re-running them is safe: rows are inserted or updated, and a reviewer's
+decision on a link is never overwritten. Nothing is written to Supabase by
+this script.
 """
 
 from __future__ import annotations
@@ -36,9 +41,11 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 import urllib.parse
 import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -82,6 +89,10 @@ PRIMARY_KEYS = {
     "kareerly_skill_esco_links": ["skill_id", "skill_uri"],
 }
 LOAD_ORDER = list(TABLE_COLUMNS)
+# skills_reference.csv mapping statuses that record a person's review of the ESCO link.
+REVIEWED_LINK_STATUSES = {"reviewed", "mapped"}
+# Largest SQL Editor file; the editor rejects very large pastes.
+SQL_EDITOR_MAX_BYTES = 900_000
 # A re-import refreshes the evidence but never overwrites a reviewer's decision.
 REVIEW_COLUMNS = {"review_status", "reviewer", "reviewed_at"}
 
@@ -225,8 +236,21 @@ def command_psoc(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------- ESCO
 
 
+def _esco_directory(source: Path) -> Path:
+    """The folder holding the ESCO CSVs; a zip is unpacked to a temporary folder first."""
+    if source.is_file() and zipfile.is_zipfile(source):
+        target = Path(tempfile.mkdtemp(prefix="esco-"))
+        with zipfile.ZipFile(source) as archive:
+            for member in archive.namelist():
+                if member.endswith(".csv") and "__MACOSX" not in member:
+                    archive.extract(member, target)
+        return target
+    return source
+
+
 def _esco_file(directory: Path, stem: str) -> Path:
-    matches = sorted(directory.rglob(f"{stem}_en.csv")) or sorted(directory.rglob(f"{stem}*.csv"))
+    candidates = sorted(directory.rglob(f"{stem}_en.csv")) or sorted(directory.rglob(f"{stem}*.csv"))
+    matches = [path for path in candidates if "__MACOSX" not in path.parts and not path.name.startswith("._")]
     if not matches:
         raise SystemExit(f"! {stem}_en.csv not found under {directory}")
     return matches[0]
@@ -306,7 +330,7 @@ def _hash_files(paths: Iterable[Path]) -> str:
 
 
 def command_esco(args: argparse.Namespace) -> int:
-    directory = Path(args.dir)
+    directory = _esco_directory(Path(args.dir))
     dataset_id = f"esco-{args.version}"
     skills, occupations, relations, skipped = parse_esco(directory, dataset_id)
     write_table(args.out_dir, "esco_skills", skills)
@@ -318,7 +342,7 @@ def command_esco(args: argparse.Namespace) -> int:
         "name": "European Skills, Competences, Qualifications and Occupations (ESCO), English CSV",
         "version": args.version,
         "source_url": "https://esco.ec.europa.eu/en/use-esco/download",
-        "retrieved_at": dt.datetime.fromtimestamp(files[0].stat().st_mtime, dt.timezone.utc).isoformat(timespec="seconds"),
+        "retrieved_at": dt.datetime.fromtimestamp(Path(args.dir).stat().st_mtime, dt.timezone.utc).isoformat(timespec="seconds"),
         "source_sha256": _hash_files(files),
         "license_note": "European Union. ESCO is free to reuse with attribution.",
         "notes": "",
@@ -370,10 +394,11 @@ def propose_occupation_links(psoc_rows: list[dict], occupations: list[dict], wit
 def propose_skill_links(reference_rows: list[dict], skills: list[dict]) -> tuple[list[dict], collections.Counter]:
     by_uri = {row["concept_uri"]: row for row in skills}
     by_label: dict[str, list[str]] = collections.defaultdict(list)
+    # Preferred labels only: ESCO alternative labels also list narrower
+    # products and related concepts ("Trello" under "use personal
+    # organization software"), which are not the same skill.
     for row in skills:
-        for label in [row["preferred_label"], *row["alt_labels"].splitlines()]:
-            if label.strip():
-                by_label[normalize_label(label)].append(row["concept_uri"])
+        by_label[normalize_label(row["preferred_label"])].append(row["concept_uri"])
     links, outcome = [], collections.Counter()
     for row in reference_rows:
         skill_id = row["skill_id"].strip()
@@ -385,7 +410,8 @@ def propose_skill_links(reference_rows: list[dict], skills: list[dict]) -> tuple
                 "method": "taxonomy_esco_uri",
                 "evidence": f"skills_reference.csv esco_skill_uri; mapping_status={row.get('mapping_status', '')}; ESCO label '{by_uri[uri]['preferred_label']}'",
                 "confidence": row.get("mapping_confidence", ""),
-                "review_status": "proposed",
+                # skills_reference.csv records which links a person reviewed.
+                "review_status": "reviewed" if row.get("mapping_status", "").strip() in REVIEWED_LINK_STATUSES else "proposed",
             })
             outcome["linked by existing ESCO URI"] += 1
             continue
@@ -436,6 +462,56 @@ def write_load_sql(out_dir: Path) -> Path:
     return path
 
 
+def _sql_literal(value: Any) -> str:
+    text = "" if value is None else str(value)
+    if text == "":
+        return "null"
+    return "'" + text.replace("'", "''") + "'"
+
+
+def write_sql_editor_files(out_dir: Path, max_bytes: int = SQL_EDITOR_MAX_BYTES) -> list[Path]:
+    """Upsert files for the Supabase SQL Editor, run in file-name order.
+
+    Each file is one transaction of INSERT ... ON CONFLICT statements; the
+    same conflict rules as load.sql, so running a file twice changes nothing.
+    """
+    folder = out_dir / "sql_editor"
+    folder.mkdir(parents=True, exist_ok=True)
+    for old in folder.glob("*.sql"):
+        old.unlink()
+    written: list[Path] = []
+    for table in LOAD_ORDER:
+        rows = read_table(out_dir, table)
+        if not rows:
+            continue
+        columns = TABLE_COLUMNS[table]
+        keys = PRIMARY_KEYS[table]
+        updates = [column for column in columns if column not in keys and column not in REVIEW_COLUMNS]
+        conflict = f"do update set {', '.join(f'{c} = excluded.{c}' for c in updates)}" if updates else "do nothing"
+        head = f"insert into public.{table} ({', '.join(columns)}) values\n"
+        tail = f"\non conflict ({', '.join(keys)}) {conflict};\n"
+        part, chunk, size = 1, [], 0
+
+        def flush() -> None:
+            nonlocal part, chunk, size
+            if not chunk:
+                return
+            path = folder / f"{len(written) + 1:02d}_{table}_{part:02d}.sql"
+            path.write_text(f"-- {table}, part {part}. Safe to re-run.\nbegin;\n" + head + ",\n".join(chunk) + tail + "commit;\n",
+                            encoding="utf-8")
+            written.append(path)
+            part, chunk, size = part + 1, [], 0
+
+        for row in rows:
+            values = "(" + ", ".join(_sql_literal(row.get(column, "")) for column in columns) + ")"
+            if chunk and size + len(values) > max_bytes:
+                flush()
+            chunk.append(values)
+            size += len(values) + 2
+        flush()
+    return written
+
+
 def command_link(args: argparse.Namespace) -> int:
     psoc_rows = read_table(args.out_dir, "psoc_groups")
     occupations = read_table(args.out_dir, "esco_occupations")
@@ -468,6 +544,9 @@ def command_link(args: argparse.Namespace) -> int:
         summary += ["", "PSOC not imported yet: run the psoc step, then link again."]
 
     load_path = write_load_sql(args.out_dir)
+    editor_files = write_sql_editor_files(args.out_dir)
+    summary += ["", f"## Load", "", f"- psql: {load_path.name}",
+                f"- Supabase SQL Editor: {len(editor_files)} files in sql_editor/, run in name order"]
     (args.out_dir / "SUMMARY.md").write_text("\n".join(summary) + "\n", encoding="utf-8")
     print("\n".join(summary))
     print(f"\nwrote {load_path}")
@@ -481,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("psoc", help="download PSOC 2012 from the PSA API")
     esco = commands.add_parser("esco", help="read the ESCO English CSV download")
     esco.add_argument("--dir", required=True)
-    esco.add_argument("--version", required=True, help="ESCO version of the download, e.g. v1.2.0")
+    esco.add_argument("--version", required=True, help="ESCO version of the download, e.g. v1.2.1")
     link = commands.add_parser("link", help="propose PSOC-ESCO and Kareerly-ESCO links, write load.sql")
     link.add_argument("--no-similarity", action="store_true", help="skip title similarity (no model download)")
     args = parser.parse_args(argv)
