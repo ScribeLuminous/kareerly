@@ -207,18 +207,18 @@ export function ApplicantReviewModal({
           <p className="k-meta">Stage</p>
           <span className={candidateStatusBadgeClass(candidate.status)}>{candidate.status}</span>
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[12rem] flex-1">
           <p className="k-meta">Next step</p>
           <p className="k-label">{action.label}</p>
           <p className="k-secondary">{action.detail}</p>
         </div>
         {!closed && !evaluationUnavailable && (
           currentRubric ? (
-            <button className="k-btn k-btn-primary k-btn-sm" type="button" onClick={() => setTab('scorecard')}>
+            <button className="k-btn k-btn-primary k-btn-sm w-full sm:w-auto" type="button" onClick={() => setTab('scorecard')}>
               <FontAwesomeIcon icon={faClipboardCheck} aria-hidden="true" />{myCurrentCard ? 'Your scorecard' : 'Start scorecard'}
             </button>
           ) : job && (
-            <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => onEditRubric(job.id)}>Set up rubric</button>
+            <button className="k-btn k-btn-secondary k-btn-sm w-full sm:w-auto" type="button" onClick={() => onEditRubric(job.id)}>Set up rubric</button>
           )
         )}
       </div>
