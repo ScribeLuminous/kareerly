@@ -5,6 +5,11 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   role text not null, email text
 );
+create table if not exists public.candidate_profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references public.profiles(id) on delete cascade,
+  public_id text
+);
 create table if not exists public.employer_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references public.profiles(id) on delete cascade,
@@ -22,6 +27,7 @@ create table if not exists public.job_applications (
   user_id uuid not null references public.profiles(id) on delete cascade,
   job_source text not null default 'employer',
   job_id text not null,
+  job_title text,
   status text default 'pending',
   rejection_reason text,
   match_score integer,
@@ -44,3 +50,19 @@ drop policy if exists "Employers can read own job applications" on public.job_ap
 create policy "Employers can read own job applications" on public.job_applications for select using (
   exists (select 1 from public.employer_job_posts join public.employer_profiles on employer_profiles.id = employer_job_posts.employer_id
     where employer_profiles.user_id = auth.uid() and employer_job_posts.job_id = job_applications.job_id));
+
+create table if not exists public.candidate_notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_user_id uuid not null references auth.users(id) on delete cascade,
+  event_type text not null,
+  application_id uuid references public.job_applications(id) on delete cascade,
+  event_version text not null,
+  title text not null,
+  message text not null,
+  created_at timestamptz not null default now(),
+  read_at timestamptz,
+  unique(recipient_user_id, event_type, application_id, event_version)
+);
+alter table public.candidate_notifications enable row level security;
+create policy "Candidates can read own notifications" on public.candidate_notifications for select using (auth.uid() = recipient_user_id);
+grant select on public.candidate_notifications to authenticated;

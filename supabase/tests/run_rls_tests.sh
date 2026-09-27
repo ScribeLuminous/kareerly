@@ -27,6 +27,8 @@ psql_eval -f "$here/employer_evaluation_seed.sql"
 psql_eval -f "$here/../migrations/20260929090000_employer_structured_evaluation.sql"
 psql_eval -f "$here/../migrations/20260929090000_employer_structured_evaluation.sql"
 psql_eval -f "$here/employer_evaluation_tests.sql"
+psql_eval -f "$here/../migrations/20261001090000_candidate_assessments.sql"
+psql_eval -f "$here/candidate_assessment_tests.sql"
 psql_run -c "create database shared_documents"
 psql_docs() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d shared_documents -v ON_ERROR_STOP=1 -q "$@"; }
 psql_docs -f "$here/supabase_stub.sql"

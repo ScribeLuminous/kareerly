@@ -1,7 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronRight, faUser } from '@fortawesome/free-solid-svg-icons';
+import type { CandidateAssessment } from '../../lib/assessmentApi';
 import type { EvaluationSummary } from '../../lib/evaluationApi';
-import { nextAction, profileMatch, profileMatchLabel } from './evaluation';
+import { nextAction, profileMatch, profileMatchLabel, weightedRating, assessmentStatusLabel } from './evaluation';
 import {
   applicantTitle,
   candidateStatusBadgeClass,
@@ -16,6 +17,7 @@ type ApplicantRowProps = {
   candidate: CandidateApplication;
   job: EmployerJob | null;
   summary?: EvaluationSummary;
+  assessment?: CandidateAssessment | null;
   hasRubric: boolean;
   onReview: (candidateId: string) => void;
   /** Show the job title (lists that mix jobs, such as Home). */
@@ -26,7 +28,7 @@ type ApplicantRowProps = {
  * One applicant as a list row: who (masked until Interviewing), stage, last
  * activity, the two measures side by side in words, and the next step.
  */
-export function ApplicantRow({ candidate, job, summary, hasRubric, onReview, showRole = false }: ApplicantRowProps) {
+export function ApplicantRow({ candidate, job, summary, assessment = null, hasRubric, onReview, showRole = false }: ApplicantRowProps) {
   const revealed = shouldRevealIdentity(candidate.status);
   const title = applicantTitle(candidate);
   const profile = profileMatch(candidate, job);
@@ -36,15 +38,15 @@ export function ApplicantRow({ candidate, job, summary, hasRubric, onReview, sho
     ? 'No rubric'
     : !result || result.submittedScorecards === 0
       ? 'Not reviewed'
-      : result.score === null
-        ? `Incomplete · ${result.coveragePercent}% covered`
-        : `${result.score}/100 · ${result.coveragePercent}% covered`;
+      : weightedRating(result.criteria) === null
+        ? `Not assessed · ${result.assessedCount} of ${result.criteriaCount}`
+        : `${weightedRating(result.criteria)?.toFixed(1)}/4 · ${result.assessedCount} of ${result.criteriaCount} assessed`;
   return (
     <button
       className={`k-row items-start ${candidate.status === 'Withdrawn' ? 'opacity-70' : ''}`}
       type="button"
       onClick={() => onReview(candidate.id)}
-      aria-label={`Review ${title}, ${candidate.status}. Profile match ${profileMatchLabel(profile)}. Reviewed evaluation ${reviewed}. Next: ${action.label}.`}
+      aria-label={`Review ${title}, ${candidate.status}. Profile match ${profileMatchLabel(profile)}. Reviewed evaluation ${reviewed}. Assessment ${assessmentStatusLabel(assessment)}. Next: ${action.label}.`}
     >
       <span className="k-avatar mt-0.5 bg-tan text-dark" aria-hidden="true">
         {revealed ? getInitials(candidate.fullName) : <FontAwesomeIcon icon={faUser} />}
@@ -64,6 +66,7 @@ export function ApplicantRow({ candidate, job, summary, hasRubric, onReview, sho
           <span className="k-secondary"><span className="text-soft-text">Profile match: </span>{profileMatchLabel(profile)}</span>
           <span className="k-secondary"><span className="text-soft-text">Reviewed evaluation: </span>{reviewed}</span>
         </span>
+        {(candidate.status === 'Shortlisted' || assessment) && <span className="k-meta mt-1 block">Assessment: {assessmentStatusLabel(assessment)}</span>}
         {profile.notFound.length > 0 && (
           <span className="k-meta mt-0.5 block truncate">Not found in application: {profile.notFound.slice(0, 3).join(', ')}{profile.notFound.length > 3 ? ` +${profile.notFound.length - 3}` : ''}</span>
         )}
