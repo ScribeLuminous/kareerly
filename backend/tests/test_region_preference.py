@@ -92,6 +92,17 @@ class RegionMappingTests(unittest.TestCase):
                 self.assertEqual(regions_in_location(location), frozenset())
                 self.assertIsNone(resolve_single_region(location))
 
+    def test_sulu_is_not_barmm_and_isabela_city_is_region_ix(self):
+        # Supreme Court, 2024: Sulu is excluded from BARMM. No replacement region is guessed.
+        for location in ["Jolo, Sulu", "Sulu", "Patikul, Sulu"]:
+            with self.subTest(location):
+                self.assertNotIn("BARMM", regions_in_location(location))
+                self.assertIsNone(resolve_single_region(location))
+        self.assertEqual(resolve_single_region("Isabela City"), "IX")
+        self.assertEqual(resolve_single_region("Isabela City, Basilan"), "IX")
+        self.assertEqual(resolve_single_region("Lamitan City, Basilan"), "BARMM")
+        self.assertEqual(resolve_single_region("Ilagan City, Isabela"), "II")
+
     def test_a_candidate_region_must_be_single(self):
         self.assertEqual(resolve_single_region("Cebu City, Cebu"), "VII")
         # Two regions named: ask, do not pick one.
