@@ -350,7 +350,12 @@ def load_taxonomy(client: SupabaseRest) -> SkillExtractor:
 def collect_mentions(client: SupabaseRest) -> List[Mention]:
     mentions: List[Mention] = []
     for table in ("internal_jobs", "employer_job_posts"):
-        for job in client.select_all(table, {"select": JOB_COLUMNS, "posting_status": "in.(active,open)"}, limit=10_000):
+        params = {"select": JOB_COLUMNS, "posting_status": "in.(active,open)"}
+        if table == "internal_jobs":
+            # Jooble listings are snippets (scripts/import_jooble_jobs.py): too
+            # little text to propose new skills from.
+            params["or"] = "(source_platform.is.null,source_platform.neq.Jooble)"
+        for job in client.select_all(table, params, limit=10_000):
             mentions.extend(mentions_from_job({**job, "_table": table}))
     for row in client.select_all("user_skills", {"select": "user_id,skill_id,skill_name", "skill_id": "is.null"}, limit=20_000):
         mentions.extend(mentions_from_profile_skill(row))

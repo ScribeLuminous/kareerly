@@ -143,6 +143,48 @@ backend/evaluation/source_data/jobs_record_source.csv
 
 Active matching uses Supabase when configured and `backend/data/reference_jobs.csv` as its curated fallback.
 
+## Jooble job import
+
+`backend/scripts/import_jooble_jobs.py` adds Philippine listings from the
+[Jooble API](https://jooble.org/api/about) to `internal_jobs`, so matching has
+more real jobs to choose from. It runs the searches in
+`backend/data/jooble_queries.json` (a couple per K01-K24 category; one search is
+one Jooble request) and upserts each usable listing as `JOOBLE-<id>`:
+
+```bash
+export JOOBLE_API_KEY=...          # from https://jooble.org/api/about (Philippine domain)
+python -m backend.scripts.import_jooble_jobs --dry-run --max-queries 3   # check the output, writes nothing
+python -m backend.scripts.import_jooble_jobs                             # needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+```
+
+Or run **Actions → Jooble job import** (manual; dry run by default) after adding
+the repository secrets `JOOBLE_API_KEY`, `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY`. `--request-budget` (default 40) caps the requests a
+run makes; keep it inside your key's quota, and only add a schedule to the
+workflow once you know that quota.
+
+Jooble returns a short snippet, not the full posting, so these rows are leads to
+the original listing:
+
+- **Required skills** are only the skills the title names or a snippet sentence
+  states as required ("must have SQL"). Other skills in the snippet are
+  nice-to-have. Listings that name no known skill are skipped. Most Jooble jobs
+  therefore land in Aspiration rather than Fit-Now, which needs listed
+  requirements.
+- **Category** is the search's category only when the listing reads like that
+  career area (the reference-job classifier); otherwise it stays blank.
+- **Work setup, level and salary** are filled only when stated; salary only as
+  a monthly peso amount.
+- Candidates see **Visit job site** (the Jooble link) instead of Apply, and the
+  rows have `source_platform = 'Jooble'` and `is_synthetic_seed = false`.
+- Listings not seen for 21 days (`--expire-after-days`) become `expired`. A
+  listing an admin closed or put in draft is never reopened.
+- Skill discovery ignores Jooble rows, and the research corpus already excludes
+  Jooble origin (`pipeline/source_policy.py`), so snippets never reach training.
+
+New rows appear in matching within `KAREERLY_JOBS_CACHE_SECONDS` (5 minutes) and
+are encoded on demand until the next image build precomputes them.
+
 ## TF-IDF Evaluation Baseline
 
 Artifacts live in `backend/baseline_models/`. This implementation is retained for evaluation and optional retrieval; it is not the primary semantic ranker.
