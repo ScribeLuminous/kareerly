@@ -1157,7 +1157,6 @@ def _is_valid_certificate_pdf(filename: str, file_bytes: bytes) -> tuple[bool, s
     return True, "PDF file checks passed. Pending Verification: issuer authenticity, completion, and certificate validity have not been verified."
 
 
-@app.get("/api/skills/search")
 def _search_form(value: str) -> str:
     """Lower case with hyphens and slashes as spaces and "e-mail" as "email"."""
     value = re.sub(r"[\-_/]+", " ", str(value or "").lower())
@@ -1165,6 +1164,7 @@ def _search_form(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+@app.get("/api/skills/search")
 def search_skills(q: str = "", limit: int = 20) -> dict:
     query = _search_form(q)
     # "MSExcel", "Hub Spot" and "HubSpot" are compared without their spaces too.
@@ -1195,26 +1195,25 @@ def search_skills(q: str = "", limit: int = 20) -> dict:
         abbreviations.setdefault(variant.skill_id, []).append(variant.variant)
 
     # Includes approved taxonomy additions, so employers and candidates can pick
-    # a newly approved skill without a code change.
-    for row in current_skill_extractor().rows:
+    # a newly approved skill without a code change. A skill is found by the
+    # verified names that identify it everywhere else (skill_resolver.py), not
+    # by unreviewed ESCO labels; unreviewed auto-expansion skills are not offered.
+    extractor = current_skill_extractor()
+    vocabulary = extractor.vocabulary
+    for row in extractor.rows:
         skill_name = row.get("skill_name", "").strip()
-        preferred_label = (row.get("esco_preferred_label", "") or skill_name).strip()
-        alt_labels = ";".join(filter(None, [row.get("esco_alternative_labels", ""), row.get("approved_aliases", "")]))
-        related_skills = row.get("related_skills", "")
         skill_id = row.get("skill_id", "")
 
-        if not skill_id or skill_id in seen_ids:
+        if not skill_id or skill_id in seen_ids or not vocabulary.is_active(skill_id.upper()):
             continue
         # Auto-generated copies of a reviewed skill (SK134 of SK001 Python) are
         # one skill in matching, so search lists the reviewed one only.
         if skill_id.upper() in duplicate_ids:
             continue
+        preferred_label = skill_name
 
         aliases = [
-            skill_name,
-            preferred_label,
-            *[part.strip() for part in str(alt_labels).replace("|", ";").replace(",", ";").split(";") if part.strip()],
-            *[part.strip() for part in str(related_skills).replace("|", ";").replace(",", ";").split(";") if part.strip()],
+            *vocabulary.evidence_names.get(skill_id.upper(), [skill_name]),
             *abbreviations.get(skill_id.upper(), []),
         ]
         matched_alias = ""

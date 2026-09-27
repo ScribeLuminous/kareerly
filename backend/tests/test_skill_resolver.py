@@ -87,6 +87,24 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(self.vocabulary.resolve("search engine marketing"), "")
         self.assertEqual(self.vocabulary.resolve("SEM"), "")
 
+    def test_look_alike_languages_and_databases_are_separate_skills(self):
+        # Node.js, MySQL, C++ and C# are skills of their own, so each side of a
+        # look-alike pair resolves, to a different skill.
+        self.assertEqual(self.vocabulary.resolve("NodeJS"), "SK695")
+        self.assertEqual(self.vocabulary.resolve("Node JS"), self.vocabulary.resolve("Node.js"))
+        self.assertEqual(self.vocabulary.resolve("MySQL"), "SK696")
+        self.assertEqual(self.vocabulary.resolve("C++"), "SK697")
+        self.assertEqual(self.vocabulary.resolve("C Sharp"), self.vocabulary.resolve("C#"))
+        self.assertEqual(self.vocabulary.resolve("C"), "")
+        for left, right in [("SQL", "MySQL"), ("C++", "C#"), ("Java", "JavaScript"), ("Node.js", "JavaScript")]:
+            with self.subTest(left=left, right=right):
+                self.assertNotEqual(self.vocabulary.resolve(left), self.vocabulary.resolve(right))
+        found = {item["skill_id"] for item in SkillExtractor().extract_skills("Administered MySQL servers; wrote C# services.", limit=None)}
+        self.assertTrue({"SK696", "SK698"} <= found)
+        self.assertFalse({"SK004", "SK697"} & found)
+        self.assertEqual(matching.compute_skill_coverage([], ["SK696"], "Wrote SQL queries daily.")["missing_skills"], ["MySQL"])
+        self.assertEqual(matching.compute_skill_coverage(["NodeJS"], ["Node.js"])["missing_skills"], [])
+
     def test_candidates_and_exclusions_do_not_resolve(self):
         rows = read("skill_aliases.csv")
         verified = collections.defaultdict(set)
@@ -187,3 +205,29 @@ class EvaluationSetTests(unittest.TestCase):
         for item in evaluation.read("course_links.csv"):
             self.assertIn(item["resource_id"], resources, item)
             self.assertIn(item["gold_teaches"], {"yes", "no"}, item)
+
+
+class SkillSearchTests(unittest.TestCase):
+    """Step 2 skill search reads the same verified names as matching."""
+
+    @classmethod
+    def setUpClass(cls):
+        from fastapi.testclient import TestClient
+        from backend.app import main
+        cls.client = TestClient(main.app)
+
+    def search(self, q):
+        response = self.client.get("/api/skills/search", params={"q": q, "limit": 5})
+        self.assertEqual(response.status_code, 200)
+        return [item["skill_id"] for item in response.json()["results"]]
+
+    def test_the_route_answers_the_query(self):
+        # The route was attached to a helper and did not accept "q".
+        self.assertEqual(self.search("React")[0], "SK678")
+        self.assertEqual(self.search("NodeJS")[0], "SK695")
+
+    def test_unreviewed_labels_and_skills_are_not_offered(self):
+        # An ESCO alternative label left as a candidate (a product under a broad concept).
+        self.assertEqual(self.search("Gnumeric"), [])
+        # SK127 Statistics is an unreviewed auto-expansion skill.
+        self.assertNotIn("SK127", self.search("Statistics"))
