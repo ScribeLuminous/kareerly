@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
+import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
 import { getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
@@ -13,7 +13,7 @@ import { assessSavedResume, extractionWarnings, staleResumeMessage, type SavedRe
 import type { ParsedResume, SelectedSkill, SurveyAnswers } from '../types';
 import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
-import { cleanSkillDisplayName, externalJobUrl, formatGapMissingCount, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, severityPriority, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
+import { cleanSkillDisplayName, EMPLOYER_CHECK_REMINDER, isClaimedSkill, skillRecordKey, type ClaimedSkill, externalJobUrl, formatGapMissingCount, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, severityPriority, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Banner, ConfirmDialog, DESKTOP_QUERY, Modal, ToastRegion, useMediaQuery, type ToastState } from '../components/ui';
 import { CandidateShell } from './candidate/Shell';
@@ -137,7 +137,25 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [resumePreview, setResumePreview] = useState<{ url: string; name: string; mimeType: string; local: boolean } | null>(null);
   const [docxPreviewResult, setDocxPreviewResult] = useState<{ url: string; html: string; error: string } | null>(null);
   const [candidatePublicId, setCandidatePublicId] = useState('');
-  const [skillNames, setSkillNames] = useState<string[]>(() => extractSkillsFromResume(state.resume));
+  // Gap skills the candidate says they already have. Kept per user so they stay
+  // in the skill list (and out of learning suggestions) after the resume reloads.
+  const claimedSkillsStorageKey = `kareerly.claimedSkills.${currentUser.id || currentUser.email}`;
+  const [claimedSkills, setClaimedSkills] = useState<Record<string, ClaimedSkill>>(() => {
+    try {
+      const saved = window.localStorage.getItem(claimedSkillsStorageKey);
+      return saved ? JSON.parse(saved) as Record<string, ClaimedSkill> : {};
+    } catch {
+      return {};
+    }
+  });
+  const withClaimedSkills = (names: string[]) => {
+    const merged = [...names];
+    Object.values(claimedSkills).forEach((item) => {
+      if (!merged.some((name) => normalizeSkill(name) === normalizeSkill(item.skillName))) merged.push(item.skillName);
+    });
+    return merged;
+  };
+  const [skillNames, setSkillNames] = useState<string[]>(() => withClaimedSkills(extractSkillsFromResume(state.resume)));
   const [selectedThreadJobId, setSelectedThreadJobId] = useState<string>('');
   const [messageRequests, setMessageRequests] = useState<Record<string, string>>({});
   const [messageDraft, setMessageDraft] = useState('');
@@ -162,6 +180,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   });
   const [evidenceCourseTarget, setEvidenceCourseTarget] = useState<DashboardCourse | null>(null);
+  // A skill marked done without a course: its proof updates that skill's progress.
+  const [evidenceSkillTarget, setEvidenceSkillTarget] = useState<{ key: string; gap: DashboardGap } | null>(null);
   const [profileForm, setProfileForm] = useState({
     contactNumber: '',
     birthday: '',
@@ -192,7 +212,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   useEffect(() => {
     const extracted = extractSkillsFromResume(state.resume);
-    if (extracted.length > 0) setSkillNames(extracted);
+    if (extracted.length > 0) setSkillNames(withClaimedSkills(extracted));
+    // Claimed skills are read from storage, not a dependency: they only matter when the resume changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.resume?.skills]);
 
   useEffect(() => {
@@ -232,6 +254,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       // Storage can be unavailable (private mode); completion still works for this session.
     }
   }, [courseCompletionStorageKey, courseCompletions]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(claimedSkillsStorageKey, JSON.stringify(claimedSkills));
+    } catch {
+      // Storage can be unavailable (private mode); the claim still applies for this session.
+    }
+  }, [claimedSkillsStorageKey, claimedSkills]);
 
   const updateSkillProgressStatus = (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => {
     setSkillProgressRecords((current) => {
@@ -562,6 +592,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     return [];
   }, [state.matchResults?.skill_gaps, state.matchResults?.prioritized_skill_gaps, state.results?.jobMatches, state.results?.skillGaps]);
 
+  // Open gaps only: skills the candidate already has are no longer recommended.
+  const openGaps = useMemo(() => gaps.filter((gap) => !isClaimedSkill(claimedSkills, gap)), [claimedSkills, gaps]);
+
   const courses = useMemo<DashboardCourse[]>(() => {
     if (state.matchResults?.learning_recommendations?.length) {
       return state.matchResults.learning_recommendations.map(mapRunLearningRecommendation).filter((course) => course.reviewed);
@@ -623,7 +656,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     [applications],
   );
 
-  const topMissingSkills = useMemo(() => gaps.slice(0, 3), [gaps]);
+  const topMissingSkills = useMemo(() => openGaps.slice(0, 3), [openGaps]);
 
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.read_at).length, [notifications]);
   const loadNotifications = useCallback(async () => {
@@ -811,7 +844,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     resume: ParsedResume,
     skills: string[],
     answers: SurveyAnswers,
-    options?: { analysis?: ResumeAnalyzeResponse | null; resumeId?: string | null },
+    options?: { analysis?: ResumeAnalyzeResponse | null; resumeId?: string | null; extraKnownSkills?: SelectedSkill[] },
   ) => {
     const resumeText = extractResumeText(resume);
     if (!resumeText) return null;
@@ -826,7 +859,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       source_metadata: skill.source_metadata,
       skill_priority_score: skill.skill_priority_score,
     }));
-    const knownSkills = [...(state.selectedSkills || []), ...extractedSkillRecords];
+    const claimedSkillRecords: SelectedSkill[] = Object.values(claimedSkills).map((item) => ({
+      skill_id: item.skillId || null,
+      skill_name: item.skillName,
+      source: 'confirmed_skill',
+      is_standardized: Boolean(item.skillId),
+    }));
+    const knownSkills = [...(options?.extraKnownSkills || []), ...(state.selectedSkills || []), ...extractedSkillRecords, ...claimedSkillRecords];
     const knownSkillsByName = new Map(knownSkills.map((skill) => [normalizeSkill(skill.skill_name), skill]));
     const confirmedSkillRecords = Array.from(new Map(skills
       .map((skillName): SelectedSkill | null => {
@@ -1519,6 +1558,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         updateCourseSkillProgress(course, 'evidenced', { fileName: nextRecord.fileName, uploadedAt: nextRecord.uploadedAt });
         setEvidenceCourseTarget(null);
         showToast('Proof uploaded. Your profile and skill progress were updated (pending verification).', 'success');
+      } else if (evidenceSkillTarget) {
+        const { key } = evidenceSkillTarget;
+        setSkillProgressRecords((current) => (current[key] ? {
+          ...current,
+          [key]: { ...current[key], status: 'evidenced', progressPercent: SKILL_PROGRESS_PERCENT.evidenced, evidenceFilename: nextRecord.fileName, evidenceUploadedAt: nextRecord.uploadedAt },
+        } : current));
+        setEvidenceSkillTarget(null);
+        showToast('Proof uploaded. Your skill progress was updated (pending verification).', 'success');
       } else {
         showToast('Evidence saved. Pending Verification; file checks do not verify the credential.', 'success');
       }
@@ -1532,6 +1579,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   const openEvidenceUploadModal = () => {
+    setEvidenceSkillTarget(null);
     setEvidenceCourseTarget(null);
     setEditingEvidence(null);
     setEvidenceModalOpen(true);
@@ -1566,6 +1614,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   const openCourseEvidenceUpload = (course: DashboardCourse) => {
+    setEvidenceSkillTarget(null);
     setEvidenceCourseTarget(course);
     setEditingEvidence(null);
     setEvidenceModalOpen(true);
@@ -1587,7 +1636,90 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     showToast(`${course.title} marked as not taken.`, 'warn');
   };
 
-  const evidencePrefill: EvidencePrefill | undefined = evidenceCourseTarget ? {
+  const openSkillEvidenceUpload = (key: string, gap: DashboardGap, course?: DashboardCourse) => {
+    if (course) {
+      openCourseEvidenceUpload(course);
+      return;
+    }
+    setEvidenceCourseTarget(null);
+    setEvidenceSkillTarget({ key, gap });
+    setEditingEvidence(null);
+    setEvidenceModalOpen(true);
+  };
+
+  // Re-runs matching with an updated skill list; without a resume the list is just saved.
+  const refreshMatchesWithSkills = async (nextSkills: string[], extraKnownSkills?: SelectedSkill[]) => {
+    setSkillNames(nextSkills);
+    const savedResume = state.resume || state.resumeAnalysis?.parsedResume;
+    if (!savedResume || !extractResumeText(savedResume)) return false;
+    setLoading(true);
+    setError(null);
+    try {
+      await runMatchingWithSkills(savedResume, nextSkills, surveyAnswers, { extraKnownSkills });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to refresh your matches.';
+      setError(message);
+      showToast(message, 'danger');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unclaimSkill = (key: string) => {
+    const item = claimedSkills[key];
+    if (!item) return;
+    setClaimedSkills((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    const nextSkills = skillNames.filter((name) => normalizeSkill(name) !== normalizeSkill(item.skillName));
+    void refreshMatchesWithSkills(nextSkills).then((refreshed) => {
+      showToast(`${cleanSkillDisplayName(item.skillName)} is back in your skill gaps${refreshed ? ' and your matches were refreshed' : ''}.`, 'success');
+    });
+  };
+
+  // The candidate says they already have a gap skill: it joins their skill list,
+  // stops being recommended for learning, and matches are refreshed.
+  const claimSkill = (gap: DashboardGap) => {
+    const key = skillRecordKey(gap);
+    const name = cleanSkillDisplayName(gap.skill);
+    const alreadyListed = skillNames.some((skill) => normalizeSkill(skill) === normalizeSkill(gap.skill));
+    if (!alreadyListed && skillNames.length >= CONFIRMED_SKILL_LIMIT) {
+      showToast(`You can list up to ${CONFIRMED_SKILL_LIMIT} skills. Remove one in Preferences, then add ${name}.`, 'warn');
+      return;
+    }
+    const item: ClaimedSkill = { skillId: gap.skillId || undefined, skillName: gap.skill, claimedAt: new Date().toISOString() };
+    setClaimedSkills((current) => ({ ...current, [key]: item }));
+    const nextSkills = alreadyListed ? skillNames : [...skillNames, gap.skill];
+    const record: SelectedSkill = { skill_id: gap.skillId || null, skill_name: gap.skill, source: 'confirmed_skill', is_standardized: Boolean(gap.skillId) };
+    void refreshMatchesWithSkills(nextSkills, [record]).then((refreshed) => {
+      showToast(
+        `${name} added to your skills${refreshed ? ' and your matches were refreshed' : ''}. ${EMPLOYER_CHECK_REMINDER}`,
+        'success',
+        { label: 'Undo', onClick: () => unclaimSkill(key) },
+      );
+    });
+  };
+
+  // Removing a claimed skill in Preferences also brings its gap back.
+  const updateSkillNames = (next: string[]) => {
+    setSkillNames(next);
+    const kept = new Set(next.map(normalizeSkill));
+    setClaimedSkills((current) => {
+      const entries = Object.entries(current).filter(([, item]) => kept.has(normalizeSkill(item.skillName)));
+      return entries.length === Object.keys(current).length ? current : Object.fromEntries(entries);
+    });
+  };
+
+  const evidencePrefill: EvidencePrefill | undefined = evidenceSkillTarget && !evidenceCourseTarget ? {
+    title: `${cleanSkillDisplayName(evidenceSkillTarget.gap.skill)} work sample`,
+    evidenceType: 'Portfolio',
+    relatedSkill: cleanSkillDisplayName(evidenceSkillTarget.gap.skill),
+    category: deriveEvidenceCategory(evidenceSkillTarget.gap.skill, gaps, null),
+  } : evidenceCourseTarget ? {
     title: evidenceCourseTarget.title,
     evidenceType: ['industry_certification', 'professional_certificate', 'certificate_course'].includes(evidenceCourseTarget.credentialType) ? 'Certificate' : 'Course Completion',
     relatedSkill: getCourseSkillLabels(evidenceCourseTarget).join(', '),
@@ -1631,7 +1763,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
   const pendingMessageApp = eligibleMessageApps.find((app) => app.messageRequestState === 'pending');
   const nextFitNow = fitNowJobs.find((job) => job.sourceType === 'internal' && !getApplicationStatus(job.id, job.jobSource));
-  const firstGap = gaps.find((gap) => gap.severity === 'Critical') || gaps[0];
+  const firstGap = openGaps.find((gap) => gap.severity === 'Critical') || openGaps[0];
 
   // The Home page answers "what should I do now?": most useful action first.
   const nextSteps: NextStep[] = [
@@ -1739,7 +1871,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onOpenJob={(job) => void selectJob(job, true)}
           onOpenMatches={() => setActivePage('jobmatches')}
           topGaps={topMissingSkills}
-          gapCount={gaps.length}
+          gapCount={openGaps.length}
           onOpenSkills={() => setActivePage('skillgaps')}
           recentApplications={recentApplications}
           applicationLoadStatus={applicationLoadStatus}
@@ -1787,12 +1919,18 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       {activePage === 'skillgaps' && (
         <SkillGapsPage
-          gaps={gaps}
+          gaps={openGaps}
           jobs={jobs}
           courses={courses}
           skillProgressRecords={skillProgressRecords}
+          claimedSkills={claimedSkills}
+          courseCompletions={courseCompletions}
           onUpdateSkillProgress={updateSkillProgressStatus}
-          onUploadSkillEvidence={openEvidenceUploadModal}
+          onMarkCourseTaken={markCourseTaken}
+          onUnmarkCourseTaken={unmarkCourseTaken}
+          onAddSkillProof={openSkillEvidenceUpload}
+          onClaimSkill={claimSkill}
+          onUnclaimSkill={unclaimSkill}
           onOpenLearning={(skill) => openLearning({ skill })}
           onTab={(tab) => (tab === 'learning' ? openLearning() : setActivePage('skillgaps'))}
           isDesktop={isDesktop}
@@ -1806,7 +1944,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           key={`${learningFocus.skill || ''}|${learningFocus.jobId || ''}`}
           courses={courses}
           jobs={jobs}
-          gaps={gaps}
+          gaps={openGaps}
+          claimedSkills={claimedSkills}
           focusSkill={learningFocus.skill}
           focusJobId={learningFocus.jobId}
           courseCompletions={courseCompletions}
@@ -1909,7 +2048,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           skillNames={skillNames}
           isLoading={state.isLoading}
           onUpdateExtra={setExtraPreferences}
-          onUpdateSkills={setSkillNames}
+          onUpdateSkills={updateSkillNames}
           onSave={handlePreferencesSave}
           onReset={() => {
             setSurveyAnswers(defaultSurveyAnswers);
@@ -2006,8 +2145,11 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onClose={() => {
             setEvidenceModalOpen(false);
             setEditingEvidence(null);
-            if (evidenceCourseTarget) showToast('Marked as taken. Add proof later from the course.', 'success');
+            if (evidenceCourseTarget || evidenceSkillTarget) {
+              showToast(`Marked as done without proof. ${EMPLOYER_CHECK_REMINDER} You can add proof later.`, 'success');
+            }
             setEvidenceCourseTarget(null);
+            setEvidenceSkillTarget(null);
           }}
           onSave={handleEvidenceSave}
         />

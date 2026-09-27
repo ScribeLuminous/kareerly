@@ -195,6 +195,28 @@ export type SkillProgressRecord = {
   evidenceUploadedAt?: string;
 };
 
+/** A gap skill the candidate says they already have (self-reported, not verified). */
+export type ClaimedSkill = {
+  skillId?: string;
+  skillName: string;
+  claimedAt: string;
+};
+
+/** One key per skill, shared by skill progress and claimed skills. */
+export function skillRecordKey(skill: { skillId?: string | null; skill: string }): string {
+  return (skill.skillId || normalizeSkill(skill.skill)).toUpperCase();
+}
+
+/** True when the candidate marked this skill as one they already have. */
+export function isClaimedSkill(claimed: Record<string, ClaimedSkill>, skill: { skillId?: string | null; skill: string }): boolean {
+  if (claimed[skillRecordKey(skill)]) return true;
+  const name = normalizeSkill(skill.skill);
+  return Object.values(claimed).some((item) => normalizeSkill(item.skillName) === name);
+}
+
+/** Shown wherever a skill is self-reported or a course is finished without proof. */
+export const EMPLOYER_CHECK_REMINDER = 'Employers may still check this skill with a short test, a task, or by asking for samples of past work, so keep an example ready.';
+
 export type DashboardApplication = {
   id: string;
   jobId: string;
@@ -529,16 +551,16 @@ export const SKILL_STATUS_LABEL: Record<SkillProgressStatus, string> = {
   missing: 'Not started',
   started: 'Started',
   in_progress: 'In progress',
-  completed: 'Course completed',
-  evidenced: 'Proof uploaded · pending review',
+  completed: 'Done',
+  evidenced: 'Done · proof added',
   covered: 'Covered',
 };
 
 export function skillNextStep(status: SkillProgressStatus, skill: string): string {
-  if (status === 'missing') return `Pick a course for ${skill} in Learning, and mark it as taken when you finish.`;
-  if (status === 'started' || status === 'in_progress') return `Keep going with your ${skill} course, then mark it as taken on its card.`;
-  if (status === 'completed') return `Upload your certificate or proof of completion for ${skill}.`;
-  if (status === 'evidenced') return 'Your proof is on file and pending verification. Nothing else is needed for now.';
+  if (status === 'missing') return `Open a course above. Set this to In progress when you start.`;
+  if (status === 'started' || status === 'in_progress') return `Set this to Done when you finish the course.`;
+  if (status === 'completed') return 'Done. Adding proof is optional.';
+  if (status === 'evidenced') return 'Done. Your proof is on file and pending review.';
   return `${skill} no longer appears as a gap in your current matches.`;
 }
 

@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUpRightFromSquare, faCheck, faGraduationCap, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUpRightFromSquare, faCheck, faCircleCheck, faGraduationCap, faUpload } from '@fortawesome/free-solid-svg-icons';
 import { EmptyState, InfoTip } from '../../components/ui';
 import { SkillsHeader, type SkillsTab } from './SkillGapsPage';
 import {
   cleanSkillDisplayName,
+  EMPLOYER_CHECK_REMINDER,
   getCourseSkillLabels,
   getLearningForJob,
+  isClaimedSkill,
   knownValue,
   learningResourceUrl,
   normalizeSkill,
   orderByBackendRank,
   severityBadgeClass,
+  type ClaimedSkill,
   type CourseCompletion,
   type DashboardCourse,
   type DashboardGap,
@@ -29,6 +32,8 @@ type LearningPageProps = CourseCompletionActions & {
   courses: DashboardCourse[];
   jobs: DashboardJob[];
   gaps: DashboardGap[];
+  /** Skills the candidate says they already have; no courses are suggested for them. */
+  claimedSkills: Record<string, ClaimedSkill>;
   /** Pre-selects a skill (from a gap) or a job (from a job's detail). */
   focusSkill?: string;
   focusJobId?: string;
@@ -36,7 +41,7 @@ type LearningPageProps = CourseCompletionActions & {
   onOpenJobMatches: () => void;
 };
 
-export function UpskillingPage({ courses, jobs, gaps, focusSkill, focusJobId, courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence, onTab, onOpenJobMatches }: LearningPageProps) {
+export function UpskillingPage({ courses, jobs, gaps, claimedSkills, focusSkill, focusJobId, courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence, onTab, onOpenJobMatches }: LearningPageProps) {
   // Every match is listed, grouped by type, so each Fit-Now match can be focused.
   const jobGroups = [
     { label: 'Fit-Now matches', items: orderByBackendRank(jobs.filter((job) => job.matchCategory === 'fit-now')) },
@@ -54,7 +59,9 @@ export function UpskillingPage({ courses, jobs, gaps, focusSkill, focusJobId, co
   const selectedJob = jobs.find((job) => job.id === selectedJobId) || jobGroups[0]?.items[0];
   const jobCourses = selectedJob ? getLearningForJob(selectedJob, courses) : [];
   // Required gaps first, then nice-to-have gaps (the Skill Gaps page lists both).
-  const skills = Array.from(new Set([...(selectedJob?.missingSkills || []), ...(selectedJob?.missingPreferredSkills || [])].map(cleanSkillDisplayName).filter(Boolean)));
+  const jobSkills = Array.from(new Set([...(selectedJob?.missingSkills || []), ...(selectedJob?.missingPreferredSkills || [])].map(cleanSkillDisplayName).filter(Boolean)));
+  const claimedHere = jobSkills.filter((skill) => isClaimedSkill(claimedSkills, { skill }));
+  const skills = jobSkills.filter((skill) => !claimedHere.includes(skill));
   const gapFor = (skill: string) => gaps.find((gap) => normalizeSkill(gap.skill) === normalizeSkill(skill));
   const skillIsListed = selectedSkill === 'all' || skills.some((skill) => normalizeSkill(skill) === normalizeSkill(selectedSkill));
   const activeSkill = skillIsListed ? selectedSkill : 'all';
@@ -100,8 +107,13 @@ export function UpskillingPage({ courses, jobs, gaps, focusSkill, focusJobId, co
               </select>
             </label>
 
+            {claimedHere.length > 0 && (
+              <p className="k-meta mt-3">
+                Not shown because you already have {claimedHere.length === 1 ? 'it' : 'them'}: {claimedHere.join(', ')}. Undo this on the Gaps tab.
+              </p>
+            )}
             {skills.length === 0 ? (
-              <EmptyState className="mt-4" title="Nothing to learn for this job" text="It has no missing skills for your profile. Pick another job." />
+              <EmptyState className="mt-4" title="Nothing to learn for this job" text={claimedHere.length > 0 ? 'You have every skill this job asks for. Pick another job.' : 'It has no missing skills for your profile. Pick another job.'} />
             ) : (
               <>
                 <div className="k-chip-scroller mb-5 mt-4" role="group" aria-label="Filter by skill">
@@ -149,7 +161,7 @@ export function UpskillingPage({ courses, jobs, gaps, focusSkill, focusJobId, co
             <p className="k-meta mt-6 flex items-center gap-1">
               Resources open on the provider's website.
               <InfoTip label="About learning resources">
-                Kareerly suggests resources for your skill gaps. Providers manage enrolment and certificates; Kareerly does not verify completion, and taking a course does not change your match scores.
+                Kareerly suggests resources for your skill gaps. Providers manage enrolment and certificates; Kareerly does not verify completion, and taking a course does not change your match scores. Adding proof is optional. {EMPLOYER_CHECK_REMINDER}
               </InfoTip>
             </p>
           </>
@@ -172,31 +184,29 @@ export function CourseRow({ course, note, courseCompletions, onMarkCourseTaken, 
         <div className="k-label">{course.title}</div>
         <div className="k-meta k-dot-sep mt-0.5">{meta.map((item) => <span key={item}>{item}</span>)}</div>
         {note && <p className="k-meta mt-1">{note}</p>}
-        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          {completion && (
-            <span className="k-badge k-badge-success">
-              <FontAwesomeIcon icon={faCheck} aria-hidden="true" />
-              {completion.status === 'evidenced' ? 'Proof uploaded · pending review' : 'Taken'}
-            </span>
-          )}
-          {completion?.status === 'completed' && (
+        {!course.verified && <div className="k-meta mt-0.5" title="Listed from Kareerly's gathered catalog; details have not been reviewed yet.">Catalog listing</div>}
+        {completion?.status === 'evidenced' && (
+          <p className="k-badge k-badge-info mt-1.5"><FontAwesomeIcon icon={faCircleCheck} aria-hidden="true" />Proof added · pending review</p>
+        )}
+        {completion?.status === 'completed' && (
+          <p className="k-meta mt-1.5">
+            Done without proof.{' '}
             <button className="k-link text-[13px]" type="button" onClick={() => onUploadCourseEvidence(course)}>
-              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />Add proof
+              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />Add proof (optional)
             </button>
-          )}
-          {!course.verified && <span className="k-meta" title="Listed from Kareerly's gathered catalog; details have not been reviewed yet.">Catalog listing</span>}
-        </div>
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <button
           className="k-btn k-btn-ghost k-btn-sm"
           type="button"
           aria-pressed={Boolean(completion)}
-          aria-label={completion ? `Mark ${course.title} as not taken` : `Mark ${course.title} as taken`}
+          aria-label={completion ? `${course.title} is done. Mark as not done` : `Mark ${course.title} as done`}
           onClick={() => (completion ? onUnmarkCourseTaken(course) : onMarkCourseTaken(course))}
         >
           <FontAwesomeIcon icon={faCheck} className={completion ? 'text-green' : undefined} aria-hidden="true" />
-          {completion ? 'Taken' : 'Mark taken'}
+          {completion ? 'Done' : 'Mark as done'}
         </button>
         {url ? (
           <a className="k-btn k-btn-secondary k-btn-sm" href={url} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel || 'Open'}: ${course.title} (opens in a new tab)`}>
