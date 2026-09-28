@@ -2313,22 +2313,63 @@ details.k-detail-section[open] > summary {
     transform: rotate(180deg);
   }
 
+  /* Sub-pages sit in one horizontal row: All jobs | Applications | Analyze a job. */
   .k-centernav-menu {
     top: calc(100% + 4px);
     left: 50%;
     right: auto;
     transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 4px 6px;
+    white-space: nowrap;
   }
 
-  .k-centernav-menu .k-menu-item {
+  /* Invisible bridge so the hover survives the gap above the row. */
+  .k-centernav-menu::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 8px;
+  }
+
+  .k-centernav-menu > li {
+    display: flex;
+    align-items: center;
+  }
+
+  .k-centernav-menu > li + li::before {
+    content: '';
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: var(--bdr);
+  }
+
+  .k-centernav-subitem {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: var(--k-radius-control);
+    color: var(--soft-text);
+    font-size: 14px;
+    font-weight: 600;
     text-decoration: none;
+    transition: color 0.15s, background 0.15s;
   }
 
-  .k-centernav-menu .k-menu-item:hover {
+  .k-centernav-subitem:hover {
+    color: var(--dark);
     background: var(--bg);
   }
 
-  .k-centernav-menu .k-menu-item[aria-current='page'] {
+  .k-centernav-subitem[aria-current='page'] {
+    color: var(--dark);
     font-weight: 700;
     background: var(--rust-l);
   }

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -16,7 +16,7 @@ export type ShellNavItem = {
   /** Count shown on the item (e.g. new message requests) and its spoken meaning. */
   badge?: number;
   badgeLabel?: (count: number) => string;
-  /** Sub-pages shown as a dropdown under this item in the centred desktop tabs. */
+  /** Sub-pages shown as a horizontal hover row under this item in the centred desktop tabs. */
   menu?: ShellSubItem[];
 };
 
@@ -196,17 +196,41 @@ function CountBadge({ count, label, className }: { count: number; label?: (count
   );
 }
 
-/** A centred desktop tab that opens a short list of its sub-pages. */
+/**
+ * A centred desktop tab whose sub-pages appear as a horizontal row beneath it
+ * while the pointer hovers (or focus sits in) the tab. Click still toggles it
+ * for touch and keyboard users.
+ */
 function CenterNavMenu({ item }: { item: ShellNavItem }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | undefined>(undefined);
   useDismiss(ref, open, () => setOpen(false));
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
+  const show = () => {
+    window.clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  // A short delay lets the pointer cross the gap between the tab and the row.
+  const hide = () => {
+    window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setOpen(false), 150);
+  };
   const choose = (onSelect: () => void) => (event: React.MouseEvent) => {
     setOpen(false);
     plainClick(onSelect)(event);
   };
   return (
-    <div ref={ref} className="k-popover-anchor k-centernav-group">
+    <div
+      ref={ref}
+      className="k-popover-anchor k-centernav-group"
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
       <button
         className="k-centernav-item"
         type="button"
@@ -220,11 +244,11 @@ function CenterNavMenu({ item }: { item: ShellNavItem }) {
         <FontAwesomeIcon className="k-centernav-caret" icon={faChevronDown} aria-hidden="true" />
       </button>
       {open && (
-        <ul className="k-popover k-centernav-menu">
+        <ul className="k-popover k-centernav-menu" aria-label={item.label}>
           {item.menu!.map((sub) => (
             <li key={sub.id}>
-              <a className="k-menu-item" href={sub.href} aria-current={sub.current ? 'page' : undefined} onClick={choose(sub.onSelect)}>
-                <span className="flex-1">{sub.label}</span>
+              <a className="k-centernav-subitem" href={sub.href} aria-current={sub.current ? 'page' : undefined} onClick={choose(sub.onSelect)}>
+                {sub.label}
                 <CountBadge count={sub.badge || 0} label={sub.badgeLabel} className="k-centernav-count" />
               </a>
             </li>
