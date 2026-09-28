@@ -290,8 +290,60 @@ test('applicant rows state both measures in words, with the next step', () => {
   const html = renderToStaticMarkup(React.createElement(employerPage.ApplicantRow, { candidate, job: { id: 'J1', requiredSkills: ['SQL', 'Excel'] }, hasRubric: false, onReview: () => {} }));
   assert.match(html, /Profile match: <\/span>1 of 2 required skills/);
   assert.match(html, /Reviewed evaluation: <\/span>No rubric/);
-  assert.match(html, /Next: Set up a rubric/);
+  assert.match(html, /Next: Set up the assessment/);
+  assert.match(html, /Match 50%/);
   assert.doesNotMatch(html, /57%/);
+});
+
+test('applicant rows point at the assessment before a scorecard can start', () => {
+  const candidate = employerPage.toCandidateApplication({ id: 'app-1', job_id: 'J1', status: 'shortlisted', applied_at: '2026-09-01T00:00:00Z', matched_skills: ['SQL'], missing_skills: [] }, [], [], 'KR-001');
+  const job = { id: 'J1', requiredSkills: ['SQL'] };
+  const row = (assessment) => renderToStaticMarkup(React.createElement(employerPage.ApplicantRow, { candidate, job, assessment, hasRubric: true, onReview: () => {} }));
+  assert.match(row(null), /Next: Send Assessment/);
+  assert.match(row({ status: 'pending' }), /Next: Awaiting candidate response/);
+  assert.match(row({ status: 'submitted' }), /Next: Review the assessment/);
+  assert.match(row(null), /Match 100%/);
+});
+
+test('the high-match quick filter keeps applicants at 70% or more', () => {
+  const app = (id, matched) => ({ id, jobId: 'J1', appliedDate: '2026-09-01', lastActivity: '', status: 'Pending', publicId: id, fullName: id, matchedSkills: matched, missingSkills: ['X'], messageRequestState: 'none' });
+  const jobs = [{ id: 'J1', requiredSkills: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] }];
+  const applications = [app('seven', ['A', 'B', 'C', 'D', 'E', 'F', 'G']), app('six', ['A', 'B', 'C', 'D', 'E', 'F']), app('none', [])];
+  const filters = { ...employerPage.DEFAULT_CANDIDATE_FILTERS, jobId: 'J1', highMatch: true };
+  assert.deepEqual(employerPage.visibleApplicants(applications, jobs, filters, new Map()).map((item) => item.id), ['seven']);
+});
+
+test('bulk stage changes follow the same rules as the database', () => {
+  const blocker = employerPage.candidateActionBlocker;
+  assert.equal(blocker('shortlisted', { status: 'Pending' }, null, true), null);
+  assert.ok(blocker('shortlisted', { status: 'Shortlisted' }, null, true));
+  assert.equal(blocker('send-assessment', { status: 'Pending' }, null, true), null);
+  assert.equal(blocker('send-assessment', { status: 'Interviewing' }, null, true), null);
+  assert.ok(blocker('send-assessment', { status: 'Shortlisted' }, { status: 'pending' }, true));
+  assert.ok(blocker('send-assessment', { status: 'Shortlisted' }, null, false));
+  assert.ok(blocker('interviewing', { status: 'Shortlisted' }, { status: 'submitted' }, true));
+  assert.equal(blocker('interviewing', { status: 'Shortlisted' }, { status: 'reviewed' }, true), null);
+  assert.ok(blocker('rejected', { status: 'Pending' }, null, true));
+  assert.equal(blocker('rejected', { status: 'Interviewing' }, null, true), null);
+  assert.equal(blocker('hired', { status: 'Interviewing' }, null, true), null);
+  assert.ok(blocker('hired', { status: 'Withdrawn' }, null, true));
+});
+
+test('archived jobs stay archived after their deadline passes', () => {
+  const archived = employerPage.toEmployerJob({ job_id: 'r', job_title: 'Role', posting_status: 'archived', application_deadline: '2020-01-01' });
+  assert.equal(archived.status, 'archived');
+  const expired = employerPage.toEmployerJob({ job_id: 'r', job_title: 'Role', posting_status: 'active', application_deadline: '2020-01-01' });
+  assert.equal(expired.status, 'closed');
+  assert.equal(employerPage.JOB_POSTING_STATUS.open, 'active');
+});
+
+test('each job has its own page under /employer/jobs', async () => {
+  const routes = await loadUtility('../src/pages/employer/routes.ts');
+  assert.equal(routes.employerJobPath('EMP-1'), '/employer/jobs/EMP-1');
+  assert.equal(routes.employerJobIdFromPath('/employer/jobs/EMP-1'), 'EMP-1');
+  assert.equal(routes.employerJobIdFromPath('/employer/jobs'), '');
+  assert.equal(routes.employerPageFromPath('/employer/jobs/EMP-1'), 'jobs');
+  assert.ok(routes.isEmployerWorkspacePath('/employer/jobs/EMP-1/'));
 });
 
 test('employer job metadata preserves employment type and unavailable dates', () => {

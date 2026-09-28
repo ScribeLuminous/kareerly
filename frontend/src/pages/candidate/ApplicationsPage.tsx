@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComments, faEllipsisVertical, faEye, faLayerGroup, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
-import { EmptyState, Menu, SearchField, SkeletonRows, Tabs, type MenuItem } from '../../components/ui';
+import { Banner, EmptyState, Menu, SearchField, SkeletonRows, Tabs, type MenuItem } from '../../components/ui';
 import { PageHeader, StatusBadge } from './common';
 import { formatDateLabel, knownValue, MESSAGING_STATUSES, WITHDRAWABLE_STATUSES, type ApplicationStatus, type DashboardApplication } from './model';
 import { scoreLabel } from '../../lib/uiData';
@@ -54,6 +54,7 @@ export function ApplicationsPage({ loadStatus, applications, onViewJob, onWithdr
     return () => { mounted = false; window.clearInterval(timer); };
   }, [applications, assessmentVersion]);
   const [status, setStatus] = useState<ApplicationStatus | 'all'>('all');
+  const pendingAssessments = applications.filter((application) => assessments.get(application.id)?.status === 'pending');
   const statusCounts = useMemo(() => STATUS_ORDER
     .map((value) => ({ value, count: applications.filter((application) => application.status === value).length }))
     .filter((item) => item.count > 0), [applications]);
@@ -98,6 +99,17 @@ export function ApplicationsPage({ loadStatus, applications, onViewJob, onWithdr
           />
         ) : (
           <>
+            {pendingAssessments.length > 0 && (
+              <Banner
+                tone="warn"
+                className="mb-4"
+                actions={<button className="k-btn k-btn-primary k-btn-sm" type="button" onClick={() => setAssessmentOpen(pendingAssessments[0].id)}>Start Assessment</button>}
+              >
+                {pendingAssessments.length === 1
+                  ? `${pendingAssessments[0].company && knownValue(pendingAssessments[0].company) ? pendingAssessments[0].company : 'An employer'} sent you a Candidate Assessment for ${pendingAssessments[0].jobTitle}. Answer it to keep your application moving.`
+                  : `You have ${pendingAssessments.length} Candidate Assessments to complete. Answer them to keep your applications moving.`}
+              </Banner>
+            )}
             <div className="k-toolbar">
               <SearchField value={search} onChange={setSearch} label="Search applications" placeholder="Search job or company" />
             </div>

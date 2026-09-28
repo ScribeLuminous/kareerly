@@ -2,10 +2,10 @@ import { savedMatchScore } from '../../lib/uiData';
 import { splitJobContent } from '../../lib/jobDescription';
 
 export type { EmployerPage } from './routes';
-export { EMPLOYER_PAGE_PATHS, employerPageFromPath, isEmployerWorkspacePath } from './routes';
+export { EMPLOYER_PAGE_PATHS, employerJobIdFromPath, employerJobPath, employerPageFromPath, isEmployerWorkspacePath } from './routes';
 export { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from '../../lib/employerOptions';
 
-export type JobStatus = 'open' | 'draft' | 'closed';
+export type JobStatus = 'open' | 'draft' | 'closed' | 'archived';
 
 export type CandidateStatus = 'Pending' | 'Shortlisted' | 'Interviewing' | 'Hired' | 'Rejected' | 'Withdrawn';
 
@@ -332,6 +332,7 @@ export const splitSkills = (value: string | null | undefined): string[] =>
 export const mapPostingStatusToJobStatus = (status: string | null | undefined): JobStatus => {
   if (status === 'active' || status === 'open') return 'open';
   if (status === 'closed') return 'closed';
+  if (status === 'archived') return 'archived';
   return 'draft';
 };
 
@@ -364,7 +365,7 @@ export const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
   province: (row.location || '').split(',').slice(1).join(',').trim(),
   salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
   deadline: row.application_deadline || '',
-  status: row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
+  status: row.posting_status !== 'archived' && row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
   postedDate: row.created_at ? row.created_at.slice(0, 10) : '',
 });
 
@@ -470,7 +471,7 @@ export function statusActionLabel(action: ReviewAction): string {
 }
 
 export function statusActionMessage(action: ReviewAction, candidateId: string): string {
-  if (action === 'shortlisted') return `Moving ${candidateId} to Shortlisted will mark them as a priority applicant.`;
+  if (action === 'shortlisted') return `Moving ${candidateId} to Shortlisted sends them this job's Candidate Assessment.`;
   if (action === 'interviewing') {
     return 'Moving to Interviewing will unlock full candidate profile details and allow message requests.';
   }
@@ -504,7 +505,10 @@ export function jobStatusBadgeClass(status: JobStatus): string {
   return 'k-badge k-badge-outline';
 }
 
-export const JOB_STATUS_LABEL: Record<JobStatus, string> = { open: 'Open', draft: 'Draft', closed: 'Closed' };
+export const JOB_STATUS_LABEL: Record<JobStatus, string> = { open: 'Open', draft: 'Draft', closed: 'Closed', archived: 'Archived' };
+
+/** What employer_job_posts.posting_status stores for each job status. */
+export const JOB_POSTING_STATUS: Record<JobStatus, string> = { open: 'active', draft: 'draft', closed: 'closed', archived: 'archived' };
 
 export const ACTIVE_CANDIDATE_STATUSES: CandidateStatus[] = ['Pending', 'Shortlisted', 'Interviewing'];
 
