@@ -3,6 +3,7 @@
     python -m backend.scripts.import_jooble_jobs --dry-run             # fetch and report, write nothing
     python -m backend.scripts.import_jooble_jobs                        # fetch, upsert, expire stale rows
     python -m backend.scripts.import_jooble_jobs --request-budget 5 --max-queries 5
+    python -m backend.scripts.import_jooble_jobs --dry-run --csv jooble_listings.csv   # every listing and its outcome
 
 Needs JOOBLE_API_KEY (from https://jooble.org/api/about) and, unless
 ``--dry-run``, SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. The searches are in
@@ -324,10 +325,12 @@ def collect(client: JoobleClient, queries: Iterable[Dict[str, Any]], location: s
     fingerprints: set[str] = set()
     skipped: Dict[str, int] = {}
     errors: List[str] = []
+    listings_log: List[Dict[str, Any]] = []
     seen = 0
 
     def skip(reason: str) -> None:
         skipped[reason] = skipped.get(reason, 0) + 1
+        listings_log[-1]["skip_reason"] = reason
 
     for query in queries:
         for page in range(1, pages + 1):
@@ -340,6 +343,7 @@ def collect(client: JoobleClient, queries: Iterable[Dict[str, Any]], location: s
                 break
             seen += len(listings)
             for listing in listings:
+                listings_log.append({"query": query, "page": page, "listing": listing, "row": None, "skip_reason": ""})
                 posted = posted_at(listing.get("updated"))
                 if posted and posted < oldest:
                     skip(f"older than {max_age_days} days")
@@ -354,10 +358,52 @@ def collect(client: JoobleClient, queries: Iterable[Dict[str, Any]], location: s
                     continue
                 rows[row["job_id"]] = row
                 fingerprints.add(fingerprint)
+                listings_log[-1]["row"] = row
             if len(listings) < per_page:
                 break
-    return {"rows": list(rows.values()), "listings_seen": seen, "skipped": skipped, "errors": errors,
-            "requests_used": client.requests_used}
+    return {"rows": list(rows.values()), "listings": listings_log, "listings_seen": seen, "skipped": skipped,
+            "errors": errors, "requests_used": client.requests_used}
+
+
+CSV_COLUMNS = (
+    "outcome", "skip_reason", "search_keywords", "search_category_code", "page", "jooble_id", "title", "company",
+    "location", "salary", "type", "updated", "original_source", "link", "snippet", "job_id", "category_code",
+    "category_name", "work_setup", "employment_type", "job_level", "salary_min_php", "salary_max_php",
+    "required_skills", "preferred_skills", "must_have_skill_ids",
+)
+ROW_COLUMNS = ("job_id", "category_code", "category_name", "work_setup", "employment_type", "job_level",
+               "salary_min_php", "salary_max_php", "required_skills", "preferred_skills", "must_have_skill_ids")
+
+
+def write_csv(path: Path, listings: List[Dict[str, Any]]) -> int:
+    """Every listing Jooble returned, as it came, with what the import did with it."""
+    import csv
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8-sig") as handle:  # BOM so Excel reads ₱ and accents
+        writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        for entry in listings:
+            listing, row = entry["listing"], entry["row"] or {}
+            writer.writerow({
+                "outcome": "imported" if entry["row"] else "skipped",
+                "skip_reason": entry["skip_reason"],
+                "search_keywords": entry["query"].get("keywords", ""),
+                "search_category_code": entry["query"].get("category_code", ""),
+                "page": entry["page"],
+                "jooble_id": clean(listing.get("id")),
+                "title": clean(listing.get("title")),
+                "company": clean(listing.get("company")),
+                "location": clean(listing.get("location")),
+                "salary": clean(listing.get("salary")),
+                "type": clean(listing.get("type")),
+                "updated": clean(listing.get("updated")),
+                "original_source": clean(listing.get("source")),
+                "link": clean(listing.get("link")),
+                "snippet": clean(listing.get("snippet")),
+                **{column: "" if row.get(column) is None else row.get(column) for column in ROW_COLUMNS},
+            })
+    return len(listings)
 
 
 def _in_filter(values: List[str]) -> str:
@@ -402,6 +448,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--expire-after-days", type=int, default=21,
                         help="set imported listings not seen again for this long to expired")
     parser.add_argument("--sample", type=int, default=5, help="rows to print in the report")
+    parser.add_argument("--csv", type=Path, help="also write every listing Jooble returned, and its outcome, to this CSV")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -425,12 +472,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     result = collect(client, queries, location, pages=max(1, args.pages), per_page=max(1, args.per_page),
                      max_age_days=args.max_age_days)
     rows = result.pop("rows")
+    listings = result.pop("listings")
     report: Dict[str, Any] = {**result, "importable": len(rows), "dry_run": args.dry_run,
                               "with_required_skills": sum(1 for row in rows if row["required_skills"]),
                               "with_category": sum(1 for row in rows if row["category_code"]),
                               "sample": [{key: row[key] for key in ("job_id", "job_title", "company_name", "location",
                                                                     "category_name", "required_skills", "preferred_skills")}
                                          for row in rows[:max(0, args.sample)]]}
+    if args.csv:
+        report["csv"] = {"path": str(args.csv), "listings": write_csv(args.csv, listings)}
     failed = bool(result["errors"]) and not rows
     if supabase is not None and rows:
         # Expiry runs only after a run that found listings, so an outage or a

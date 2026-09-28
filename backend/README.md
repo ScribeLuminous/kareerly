@@ -163,6 +163,12 @@ the repository secrets `JOOBLE_API_KEY`, `SUPABASE_URL` and
 run makes; keep it inside your key's quota, and only add a schedule to the
 workflow once you know that quota.
 
+To review everything Jooble returned, add `--csv jooble_listings.csv` (or tick
+**export_csv** in the workflow; the file is attached to the run as the
+`jooble-listings` artifact for 14 days). Each row is one listing with its
+search, the raw Jooble fields, whether it was imported or skipped and why, and
+the mapped skills and category for imported ones.
+
 Jooble returns a short snippet, not the full posting, so these rows are leads to
 the original listing:
 
