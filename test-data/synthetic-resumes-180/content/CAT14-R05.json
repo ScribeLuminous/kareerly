@@ -1,0 +1,88 @@
+{
+  "candidate_id": "CAT14-R05",
+  "full_name": "Leonardo Uy",
+  "location": "Baguio City, Benguet",
+  "email": "leonardo.uy@example.net",
+  "phone": "+63 977 723 3130",
+  "headline": "Clinical Nurse Coordinator",
+  "summary": "Clinical nurse coordinator with twelve years in acute and primary care in Baguio. I coordinate nursing care across medical and surgical wards, assess and monitor complex patients, and make sure documentation, consent and legal requirements are met. I lead and train a team of 30 nurses.",
+  "skills": [
+    "Clinical documentation and chart audits",
+    "Patient assessment",
+    "Acute care nursing",
+    "Primary care and chronic disease follow-up",
+    "Monitoring and recording treatment progress",
+    "Informed consent",
+    "Health care ethics",
+    "Health care laws and regulations",
+    "Patient coordination and discharge planning",
+    "Medical terminology",
+    "Basic and Advanced Cardiac Life Support",
+    "Nurse training and staff management"
+  ],
+  "experience": [
+    {
+      "title": "Clinical Nurse Coordinator",
+      "employer": "Baguio Pines General Hospital",
+      "location": "Baguio City, Benguet",
+      "start": "2020-02",
+      "end": "Present",
+      "bullets": [
+        "Coordinate nursing care for two medical-surgical wards with 60 beds and 30 nurses.",
+        "Audit charts monthly for complete documentation and informed consent, raising compliance from 78% to 96%.",
+        "Lead discharge planning with doctors, social workers and families.",
+        "Run in-service training on sepsis recognition, fall prevention and patient rights."
+      ]
+    },
+    {
+      "title": "Senior Staff Nurse",
+      "employer": "Baguio Pines General Hospital",
+      "location": "Baguio City, Benguet",
+      "start": "2016-01",
+      "end": "2020-01",
+      "bullets": [
+        "Cared for acutely ill medical and surgical patients and led the night shift.",
+        "Precepted new graduate nurses during their first six months."
+      ]
+    },
+    {
+      "title": "Community Health Nurse",
+      "employer": "Benguet Highland Health Cooperative",
+      "location": "La Trinidad, Benguet",
+      "start": "2014-06",
+      "end": "2015-12",
+      "bullets": [
+        "Ran primary care clinics for hypertension and diabetes in farming communities.",
+        "Followed up patients at home and kept them on their treatment plans."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master of Arts in Nursing",
+      "school": "Cordillera Graduate School of Nursing",
+      "location": "Baguio City, Benguet",
+      "start": "2017",
+      "end": "2020"
+    },
+    {
+      "credential": "Bachelor of Science in Nursing",
+      "school": "Benguet Highlands College",
+      "location": "La Trinidad, Benguet",
+      "start": "2010",
+      "end": "2014"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Nurse",
+      "issuer": "Professional Regulation Commission",
+      "date": "2014-11"
+    },
+    {
+      "name": "Advanced Cardiac Life Support",
+      "issuer": "accredited training provider",
+      "date": "2024-02"
+    }
+  ]
+}

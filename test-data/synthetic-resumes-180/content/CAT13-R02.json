@@ -1,0 +1,45 @@
+{
+  "candidate_id": "CAT13-R02",
+  "full_name": "Carmina Cruz",
+  "location": "Calbayog City, Samar",
+  "email": "carmina.cruz@example.com",
+  "phone": "+63 970 758 4096",
+  "headline": "Barangay Social Services Aide",
+  "education": [
+    {
+      "credential": "Senior High School, Humanities and Social Sciences (HUMSS) strand",
+      "school": "Calbayog Bay Integrated School",
+      "location": "Calbayog City, Samar",
+      "start": "2024",
+      "end": "2026",
+      "notes": [
+        "Work immersion with a community welfare organisation",
+        "Youth council volunteer"
+      ]
+    }
+  ],
+  "summary": "Senior high school graduate from the HUMSS strand looking for work as a social services aide. During work immersion I helped a community welfare council register families for assistance, talk with them about their needs and keep their forms complete. I am patient, respectful and good with elderly residents.",
+  "skills": [
+    "Community outreach and house-to-house visits",
+    "Talking with families and elderly residents in Waray and Filipino",
+    "Keeping client forms and case files complete",
+    "Data encoding",
+    "Microsoft Office (Word, Excel)",
+    "Clear spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Work Immersion Student",
+      "employer": "Calbayog Community Welfare Council",
+      "location": "Calbayog City, Samar",
+      "start": "2026-02",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Helped staff register 180 families for typhoon relief and checked each form for missing details.",
+        "Visited senior citizens at home with a social worker to update their records.",
+        "Encoded family profiles into the council's Excel database."
+      ]
+    }
+  ]
+}

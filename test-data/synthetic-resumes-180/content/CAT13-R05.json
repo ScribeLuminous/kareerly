@@ -1,0 +1,82 @@
+{
+  "candidate_id": "CAT13-R05",
+  "full_name": "Patrick Cañete",
+  "location": "Roxas City, Capiz",
+  "email": "patrick.canete@example.org",
+  "phone": "+63 961 768 8426",
+  "headline": "Social Work Unit Supervisor",
+  "summary": "Social work supervisor with eleven years in child welfare and family services in Capiz. I lead a unit of eight social workers, supervise field practicum students, and make sure our work follows social welfare law, ethics and accreditation standards. I still carry complex clinical cases and handle ethical dilemmas with the team.",
+  "highlights": [
+    "Led the unit through full accreditation as a social welfare agency with no major findings.",
+    "Set up a clinical supervision schedule that cut social worker turnover from four resignations a year to one.",
+    "Supervised 30 social work practicum students from three universities."
+  ],
+  "skills": [
+    "Managing a social work unit",
+    "Supervision of social work students",
+    "Ethical decision-making",
+    "Monitoring social welfare regulations",
+    "Quality standards and accreditation",
+    "Social counselling and clinical social work",
+    "Counselling support",
+    "Case documentation and case review",
+    "Community engagement",
+    "Client advocacy",
+    "Staff management",
+    "Policy input to the provincial board"
+  ],
+  "experience": [
+    {
+      "title": "Social Work Unit Supervisor",
+      "employer": "Capiz Children and Families Services Foundation",
+      "location": "Roxas City, Capiz",
+      "start": "2019-03",
+      "end": "Present",
+      "bullets": [
+        "Supervise eight social workers covering child protection, adoption and family support.",
+        "Review case plans weekly and sign off on court and adoption reports.",
+        "Represent the foundation in provincial child-protection meetings and comment on draft ordinances."
+      ]
+    },
+    {
+      "title": "Social Worker",
+      "employer": "Panay Child Welfare Network",
+      "location": "Iloilo City, Iloilo",
+      "start": "2015-04",
+      "end": "2019-02",
+      "bullets": [
+        "Handled foster care and adoption cases and counselled birth and adoptive families.",
+        "Organised parenting sessions in barangays with community volunteers."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master of Social Work",
+      "school": "Western Visayas Graduate School of Social Work",
+      "location": "Iloilo City, Iloilo",
+      "start": "2016",
+      "end": "2019"
+    },
+    {
+      "credential": "Bachelor of Science in Social Work",
+      "school": "Capiz Riverside College",
+      "location": "Roxas City, Capiz",
+      "start": "2010",
+      "end": "2014"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Social Worker",
+      "issuer": "Professional Regulation Commission",
+      "date": "2014-12"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Capiznon",
+    "Hiligaynon"
+  ]
+}

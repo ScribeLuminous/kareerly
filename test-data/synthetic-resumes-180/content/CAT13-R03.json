@@ -1,0 +1,72 @@
+{
+  "candidate_id": "CAT13-R03",
+  "full_name": "Hanifa Pangcoga",
+  "location": "Isulan, Sultan Kudarat",
+  "email": "hanifa.pangcoga@example.net",
+  "phone": "+63 977 257 4291",
+  "headline": "Case Manager, RSW",
+  "experience": [
+    {
+      "title": "Case Manager",
+      "employer": "Kudarat Women and Children Protection Center",
+      "location": "Isulan, Sultan Kudarat",
+      "start": "2023-02",
+      "end": "Present",
+      "bullets": [
+        "Manage about 25 active cases of women and children survivors of violence and abuse.",
+        "Provide social counselling and safety planning, and accompany clients to court and medical appointments.",
+        "Write case studies, progress notes and court reports that meet agency and legal standards.",
+        "Refer clients to shelters, legal aid, livelihood and psychosocial programs and coordinate with each provider."
+      ]
+    },
+    {
+      "title": "Social Worker",
+      "employer": "Tacurong Youth Welfare Foundation",
+      "location": "Tacurong City, Sultan Kudarat",
+      "start": "2022-01",
+      "end": "2023-01",
+      "bullets": [
+        "Worked with children in conflict with the law and their families.",
+        "Advocated for diversion programs instead of detention in case conferences."
+      ]
+    }
+  ],
+  "summary": "Registered social worker with four years of case management for women, children and youth in Sultan Kudarat. I provide counselling, protect clients at risk, advocate for them in case conferences and courts, and look at every part of a client's life when planning services. My case records are thorough and court-ready.",
+  "skills": [
+    "Case management and documentation",
+    "Social counselling and counselling support",
+    "Advocacy for clients",
+    "Protection of vulnerable women and children",
+    "Building trust with clients",
+    "Referral to partner agencies",
+    "Holistic, family-centred case planning",
+    "Report writing"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Social Work",
+      "school": "Kudarat Plains State College",
+      "location": "Isulan, Sultan Kudarat",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Social Worker",
+      "issuer": "Professional Regulation Commission",
+      "date": "2021-10"
+    },
+    {
+      "name": "Trauma-Informed Care Training",
+      "issuer": "professional training course",
+      "date": "2023-08"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Hiligaynon",
+    "Maguindanaon"
+  ]
+}
