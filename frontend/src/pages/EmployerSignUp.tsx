@@ -65,7 +65,7 @@ export default function EmployerSignUp({ onAuthenticated, onSignIn, onHome }: Em
         </FormField>
 
         <div className="k-form-grid mt-4">
-          <FormField label="Industry">
+          <FormField label="Industry" help="Matches the skill areas candidates choose from.">
             <select id="industry" name="industry" className="k-select" required defaultValue="">
               <option value="" disabled>Select an industry</option>
               {EMPLOYER_INDUSTRIES.map((option) => <option key={option}>{option}</option>)}

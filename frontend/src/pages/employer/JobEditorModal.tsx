@@ -1,6 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, FormField, Modal } from '../../components/ui';
+import { ProvinceSelect } from '../../components/ProvinceSelect';
 import {
   EMPLOYMENT_TYPES,
   EXPERIENCE_LEVELS,
@@ -188,8 +189,11 @@ export function JobEditorModal({
                 {withSaved(WORK_SETUPS, form.workSetup).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </FormField>
-            <FormField label="Location *">
-              <input className="k-input" value={form.location} onChange={set('location')} placeholder="City, Province" autoComplete="off" required />
+            <FormField label="City or municipality *">
+              <input className="k-input" value={form.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="off" required />
+            </FormField>
+            <FormField label="Province *" help="Places the job in its region for candidates' location filters.">
+              <ProvinceSelect value={form.province} onChange={(province) => onUpdateForm('province', province)} required />
             </FormField>
             <FormField label="Application deadline *">
               <input className="k-input" type="date" value={form.deadline} onChange={set('deadline')} required />

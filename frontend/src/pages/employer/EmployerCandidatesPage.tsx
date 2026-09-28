@@ -5,7 +5,7 @@ import { Banner, ConfirmDialog, EmptyState, FormField, InfoTip, PageHeader, Sear
 import type { CandidateAssessment } from '../../lib/assessmentApi';
 import type { EvaluationSummary } from '../../lib/evaluationApi';
 import { ApplicantRow } from './ApplicantRow';
-import { ExportApplicantsDialog, MatchInsightsCard } from './ApplicantReports';
+import { ExportApplicantsDialog } from './ApplicantReports';
 import {
   APPLICANT_SORTS,
   CANDIDATE_BULK_LABEL,
@@ -24,7 +24,6 @@ import {
   type CandidateStatus,
   type EmployerJob,
 } from './model';
-import { jobMatchInsights } from './reports';
 
 type EmployerCandidatesPageProps = {
   applications: CandidateApplication[];
@@ -101,7 +100,6 @@ export function EmployerCandidatesPage({
     return percent !== null && percent >= HIGH_MATCH_PERCENT && (filters.status === 'all' || candidate.status === filters.status);
   }).length, [forJob, job, filters.status]);
   const visible = useMemo(() => visibleApplicants(applications, jobs, filters, summaries), [applications, jobs, filters, summaries]);
-  const insights = useMemo(() => jobMatchInsights(applications, jobs), [applications, jobs]);
   const applicantCount = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId).length;
   const jobOptions = jobs.filter((item) => (item.status !== 'draft' && item.status !== 'archived') || applicantCount(item.id) > 0);
   // Changing what is shown clears the selection, so an action never reaches hidden applicants.
@@ -183,7 +181,6 @@ export function EmployerCandidatesPage({
       ) : (
         <>
           {exportError && <Banner tone="warn" className="mb-4" onDismiss={() => setExportError('')}>{exportError}</Banner>}
-          <MatchInsightsCard insights={insights} selectedJobId={filters.jobId} onSelectJob={(jobId) => set({ jobId, status: 'all' })} />
 
           <div className="grid gap-3 [&>.k-field+.k-field]:mt-0 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end">
             <FormField label="Job">

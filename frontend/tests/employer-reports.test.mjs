@@ -109,3 +109,21 @@ test('the PDF builds from the export content', async () => {
   assert.ok(text.includes('Person 2'));
   assert.equal(text.includes('Person 1'), false);
 });
+
+test('insights split applicants into match bands and total them across jobs', () => {
+  const insights = reports.jobMatchInsights(applications, jobs);
+  const analyst = insights.find((insight) => insight.job.id === 'j1');
+  assert.deepEqual(analyst.bands, { strong: 1, partial: 0, low: 1, noFigure: 0 });
+  const totals = reports.insightTotals(insights);
+  assert.equal(totals.applicants, 4);
+  assert.equal(totals.highMatches, 3);
+  // (100 + 33 + 100 + 100) / 4, from the exact sum rather than per-job averages.
+  assert.equal(totals.averageMatch, 83);
+  assert.equal(totals.jobsWithoutStrong, 0);
+});
+
+test('skill gaps count applicants missing each required skill across jobs', () => {
+  const gaps = reports.skillGapsAcrossJobs(applications, jobs);
+  assert.deepEqual(gaps.map((gap) => [gap.skill, gap.missing, gap.assessed]), [['Excel', 1, 2], ['Python', 1, 2]]);
+  assert.deepEqual(gaps[0].jobTitles, ['Data Analyst']);
+});

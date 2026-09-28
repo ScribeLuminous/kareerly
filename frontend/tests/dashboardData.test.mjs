@@ -21,6 +21,7 @@ const deps = {
   ...await loadUtility('../src/lib/matchScoring.ts'),
   ...await loadUtility('../src/lib/uiData.ts'),
   ...await loadUtility('../src/lib/jobDescription.ts'),
+  ...await loadUtility('../src/lib/phProvinces.ts'),
   React,
 };
 // Names a module re-exports from elsewhere (`export { A } from './x'`).
