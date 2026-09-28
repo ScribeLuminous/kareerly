@@ -358,7 +358,8 @@ export async function signOutCurrentUser() {
 }
 
 export async function requestPasswordReset(email: string) {
-  const redirectTo = `${window.location.origin}`;
+  // The link opens the "choose a new password" screen (PASSWORD_RESET_PATH), not the home page.
+  const redirectTo = `${window.location.origin}/reset-password`;
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) throw error;
 }
