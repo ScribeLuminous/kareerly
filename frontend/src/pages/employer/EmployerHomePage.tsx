@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck, faChevronRight, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { NextStepCard, PageHeader, SectionHead, SeeAllLink, SkeletonRows, type NextStep } from '../../components/ui';
 import {
   formatDateLabel,
@@ -88,14 +88,7 @@ export function EmployerHomePage({
   const hasAssessments = assessments.awaitingCandidate + assessments.toReview + assessments.reviewed > 0;
   return (
     <div className="k-page">
-      <PageHeader
-        title="Home"
-        actions={(
-          <button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>
-            <FontAwesomeIcon icon={faPlus} aria-hidden="true" />Post a job
-          </button>
-        )}
-      />
+      <PageHeader title="Home" />
       <div className="grid gap-7 lg:grid-cols-12 lg:gap-8">
         <div className="min-w-0 space-y-7 lg:col-span-8 lg:space-y-8">
           {!isLoading && (nextSteps.length > 0

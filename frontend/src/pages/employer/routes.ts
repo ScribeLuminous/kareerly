@@ -1,11 +1,12 @@
 // Kept apart from the model so the app shell can check employer URLs without
 // loading the employer workspace.
-export type EmployerPage = 'dashboard' | 'jobs' | 'candidates' | 'messages' | 'account';
+export type EmployerPage = 'dashboard' | 'jobs' | 'candidates' | 'insights' | 'messages' | 'account';
 
 export const EMPLOYER_PAGE_PATHS: Record<EmployerPage, string> = {
   dashboard: '/employer/dashboard',
   jobs: '/employer/jobs',
   candidates: '/employer/candidates',
+  insights: '/employer/insights',
   messages: '/employer/messages',
   account: '/employer/account',
 };

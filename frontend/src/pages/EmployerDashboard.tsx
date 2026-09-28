@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { faBriefcase, faBuilding, faComments, faHouse, faLayerGroup, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faBriefcase, faBuilding, faChartColumn, faComments, faHouse, faLayerGroup, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { AppShell, ConfirmDialog, DESKTOP_QUERY, FormField, ToastRegion, useMediaQuery, type NextStep, type ToastState } from '../components/ui';
 import { loadApplicationMessages, loadEmployerAccountSettings, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import { normalizeEmployerIndustry } from '../lib/employerOptions';
+import { joinLocation, splitLocation } from '../lib/phProvinces';
 import { joinJobContent } from '../lib/jobDescription';
 import { applyAssessmentTemplate, deleteAssessmentTemplates, isEvaluationUnavailable, isTemplatesUnavailable, loadAssessmentTemplates, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveAssessmentTemplate, saveRubric, type EvaluationSummary } from '../lib/evaluationApi';
 import { loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
@@ -14,6 +16,7 @@ import { EmployerCandidatesPage } from './employer/EmployerCandidatesPage';
 import { RubricEditorModal } from './employer/RubricEditorModal';
 import { candidateActionBlocker, combineTemplates, DEFAULT_CANDIDATE_FILTERS, validateRubricDraft, type AssessmentTemplate, HIGH_MATCH_PERCENT, profileMatch, visibleApplicants, type CandidateBulkAction, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
 import { EmployerHomePage } from './employer/EmployerHomePage';
+import { EmployerInsightsPage } from './employer/EmployerInsightsPage';
 import { EmployerJobsPage, type JobBulkAction } from './employer/EmployerJobsPage';
 import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
 import { JobEditorModal } from './employer/JobEditorModal';
@@ -147,7 +150,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     company: companyName,
     industry: '',
     size: '',
-    location: '',
+    city: '',
+    province: '',
     website: '',
     about: '',
     contactPerson: contactName,
@@ -215,9 +219,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         if (!isMounted) return;
         setAccountProfile({
           company: saved.company_name || companyName,
-          industry: saved.industry || '',
+          industry: normalizeEmployerIndustry(saved.industry),
           size: saved.company_size || '',
-          location: saved.company_location || '',
+          ...splitLocation(saved.company_location),
           website: saved.company_website || '',
           about: saved.company_description || '',
           contactPerson: saved.contact_person_name || contactName,
@@ -246,7 +250,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         company_name: accountProfile.company,
         industry: accountProfile.industry,
         company_size: accountProfile.size,
-        company_location: accountProfile.location,
+        company_location: joinLocation(accountProfile.city, accountProfile.province),
         company_website: accountProfile.website,
         company_description: accountProfile.about,
         contact_person_name: accountProfile.contactPerson,
@@ -561,18 +565,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
   };
 
-  const toFormLocation = (job: EmployerJob) => `${job.city}${job.province ? `, ${job.province}` : ''}`;
-
-  const parseFormLocation = (location: string): { city: string; province: string } => {
-    const parts = location
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-    const city = parts[0] || '';
-    const province = parts.slice(1).join(', ') || '';
-    return { city, province };
-  };
-
   const startNewJobForm = () => {
     setJobsPanelMode('new');
     setJobForm(emptyJobForm);
@@ -596,7 +588,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       responsibilities: job.responsibilities.join('\n'),
       workSetup: job.workSetup,
       employmentType: job.employmentType,
-      location: toFormLocation(job),
+      city: job.city,
+      province: job.province,
       salaryRange: toSalaryInputValue(job.salaryRange),
       deadline: job.deadline,
       status: job.status,
@@ -674,7 +667,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     if (!jobForm.subcategory.trim()) return 'Choose a sub-category.';
     if (!jobForm.experienceLevel.trim()) return 'Choose an experience level.';
     if (!jobForm.workSetup.trim()) return 'Choose a work setup.';
-    if (!jobForm.location.trim()) return 'Add a location.';
+    if (!jobForm.city.trim()) return 'Add the city or municipality.';
+    if (!jobForm.province.trim()) return 'Choose a province.';
     if (!jobForm.deadline.trim()) return 'Set an application deadline.';
     if (!jobForm.salaryRange.trim()) return 'Add a salary range.';
     const { minimum: minimumSalary, maximum: maximumSalary } = getSalaryAmounts(jobForm.salaryRange);
@@ -700,8 +694,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     setJobFormError('');
     setIsSavingJob(true);
     const status: JobStatus = mode === 'draft' ? 'draft' : jobForm.status === 'closed' ? 'closed' : 'open';
-    const { city, province } = parseFormLocation(jobForm.location);
-    const location = `${city}${province ? `, ${province}` : ''}`.trim();
+    const location = joinLocation(jobForm.city, jobForm.province);
     const { minimum: salaryMinPhp, maximum: salaryMaxPhp } = getSalaryAmounts(jobForm.salaryRange);
     const currentJob = jobsPanelMode === 'edit' && selectedJobId ? jobs.find((job) => job.id === selectedJobId) || null : null;
     const jobId = currentJob?.id || `EMP-${Date.now()}`;
@@ -1278,6 +1271,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           badge: pendingApplicants.length,
           badgeLabel: (count) => `${count} new applicant${count === 1 ? '' : 's'}`,
         },
+        { id: 'insights', href: EMPLOYER_PAGE_PATHS.insights, label: 'Insights', icon: faChartColumn, current: activePage === 'insights', onSelect: () => goPage('insights') },
         {
           id: 'messages',
           href: EMPLOYER_PAGE_PATHS.messages,
@@ -1390,6 +1384,17 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onReview={openReview}
           onOpenJobs={() => goPage('jobs')}
           onEditRubric={(jobId) => void openRubricEditor(jobId)}
+        />
+      )}
+
+      {activePage === 'insights' && (
+        <EmployerInsightsPage
+          applications={applications}
+          jobs={jobs}
+          isLoading={isLoadingJobs || isLoadingApplicants}
+          loadFailed={applicationsLoadStatus === 'error'}
+          onViewApplicants={viewApplicants}
+          onOpenJobs={() => goPage('jobs')}
         />
       )}
 
