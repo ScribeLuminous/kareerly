@@ -178,6 +178,30 @@ class SaveTests(unittest.TestCase):
         self.assertEqual(refs, {"internal_jobs:KJ-1"})
 
 
+class CsvTests(unittest.TestCase):
+    def test_every_listing_is_written_with_its_outcome(self):
+        import csv
+        import tempfile
+        from pathlib import Path
+
+        client = FakeClient({("data analyst", 1): [
+            listing("101"), listing("102"), listing("103", title="Staff", snippet="Join our friendly team today and grow with us."),
+        ]})
+        result = jooble.collect(client, [{"keywords": "data analyst", "category_code": "K02"}], "Philippines",
+                                pages=1, per_page=50, max_age_days=30, now=NOW)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "listings.csv"
+            self.assertEqual(jooble.write_csv(path, result["listings"]), 3)
+            with path.open(encoding="utf-8-sig", newline="") as handle:
+                written = list(csv.DictReader(handle))
+        self.assertEqual([(r["jooble_id"], r["outcome"], r["skip_reason"]) for r in written], [
+            ("101", "imported", ""), ("102", "skipped", "duplicate"), ("103", "skipped", "no known skill in title or snippet")])
+        self.assertEqual(written[0]["job_id"], "JOOBLE-101")
+        self.assertEqual(written[0]["search_keywords"], "data analyst")
+        self.assertIn("SQL", written[0]["snippet"])
+        self.assertEqual(written[1]["job_id"], "")
+
+
 class MainTests(unittest.TestCase):
     def test_missing_key_is_a_visible_skip(self):
         with patch.dict("os.environ", {"JOOBLE_API_KEY": ""}), patch("sys.stdout", new_callable=io.StringIO) as out, \
