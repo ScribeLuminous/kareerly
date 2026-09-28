@@ -39,7 +39,8 @@ type JobDetailProps = {
   onWithdraw: (application: DashboardApplication) => void;
   onSave: () => void;
   onOpenLearning?: () => void;
-  onViewApplication?: () => void;
+  /** Omit where the application is already on screen (the Applications page). */
+  onViewApplication?: (application: DashboardApplication) => void;
   feedback?: JobFeedback;
 };
 
@@ -58,6 +59,16 @@ export function JobScoreLine({ job, large = false }: { job: DashboardJob; large?
       <span className="k-meta">{getMatchReadinessLabel(score)}</span>
       <InfoTip label="What the match percentage means" align="left">{MATCH_NOTE}</InfoTip>
     </div>
+  );
+}
+
+/** "Applied · status", shown across from the job title once the candidate has applied. */
+export function AppliedBadge({ job, application }: Pick<JobDetailProps, 'job' | 'application'>) {
+  if (!application || job.sourceType === 'external') return null;
+  return (
+    <span className="k-badge k-badge-success min-h-[32px] shrink-0 whitespace-nowrap px-3 text-sm">
+      <FontAwesomeIcon icon={faCheck} aria-hidden="true" />Applied · {application.status}
+    </span>
   );
 }
 
@@ -88,10 +99,7 @@ export function JobActions({ job, application, isSaved, onApply, onWithdraw, onS
       <div className="k-detail-actions mt-0">
         {application ? (
           <>
-            <span className="k-badge k-badge-success min-h-[32px] px-3 text-sm">
-              <FontAwesomeIcon icon={faCheck} aria-hidden="true" />Applied · {application.status}
-            </span>
-            {onViewApplication && <button className="k-btn k-btn-secondary" type="button" onClick={onViewApplication}>View application</button>}
+            {onViewApplication && <button className="k-btn k-btn-secondary" type="button" onClick={() => onViewApplication(application)}>View application</button>}
             {canWithdraw && <button className="k-btn k-btn-ghost" type="button" onClick={() => onWithdraw(application)}>Withdraw</button>}
           </>
         ) : (
@@ -262,7 +270,10 @@ export function JobDetailPanel(props: JobDetailProps) {
   return (
     <article className="k-split-detail k-detail" aria-label={`${job.title} details`}>
       <header className="k-detail-header">
-        <h2 className="k-page-title text-[22px] leading-7">{job.title}</h2>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="k-page-title min-w-0 text-[22px] leading-7">{job.title}</h2>
+          <AppliedBadge job={job} application={props.application} />
+        </div>
         {meta.length > 0 && <p className="k-secondary k-dot-sep mt-1">{meta.map((part) => <span key={part}>{part}</span>)}</p>}
         <div className="mt-3"><JobScoreLine job={job} large /></div>
         <div className="mt-4"><JobActions {...props} /></div>
@@ -287,8 +298,11 @@ export function JobDetailModal(props: JobDetailProps & { onClose: () => void }) 
       fullOnMobile
       closeStyle="back"
       closeLabel="Close job details"
+      headerActions={props.application && job.sourceType !== 'external' ? <div className="hidden pt-1.5 sm:mr-2 sm:block"><AppliedBadge job={job} application={props.application} /></div> : undefined}
       footer={<div className="w-full"><JobActions {...props} /></div>}
     >
+      {/* Phones have no room beside the title, so the badge leads the body instead. */}
+      {props.application && job.sourceType !== 'external' && <div className="mb-3 sm:hidden"><AppliedBadge job={job} application={props.application} /></div>}
       <JobScoreLine job={job} large />
       <JobDetailBody job={job} courses={props.courses} onOpenLearning={props.onOpenLearning} feedback={props.feedback} />
     </Modal>
