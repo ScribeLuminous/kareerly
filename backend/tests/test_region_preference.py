@@ -116,6 +116,19 @@ class RegionMappingTests(unittest.TestCase):
         self.assertEqual(frontend, [(region.code, region.name) for region in ph_regions.REGIONS])
 
 
+    def test_every_frontend_province_resolves_to_its_region(self):
+        # Employer company and job locations are saved as "City, Province" with the
+        # province picked from this list, so the province alone must place them.
+        from pathlib import Path
+        import re
+        source = (Path(__file__).resolve().parents[2] / "frontend/src/lib/phProvinces.ts").read_text(encoding="utf-8")
+        groups = re.findall(r"\{ region: '([^']*)', label: '[^']+', provinces: \[([^\]]+)\] \}", source)
+        self.assertEqual(len(groups), 19)
+        for code, provinces in groups:
+            for province in re.findall(r"'([^']+)'", provinces):
+                with self.subTest(province=province):
+                    self.assertEqual(resolve_single_region(province), code or None)
+
 class RegionPreferenceParsingTests(unittest.TestCase):
     def test_anywhere_and_missing_apply_no_filter(self):
         for preferences in [{}, None, {"location_scope": "anywhere"}, {"location_scope": "", "region": "NCR"}]:
