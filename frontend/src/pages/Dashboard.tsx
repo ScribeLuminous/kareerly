@@ -110,6 +110,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     document.documentElement.lang = uiLanguage === 'fil' ? 'fil' : 'en';
   }, [uiLanguage]);
   const [jobDetailOpen, setJobDetailOpen] = useState(false);
+  // The application "View application" should bring into view on the Applications page.
+  const [focusedApplicationId, setFocusedApplicationId] = useState<string | null>(null);
+  const clearFocusedApplication = useCallback(() => setFocusedApplicationId(null), []);
   const [selectedJob, setSelectedJob] = useState<DashboardJob | null>(null);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const [withdrawTarget, setWithdrawTarget] = useState<DashboardApplication | null>(null);
@@ -1793,8 +1796,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setJobDetailOpen(false);
     openWithdraw(application);
   };
-  const viewApplicationFromDetail = () => {
+  // On the Applications page the application is already listed, so the job detail offers no link back to it.
+  const viewApplicationFromDetail = activePage === 'applications' ? undefined : (application: DashboardApplication) => {
     setJobDetailOpen(false);
+    setFocusedApplicationId(application.id);
     setActivePage('applications');
   };
   const renderDetailPanel = (job: DashboardJob) => {
@@ -1961,6 +1966,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         <ApplicationsPage
           loadStatus={applicationLoadStatus}
           applications={applications}
+          focusedApplicationId={focusedApplicationId}
+          onFocusHandled={clearFocusedApplication}
           onViewJob={(application) => {
             const knownJob = jobs.find((item) => item.id === application.jobId && item.jobSource === application.jobSource)
               || kareersList.find((item) => item.id === application.jobId && item.jobSource === application.jobSource);
