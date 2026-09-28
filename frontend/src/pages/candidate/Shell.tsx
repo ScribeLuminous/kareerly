@@ -67,23 +67,17 @@ export function CandidateShell({
   const nav: ShellNavItem[] = [
     item('home', 'dashboard', 'Home', faHouse),
     item('matches', 'jobmatches', 'Matches', faBriefcase),
-    item('skills', 'skillgaps', 'Skills', faPuzzlePiece),
     {
-      // Applications and Analyze a job live under Kareers, so its message requests count shows here.
-      ...item('kareers', 'kareers', 'Kareers', faCompass),
+      ...item('applications', 'applications', 'Applications', faClipboardList),
       badge: applicationsBadge,
       badgeLabel: messageRequests,
+    },
+    item('skills', 'skillgaps', 'Skills', faPuzzlePiece),
+    {
+      // Analyze a job lives under Kareers.
+      ...item('kareers', 'kareers', 'Kareers', faCompass),
       menu: [
         { id: 'kareers', href: PAGE_PATHS.kareers, label: t('All jobs'), current: activePage === 'kareers', onSelect: () => onNavigate('kareers') },
-        {
-          id: 'applications',
-          href: PAGE_PATHS.applications,
-          label: t('Applications'),
-          current: activePage === 'applications' || activePage === 'messages',
-          onSelect: () => onNavigate('applications'),
-          badge: applicationsBadge,
-          badgeLabel: messageRequests,
-        },
         { id: 'external-job', href: PAGE_PATHS['external-job'], label: t('Analyze a job'), current: activePage === 'external-job', onSelect: () => onNavigate('external-job') },
       ],
     },

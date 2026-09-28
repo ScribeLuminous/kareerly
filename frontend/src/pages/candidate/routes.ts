@@ -24,12 +24,12 @@ export function isCandidateWorkspacePath(pathname: string): boolean {
   return Object.values(PAGE_PATHS).includes(pathname.replace(/\/+$/, ''));
 }
 
-export type NavSection = 'home' | 'matches' | 'skills' | 'kareers';
+export type NavSection = 'home' | 'matches' | 'applications' | 'skills' | 'kareers';
 
 /**
  * The navigation destination a page belongs to (account pages belong to none).
- * Applications (with its messages) and Analyze a job are Kareers tools, so
- * they keep their own URLs but light up Kareers in the navigation.
+ * Messages sit under Applications and Analyze a job is a Kareers tool, so they
+ * keep their own URLs but light up their parent in the navigation.
  */
 export function navSectionFor(page: DashboardPage): NavSection | null {
   switch (page) {
@@ -40,9 +40,10 @@ export function navSectionFor(page: DashboardPage): NavSection | null {
     case 'skillgaps':
     case 'upskilling':
       return 'skills';
-    case 'kareers':
     case 'applications':
     case 'messages':
+      return 'applications';
+    case 'kareers':
     case 'external-job':
       return 'kareers';
     default:
