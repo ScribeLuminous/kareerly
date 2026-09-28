@@ -1,0 +1,73 @@
+{
+  "candidate_id": "CAT05-R05",
+  "full_name": "Janine Montemayor",
+  "location": "Dagupan City, Pangasinan",
+  "email": "janine.montemayor@example.net",
+  "phone": "+63 999 943 8080",
+  "headline": "Administration and Operations Manager",
+  "summary": "Administration and operations manager with ten years in retail distribution and aquaculture. I run the administrative, facilities and support functions of a multi-branch company, write the policies and procedures behind them, and led our ISO 9001 certification. I manage a team of eight and control a multi-million peso operating budget.",
+  "highlights": [
+    "Led ISO 9001:2015 certification for the head office and two warehouses, passed with no major findings.",
+    "Rewrote 30 administrative procedures as process maps, cutting purchase-request approval time from nine days to three.",
+    "Brought office and utilities spending 12% under budget two years in a row."
+  ],
+  "skills": [
+    "Operations management",
+    "Office administration and facilities",
+    "Operations support for branches",
+    "Policy and procedure development",
+    "Quality management systems (ISO 9001)",
+    "Management system standards and internal audits",
+    "Process mapping and improvement",
+    "Records and document control",
+    "Team leadership",
+    "Budget and resource management"
+  ],
+  "experience": [
+    {
+      "title": "Administration and Operations Manager",
+      "employer": "Lingayen Gulf Aquafeeds Corp.",
+      "location": "Dagupan City, Pangasinan",
+      "start": "2020-03",
+      "end": "Present",
+      "bullets": [
+        "Head administration, facilities, fleet and document control for the head office and four sales branches.",
+        "Wrote the company's administrative policy manual, approved by the board in 2022.",
+        "Lead the internal audit programme for the quality management system and follow up corrective actions."
+      ]
+    },
+    {
+      "title": "Administrative Supervisor",
+      "employer": "North Luzon Consumer Distribution Inc.",
+      "location": "Urdaneta City, Pangasinan",
+      "start": "2016-06",
+      "end": "2020-02",
+      "bullets": [
+        "Supervised six administrative and clerical staff supporting 11 delivery routes.",
+        "Introduced a controlled filing system for contracts, permits and vehicle papers."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Management",
+      "school": "Pangasinan Coastal University",
+      "location": "Dagupan City, Pangasinan",
+      "start": "2012",
+      "end": "2016"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "ISO 9001:2015 Internal Quality Auditor",
+      "issuer": "accredited training provider",
+      "date": "2021-02"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Pangasinan",
+    "Ilocano"
+  ]
+}

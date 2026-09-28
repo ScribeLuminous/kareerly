@@ -1,0 +1,84 @@
+{
+  "candidate_id": "CAT16-R03",
+  "full_name": "Katrina Salazar",
+  "location": "Olongapo City, Zambales",
+  "email": "katrina.salazar@example.net",
+  "phone": "+63 921 346 0456",
+  "headline": "Quality Control Engineer",
+  "skill_groups": [
+    {
+      "label": "Quality",
+      "items": [
+        "quality control and inspection plans",
+        "quality control testing and analysis",
+        "overseeing QC teams",
+        "site audits"
+      ]
+    },
+    {
+      "label": "Engineering",
+      "items": [
+        "civil engineering",
+        "engineering measurement and testing",
+        "reading blueprints and specifications"
+      ]
+    },
+    {
+      "label": "Systems and safety",
+      "items": [
+        "quality inspection of materials",
+        "construction safety",
+        "ISO 9001 quality management systems"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "reports to project managers and clients"
+      ]
+    }
+  ],
+  "summary": "Licensed civil engineer with five years in construction quality control around Subic and Olongapo. I write inspection and test plans, run material tests, lead a QC team on site and audit contractors against plans and specifications. I have kept two large projects free of major quality findings from the client.",
+  "experience": [
+    {
+      "title": "Quality Control Engineer",
+      "employer": "Subic Bay Industrial Builders Inc.",
+      "location": "Olongapo City, Zambales",
+      "start": "2023-06",
+      "end": "Present",
+      "bullets": [
+        "Lead a QC team of four on warehouse and port-facility projects worth ₱1.2 billion.",
+        "Prepare inspection and test plans and check concrete, rebar and soil test results.",
+        "Audit subcontractors' work against the plans and specifications and track corrective actions.",
+        "Keep the project's ISO 9001 quality records ready for client audits."
+      ]
+    },
+    {
+      "title": "Site QA/QC Inspector",
+      "employer": "Zambales Coastal Construction Co.",
+      "location": "Olongapo City, Zambales",
+      "start": "2021-06",
+      "end": "2023-05",
+      "bullets": [
+        "Inspected formworks, rebar and concrete pours and recorded measurements.",
+        "Reported safety and quality issues on site to the project engineer."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Civil Engineering",
+      "school": "Zambales Bayside Institute of Technology",
+      "location": "Olongapo City, Zambales",
+      "start": "2016",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Civil Engineer",
+      "issuer": "Professional Regulation Commission",
+      "date": "2021-11"
+    }
+  ]
+}

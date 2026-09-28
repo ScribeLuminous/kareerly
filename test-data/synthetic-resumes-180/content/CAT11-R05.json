@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT11-R05",
+  "full_name": "Liezl Delos Santos",
+  "location": "Bontoc, Mountain Province",
+  "email": "liezl.delossantos@example.net",
+  "phone": "+63 961 779 1769",
+  "headline": "Creative Director",
+  "experience": [
+    {
+      "title": "Creative Director",
+      "employer": "Cordillera Rice Terraces Creative Agency",
+      "location": "Bontoc, Mountain Province",
+      "start": "2019-03",
+      "end": "Present",
+      "bullets": [
+        "Lead a team of eight designers, writers and video editors serving tourism, cooperative and NGO clients.",
+        "Set the creative direction for campaigns and review work at every stage, from brief to final files.",
+        "Led the rebrand of a provincial coffee cooperative, whose sales to Manila cafés tripled in two years.",
+        "Plan media placements with clients and work with Manila agencies on national campaigns."
+      ]
+    },
+    {
+      "title": "Senior Graphic Designer",
+      "employer": "Baguio Pines Advertising Inc.",
+      "location": "Baguio City, Benguet",
+      "start": "2014-01",
+      "end": "2019-02",
+      "bullets": [
+        "Designed brand identities, print campaigns and publications for hotels and schools.",
+        "Laid out annual reports and coffee-table books in InDesign."
+      ]
+    }
+  ],
+  "summary": "Creative director with twelve years in branding, print and video for tourism and cultural clients in the Cordillera and Manila. I turn briefs into campaign ideas, guide designers and editors through each stage, and make sure every piece stays true to the brand. I also handle media planning and agency partners.",
+  "skills": [
+    "Creative direction and concept development",
+    "Reviewing work at each creative stage",
+    "Graphic and multimedia design",
+    "Brand identity and campaigns",
+    "Content planning",
+    "Adobe Photoshop, Illustrator and InDesign",
+    "Video editing oversight",
+    "Media planning",
+    "Team leadership",
+    "Working with advertising agencies"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Fine Arts, major in Visual Communication",
+      "school": "Cordillera College of Fine Arts",
+      "location": "Baguio City, Benguet",
+      "start": "2009",
+      "end": "2013"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ilocano",
+    "Bontok"
+  ]
+}

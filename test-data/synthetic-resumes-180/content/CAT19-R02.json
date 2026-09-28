@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT19-R02",
+  "full_name": "Rhea Jabonete",
+  "location": "Mandaue City, Cebu",
+  "email": "rhea.jabonete@example.com",
+  "phone": "+63 935 136 3188",
+  "headline": "Nail Technician",
+  "summary": "TESDA-certified nail technician with a year at a busy salon in Mandaue. I do manicures, pedicures, gel polish and nail art, keep my tools sterile and look after regular clients so they keep coming back. I also book appointments and handle payments at the counter.",
+  "skills": [
+    "Manicure, pedicure and gel polish",
+    "Nail art and extensions",
+    "Sterilising tools and keeping the station clean",
+    "Customer service",
+    "Client handling and retention",
+    "Appointment scheduling",
+    "Invoicing and payments",
+    "Friendly spoken English and Cebuano"
+  ],
+  "experience": [
+    {
+      "title": "Nail Technician",
+      "employer": "Mandaue Glow Nail and Beauty Lounge",
+      "location": "Mandaue City, Cebu",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Serve 8 to 12 clients a day with manicures, pedicures, gel and nail art.",
+        "Built a list of about 60 regular clients who book me by name.",
+        "Book appointments and issue receipts at the front counter when the receptionist is out."
+      ]
+    },
+    {
+      "title": "Salon Assistant",
+      "employer": "Cebu Bella Salon",
+      "location": "Cebu City, Cebu",
+      "start": "2025-01",
+      "end": "2025-05",
+      "type": "part-time",
+      "bullets": [
+        "Prepared stations and assisted senior nail technicians with foot spas."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Beauty Care (Nail Care) Services NC II",
+      "school": "Mandaue Beauty Skills Center",
+      "location": "Mandaue City, Cebu",
+      "start": "2024-06",
+      "end": "2024-11"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "candidate_id": "CAT02-R01",
+  "full_name": "Sittie Aisah Usman",
+  "location": "Malabang, Lanao del Sur",
+  "email": "sittie.usman@example.org",
+  "phone": "+63 999 819 5491",
+  "headline": "Junior Data Analyst",
+  "education": [
+    {
+      "credential": "Bachelor of Science in Statistics",
+      "school": "Lanao Lakeside State College",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2020",
+      "end": "2024",
+      "notes": [
+        "Thesis: Rainfall and rice yield in Lanao del Sur municipalities, a regression study",
+        "Cum laude"
+      ]
+    }
+  ],
+  "summary": "Statistics graduate now working as a junior data analyst for a microfinance foundation. I turn branch loan records into Power BI reports, check the numbers with SQL, and use statistical tests to answer questions from managers. I want to keep building analysis that helps field offices decide where to focus.",
+  "projects": [
+    {
+      "name": "Rainfall and rice yield study",
+      "context": "undergraduate thesis",
+      "description": "Built a panel of ten years of municipal harvest and rainfall figures, fitted multiple regression models and presented the results to the provincial agriculture office."
+    },
+    {
+      "name": "Barangay population explorer",
+      "context": "personal project",
+      "description": "A Python notebook using pandas and matplotlib to compare census counts across barangays in Lanao del Sur."
+    }
+  ],
+  "skills": [
+    "Data analysis",
+    "Data visualization with Power BI and Excel charts",
+    "SQL",
+    "Microsoft Excel (pivot tables, XLOOKUP, Power Query)",
+    "Hypothesis testing and regression",
+    "Python with pandas",
+    "Presenting findings to non-analysts"
+  ],
+  "experience": [
+    {
+      "title": "Junior Data Analyst",
+      "employer": "Ranaw Microfinance Foundation",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Built Power BI reports that track repayment by municipality for 11 branch offices.",
+        "Write SQL queries against the loan system to prepare weekly portfolio-at-risk figures.",
+        "Tested whether attendance at financial-literacy sessions was linked to on-time repayment and shared the results with branch managers.",
+        "Cleaned and reconciled branch Excel files every month before they were loaded for reporting."
+      ]
+    },
+    {
+      "title": "Research Assistant",
+      "employer": "Lanao Lakeside State College Statistics Center",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2024-01",
+      "end": "2024-04",
+      "type": "internship",
+      "bullets": [
+        "Encoded and double-checked household survey forms for a faculty livelihood study."
+      ]
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Maranao"
+  ]
+}

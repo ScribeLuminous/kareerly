@@ -1,0 +1,57 @@
+{
+  "candidate_id": "CAT03-R07",
+  "full_name": "Diane Aguilar",
+  "location": "Valencia City, Bukidnon",
+  "email": "diane.aguilar@example.com",
+  "phone": "+63 981 374 2623",
+  "headline": "IT and Office Systems Staff",
+  "summary": "IT and office systems staff with four years at a feed mill, covering both computers and the administrative office. I keep PCs, printers and the office network working, handle user support and security reminders, and run the document filing and data entry that keep purchasing and payroll moving.",
+  "experience": [
+    {
+      "title": "IT and Office Systems Staff",
+      "employer": "Bukidnon Highlands Feed Mill Inc.",
+      "location": "Valencia City, Bukidnon",
+      "start": "2022-09",
+      "end": "Present",
+      "paragraph": "A combined role: I am the only IT person on site and also part of the three-person administrative office.",
+      "bullets": [
+        "Support 45 users with computers, Microsoft Office, email and the accounting software.",
+        "Look after the office network, Wi-Fi and the link to the weighbridge computer, and call the provider when the line fails.",
+        "Remind staff about strong passwords and suspicious emails, and set up screen locks on shared PCs.",
+        "Set up the office's digital filing system and scan purchase orders and delivery receipts into it.",
+        "Encode daily production and delivery figures and maintain the photocopiers, printers and biometric time clock."
+      ]
+    }
+  ],
+  "skills": [
+    "Technical support",
+    "Microsoft Office and office software",
+    "Office network administration",
+    "Cybersecurity awareness",
+    "Office administration",
+    "Document management and filing",
+    "Office equipment setup and maintenance",
+    "Data encoding"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Office Administration",
+      "school": "Valencia Heights College",
+      "location": "Valencia City, Bukidnon",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Computer Systems Servicing NC II",
+      "issuer": "TESDA",
+      "date": "2022-03"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

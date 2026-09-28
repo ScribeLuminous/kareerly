@@ -1,0 +1,71 @@
+{
+  "candidate_id": "CAT17-R06",
+  "full_name": "Noel Serrano",
+  "location": "Ormoc City, Leyte",
+  "email": "noel.serrano@example.com",
+  "phone": "+63 977 459 8142",
+  "headline": "Solar Electrical Installer",
+  "summary": "Former electronics production operator now installing rooftop solar systems in Leyte. Four years on an assembly line taught me careful work, testing and quality checks; I trained in electrical installation and solar PV and have installed residential and commercial systems for the past year. I follow safety rules at height strictly.",
+  "certifications": [
+    {
+      "name": "Solar PV Installation NC II",
+      "issuer": "TESDA",
+      "date": "2025-04"
+    },
+    {
+      "name": "Electrical Installation and Maintenance NC II",
+      "issuer": "TESDA",
+      "date": "2024-11"
+    },
+    {
+      "name": "Working at Heights Safety Training",
+      "issuer": "accredited training provider",
+      "date": "2025-05"
+    }
+  ],
+  "skills": [
+    "Electrical installation",
+    "Installing solar panels, inverters and electrical equipment",
+    "Construction safety and fall protection",
+    "Workplace safety",
+    "Electronics assembly work",
+    "Machine operation",
+    "Quality inspection and testing",
+    "Reading electrical diagrams"
+  ],
+  "experience": [
+    {
+      "title": "Solar Electrical Installer",
+      "employer": "Leyte Bright Solar Solutions",
+      "location": "Ormoc City, Leyte",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Install rooftop solar panels, inverters and batteries on homes and small businesses.",
+        "Wire DC and AC circuits and test each system before hand-over.",
+        "Use harnesses and roof anchors on every job and inspect equipment before use."
+      ]
+    },
+    {
+      "title": "Production Operator (Electronics)",
+      "employer": "Leyte Industrial Electronics Assembly Inc.",
+      "location": "Ormoc City, Leyte",
+      "start": "2021-06",
+      "end": "2025-05",
+      "bullets": [
+        "Assembled and soldered circuit boards on a surface-mount line.",
+        "Operated reflow and testing machines and cleared minor jams.",
+        "Inspected boards for defects and logged results in the quality system."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, TVL Track – Electronics",
+      "school": "Ormoc Bay Integrated School",
+      "location": "Ormoc City, Leyte",
+      "start": "2019",
+      "end": "2021"
+    }
+  ]
+}

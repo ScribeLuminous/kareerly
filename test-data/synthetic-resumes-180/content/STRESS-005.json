@@ -1,0 +1,66 @@
+{
+  "candidate_id": "STRESS-005",
+  "full_name": "John Paul Cabrera",
+  "location": "Oroquieta City, Misamis Occidental",
+  "email": "john.cabrera@example.com",
+  "phone": "+63 999 840 9935",
+  "headline": "Home Health Nurse",
+  "experience": [
+    {
+      "title": "Home Health Nurse",
+      "employer": "Misamis Occidental Home Health Services",
+      "location": "Oroquieta City, Misamis Occidental",
+      "start": "2024-01",
+      "end": "Present",
+      "bullets": [
+        "Visit about 15 elderly and chronically ill patients a week at home.",
+        "Assess patients, check vital signs and wounds, and monitor their response to treatment.",
+        "Give and supervise medicines and teach families how to give them safely.",
+        "Document every visit and send updates to the attending physicians.",
+        "Train family caregivers in bathing, turning and fall prevention."
+      ]
+    },
+    {
+      "title": "Staff Nurse",
+      "employer": "Oroquieta Bayside Hospital",
+      "location": "Oroquieta City, Misamis Occidental",
+      "start": "2023-01",
+      "end": "2023-12",
+      "bullets": [
+        "Cared for adult patients on the medical ward, many of them older adults.",
+        "Responded to emergencies with the code team."
+      ]
+    }
+  ],
+  "summary": "Registered nurse with three years in hospital and home health care in Misamis Occidental. I assess and monitor older patients at home, manage their medicines and records, and work closely with family caregivers. My work sits between nursing and caregiving.",
+  "skills": [
+    "Patient assessment",
+    "Clinical documentation",
+    "Medical terminology",
+    "Basic Life Support",
+    "Monitoring treatment progress",
+    "Caregiving support",
+    "Elderly care",
+    "Medication assistance and teaching",
+    "Geriatric nursing"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Nursing",
+      "school": "Misamis Occidental Bayview College",
+      "location": "Oroquieta City, Misamis Occidental",
+      "start": "2018",
+      "end": "2022",
+      "notes": [
+        "Registered Nurse, Philippine Nurse Licensure Examination, 2022"
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Nurse",
+      "issuer": "Professional Regulation Commission",
+      "date": "2022-12"
+    }
+  ]
+}

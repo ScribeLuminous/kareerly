@@ -1,0 +1,81 @@
+{
+  "candidate_id": "CAT12-R06",
+  "full_name": "Ana Marie Macaraeg",
+  "location": "Cebu City, Cebu",
+  "email": "ana.macaraeg@example.com",
+  "phone": "+63 915 488 7813",
+  "headline": "Online English Tutor",
+  "skill_groups": [
+    {
+      "label": "Teaching",
+      "items": [
+        "one-on-one tutoring",
+        "teaching English to speakers of other languages",
+        "lesson planning",
+        "learner assessment and level tests"
+      ]
+    },
+    {
+      "label": "People skills",
+      "items": [
+        "customer service",
+        "phone support",
+        "patient, friendly communication with customers"
+      ]
+    },
+    {
+      "label": "Language",
+      "items": [
+        "clear English, neutral accent"
+      ]
+    }
+  ],
+  "summary": "Former customer service representative now tutoring English online full time. After three years on a telecom voice account, I completed TESOL training and have spent the past year teaching Japanese and Korean learners. My call centre years taught me patience and how to explain things clearly to anyone.",
+  "experience": [
+    {
+      "title": "Online English Tutor",
+      "employer": "Cebu Global English Online",
+      "location": "Cebu City, Cebu",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Teach 25-minute one-on-one lessons to about 30 Japanese and Korean learners a week.",
+        "Plan lessons around each learner's goals, from business meetings to travel.",
+        "Give level tests and written feedback so learners can see their progress."
+      ]
+    },
+    {
+      "title": "Customer Service Representative",
+      "employer": "Mactan Channel Contact Center",
+      "location": "Lapu-Lapu City, Cebu",
+      "start": "2022-06",
+      "end": "2025-05",
+      "bullets": [
+        "Answered billing and technical calls for a US telecom client.",
+        "Explained plans and fixes step by step to callers of all ages.",
+        "Kept satisfaction scores above target in 30 of 36 months."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Communication",
+      "school": "Central Visayas College of Arts",
+      "location": "Cebu City, Cebu",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "TESOL Certificate (120 hours)",
+      "issuer": "accredited training provider",
+      "date": "2025-04"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

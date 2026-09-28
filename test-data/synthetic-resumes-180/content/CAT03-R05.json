@@ -1,0 +1,101 @@
+{
+  "candidate_id": "CAT03-R05",
+  "full_name": "Samuel Sanchez",
+  "location": "Baler, Aurora",
+  "email": "samuel.sanchez@example.com",
+  "phone": "+63 920 645 6819",
+  "headline": "Information Security Officer",
+  "summary": "Information security officer with ten years in banking IT, the last five leading security for a cooperative bank. I built its information security management system from scratch, write and enforce policy, run internal IT audits and lead incident response. I translate BSP circulars and the Data Privacy Act into practical controls and report risk plainly to the board.",
+  "highlights": [
+    "Led the bank to ISO/IEC 27001 certification in 18 months with a team of two.",
+    "Wrote and rolled out the three-year information security strategy approved by the board in 2023.",
+    "Cut critical findings in the annual external IT audit from nine to one over three years.",
+    "Ran the response to a 2024 credential-phishing campaign; no accounts were compromised."
+  ],
+  "skills": [
+    "Information security strategy and governance",
+    "ISMS design and ISO/IEC 27001",
+    "Security policy writing and enforcement",
+    "ICT audits and control testing",
+    "Threat and attack vector analysis",
+    "Countermeasures, incident response and forensics",
+    "Network security risk assessment",
+    "System security management",
+    "ICT and data privacy legislation (RA 10173, BSP circulars)",
+    "Regulatory compliance",
+    "Risk reporting to the board"
+  ],
+  "experience": [
+    {
+      "title": "Information Security Officer",
+      "employer": "Aurora Coastline Cooperative Bank",
+      "location": "Baler, Aurora",
+      "start": "2021-02",
+      "end": "Present",
+      "bullets": [
+        "Report to the board risk committee on security posture, incidents and control gaps every quarter.",
+        "Built the ISMS, including the risk register, asset inventory, policies and the internal audit programme.",
+        "Run tabletop exercises with branch heads and third-party vendors twice a year."
+      ]
+    },
+    {
+      "title": "IT Security Analyst",
+      "employer": "Heartland Provincial Bank",
+      "location": "Cabanatuan City, Nueva Ecija",
+      "start": "2017-01",
+      "end": "2021-01",
+      "bullets": [
+        "Monitored alerts from the bank's security tools and led investigations of suspicious log-ins and malware.",
+        "Tested access controls and change management for the yearly IT audit."
+      ]
+    },
+    {
+      "title": "Systems and Network Administrator",
+      "employer": "Dingalan Bay Shipping Services",
+      "location": "Baler, Aurora",
+      "start": "2016-03",
+      "end": "2016-12",
+      "bullets": [
+        "Ran the office servers and network and introduced the company's first password and backup policies.",
+        "Replaced the unmanaged office switches and set up remote access for the port office."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master in Information Technology",
+      "school": "Central Luzon Graduate School of Technology",
+      "location": "Cabanatuan City, Nueva Ecija",
+      "start": "2018",
+      "end": "2021"
+    },
+    {
+      "credential": "Bachelor of Science in Computer Science",
+      "school": "Aurora Pacific College",
+      "location": "Baler, Aurora",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Information Systems Security Professional (CISSP)",
+      "issuer": "ISC2",
+      "date": "2020-09"
+    },
+    {
+      "name": "ISO/IEC 27001 Lead Auditor",
+      "issuer": "accredited training provider",
+      "date": "2019-05"
+    },
+    {
+      "name": "Certified Ethical Hacker",
+      "issuer": "EC-Council",
+      "date": "2017-08"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino"
+  ]
+}

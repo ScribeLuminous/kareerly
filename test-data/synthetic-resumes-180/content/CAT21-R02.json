@@ -1,0 +1,41 @@
+{
+  "candidate_id": "CAT21-R02",
+  "full_name": "Jonathan Sevilla",
+  "location": "Vigan City, Ilocos Sur",
+  "email": "jonathan.sevilla@example.net",
+  "phone": "+63 956 570 2826",
+  "headline": "Packaging Operator",
+  "summary": "Senior high graduate looking for work as a packaging operator. During work immersion at a longganisa and chicharon factory in Vigan I packed and sealed products, watched the conveyor and helped store finished goods. I work steadily and follow safety and hygiene rules.",
+  "skills": [
+    "Packing and sealing products",
+    "Watching conveyor belts for problems",
+    "Workplace safety and hygiene",
+    "Storing finished goods in the warehouse",
+    "Counting and recording stock",
+    "Spoken English, Filipino and Ilocano"
+  ],
+  "experience": [
+    {
+      "title": "Work Immersion Student",
+      "employer": "Vigan Heritage Delicacies Factory",
+      "location": "Vigan City, Ilocos Sur",
+      "start": "2026-02",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Packed and heat-sealed longganisa and chicharon packs on the packing table.",
+        "Watched the conveyor and told the line leader when packs came through unsealed.",
+        "Moved cartons to the finished goods store and helped count stock at the end of each day."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, TVL Track – Home Economics strand",
+      "school": "Vigan Riverside Integrated School",
+      "location": "Vigan City, Ilocos Sur",
+      "start": "2024",
+      "end": "2026"
+    }
+  ]
+}

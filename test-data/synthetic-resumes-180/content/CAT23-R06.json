@@ -1,0 +1,61 @@
+{
+  "candidate_id": "CAT23-R06",
+  "full_name": "Joanna Tabañag",
+  "location": "Alabel, Sarangani",
+  "email": "joanna.tabanag@example.com",
+  "phone": "+63 926 839 5795",
+  "headline": "Administrative Officer (Human Resources)",
+  "summary": "HR assistant of four years in a private company who moved into public-sector HR administration. I now handle personnel records, appointments and civil service requirements at a regional public authority in Sarangani, making sure every personnel action complies with the rules. My private-sector HR background helps me run recruitment and onboarding smoothly.",
+  "skills": [
+    "Government service support",
+    "Public records management: 201 files and service records",
+    "Civil service rules and regulatory compliance",
+    "Document management",
+    "HR support",
+    "HR processes: appointments, leave, benefits",
+    "Recruitment coordination",
+    "Business writing"
+  ],
+  "experience": [
+    {
+      "title": "Administrative Officer (Human Resources)",
+      "employer": "Sarangani Bay Ports and Coastal Authority",
+      "location": "Alabel, Sarangani",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Maintain service records and personnel files for 180 employees.",
+        "Prepare appointment papers and check them against civil service requirements.",
+        "Coordinate recruitment of new staff and handle their onboarding papers."
+      ]
+    },
+    {
+      "title": "HR Assistant",
+      "employer": "General Santos Tuna Canning Corp.",
+      "location": "General Santos City, South Cotabato",
+      "start": "2021-03",
+      "end": "2025-05",
+      "bullets": [
+        "Processed hiring, leave and benefits papers for 400 plant workers.",
+        "Scheduled interviews and kept the applicant tracker updated.",
+        "Kept 201 files complete for labour inspections."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Psychology",
+      "school": "General Santos Bay College",
+      "location": "General Santos City, South Cotabato",
+      "start": "2016",
+      "end": "2020"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Civil Service Professional Eligibility",
+      "issuer": "Civil Service Commission",
+      "date": "2025-03"
+    }
+  ]
+}

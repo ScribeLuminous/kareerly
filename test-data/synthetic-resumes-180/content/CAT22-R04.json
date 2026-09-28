@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT22-R04",
+  "full_name": "Gilbert Navarro",
+  "location": "Iloilo City, Iloilo",
+  "email": "gilbert.navarro@example.org",
+  "phone": "+63 977 805 9526",
+  "headline": "Forest Ranger Aide",
+  "summary": "Forest ranger aide with three years protecting a watershed forest reserve in Iloilo. I patrol the reserve, lead tree-planting and nursery work, and help communities manage their forest areas sustainably. I also respond to forest fires and landslides and encode our patrol reports.",
+  "skills": [
+    "Environmental conservation and forest protection",
+    "Tree planting and nursery work",
+    "Sustainable forest management with communities",
+    "Community engagement",
+    "Emergency response to fires and landslides",
+    "Data encoding of patrol reports"
+  ],
+  "experience": [
+    {
+      "title": "Forest Ranger Aide",
+      "employer": "Panay Watershed Stewardship Foundation",
+      "location": "Iloilo City, Iloilo",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Patrol 2,000 hectares of watershed forest with a team of four and report illegal cutting.",
+        "Run the seedling nursery and lead planting of native trees with volunteers.",
+        "Help upland communities plan sustainable harvesting of their woodlots.",
+        "Respond to forest fires and landslides with local rescue teams.",
+        "Encode patrol logs and planting records every week."
+      ]
+    },
+    {
+      "title": "Nursery Worker",
+      "employer": "Guimaras Native Trees Nursery",
+      "location": "Jordan, Guimaras",
+      "start": "2023-01",
+      "end": "2023-06",
+      "bullets": [
+        "Grew native tree seedlings and prepared them for planting.",
+        "Kept nursery stock records."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Forestry Technology",
+      "school": "Western Visayas Forestry Institute",
+      "location": "Iloilo City, Iloilo",
+      "start": "2020",
+      "end": "2022"
+    }
+  ]
+}

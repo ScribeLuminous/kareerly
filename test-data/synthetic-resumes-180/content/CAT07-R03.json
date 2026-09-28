@@ -1,0 +1,83 @@
+{
+  "candidate_id": "CAT07-R03",
+  "full_name": "Allan Pabualan",
+  "location": "Butuan City, Agusan del Norte",
+  "email": "allan.pabualan@example.com",
+  "phone": "+63 966 308 8490",
+  "headline": "Account Executive",
+  "skill_groups": [
+    {
+      "label": "Selling",
+      "items": [
+        "B2B sales techniques",
+        "negotiation and closing",
+        "sales presentations and proposals",
+        "lead generation"
+      ]
+    },
+    {
+      "label": "Accounts",
+      "items": [
+        "customer relationship management",
+        "Salesforce",
+        "product knowledge of industrial equipment"
+      ]
+    },
+    {
+      "label": "Planning",
+      "items": [
+        "market analysis and territory planning",
+        "business communication"
+      ]
+    }
+  ],
+  "summary": "Account executive with four years selling industrial equipment and parts to plantations, mines and factories in Caraga. I manage a territory of about 90 accounts, build proposals, negotiate annual supply agreements and keep every opportunity in Salesforce. I consistently finish above quota.",
+  "experience": [
+    {
+      "title": "Account Executive",
+      "employer": "Agusan Industrial Equipment Supply Corp.",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2023-01",
+      "end": "Present",
+      "bullets": [
+        "Manage about 90 accounts across Agusan and Surigao, reaching 118% of quota in 2025.",
+        "Negotiated a three-year parts supply agreement with a palm oil mill worth ₱28 million.",
+        "Study competitor pricing and plantation expansion plans to decide which accounts to prioritise each quarter.",
+        "Prepare technical proposals with the service engineers and present them to plant managers."
+      ]
+    },
+    {
+      "title": "Sales Representative",
+      "employer": "Butuan Hardware and Machinery Center",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2022-01",
+      "end": "2022-12",
+      "bullets": [
+        "Sold generators, water pumps and power tools to contractors and walk-in customers.",
+        "Found new contractor accounts by visiting project sites each week."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing Management",
+      "school": "Caraga Northern College",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Salesforce Certified Associate",
+      "issuer": "Salesforce",
+      "date": "2024-03"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano",
+    "Butuanon"
+  ]
+}

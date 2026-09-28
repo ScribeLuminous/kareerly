@@ -1,0 +1,55 @@
+{
+  "candidate_id": "CAT07-R02",
+  "full_name": "Pauline Sagarino",
+  "location": "Molave, Zamboanga del Sur",
+  "email": "pauline.sagarino@example.com",
+  "phone": "+63 998 855 5189",
+  "headline": "Purchasing Assistant",
+  "summary": "Business administration graduate looking for a purchasing assistant role. During my OJT with a construction company's purchasing team I prepared purchase orders, canvassed suppliers and kept the purchasing files complete. I am careful with numbers and paperwork.",
+  "projects": [
+    {
+      "name": "Supplier canvass template",
+      "context": "OJT project",
+      "description": "Built an Excel template that compares three supplier quotations side by side, now used by the purchasing team for every request."
+    },
+    {
+      "name": "School canteen purchasing study",
+      "context": "undergraduate thesis",
+      "bullets": [
+        "Studied how four school canteens in Molave buy their supplies.",
+        "Recommended weekly bulk buying, which one canteen adopted."
+      ]
+    }
+  ],
+  "skills": [
+    "Purchasing support and supplier canvassing",
+    "Preparing purchase orders",
+    "Microsoft Excel",
+    "Data encoding",
+    "Filing purchase documents",
+    "Business letters and emails"
+  ],
+  "experience": [
+    {
+      "title": "Purchasing Intern (OJT)",
+      "employer": "Zamboanga del Sur Builders Corp.",
+      "location": "Pagadian City, Zamboanga del Sur",
+      "start": "2026-01",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Prepared about 30 purchase orders a week for cement, steel and hardware items.",
+        "Encoded supplier quotations and kept purchase request and PO files complete for audit."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Operations Management",
+      "school": "Molave Valley College",
+      "location": "Molave, Zamboanga del Sur",
+      "start": "2022",
+      "end": "2026"
+    }
+  ]
+}

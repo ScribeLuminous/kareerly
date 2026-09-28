@@ -1,0 +1,76 @@
+{
+  "candidate_id": "CAT05-R06",
+  "full_name": "Rowena Torres",
+  "location": "Quezon City, Metro Manila",
+  "email": "rowena.torres@example.net",
+  "phone": "+63 992 976 5621",
+  "headline": "Virtual Assistant",
+  "summary": "Virtual assistant for Australian and US small businesses, formerly a hotel front desk officer. Four years at a Quezon City hotel taught me to juggle reservations, guests and schedules; for the past year I have managed clients' calendars, inboxes and bookings remotely. I am reliable across time zones and very organised in Google Workspace.",
+  "certifications": [
+    {
+      "name": "Virtual Assistant Fundamentals",
+      "issuer": "online course",
+      "date": "2025-04"
+    },
+    {
+      "name": "Google Workspace Administrator Essentials",
+      "issuer": "online course",
+      "date": "2025-06"
+    },
+    {
+      "name": "Front Office Services NC II",
+      "issuer": "TESDA",
+      "date": "2020-08"
+    }
+  ],
+  "skills": [
+    "Virtual assistance",
+    "Calendar management across time zones",
+    "Email management and inbox triage",
+    "Google Workspace (Gmail, Calendar, Docs, Sheets)",
+    "Appointment and booking management",
+    "Front desk and reservation handling",
+    "Guest relations and client care",
+    "Clear written English"
+  ],
+  "experience": [
+    {
+      "title": "Virtual Assistant",
+      "employer": "self-employed, clients in Australia and the United States",
+      "location": "Remote",
+      "start": "2025-07",
+      "end": "Present",
+      "type": "freelance",
+      "bullets": [
+        "Manage calendars and inboxes for a Sydney physiotherapy clinic and a Texas real-estate agent.",
+        "Book, confirm and reschedule about 150 client appointments a month.",
+        "Built shared Google Calendar and Sheets templates so clients see bookings and payments in one place."
+      ]
+    },
+    {
+      "title": "Front Desk Officer",
+      "employer": "Cubao Crossroads Hotel",
+      "location": "Quezon City, Metro Manila",
+      "start": "2021-06",
+      "end": "2025-06",
+      "bullets": [
+        "Checked in and out up to 120 guests a day and handled walk-in and online reservations.",
+        "Resolved guest concerns at the desk and followed up with housekeeping and maintenance.",
+        "Trained four new front desk staff on the reservation system."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Hospitality Management",
+      "school": "Quezon City Institute of Hospitality",
+      "location": "Quezon City, Metro Manila",
+      "start": "2016",
+      "end": "2020"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino"
+  ]
+}

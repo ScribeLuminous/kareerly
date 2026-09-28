@@ -1,0 +1,63 @@
+{
+  "candidate_id": "CAT06-R03",
+  "full_name": "Dexter Ocampo",
+  "location": "Davao City, Davao del Sur",
+  "email": "dexter.ocampo@example.net",
+  "phone": "+63 947 438 7608",
+  "headline": "Talent Acquisition Specialist",
+  "summary": "Talent acquisition specialist with four years hiring for BPO and shared-services companies in Davao. I plan headcount with operations managers, run sourcing and interviews end to end, and fill 30 to 50 roles a month in peak season. I also handle offers, onboarding handover and HR processes around new hires.",
+  "skills": [
+    "End-to-end recruitment and hiring",
+    "Sourcing: job boards, referrals, school partnerships",
+    "Recruitment coordination and interview scheduling",
+    "Workforce and headcount planning",
+    "Offer management and onboarding",
+    "HR support and HR processes",
+    "HR management basics",
+    "Recruitment reports in Microsoft Excel",
+    "Stakeholder communication"
+  ],
+  "experience": [
+    {
+      "title": "Talent Acquisition Specialist",
+      "employer": "Davao Gulf Shared Services Inc.",
+      "location": "Davao City, Davao del Sur",
+      "start": "2024-01",
+      "end": "Present",
+      "bullets": [
+        "Hire for customer service, finance and IT support accounts, averaging 38 hires a month.",
+        "Plan monthly hiring needs with operations managers from attrition and new-account forecasts.",
+        "Set up partnerships with four colleges, now the source of a quarter of new hires.",
+        "Cut time-to-hire from 24 to 16 days by batching assessments and final interviews.",
+        "Prepare and explain job offers and hand new hires over to onboarding."
+      ]
+    },
+    {
+      "title": "Recruitment Associate",
+      "employer": "Mindanao Talent Partners",
+      "location": "Davao City, Davao del Sur",
+      "start": "2022-06",
+      "end": "2023-12",
+      "bullets": [
+        "Screened applicants for client companies and coordinated interview days.",
+        "Kept the applicant database and weekly recruitment reports up to date."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Psychology",
+      "school": "Davao Bayfront College",
+      "location": "Davao City, Davao del Sur",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Talent Acquisition Practitioner",
+      "issuer": "People Management Association course",
+      "date": "2024-09"
+    }
+  ]
+}

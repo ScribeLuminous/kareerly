@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT05-R04",
+  "full_name": "Dennis Sarmiento",
+  "location": "Surigao City, Surigao del Norte",
+  "email": "dennis.sarmiento@example.net",
+  "phone": "+63 928 178 2097",
+  "headline": "Office Coordinator",
+  "summary": "Office coordinator with three years keeping a mining supply company's branch office running. I handle the front office, clerical work and office supplies, maintain the printers and other equipment, and help the purchasing team with canvassing and stock counts.",
+  "skills": [
+    "Office administration",
+    "Clerical work",
+    "Microsoft Office (Word, Excel)",
+    "Office equipment upkeep: printers, copiers, projectors",
+    "Purchasing support and supplier canvassing",
+    "Office supplies and inventory control",
+    "Clear written and spoken communication"
+  ],
+  "experience": [
+    {
+      "title": "Office Coordinator",
+      "employer": "Surigao Mining and Industrial Supply Inc.",
+      "location": "Surigao City, Surigao del Norte",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Run the branch front office: visitors, deliveries, courier pickups and the phone line.",
+        "Keep printers, copiers and the conference projector working, and log each repair with the service provider.",
+        "Order and track office and pantry supplies against a monthly budget.",
+        "Canvass three suppliers for small purchases and prepare the comparison sheet for the purchasing officer.",
+        "Help with quarterly stock counts of fast-moving items in the showroom."
+      ]
+    },
+    {
+      "title": "Office Clerk",
+      "employer": "Siargao Island Travel and Tours",
+      "location": "Surigao City, Surigao del Norte",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Prepared vouchers and receipts and photocopied travel documents for clients.",
+        "Kept the office tidy and stocked for walk-in customers."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Human Resource Management",
+      "school": "Surigao Northern College",
+      "location": "Surigao City, Surigao del Norte",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

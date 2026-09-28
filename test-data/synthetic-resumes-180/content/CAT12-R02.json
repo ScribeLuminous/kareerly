@@ -1,0 +1,40 @@
+{
+  "candidate_id": "CAT12-R02",
+  "full_name": "Benjie Agcaoili",
+  "location": "Bangued, Abra",
+  "email": "benjie.agcaoili@example.net",
+  "phone": "+63 947 734 8144",
+  "headline": "Teacher Aide",
+  "summary": "Education graduate waiting for my licensure results and looking for a teacher aide post. During practice teaching I helped manage a Grade 4 class, prepared materials and kept attendance and grade records in order. Patient with children and organised with paperwork.",
+  "skills": [
+    "Classroom management support",
+    "Assisting teachers with activities and materials",
+    "Attendance and learner records",
+    "Microsoft Office (Word, Excel)",
+    "English and Ilocano",
+    "Communicating with parents"
+  ],
+  "experience": [
+    {
+      "title": "Practice Teacher",
+      "employer": "Bangued Hillside Elementary School",
+      "location": "Bangued, Abra",
+      "start": "2026-01",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Helped the cooperating teacher manage a Grade 4 class of 42 and supervised group work.",
+        "Kept daily attendance and encoded quiz results into the class record."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Elementary Education",
+      "school": "Abra Riverbend State College",
+      "location": "Bangued, Abra",
+      "start": "2022",
+      "end": "2026"
+    }
+  ]
+}

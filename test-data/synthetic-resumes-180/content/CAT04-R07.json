@@ -1,0 +1,59 @@
+{
+  "candidate_id": "CAT04-R07",
+  "full_name": "Noel Espiritu",
+  "location": "Toledo City, Cebu",
+  "email": "noel.espiritu@example.org",
+  "phone": "+63 917 677 8130",
+  "headline": "Accounts Payable and Purchasing Officer",
+  "skills": [
+    "Accounts payable and three-way matching",
+    "Supplier invoicing and billing checks",
+    "Bookkeeping",
+    "Microsoft Excel",
+    "Purchasing support and canvassing",
+    "Issuing purchase orders",
+    "Price and terms negotiation with suppliers",
+    "Document control for purchase and payment files"
+  ],
+  "summary": "Accounts payable and purchasing officer with four years at a copper mining contractor. I process supplier invoices from purchase request to payment, prepare purchase orders, and negotiate prices and delivery terms with local suppliers. I keep payment files complete so audits run smoothly.",
+  "experience": [
+    {
+      "title": "Accounts Payable and Purchasing Officer",
+      "employer": "Toledo Ridge Mining Services Corp.",
+      "location": "Toledo City, Cebu",
+      "start": "2023-02",
+      "end": "Present",
+      "bullets": [
+        "Match about 600 supplier invoices a month to purchase orders and receiving reports before payment.",
+        "Canvass at least three suppliers for each request and issue purchase orders for parts, fuel and safety gear.",
+        "Negotiated annual prices with two tyre suppliers, saving roughly 8% on the year's spend.",
+        "Keep purchase and payment files organised so auditors can trace any payment in minutes."
+      ]
+    },
+    {
+      "title": "Accounting Clerk",
+      "employer": "Danao Metal Fabrication Inc.",
+      "location": "Danao City, Cebu",
+      "start": "2022-03",
+      "end": "2023-01",
+      "bullets": [
+        "Recorded supplier bills and prepared checks and vouchers for approval.",
+        "Maintained the supplier master list and chased missing invoices."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Management Accounting",
+      "school": "Central Cebu College of Commerce",
+      "location": "Cebu City, Cebu",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

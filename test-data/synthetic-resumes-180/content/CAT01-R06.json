@@ -1,0 +1,95 @@
+{
+  "candidate_id": "CAT01-R06",
+  "full_name": "Christian Go",
+  "location": "Passi City, Iloilo",
+  "email": "christian.go@example.com",
+  "phone": "+63 977 470 9643",
+  "headline": "Web Developer",
+  "summary": "IT support specialist with five years in schools, now moving into web development. For the past year I have built WordPress and hand-coded HTML, CSS and JavaScript sites for small businesses around Iloilo while still running help desk and network work at a private school. I am looking for a junior web developer role where I can learn a modern front-end framework properly.",
+  "experience": [
+    {
+      "title": "Web Developer",
+      "employer": "self-employed",
+      "location": "Passi City, Iloilo",
+      "start": "2025-07",
+      "end": "Present",
+      "type": "part-time",
+      "paragraph": "Evening and weekend work for local businesses that needed a first website or a cleaner one.",
+      "bullets": [
+        "Built six WordPress sites, including a muscovado sugar cooperative's catalogue and a dental clinic's schedule page.",
+        "Hand-coded a one-page site in HTML, CSS and vanilla JavaScript for a Passi bakery, with a menu that owners edit from a simple list."
+      ]
+    },
+    {
+      "title": "IT Support Specialist",
+      "employer": "Passi Valley Academy",
+      "location": "Passi City, Iloilo",
+      "start": "2021-06",
+      "end": "Present",
+      "paragraph": "Sole IT staff for a private school of about 900 learners and 60 employees, covering the help desk, the campus network and the website.",
+      "bullets": [
+        "Resolve help desk requests for teacher laptops, printers and the enrollment system, usually the same day.",
+        "Set up and look after the campus network, including separate VLANs for the two computer laboratories and the office.",
+        "Rebuilt the school website in WordPress and kept enrollment announcements current, which is how the freelance work started."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Web",
+      "items": [
+        "HTML and CSS",
+        "JavaScript",
+        "WordPress themes and page builders",
+        "responsive design"
+      ]
+    },
+    {
+      "label": "IT support",
+      "items": [
+        "help desk support",
+        "hardware and printer troubleshooting",
+        "network administration (switches, VLANs, Wi-Fi access points)"
+      ]
+    },
+    {
+      "label": "Working with clients",
+      "items": [
+        "gathering requirements",
+        "writing simple how-to guides"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Muscovado cooperative catalogue",
+      "description": "WordPress site with product pages and an order-inquiry form for a sugar cooperative's members."
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Western Visayas Polytechnic College",
+      "location": "Iloilo City, Iloilo",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Responsive Web Design certificate",
+      "issuer": "freeCodeCamp",
+      "date": "2025-05"
+    },
+    {
+      "name": "Computer Systems Servicing NC II",
+      "issuer": "TESDA",
+      "date": "2021-09"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Hiligaynon"
+  ]
+}

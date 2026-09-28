@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT10-R03",
+  "full_name": "Carmina Dizon",
+  "location": "Angeles City, Pampanga",
+  "email": "carmina.dizon@example.com",
+  "phone": "+63 956 198 2518",
+  "headline": "Technical Writer",
+  "summary": "Technical writer with five years documenting software and electronics products for manufacturers and SaaS companies in Clark. I write user guides, API references and release notes, keep documentation in Git alongside the code, and maintain the style guides that keep a team's writing consistent.",
+  "skills": [
+    "Technical documentation: user guides, API references, release notes",
+    "Content writing for help centres",
+    "Proofreading and editing",
+    "Writing style guides and templates",
+    "Rewriting engineer drafts for customers",
+    "Docs-as-code with Git and Markdown",
+    "Document control and version management",
+    "Clear English and business communication"
+  ],
+  "experience": [
+    {
+      "title": "Technical Writer",
+      "employer": "Clark Freeport Software Solutions",
+      "location": "Angeles City, Pampanga",
+      "start": "2023-02",
+      "end": "Present",
+      "bullets": [
+        "Write and maintain the help centre and API reference for a logistics SaaS product used in 12 countries.",
+        "Moved all documentation into Git so docs are reviewed and released with each code change.",
+        "Created the team's style guide and templates, adopted by three product teams.",
+        "Rewrite engineers' feature notes into customer-facing release notes every two weeks.",
+        "Interview developers and support staff to find where users get stuck and fix those pages first."
+      ]
+    },
+    {
+      "title": "Documentation Specialist",
+      "employer": "Pampanga Electronics Assembly Corp.",
+      "location": "City of San Fernando, Pampanga",
+      "start": "2021-06",
+      "end": "2023-01",
+      "bullets": [
+        "Wrote work instructions and product manuals for electronic assemblies.",
+        "Controlled document revisions and approvals for the quality department."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Communication",
+      "school": "Central Luzon College of Arts and Sciences",
+      "location": "Angeles City, Pampanga",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Technical Writing Certificate",
+      "issuer": "online course",
+      "date": "2022-04"
+    }
+  ]
+}

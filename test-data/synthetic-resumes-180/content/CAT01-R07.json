@@ -1,0 +1,67 @@
+{
+  "candidate_id": "CAT01-R07",
+  "full_name": "Nerissa Yabut",
+  "location": "San Jose, Occidental Mindoro",
+  "email": "nerissa.yabut@example.com",
+  "phone": "+63 926 606 9269",
+  "headline": "Automation Scripting Specialist",
+  "summary": "Automation specialist with three years of Python and Bash scripting that keeps servers, backups and network links running for an energy services company in Occidental Mindoro. My work sits between development and operations: I automate routine administration, apply security updates to Linux servers and trace failures through logs and debuggers. I want to deepen my software engineering practice.",
+  "experience": [
+    {
+      "title": "Automation Scripting Specialist",
+      "employer": "Kalayaan Energy Services Inc.",
+      "location": "San Jose, Occidental Mindoro",
+      "start": "2023-10",
+      "end": "Present",
+      "bullets": [
+        "Wrote Python scripts that collect meter-reading files from 18 substations each night and alert the duty engineer when one is missing.",
+        "Automated Linux security updates and quarterly user-account reviews with Bash, removing about a day of manual work each month.",
+        "Keep every script in Git with reviewed merge requests and a short README, so the night shift can re-run jobs safely.",
+        "Used pdb and log analysis to find a timezone bug that had been duplicating billing exports.",
+        "Moved nightly backups to Amazon S3 with retention rules, and set firewall rules and a site-to-site VPN between the main office and substations."
+      ]
+    },
+    {
+      "title": "IT Technician",
+      "employer": "Mamburao Business Center Inc.",
+      "location": "Mamburao, Occidental Mindoro",
+      "start": "2023-01",
+      "end": "2023-09",
+      "bullets": [
+        "Handled technical support for 40 office users and kept the office network and printers running.",
+        "Wrote my first Python scripts there, renaming and archiving scanned tenant contracts each week."
+      ]
+    }
+  ],
+  "skills": [
+    "Python",
+    "Bash scripting",
+    "Git",
+    "debuggers and log analysis (pdb, journalctl)",
+    "Linux server administration",
+    "AWS S3 and IAM basics",
+    "network administration and VPNs",
+    "system security updates and access reviews",
+    "technical support"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Computer Science",
+      "school": "Occidental Mindoro Institute of Technology",
+      "location": "San Jose, Occidental Mindoro",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Linux Essentials",
+      "issuer": "Linux Professional Institute",
+      "date": "2024-03"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino"
+  ]
+}

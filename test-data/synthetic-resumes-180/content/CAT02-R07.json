@@ -1,0 +1,58 @@
+{
+  "candidate_id": "CAT02-R07",
+  "full_name": "Renato Bernardo",
+  "location": "Laoag City, Ilocos Norte",
+  "email": "renato.bernardo@example.com",
+  "phone": "+63 916 128 1292",
+  "headline": "Health Data Analyst",
+  "skills": [
+    "Healthcare data analysis (admissions, length of stay, PhilHealth claims)",
+    "Data analysis in Microsoft Excel",
+    "Charts and data visualization",
+    "Data verification",
+    "Medical terminology and ICD-10 codes",
+    "Clinical documentation review",
+    "Medical billing"
+  ],
+  "summary": "Health data analyst with three years in hospital billing and records. I combine admission, billing and discharge data to show managers where claims are returned or delayed, and I understand the clinical and coding terms behind the numbers. I want to build stronger analysis tools for hospital operations.",
+  "experience": [
+    {
+      "title": "Health Data Analyst",
+      "employer": "Northwind Ilocos Medical Center",
+      "location": "Laoag City, Ilocos Norte",
+      "start": "2024-01",
+      "end": "Present",
+      "bullets": [
+        "Analyse admission and discharge data for a 150-bed hospital and report monthly length-of-stay and occupancy trends.",
+        "Track returned PhilHealth claims by reason and ward; fixing the top three causes cut returns by about a third.",
+        "Check that diagnoses in the billing data match the chart documentation before monthly submission.",
+        "Prepare Excel charts for the medical director's quarterly review."
+      ]
+    },
+    {
+      "title": "Medical Billing Clerk",
+      "employer": "Laoag Family Clinic and Diagnostics",
+      "location": "Laoag City, Ilocos Norte",
+      "start": "2023-03",
+      "end": "2023-12",
+      "bullets": [
+        "Prepared patient statements and insurance claims, and resolved coding questions with the attending physicians.",
+        "Kept a log of rejected claims and their reasons, which later became the basis of my hospital reporting."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Systems",
+      "school": "Laoag Northern College",
+      "location": "Laoag City, Ilocos Norte",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ilocano"
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "candidate_id": "CAT02-R05",
+  "full_name": "Grace Yabut",
+  "location": "Odiongan, Romblon",
+  "email": "grace.yabut@example.net",
+  "phone": "+63 928 831 6824",
+  "headline": "Senior Data Scientist",
+  "summary": "Senior data scientist with eight years of experience in retail, lending and research. I build and deploy machine learning models in Python, design the experiments that show whether they work, and explain the results to business owners without jargon. Recently I have led work on generative AI assistants for internal teams. I work remotely from Romblon.",
+  "highlights": [
+    "Built a credit-scoring model for first-time borrowers that cut defaults by 18% at the same approval rate.",
+    "Designed a store-level demand model on three years of point-of-sale data (about 900 million rows) processed with Spark.",
+    "Led a retrieval-based generative AI assistant that answers policy questions for 300 branch staff."
+  ],
+  "skills": [
+    "Python (pandas, scikit-learn, PyTorch)",
+    "SQL",
+    "data science project design",
+    "machine learning: classification, forecasting, uplift models",
+    "statistics and experiment design",
+    "data analysis and visualization (matplotlib, Plotly)",
+    "big data processing with Spark",
+    "generative AI tools and LLM evaluation",
+    "AWS SageMaker and S3",
+    "Git",
+    "communicating results to executives"
+  ],
+  "experience": [
+    {
+      "title": "Senior Data Scientist",
+      "employer": "Alon Analytics Inc.",
+      "location": "Remote",
+      "start": "2022-05",
+      "end": "Present",
+      "bullets": [
+        "Lead a team of four data scientists on credit and collections models for lending clients.",
+        "Set up model monitoring and monthly back-testing so drift is caught before it affects approvals.",
+        "Evaluated large language models for a policy-question assistant and chose one on measured accuracy, cost and response time."
+      ]
+    },
+    {
+      "title": "Data Scientist",
+      "employer": "Sulyap Retail Group",
+      "location": "Pasig City, Metro Manila",
+      "start": "2019-06",
+      "end": "2022-04",
+      "bullets": [
+        "Built demand forecasts for 120 stores and ran A/B tests on promotions with the merchandising team.",
+        "Moved feature pipelines from notebooks into versioned Python packages reviewed in Git."
+      ]
+    },
+    {
+      "title": "Research Analyst",
+      "employer": "Philippine Household Economics Research Institute",
+      "location": "Quezon City, Metro Manila",
+      "start": "2018-01",
+      "end": "2019-05",
+      "bullets": [
+        "Analysed household survey data and wrote the statistical annexes of two policy papers.",
+        "Wrote survey-weighting code in Python so regional estimates matched official population totals."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master of Science in Statistics",
+      "school": "Metro Manila Graduate School of Statistics",
+      "location": "Quezon City, Metro Manila",
+      "start": "2015",
+      "end": "2017"
+    },
+    {
+      "credential": "Bachelor of Science in Mathematics",
+      "school": "Tablas Island College",
+      "location": "Odiongan, Romblon",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "AWS Certified Machine Learning – Specialty",
+      "issuer": "Amazon Web Services",
+      "date": "2023-02"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Romblomanon"
+  ]
+}

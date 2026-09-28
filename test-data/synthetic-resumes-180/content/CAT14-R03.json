@@ -1,0 +1,75 @@
+{
+  "candidate_id": "CAT14-R03",
+  "full_name": "Irene Lumbaya",
+  "location": "Santiago City, Isabela",
+  "email": "irene.lumbaya@example.net",
+  "phone": "+63 906 331 4998",
+  "headline": "Medical Technologist, RMT",
+  "summary": "Registered medical technologist with four years in hospital and diagnostic laboratories in Isabela. I run hematology, clinical chemistry and microbiology tests, maintain and calibrate analysers, and follow biosafety rules strictly. I also help keep the laboratory's quality records ready for licensing inspections.",
+  "certifications": [
+    {
+      "name": "Registered Medical Technologist",
+      "issuer": "Professional Regulation Commission",
+      "date": "2022-03"
+    },
+    {
+      "name": "Laboratory Biosafety and Biosecurity Training",
+      "issuer": "accredited training provider",
+      "date": "2023-05"
+    },
+    {
+      "name": "Phlebotomy Training",
+      "issuer": "hospital training program",
+      "date": "2022-06"
+    }
+  ],
+  "skills": [
+    "Clinical laboratory science",
+    "Hematology and clinical chemistry testing",
+    "Clinical microbiology: cultures and sensitivity",
+    "Automated analysers",
+    "Analyser maintenance and calibration",
+    "Specimen collection and labelling",
+    "Laboratory safety and biosafety",
+    "Laboratory result documentation",
+    "Medical terminology"
+  ],
+  "experience": [
+    {
+      "title": "Medical Technologist",
+      "employer": "Santiago Valley Medical Center",
+      "location": "Santiago City, Isabela",
+      "start": "2023-03",
+      "end": "Present",
+      "bullets": [
+        "Run about 150 tests a shift in hematology and chemistry on automated analysers.",
+        "Process cultures and sensitivity tests in the microbiology section.",
+        "Do daily maintenance and quality control, and log every calibration and fault.",
+        "Train new staff in specimen labelling and biosafety cabinet use."
+      ]
+    },
+    {
+      "title": "Medical Technologist",
+      "employer": "Isabela Diagnostic Laboratory and Imaging",
+      "location": "Cauayan City, Isabela",
+      "start": "2022-04",
+      "end": "2023-02",
+      "bullets": [
+        "Collected and processed blood and urine samples for outpatients and company annual physicals.",
+        "Released results in the laboratory information system after supervisor review."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Medical Technology",
+      "school": "Cagayan Valley College of Allied Health",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2017",
+      "end": "2021",
+      "notes": [
+        "Internship at a tertiary hospital laboratory"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "candidate_id": "CAT10-R01",
+  "full_name": "Mylene Samonte",
+  "location": "Silay City, Negros Occidental",
+  "email": "mylene.samonte@example.org",
+  "phone": "+63 961 255 9399",
+  "headline": "Content Writer",
+  "summary": "Content writer with a year at a digital agency writing blogs, product copy and newsletters for food, travel and real-estate brands. I edit my own and teammates' drafts against each client's style guide and rewrite older articles so they read fresh and rank again. I want to specialise in long-form brand content.",
+  "skills": [
+    "Content writing (blogs, guides, newsletters)",
+    "Copywriting for product pages and ads",
+    "Proofreading and line editing",
+    "Rewriting and updating existing articles",
+    "Style guides and brand voice",
+    "Clear written English",
+    "Business emails and client updates",
+    "SEO-friendly writing"
+  ],
+  "experience": [
+    {
+      "title": "Content Writer",
+      "employer": "Silay Heritage Digital Studio",
+      "location": "Silay City, Negros Occidental",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Write about 12 articles and 40 product descriptions a month for six clients.",
+        "Drafted the style guide for a Bacolod bakery chain and now edit all its content against it.",
+        "Rewrote 30 old travel posts for a resort client; half returned to the first page of search results.",
+        "Send weekly progress notes to clients and handle their revision requests."
+      ]
+    },
+    {
+      "title": "Editorial Intern",
+      "employer": "Negros Occidental Tourism Magazine",
+      "location": "Bacolod City, Negros Occidental",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Proofread feature stories and wrote short event listings for the online edition."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in English Language Studies",
+      "school": "Negros Occidental College of Arts",
+      "location": "Bacolod City, Negros Occidental",
+      "start": "2021",
+      "end": "2025",
+      "notes": [
+        "Literary editor, university magazine"
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Content Writing for the Web",
+      "issuer": "online course",
+      "date": "2025-09"
+    }
+  ]
+}

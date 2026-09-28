@@ -1,0 +1,68 @@
+{
+  "candidate_id": "CAT17-R07",
+  "full_name": "Nicole Mercado",
+  "location": "Cabadbaran City, Agusan del Norte",
+  "email": "nicole.mercado@example.com",
+  "phone": "+63 919 179 0488",
+  "headline": "Safety Officer (SO2)",
+  "summary": "Construction safety officer with five years on road, building and mining-support projects in Caraga. I inspect sites daily, set up temporary facilities safely, lead emergency drills, audit subcontractors and report incidents and risks to management. I also check that completed structures are maintained safely.",
+  "skills": [
+    "Construction safety management",
+    "Construction site inspection",
+    "Temporary site facilities",
+    "Maintenance checks of structures and scaffolds",
+    "Workplace safety programs",
+    "Emergency response planning and drills",
+    "Risk reporting and incident investigation",
+    "Engineering site audits",
+    "Safety briefings and business communication"
+  ],
+  "experience": [
+    {
+      "title": "Safety Officer (SO2)",
+      "employer": "Agusan del Norte Road and Building Contractors",
+      "location": "Cabadbaran City, Agusan del Norte",
+      "start": "2023-01",
+      "end": "Present",
+      "bullets": [
+        "Inspect active sites daily and stop unsafe work until it is corrected.",
+        "Plan and lead emergency drills for fire, earthquake and flooding.",
+        "Audit subcontractors' safety compliance and report monthly to the project manager.",
+        "Investigate incidents and near misses and follow up corrective actions.",
+        "Check scaffolds, bunkhouses and temporary power before use."
+      ]
+    },
+    {
+      "title": "Safety Inspector",
+      "employer": "Caraga Mining Support Services",
+      "location": "Surigao City, Surigao del Norte",
+      "start": "2021-06",
+      "end": "2022-12",
+      "bullets": [
+        "Inspected haul roads, workshops and equipment for hazards.",
+        "Kept safety records and permits for the site office."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Industrial Engineering",
+      "school": "Caraga Northern College",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2016",
+      "end": "2020"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Construction Occupational Safety and Health (COSH)",
+      "issuer": "DOLE-accredited training organisation",
+      "date": "2021-05"
+    },
+    {
+      "name": "Safety Officer 2 accreditation",
+      "issuer": "DOLE",
+      "date": "2022-03"
+    }
+  ]
+}

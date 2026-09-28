@@ -1,0 +1,75 @@
+{
+  "candidate_id": "CAT13-R06",
+  "full_name": "Aminah Sarip",
+  "location": "Lamitan City, Basilan",
+  "email": "aminah.sarip@example.com",
+  "phone": "+63 995 465 7399",
+  "headline": "Community Health Program Coordinator",
+  "summary": "Barangay health worker of four years now coordinating a community health program for a foundation in Basilan. I organise outreach in island barangays, talk with families about their health and social needs, and link them to clinics and support services. I keep careful records of every household we visit.",
+  "projects": [
+    {
+      "name": "Mothers' outreach in island barangays",
+      "context": "foundation program",
+      "bullets": [
+        "Organised monthly boat outreach to four island barangays with a midwife and a nurse.",
+        "Prenatal check-up coverage rose from about half to 80% of pregnant women in a year."
+      ]
+    },
+    {
+      "name": "Household health mapping",
+      "context": "barangay health project",
+      "description": "Mapped 600 households and their health needs, used by the rural health unit to plan vaccination drives."
+    }
+  ],
+  "skills": [
+    "Community engagement and outreach",
+    "Talking with families in Yakan, Chavacano and Filipino",
+    "Linking families to clinics and community resources",
+    "Household records and case notes",
+    "Health screening support",
+    "First aid and CPR",
+    "Clinical documentation for outreach visits",
+    "Clear spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Community Health Program Coordinator",
+      "employer": "Basilan Coastal Health Foundation",
+      "location": "Lamitan City, Basilan",
+      "start": "2025-01",
+      "end": "Present",
+      "bullets": [
+        "Coordinate outreach teams and volunteer health workers in eight barangays.",
+        "Refer families to clinics, nutrition programs and livelihood support, and follow up each referral.",
+        "Keep household visit records and write monthly program reports."
+      ]
+    },
+    {
+      "title": "Barangay Health Worker",
+      "employer": "Lamitan Community Health Volunteers Association",
+      "location": "Lamitan City, Basilan",
+      "start": "2020-08",
+      "end": "2024-12",
+      "bullets": [
+        "Took blood pressure and weight during home visits and recorded them on family health cards.",
+        "Accompanied mothers and children to check-ups and vaccination days.",
+        "Gave first aid during community events and emergencies."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Community Health Work",
+      "school": "Basilan Technical and Vocational Institute",
+      "location": "Lamitan City, Basilan",
+      "start": "2017",
+      "end": "2019"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Yakan",
+    "Chavacano"
+  ]
+}

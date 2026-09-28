@@ -86,6 +86,9 @@ REGIONS: Tuple[Region, ...] = (
     Region("IX", "Region IX – Zamboanga Peninsula", (
         "region ix", "region 9", "zamboanga peninsula", "zamboanga", "zamboanga del norte",
         "zamboanga del sur", "zamboanga sibugay", "dipolog", "dapitan", "pagadian",
+        # Isabela City lies on Basilan but belongs to Region IX. The "Isabela
+        # City, Basilan" form is listed whole so "basilan" does not also add BARMM.
+        "isabela city", "isabela city basilan",
     )),
     Region("X", "Region X – Northern Mindanao", (
         "region x", "region 10", "northern mindanao", "cagayan de oro", "cdo", "misamis oriental",
@@ -104,8 +107,11 @@ REGIONS: Tuple[Region, ...] = (
         "surigao del norte", "surigao del sur", "dinagat", "butuan", "bislig", "siargao", "tandag",
     )),
     Region("BARMM", "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)", (
-        "bangsamoro", "barmm", "armm", "maguindanao", "lanao del sur", "basilan", "sulu", "tawi tawi",
-        "marawi", "cotabato city", "isabela city", "jolo",
+        # Sulu (including Jolo) is not part of BARMM after the Supreme Court's 2024
+        # ruling, and no other region is recorded for it here, so Sulu locations
+        # name no region rather than a guessed one.
+        "bangsamoro", "barmm", "armm", "maguindanao", "lanao del sur", "basilan", "tawi tawi",
+        "marawi", "cotabato city",
     )),
 )
 
