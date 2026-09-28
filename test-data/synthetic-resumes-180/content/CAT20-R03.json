@@ -1,0 +1,67 @@
+{
+  "candidate_id": "CAT20-R03",
+  "full_name": "Emmanuel Evangelista",
+  "location": "Dumaguete City, Negros Oriental",
+  "email": "emmanuel.evangelista@example.org",
+  "phone": "+63 918 463 6246",
+  "headline": "Logistics Coordinator",
+  "summary": "Logistics coordinator with four years running deliveries and warehouse operations for a beverage and grocery distributor in Negros Oriental and Siquijor. I plan daily routes, assign trucks, coordinate inter-island shipments and keep stock and shipping documents accurate. I cut costs without missing delivery windows.",
+  "certifications": [
+    {
+      "name": "Certified Supply Chain Professional (foundation course)",
+      "issuer": "professional training course",
+      "date": "2024-03"
+    },
+    {
+      "name": "Logistics and Warehouse Management",
+      "issuer": "online course",
+      "date": "2022-10"
+    }
+  ],
+  "skills": [
+    "Delivery coordination",
+    "Route planning",
+    "Matching trucks to routes and loads",
+    "Inventory management",
+    "Warehouse operations",
+    "Supply chain coordination with suppliers and ports",
+    "Microsoft Excel",
+    "Shipping document management",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Logistics Coordinator",
+      "employer": "Negros Oriental Beverage and Grocery Distributors",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2023-04",
+      "end": "Present",
+      "bullets": [
+        "Plan daily routes for 14 trucks serving 900 stores in Negros Oriental and Siquijor.",
+        "Assign trucks to routes by load and road conditions, cutting fuel cost per case by 9%.",
+        "Coordinate weekly roll-on/roll-off shipments to Siquijor with the shipping line.",
+        "Keep warehouse stock and delivery documents accurate for audits."
+      ]
+    },
+    {
+      "title": "Warehouse Supervisor",
+      "employer": "Bais City Wholesale Center",
+      "location": "Bais City, Negros Oriental",
+      "start": "2022-01",
+      "end": "2023-03",
+      "bullets": [
+        "Supervised receiving, storage and dispatch with a team of six.",
+        "Ran monthly physical counts and reconciled them with the system."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Operations Management",
+      "school": "Negros Oriental College of Commerce",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2017",
+      "end": "2021"
+    }
+  ]
+}

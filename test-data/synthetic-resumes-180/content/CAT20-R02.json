@@ -1,0 +1,65 @@
+{
+  "candidate_id": "CAT20-R02",
+  "full_name": "Hamid Abubakar",
+  "location": "Dapitan City, Zamboanga del Norte",
+  "email": "hamid.abubakar@example.org",
+  "phone": "+63 945 687 9809",
+  "headline": "Delivery Driver",
+  "summary": "Delivery rider and driver with a year of experience delivering parcels and food around Dapitan and Dipolog. I hold a professional driver's licence for motorcycles and light vehicles, drive defensively in town traffic and treat every customer politely at the door. I have a clean driving record.",
+  "projects": [
+    {
+      "name": "Clean driving record",
+      "context": "since 2024",
+      "bullets": [
+        "No traffic violations or accidents in over 20,000 kilometres of delivery driving."
+      ]
+    },
+    {
+      "name": "Defensive driving seminar",
+      "context": "training",
+      "description": "Completed a one-day defensive driving seminar covering road rules, hazard awareness and safe motorcycle riding."
+    }
+  ],
+  "skills": [
+    "Driving safety and defensive driving",
+    "Driving in town traffic",
+    "Professional driver's licence (codes A and B)",
+    "Motorcycle and light vehicle driving",
+    "Polite customer service at delivery",
+    "Spoken English, Filipino and Cebuano"
+  ],
+  "experience": [
+    {
+      "title": "Delivery Rider",
+      "employer": "Dapitan Express Parcel Services",
+      "location": "Dapitan City, Zamboanga del Norte",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Deliver about 70 parcels a day by motorcycle in Dapitan and nearby barangays.",
+        "Collect cash-on-delivery payments and remit them at the end of each shift.",
+        "Check the motorcycle's brakes, lights and tyres before every trip."
+      ]
+    },
+    {
+      "title": "Food Delivery Rider",
+      "employer": "Dipolog Foodhub Delivery",
+      "location": "Dipolog City, Zamboanga del Norte",
+      "start": "2025-01",
+      "end": "2025-05",
+      "type": "part-time",
+      "bullets": [
+        "Delivered food orders in the evenings and weekends."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, General Academic Strand",
+      "school": "Dapitan Bayview Integrated School",
+      "location": "Dapitan City, Zamboanga del Norte",
+      "start": "2022",
+      "end": "2024"
+    }
+  ]
+}

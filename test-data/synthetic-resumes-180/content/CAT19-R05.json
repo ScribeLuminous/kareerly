@@ -1,0 +1,71 @@
+{
+  "candidate_id": "CAT19-R05",
+  "full_name": "Paolo Tuazon",
+  "location": "Marikina City, Metro Manila",
+  "email": "paolo.tuazon@example.org",
+  "phone": "+63 949 262 4129",
+  "headline": "Food Safety Officer",
+  "summary": "Food safety officer with ten years in food manufacturing and hotel kitchens around Metro Manila. I develop and run food safety programmes, audit kitchens and plants, act on violations and train staff on hazards. I have led two sites through FSSC 22000 and HACCP certification.",
+  "skills": [
+    "Food safety management and HACCP",
+    "Food safety principles and hazard analysis",
+    "Food safety checks and inspections",
+    "Auditing food safety procedures",
+    "Developing food safety programmes",
+    "Food regulations and FDA compliance",
+    "Corrective action on violations",
+    "Physical, chemical and biological hazards",
+    "Food quality assurance",
+    "Food preparation know-how",
+    "Quality management systems (ISO 22000 / FSSC 22000)",
+    "Staff training and supervision"
+  ],
+  "experience": [
+    {
+      "title": "Food Safety Officer",
+      "employer": "Marikina Valley Food Manufacturing Corp.",
+      "location": "Marikina City, Metro Manila",
+      "start": "2020-02",
+      "end": "Present",
+      "bullets": [
+        "Lead food safety for a plant producing sauces and frozen meals for 300 supermarkets.",
+        "Wrote and maintain the HACCP plan and prerequisite programmes; led the plant to FSSC 22000 certification.",
+        "Audit production lines and suppliers and stop lines when critical limits are breached.",
+        "Train 180 workers each year on hygiene, allergens and hazard control.",
+        "Supervise three quality technicians and handle regulator inspections."
+      ]
+    },
+    {
+      "title": "Hygiene and Food Safety Supervisor",
+      "employer": "Quezon City Grand Hotel",
+      "location": "Quezon City, Metro Manila",
+      "start": "2016-06",
+      "end": "2020-01",
+      "bullets": [
+        "Inspected five hotel kitchens daily and kept temperature and cleaning records.",
+        "Worked with chefs on safe preparation methods for banquets."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Food Technology",
+      "school": "Metro East College of Food Science",
+      "location": "Marikina City, Metro Manila",
+      "start": "2012",
+      "end": "2016"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "HACCP Lead Auditor",
+      "issuer": "accredited training provider",
+      "date": "2019-06"
+    },
+    {
+      "name": "FSSC 22000 Internal Auditor",
+      "issuer": "accredited training provider",
+      "date": "2021-03"
+    }
+  ]
+}

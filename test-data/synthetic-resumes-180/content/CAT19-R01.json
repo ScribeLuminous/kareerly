@@ -1,0 +1,79 @@
+{
+  "candidate_id": "CAT19-R01",
+  "full_name": "Carmina Lazo",
+  "location": "Tuguegarao City, Cagayan",
+  "email": "carmina.lazo@example.com",
+  "phone": "+63 920 326 0055",
+  "headline": "Commis Cook",
+  "summary": "TESDA-certified cook with a year in the kitchen of a seafood restaurant in Tuguegarao. I prepare ingredients and cook fish and shellfish dishes on the line, follow food safety and hygiene rules strictly, and check every plate for quality before it leaves the pass. I want to grow into a chef de partie role.",
+  "projects": [
+    {
+      "name": "River fish specials",
+      "context": "kitchen project",
+      "bullets": [
+        "Developed three weekend specials using freshwater fish from the Cagayan River with the sous chef.",
+        "Two became permanent menu items."
+      ]
+    },
+    {
+      "name": "Cookery NC II assessment dishes",
+      "context": "training",
+      "description": "Prepared a full set of hot and cold dishes for the national assessment and passed on the first attempt."
+    }
+  ],
+  "skills": [
+    "Food preparation and knife skills",
+    "Cooking fish and shellfish",
+    "Food safety and hygiene",
+    "HACCP basics and food safety principles",
+    "Checking plates for quality and consistency",
+    "Kitchen workplace safety"
+  ],
+  "experience": [
+    {
+      "title": "Commis Cook",
+      "employer": "Cagayan River Seafood House",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Prepare vegetables, sauces and seafood for 150 to 200 covers a night.",
+        "Cook grilled, steamed and fried seafood dishes on the hot line.",
+        "Label, date and store ingredients following first-in, first-out rules.",
+        "Clean and sanitise my station and log fridge temperatures every shift."
+      ]
+    },
+    {
+      "title": "Kitchen Trainee",
+      "employer": "Tuguegarao Grand Hotel Kitchen",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Rotated through cold kitchen, bakery and hot line under supervising cooks."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Cookery NC II",
+      "school": "Cagayan Culinary Skills Institute",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2024-06",
+      "end": "2024-12"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Cookery NC II",
+      "issuer": "TESDA",
+      "date": "2024-12"
+    },
+    {
+      "name": "Food Safety and Sanitation Training",
+      "issuer": "accredited training provider",
+      "date": "2025-02"
+    }
+  ]
+}

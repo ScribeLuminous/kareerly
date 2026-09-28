@@ -1,0 +1,84 @@
+{
+  "candidate_id": "CAT19-R03",
+  "full_name": "Janine Pamintuan",
+  "location": "Lucena City, Quezon",
+  "email": "janine.pamintuan@example.org",
+  "phone": "+63 928 813 0143",
+  "headline": "Chef de Partie",
+  "skill_groups": [
+    {
+      "label": "Kitchen",
+      "items": [
+        "food preparation",
+        "seafood cookery",
+        "running a kitchen section",
+        "food service during banquets"
+      ]
+    },
+    {
+      "label": "Food safety",
+      "items": [
+        "food safety and HACCP",
+        "food safety checks and temperature logs",
+        "hygiene compliance",
+        "food safety principles",
+        "quality checks on every dish"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "clear communication with suppliers and servers"
+      ]
+    }
+  ],
+  "summary": "Chef de partie with five years in hotel and restaurant kitchens in Lucena and Batangas. I run the seafood and grill section, train commis cooks, and make sure every dish meets our food safety and quality standards. I also help plan banquet menus and service for events.",
+  "experience": [
+    {
+      "title": "Chef de Partie",
+      "employer": "Tayabas Bay Hotel and Convention Center",
+      "location": "Lucena City, Quezon",
+      "start": "2023-04",
+      "end": "Present",
+      "bullets": [
+        "Run the seafood and grill section with two commis cooks for the restaurant and banquets.",
+        "Prepare mise en place and cook for up to 400 banquet guests.",
+        "Check temperatures, hygiene and allergen labelling in my section every shift.",
+        "Taste and inspect each dish before service and send back anything below standard.",
+        "Helped design a Quezon-themed seafood menu for weddings."
+      ]
+    },
+    {
+      "title": "Line Cook",
+      "employer": "Batangas Bayfront Grill",
+      "location": "Batangas City, Batangas",
+      "start": "2021-06",
+      "end": "2023-03",
+      "bullets": [
+        "Cooked grilled meat and seafood dishes on a busy à la carte line.",
+        "Kept the station clean and followed the restaurant's food safety plan."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Culinary Arts",
+      "school": "Southern Tagalog Culinary Institute",
+      "location": "Lipa City, Batangas",
+      "start": "2019",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Cookery NC II",
+      "issuer": "TESDA",
+      "date": "2020-11"
+    },
+    {
+      "name": "HACCP Level 2 Food Safety",
+      "issuer": "accredited training provider",
+      "date": "2023-09"
+    }
+  ]
+}

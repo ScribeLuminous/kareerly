@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT20-R07",
+  "full_name": "Raymond Agcaoili",
+  "location": "Cabarroguis, Quirino",
+  "email": "raymond.agcaoili@example.org",
+  "phone": "+63 965 835 7959",
+  "headline": "Import-Export Documentation Assistant",
+  "summary": "Documentation assistant with three years handling import and export shipments for an agricultural trading company in Quirino. I prepare shipping and customs documents, coordinate deliveries with forwarders and suppliers, and track stock in transit. I also help purchasing with orders and supplier negotiations.",
+  "skills": [
+    "Supply chain and shipment coordination",
+    "Shipping and customs document management",
+    "Delivery coordination with forwarders",
+    "Inventory tracking of goods in transit",
+    "Purchasing support and purchase orders",
+    "Negotiation with suppliers and forwarders",
+    "Legal and trade documentation",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Import-Export Documentation Assistant",
+      "employer": "Quirino Agri-Commodities Trading Inc.",
+      "location": "Cabarroguis, Quirino",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Prepare invoices, packing lists, certificates of origin and customs entries for about 25 shipments a month.",
+        "Coordinate pickups and deliveries with forwarders and brokers in Manila and Subic.",
+        "Track goods in transit and update the stock report when shipments arrive.",
+        "Help the purchasing team issue purchase orders and compare forwarder quotes."
+      ]
+    },
+    {
+      "title": "Documentation Clerk",
+      "employer": "Santiago Valley Freight Services",
+      "location": "Santiago City, Isabela",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Prepared bills of lading and delivery receipts for trucking clients.",
+        "Filed and scanned shipment documents."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Customs Administration",
+      "school": "Quirino Highlands College",
+      "location": "Cabarroguis, Quirino",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

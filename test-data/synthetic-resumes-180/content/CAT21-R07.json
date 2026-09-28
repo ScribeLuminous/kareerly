@@ -1,0 +1,56 @@
+{
+  "candidate_id": "CAT21-R07",
+  "full_name": "Czarina Lumactod",
+  "location": "Malabang, Lanao del Sur",
+  "email": "czarina.lumactod@example.net",
+  "phone": "+63 908 795 1819",
+  "headline": "Production Planner",
+  "experience": [
+    {
+      "title": "Production Planner",
+      "employer": "Lanao del Sur Halal Food Manufacturing Inc.",
+      "location": "Malabang, Lanao del Sur",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Build weekly production schedules for three lines making halal sausages and canned goods.",
+        "Track daily output against plan and adjust schedules when orders or supplies change.",
+        "Plan materials with the inventory team and flag shortages to purchasing a week ahead.",
+        "Helped plan the layout and staffing of a new canning line.",
+        "Analyse planned versus actual output in Excel and present it at the monthly review."
+      ]
+    },
+    {
+      "title": "Production Clerk",
+      "employer": "Cotabato City Processed Foods Corp.",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2022-06",
+      "end": "2023-07",
+      "bullets": [
+        "Recorded production output and downtime for two lines.",
+        "Prepared daily production reports for the plant manager."
+      ]
+    }
+  ],
+  "summary": "Production planner with four years in halal food manufacturing in Lanao del Sur and Cotabato City. I schedule production across lines, monitor output against plan, help set up new lines and products, and plan materials with inventory and purchasing. I use data to keep plans realistic.",
+  "skills": [
+    "Production monitoring and scheduling",
+    "Production line development",
+    "Plant output tracking",
+    "New product integration",
+    "Inventory planning",
+    "Supply chain coordination",
+    "Microsoft Excel",
+    "Data analysis",
+    "Business communication"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Industrial Engineering",
+      "school": "Lanao Lakeside State College",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}
