@@ -1,0 +1,52 @@
+{
+  "candidate_id": "CAT23-R04",
+  "full_name": "Noel Pamintuan",
+  "location": "Mamburao, Occidental Mindoro",
+  "email": "noel.pamintuan@example.net",
+  "phone": "+63 919 912 8659",
+  "headline": "Records Officer",
+  "experience": [
+    {
+      "title": "Records Officer",
+      "employer": "Mamburao Heritage Archives Commission",
+      "location": "Mamburao, Occidental Mindoro",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Manage the archive of land, heritage and civil records dating back to the 1950s.",
+        "Classify, index and box records by retention schedule and dispose of expired files properly.",
+        "Scan fragile documents and encode their details in the archive database.",
+        "Retrieve records for researchers and the public within the same day."
+      ]
+    },
+    {
+      "title": "Records Clerk",
+      "employer": "Mindoro Western Land Titles Services",
+      "location": "San Jose, Occidental Mindoro",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Filed and retrieved land documents and photocopied records for clients.",
+        "Kept the daily document release log."
+      ]
+    }
+  ],
+  "summary": "Records officer with three years managing archives and public records in Occidental Mindoro. I classify, index and preserve records, scan and encode them into our database, and help researchers and the public find documents quickly.",
+  "skills": [
+    "Public records management",
+    "Document management and retention schedules",
+    "Records organisation and indexing",
+    "Data encoding",
+    "Clerical work",
+    "Microsoft Office"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Library and Information Science",
+      "school": "Mindoro Western College",
+      "location": "San Jose, Occidental Mindoro",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

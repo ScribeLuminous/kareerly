@@ -1,0 +1,91 @@
+{
+  "candidate_id": "CAT22-R05",
+  "full_name": "Pauline Bautista",
+  "location": "Bais City, Negros Oriental",
+  "email": "pauline.bautista@example.org",
+  "phone": "+63 920 868 3543",
+  "headline": "Environmental Officer",
+  "summary": "Environmental officer with eleven years in forest, coastal and farm conservation in Negros Oriental. I lead programs on forest management, waste, biodiversity and conservation farming, make sure projects comply with environmental laws, and help local governments write their environmental policies. I manage a team of eight.",
+  "experience": [
+    {
+      "title": "Environmental Officer",
+      "employer": "Negros Oriental Environment and Livelihood Foundation",
+      "location": "Bais City, Negros Oriental",
+      "start": "2019-01",
+      "end": "Present",
+      "paragraph": "Lead a team of eight on conservation programs in the mountain and coastal towns of Negros Oriental.",
+      "bullets": [
+        "Designed a community forest management plan covering 3,500 hectares, now part of the provincial land-use plan.",
+        "Run solid waste and composting programs with 14 barangays, cutting waste to the dump by a third.",
+        "Check projects against environmental laws and prepare compliance reports for regulators.",
+        "Help towns draft ordinances on tree cutting, quarrying and waste."
+      ]
+    },
+    {
+      "title": "Conservation Program Officer",
+      "employer": "Tañon Strait Biodiversity Network",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2015-01",
+      "end": "2018-12",
+      "paragraph": "Worked on biodiversity and conservation farming projects around the strait.",
+      "bullets": [
+        "Trained upland farmers in conservation agriculture and agroforestry.",
+        "Organised mangrove and forest planting with communities and schools."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Conservation",
+      "items": [
+        "environmental conservation",
+        "forest ecology",
+        "sustainable forest management",
+        "forestry management decisions",
+        "biodiversity and animal welfare programs",
+        "tree planting",
+        "conservation agriculture"
+      ]
+    },
+    {
+      "label": "Waste and law",
+      "items": [
+        "waste management",
+        "environmental legislation in agriculture and forestry",
+        "regulatory compliance"
+      ]
+    },
+    {
+      "label": "Leadership",
+      "items": [
+        "policy support to local governments",
+        "community engagement",
+        "team management",
+        "business communication"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master of Science in Environmental Science",
+      "school": "Negros Oriental Graduate School of Environment",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2016",
+      "end": "2019"
+    },
+    {
+      "credential": "Bachelor of Science in Forestry",
+      "school": "Negros Oriental College of Agriculture and Forestry",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2010",
+      "end": "2014"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Forester",
+      "issuer": "Professional Regulation Commission",
+      "date": "2014-12"
+    }
+  ]
+}

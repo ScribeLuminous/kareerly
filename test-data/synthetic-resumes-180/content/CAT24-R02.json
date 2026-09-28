@@ -1,0 +1,60 @@
+{
+  "candidate_id": "CAT24-R02",
+  "full_name": "Charmaine Mangubat",
+  "location": "Naga City, Camarines Sur",
+  "email": "charmaine.mangubat@example.org",
+  "phone": "+63 915 968 5471",
+  "headline": "Security Guard",
+  "skills": [
+    "Security monitoring and patrols",
+    "Public safety and crowd control",
+    "Emergency response and evacuation",
+    "First aid and CPR",
+    "Safe driving (professional licence)",
+    "Clear spoken English, Filipino and Bikol"
+  ],
+  "summary": "TESDA-certified security guard with a valid licence looking for my first post. During on-the-job training at a mall in Naga I monitored CCTV and entrances, patrolled parking areas and joined fire and earthquake drills. I am alert, disciplined and courteous with the public.",
+  "experience": [
+    {
+      "title": "Security Guard Trainee (OJT)",
+      "employer": "Naga Centerpoint Mall Security Services",
+      "location": "Naga City, Camarines Sur",
+      "start": "2026-03",
+      "end": "2026-05",
+      "type": "internship",
+      "bullets": [
+        "Guarded entrances, inspected bags and watched CCTV screens under a senior guard.",
+        "Patrolled parking areas and reported suspicious activity by radio.",
+        "Took part in fire and earthquake evacuation drills."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Security Services NC II",
+      "school": "Bicol Security Training Academy",
+      "location": "Naga City, Camarines Sur",
+      "start": "2025-10",
+      "end": "2026-02"
+    },
+    {
+      "credential": "Senior High School, General Academic Strand",
+      "school": "Naga Riverside Integrated School",
+      "location": "Naga City, Camarines Sur",
+      "start": "2023",
+      "end": "2025"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Security Guard Licence",
+      "issuer": "PNP Supervisory Office for Security and Investigation Agencies",
+      "date": "2026-05"
+    },
+    {
+      "name": "Standard First Aid and Basic Life Support",
+      "issuer": "accredited training provider",
+      "date": "2026-01"
+    }
+  ]
+}

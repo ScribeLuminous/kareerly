@@ -1,0 +1,65 @@
+{
+  "candidate_id": "CAT24-R01",
+  "full_name": "Mark Anthony Sabellano",
+  "location": "Ipil, Zamboanga Sibugay",
+  "email": "mark.sabellano@example.net",
+  "phone": "+63 975 570 7033",
+  "headline": "Legal Assistant",
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Political Science",
+      "school": "Zamboanga Sibugay Heritage College",
+      "location": "Ipil, Zamboanga Sibugay",
+      "start": "2020",
+      "end": "2024",
+      "notes": [
+        "Thesis: access to barangay justice in coastal communities",
+        "Moot court team member"
+      ]
+    }
+  ],
+  "summary": "Political science graduate with a year as a legal assistant in a general-practice law office. I draft pleadings and affidavits from templates, compile and organise case files, research jurisprudence and check contracts for missing terms before the lawyer's review. I plan to enter law school next year.",
+  "projects": [
+    {
+      "name": "Barangay justice research",
+      "context": "undergraduate thesis",
+      "description": "Interviewed 30 barangay officials and residents on how disputes are settled through the barangay justice system and wrote recommendations for faster settlements."
+    }
+  ],
+  "skills": [
+    "Legal documentation: pleadings, affidavits, notarial documents",
+    "Legal research on laws and jurisprudence",
+    "Compiling and indexing case files",
+    "Contract review support",
+    "Document management",
+    "Compliance with court and notarial rules",
+    "Clear legal and business writing"
+  ],
+  "experience": [
+    {
+      "title": "Legal Assistant",
+      "employer": "Ipil Bayview Law Office",
+      "location": "Ipil, Zamboanga Sibugay",
+      "start": "2025-02",
+      "end": "Present",
+      "bullets": [
+        "Draft complaints, answers, affidavits and demand letters from the lawyers' notes.",
+        "Compile case records and annexes and prepare indexed folders for hearings.",
+        "Research laws and Supreme Court decisions and summarise them in short memos.",
+        "Check leases and sale contracts for missing or inconsistent terms before review.",
+        "Keep the notarial register and court filing log up to date."
+      ]
+    },
+    {
+      "title": "Legal Research Intern",
+      "employer": "Zamboanga Sibugay Legal Aid Foundation",
+      "location": "Ipil, Zamboanga Sibugay",
+      "start": "2024-01",
+      "end": "2024-04",
+      "type": "internship",
+      "bullets": [
+        "Summarised case files and interviewed clients with the foundation's lawyers."
+      ]
+    }
+  ]
+}
