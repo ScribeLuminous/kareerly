@@ -16,7 +16,7 @@ import { EmployerCandidatesPage } from './employer/EmployerCandidatesPage';
 import { RubricEditorModal } from './employer/RubricEditorModal';
 import { candidateActionBlocker, combineTemplates, DEFAULT_CANDIDATE_FILTERS, validateRubricDraft, type AssessmentTemplate, HIGH_MATCH_PERCENT, profileMatch, visibleApplicants, type CandidateBulkAction, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
 import { EmployerHomePage } from './employer/EmployerHomePage';
-import { EmployerInsightsPage } from './employer/EmployerInsightsPage';
+import { InsightsPage } from './employer/insights/InsightsPage';
 import { EmployerJobsPage, type JobBulkAction } from './employer/EmployerJobsPage';
 import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
 import { JobEditorModal } from './employer/JobEditorModal';
@@ -188,9 +188,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   }, [employer.id]);
 
 
-  const showToast = (message: string, type: ToastType = '') => {
+  const showToast = (message: string, type: ToastType = '', action?: { label: string; onClick: () => void }) => {
     if (!message) return;
-    setToast({ message, type });
+    setToast({ message, type, action });
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
   };
@@ -1388,13 +1388,15 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       )}
 
       {activePage === 'insights' && (
-        <EmployerInsightsPage
+        <InsightsPage
           applications={applications}
           jobs={jobs}
+          employerName={companyName}
           isLoading={isLoadingJobs || isLoadingApplicants}
           loadFailed={applicationsLoadStatus === 'error'}
           onViewApplicants={viewApplicants}
-          onOpenJobs={() => goPage('jobs')}
+          onPostJob={postJob}
+          onToast={showToast}
         />
       )}
 
