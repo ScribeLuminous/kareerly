@@ -1,0 +1,52 @@
+{
+  "candidate_id": "CAT17-R02",
+  "full_name": "Erlinda Mendoza",
+  "location": "Urdaneta City, Pangasinan",
+  "email": "erlinda.mendoza@example.net",
+  "phone": "+63 949 683 3755",
+  "headline": "Construction Worker",
+  "education": [
+    {
+      "credential": "Senior High School, TVL Track – Industrial Arts strand",
+      "school": "Urdaneta Heights National High School",
+      "location": "Urdaneta City, Pangasinan",
+      "start": "2024",
+      "end": "2026",
+      "notes": [
+        "Work immersion with a local building contractor",
+        "Masonry NC II training during Grade 12"
+      ]
+    }
+  ],
+  "summary": "Senior high graduate from the Industrial Arts strand looking for work as a construction worker or mason helper. During work immersion I laid hollow blocks, mixed mortar, cleared and levelled building sites and covered finished floors to protect them. I am strong, reliable and eager to learn a trade.",
+  "skills": [
+    "Masonry: hollow block laying, plastering, mortar mixing",
+    "Clearing and levelling building sites",
+    "Setting out site preparation",
+    "Protecting floors and finished surfaces",
+    "Following safe work practices",
+    "Safe driving of site vehicles (student licence)"
+  ],
+  "experience": [
+    {
+      "title": "Work Immersion Student",
+      "employer": "Urdaneta Homebuilders and Contractors",
+      "location": "Urdaneta City, Pangasinan",
+      "start": "2026-02",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Laid hollow blocks and plastered walls on a two-storey house under a mason's supervision.",
+        "Cleared, levelled and compacted the site for a new warehouse.",
+        "Covered floors and window frames with protective sheets before painting work."
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Masonry NC II",
+      "issuer": "TESDA",
+      "date": "2026-03"
+    }
+  ]
+}

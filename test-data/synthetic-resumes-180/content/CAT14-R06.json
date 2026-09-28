@@ -1,0 +1,87 @@
+{
+  "candidate_id": "CAT14-R06",
+  "full_name": "Ramil Ong",
+  "location": "Bislig City, Surigao del Sur",
+  "email": "ramil.ong@example.com",
+  "phone": "+63 917 804 6416",
+  "headline": "Patient Care Coordinator",
+  "summary": "Caregiver of five years, three of them in a Davao residential care home, now coordinating patient care at a hospital in Surigao del Sur. I schedule and coordinate patients' care, take vital signs and assess basic needs, write care notes and respond with BLS in emergencies. My caregiving years help me see what patients and families need beyond the treatment.",
+  "projects": [
+    {
+      "name": "Discharge follow-up calls",
+      "context": "hospital project",
+      "bullets": [
+        "Set up follow-up calls two days after discharge for elderly patients.",
+        "Caught several missed medicines and early warning signs and arranged earlier check-ups."
+      ]
+    },
+    {
+      "name": "Family caregiver sessions",
+      "context": "volunteer",
+      "description": "Taught monthly home-care sessions for families caring for bedridden relatives in Bislig."
+    }
+  ],
+  "skills": [
+    "Patient coordination and scheduling",
+    "Basic patient assessment and vital signs",
+    "Basic Life Support",
+    "Care notes and clinical documentation",
+    "Caregiving",
+    "Elderly care",
+    "Medication assistance",
+    "Clear English with patients and families"
+  ],
+  "experience": [
+    {
+      "title": "Patient Care Coordinator",
+      "employer": "Bislig Bay Medical Center",
+      "location": "Bislig City, Surigao del Sur",
+      "start": "2024-06",
+      "end": "Present",
+      "bullets": [
+        "Schedule admissions, procedures and follow-ups for the medical ward and coordinate with each department.",
+        "Take vital signs and check patients' basic needs on rounds with the nurses.",
+        "Write care coordination notes and hand-over summaries."
+      ]
+    },
+    {
+      "title": "Caregiver",
+      "employer": "Davao Golden Years Residential Care",
+      "location": "Davao City, Davao del Sur",
+      "start": "2021-06",
+      "end": "2024-04",
+      "bullets": [
+        "Cared for six elderly residents on my shift, including two living with dementia.",
+        "Assisted with medicines, bathing, meals and physiotherapy exercises.",
+        "Kept a daily care log for the family and visiting nurse."
+      ]
+    },
+    {
+      "title": "Caregiver",
+      "employer": "Surigao Home Care Agency",
+      "location": "Surigao City, Surigao del Norte",
+      "start": "2019-07",
+      "end": "2021-05",
+      "bullets": [
+        "Looked after bedridden and post-stroke clients in their homes.",
+        "Reported changes in clients' condition to their families and doctors."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Caregiving NC II",
+      "school": "Tandag Skills Academy",
+      "location": "Tandag City, Surigao del Sur",
+      "start": "2018-06",
+      "end": "2018-12"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Basic Life Support Provider",
+      "issuer": "accredited training provider",
+      "date": "2024-05"
+    }
+  ]
+}

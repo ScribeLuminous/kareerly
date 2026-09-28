@@ -1,0 +1,71 @@
+{
+  "candidate_id": "CAT12-R03",
+  "full_name": "Adrian Bacus",
+  "location": "Dipolog City, Zamboanga del Norte",
+  "email": "adrian.bacus@example.com",
+  "phone": "+63 956 139 1325",
+  "headline": "Training and Development Specialist",
+  "summary": "Training and development specialist with five years building programs for bank and cooperative employees in Zamboanga del Norte. I design curricula, write e-learning modules, run workshops for adults and measure whether training actually changes performance. I work closely with managers to find the real skill gaps.",
+  "certifications": [
+    {
+      "name": "Trainers Methodology Level I (TM1)",
+      "issuer": "TESDA",
+      "date": "2021-11"
+    },
+    {
+      "name": "Certified Instructional Designer",
+      "issuer": "professional training course",
+      "date": "2023-07"
+    },
+    {
+      "name": "Kirkpatrick Four Levels Evaluation",
+      "issuer": "online course",
+      "date": "2024-02"
+    }
+  ],
+  "skills": [
+    "Training facilitation",
+    "Instructional design",
+    "Training evaluation and learning measurement",
+    "Adult learning",
+    "Curriculum development",
+    "E-learning modules (Articulate Rise)",
+    "Workshop and handout materials",
+    "Microsoft Office",
+    "Clear business communication"
+  ],
+  "experience": [
+    {
+      "title": "Training and Development Specialist",
+      "employer": "Dipolog Bay Savings Bank",
+      "location": "Dipolog City, Zamboanga del Norte",
+      "start": "2023-04",
+      "end": "Present",
+      "bullets": [
+        "Design and run onboarding, teller and credit training for 220 employees across 14 branches.",
+        "Built a 12-module e-learning course on anti-money-laundering rules, completed by every employee.",
+        "Measure training results against branch audit findings and service scores, and report them to management."
+      ]
+    },
+    {
+      "title": "Training Officer",
+      "employer": "Dipolog Cooperative Training Center",
+      "location": "Dipolog City, Zamboanga del Norte",
+      "start": "2021-06",
+      "end": "2023-03",
+      "bullets": [
+        "Facilitated leadership and bookkeeping seminars for cooperative officers.",
+        "Wrote participant guides and pre- and post-tests for each seminar."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Psychology",
+      "school": "Dapitan Bay College",
+      "location": "Dapitan City, Zamboanga del Norte",
+      "start": "2016",
+      "end": "2020"
+    }
+  ]
+}

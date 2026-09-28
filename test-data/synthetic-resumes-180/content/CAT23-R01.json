@@ -1,0 +1,72 @@
+{
+  "candidate_id": "CAT23-R01",
+  "full_name": "Jonathan Sornito",
+  "location": "Kalibo, Aklan",
+  "email": "jonathan.sornito@example.net",
+  "phone": "+63 917 788 5503",
+  "headline": "Administrative Aide",
+  "education": [
+    {
+      "credential": "Bachelor of Public Administration",
+      "school": "Aklan Riverside College",
+      "location": "Kalibo, Aklan",
+      "start": "2020",
+      "end": "2024",
+      "notes": [
+        "Civil Service Professional eligibility, 2024",
+        "Internship with a regional development authority's planning office"
+      ]
+    }
+  ],
+  "summary": "Public administration graduate with Civil Service eligibility and a year as an administrative aide in a regional development authority. I process public requests, keep official records and archives in order, and help prepare policy briefs and memoranda. I want to build a career in local governance.",
+  "projects": [
+    {
+      "name": "Records digitisation",
+      "context": "office project",
+      "description": "Scanned, indexed and catalogued 12 years of board resolutions so staff can find any resolution in minutes."
+    },
+    {
+      "name": "Ati-Atihan visitor services study",
+      "context": "undergraduate thesis",
+      "bullets": [
+        "Surveyed 300 festival visitors on public services during the Ati-Atihan season.",
+        "Recommended a single visitor help desk, presented to the local tourism council."
+      ]
+    }
+  ],
+  "skills": [
+    "Government service support and frontline assistance",
+    "Public records management and archiving",
+    "Policy support: briefs, memoranda and research",
+    "Document management",
+    "Microsoft Excel",
+    "Records organisation and indexing",
+    "Business writing"
+  ],
+  "experience": [
+    {
+      "title": "Administrative Aide",
+      "employer": "Aklan Riverlands Development Authority",
+      "location": "Kalibo, Aklan",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Receive and route about 40 public requests and permits a day through the tracking log.",
+        "Maintain board resolutions, contracts and correspondence in the records room and digital archive.",
+        "Prepare background notes and draft memoranda for the planning division.",
+        "Update the office's Excel trackers for pending requests and deadlines."
+      ]
+    },
+    {
+      "title": "Planning Office Intern",
+      "employer": "Aklan Riverlands Development Authority",
+      "location": "Kalibo, Aklan",
+      "start": "2024-01",
+      "end": "2024-04",
+      "type": "internship",
+      "bullets": [
+        "Encoded project data and helped prepare the annual investment plan tables."
+      ]
+    }
+  ]
+}

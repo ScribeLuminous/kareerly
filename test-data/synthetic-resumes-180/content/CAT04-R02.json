@@ -1,0 +1,51 @@
+{
+  "candidate_id": "CAT04-R02",
+  "full_name": "Paolo Delos Santos",
+  "location": "Lipa City, Batangas",
+  "email": "paolo.delossantos@example.net",
+  "phone": "+63 905 729 8121",
+  "headline": "Accounting Assistant",
+  "summary": "Accountancy graduate looking for an accounting assistant role. I kept the books of our family hardware store part-time during my final year and prepared delivery receipts and billing statements during my OJT. I work accurately in Excel and keep supporting papers in order.",
+  "skills": [
+    "Bookkeeping",
+    "Invoicing and billing",
+    "Microsoft Excel",
+    "Data encoding",
+    "Filing and organising supporting documents",
+    "English communication"
+  ],
+  "experience": [
+    {
+      "title": "Billing Intern",
+      "employer": "Lipa Poultry Supply Corporation",
+      "location": "Lipa City, Batangas",
+      "start": "2026-01",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Prepared about 150 billing statements a week for feed dealers and matched them against delivery receipts.",
+        "Encoded official receipts and filed them by customer and month."
+      ]
+    },
+    {
+      "title": "Family Business Bookkeeper",
+      "employer": "Delos Santos Hardware and Construction Supply",
+      "location": "Lipa City, Batangas",
+      "start": "2025-06",
+      "end": "2026-05",
+      "type": "part-time",
+      "bullets": [
+        "Kept the cash receipts and disbursements books and a simple Excel stock list for the store."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Accountancy",
+      "school": "Batangas Uplands College",
+      "location": "Lipa City, Batangas",
+      "start": "2022",
+      "end": "2026"
+    }
+  ]
+}

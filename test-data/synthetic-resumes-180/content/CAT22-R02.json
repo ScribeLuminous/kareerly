@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT22-R02",
+  "full_name": "Randy Uy",
+  "location": "Koronadal City, South Cotabato",
+  "email": "randy.uy@example.net",
+  "phone": "+63 945 305 4295",
+  "headline": "Livestock Farm Assistant",
+  "skills": [
+    "Animal care: feeding, watering, cleaning pens",
+    "Livestock production: hogs, goats and cattle",
+    "Dairy production support: milking and milk handling",
+    "Workplace safety on the farm",
+    "Safe driving of farm vehicles",
+    "Spoken English, Filipino and Hiligaynon"
+  ],
+  "summary": "Senior high graduate from the agriculture strand looking for work on a livestock or dairy farm. I grew up raising hogs and goats with my family and did my work immersion on a dairy farm, where I fed and cleaned animals and helped with milking. I am hardworking and comfortable with early mornings.",
+  "experience": [
+    {
+      "title": "Work Immersion Student",
+      "employer": "South Cotabato Highland Dairy Farm",
+      "location": "Koronadal City, South Cotabato",
+      "start": "2026-02",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Fed and watered 40 dairy cows and cleaned their stalls every morning.",
+        "Helped with machine milking and cleaned milk cans and equipment."
+      ]
+    },
+    {
+      "title": "Family Farm Helper",
+      "employer": "Uy family backyard farm",
+      "location": "Koronadal City, South Cotabato",
+      "start": "2026-05",
+      "end": "Present",
+      "type": "part-time",
+      "bullets": [
+        "Raise hogs and goats, mix feed and keep pens clean."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, TVL Track – Agri-Fishery Arts strand",
+      "school": "Koronadal Valley Integrated School",
+      "location": "Koronadal City, South Cotabato",
+      "start": "2024",
+      "end": "2026",
+      "notes": [
+        "Animal Production (Swine) NC II, 2026"
+      ]
+    }
+  ]
+}

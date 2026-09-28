@@ -1,0 +1,68 @@
+{
+  "candidate_id": "CAT11-R06",
+  "full_name": "Leah Sabellano",
+  "location": "Tagum City, Davao del Norte",
+  "email": "leah.sabellano@example.org",
+  "phone": "+63 915 110 8405",
+  "headline": "UI/UX Designer",
+  "summary": "Architectural drafter of four years now working as a UI/UX designer. I learned Figma and user research through a design bootcamp and have spent the past year designing app and website screens for startups. My drafting background gives me a strong sense of layout, grids and precise detail.",
+  "skills": [
+    "UI design for web and mobile",
+    "Figma (components, auto layout, prototyping)",
+    "Wireframes, prototypes and usability tests",
+    "Icons and interface graphics",
+    "AutoCAD",
+    "SketchUp",
+    "Technical drafting",
+    "Presenting designs to stakeholders"
+  ],
+  "experience": [
+    {
+      "title": "UI/UX Designer",
+      "employer": "Tagum Tech Startup Studio",
+      "location": "Tagum City, Davao del Norte",
+      "start": "2025-08",
+      "end": "Present",
+      "bullets": [
+        "Design screens and clickable prototypes in Figma for a farm inputs ordering app and two websites.",
+        "Run short usability tests with farmers and store owners and fix what confuses them.",
+        "Build and maintain the app's component library with the developers."
+      ]
+    },
+    {
+      "title": "Architectural Drafter",
+      "employer": "Davao del Norte Design and Build Co.",
+      "location": "Tagum City, Davao del Norte",
+      "start": "2021-06",
+      "end": "2025-07",
+      "bullets": [
+        "Drafted floor plans, elevations and details in AutoCAD for houses and small commercial buildings.",
+        "Built 3D models in SketchUp for client presentations.",
+        "Revised drawings quickly from architects' mark-ups."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Architecture",
+      "school": "Davao Gulf College of Architecture",
+      "location": "Davao City, Davao del Sur",
+      "start": "2016",
+      "end": "2021"
+    },
+    {
+      "credential": "UI/UX Design Bootcamp",
+      "school": "online design school",
+      "location": "Remote",
+      "start": "2024-09",
+      "end": "2025-03"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Google UX Design Certificate",
+      "issuer": "Google",
+      "date": "2025-04"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "candidate_id": "CAT22-R03",
+  "full_name": "Anwar Sarip",
+  "location": "Datu Odin Sinsuat, Maguindanao del Norte",
+  "email": "anwar.sarip@example.com",
+  "phone": "+63 917 822 4433",
+  "headline": "Aquaculture Technician",
+  "summary": "Aquaculture technician with four years running tilapia and milkfish ponds and fish cages in Maguindanao. I plan stocking and feeding with pond management software, monitor water quality and currents at cage sites, and keep harvests hygienic from pond to market. I also work with fishers on gear and catch records.",
+  "skills": [
+    "Aquaculture operations: ponds and fish cages",
+    "Fish handling and harvest",
+    "Aquaculture production planning software",
+    "Fisheries management and catch records",
+    "Hygienic practices in fishery operations",
+    "Reading water currents for cage placement",
+    "Knowledge of the local fishing industry",
+    "Fishing gear and nets",
+    "Microsoft Excel"
+  ],
+  "experience": [
+    {
+      "title": "Aquaculture Technician",
+      "employer": "Maguindanao Aqua Farms Cooperative",
+      "location": "Datu Odin Sinsuat, Maguindanao del Norte",
+      "start": "2023-06",
+      "end": "Present",
+      "bullets": [
+        "Manage stocking, feeding and sampling for 12 hectares of tilapia and milkfish ponds.",
+        "Plan production cycles and feed use in pond management software.",
+        "Check water quality daily and position fish cages to make use of currents.",
+        "Supervise harvests and keep fish iced and clean until delivery.",
+        "Record catch and gear use with member fishers for the cooperative's fisheries plan."
+      ]
+    },
+    {
+      "title": "Hatchery Assistant",
+      "employer": "Cotabato City Fish Hatchery Services",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2022-03",
+      "end": "2023-05",
+      "bullets": [
+        "Fed fry and fingerlings and cleaned tanks in a tilapia hatchery.",
+        "Counted and packed fingerlings for farmers."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Fisheries",
+      "school": "Maguindanao Coastal College of Fisheries",
+      "location": "Parang, Maguindanao del Norte",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Aquaculture NC II",
+      "issuer": "TESDA",
+      "date": "2021-11"
+    }
+  ]
+}

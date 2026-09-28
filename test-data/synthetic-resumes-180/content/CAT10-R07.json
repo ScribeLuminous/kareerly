@@ -1,0 +1,60 @@
+{
+  "candidate_id": "CAT10-R07",
+  "full_name": "Ibrahim Masukat",
+  "location": "Sindangan, Zamboanga del Norte",
+  "email": "ibrahim.masukat@example.com",
+  "phone": "+63 927 256 9378",
+  "headline": "Translator and Bilingual Support Specialist",
+  "summary": "Arabic–English translator and bilingual support specialist with three years at an outsourcing company. I translate customer documents and chats, interpret on calls between Arabic-speaking customers and English-speaking staff, and proofread translated text. I also handle email and chat support for Middle East clients.",
+  "skills": [
+    "Arabic–English translation",
+    "Consecutive interpreting on calls",
+    "English communication",
+    "Proofreading translated text",
+    "Customer service",
+    "Email support",
+    "Chat support",
+    "Microsoft Office"
+  ],
+  "experience": [
+    {
+      "title": "Bilingual Support Specialist",
+      "employer": "Zamboanga Norte Global Services Inc.",
+      "location": "Dipolog City, Zamboanga del Norte",
+      "start": "2023-09",
+      "end": "Present",
+      "bullets": [
+        "Translate customer documents, invoices and chats between Arabic and English for a travel company's Gulf clients.",
+        "Interpret on calls when customers prefer Arabic, keeping meaning and tone accurate.",
+        "Answer about 50 customer emails and chats a day in Arabic and English.",
+        "Proofread translations done by two junior translators before they are sent."
+      ]
+    },
+    {
+      "title": "Arabic Tutor and Translator",
+      "employer": "Sindangan Islamic Learning Center",
+      "location": "Sindangan, Zamboanga del Norte",
+      "start": "2023-01",
+      "end": "2023-08",
+      "bullets": [
+        "Taught basic Arabic reading to adult learners and translated the center's notices.",
+        "Interpreted for visiting speakers at community events."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Islamic Studies, major in Arabic Language",
+      "school": "Western Mindanao College of Islamic Studies",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "Arabic",
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "candidate_id": "STRESS-002",
+  "full_name": "Katrina Mangubat",
+  "location": "San Jose, Dinagat Islands",
+  "email": "katrina.mangubat@example.net",
+  "phone": "+63 915 891 6948",
+  "headline": "Client Relations and Inside Sales Associate",
+  "summary": "Client relations and inside sales associate with five years at a BPO supporting a US home-services company. I started in customer service handling complaints, and now I also call leads, pitch service plans and keep every account in Salesforce and HubSpot. I work remotely from Dinagat Islands.",
+  "projects": [
+    {
+      "name": "Win-back calling campaign",
+      "context": "account project",
+      "bullets": [
+        "Called 1,200 cancelled customers over three months with a new service offer.",
+        "Won back about 14% of them, the account's best result that year."
+      ]
+    },
+    {
+      "name": "CRM clean-up",
+      "context": "account project",
+      "description": "Merged duplicate contacts and fixed missing fields for 20,000 customer records in Salesforce, so sales and service teams saw the same history."
+    }
+  ],
+  "skills": [
+    "Customer service",
+    "Customer relationship management",
+    "CRM software: Salesforce and HubSpot",
+    "Handling complaints and escalations",
+    "Sales techniques and upselling",
+    "Lead generation",
+    "Cold calling",
+    "Clear spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Client Relations and Inside Sales Associate",
+      "employer": "Surigao Straits Remote Services Inc.",
+      "location": "Remote",
+      "start": "2023-09",
+      "end": "Present",
+      "bullets": [
+        "Handle service calls and complaints from existing customers and keep their records current.",
+        "Call leads from web forms and cold lists and pitch maintenance plans, averaging 25 sales a month.",
+        "Log every call and follow-up in Salesforce and HubSpot for the sales and service teams."
+      ]
+    },
+    {
+      "title": "Customer Service Representative",
+      "employer": "Surigao Straits Remote Services Inc.",
+      "location": "Remote",
+      "start": "2021-06",
+      "end": "2023-08",
+      "bullets": [
+        "Answered inbound calls about bookings, bills and service complaints.",
+        "Resolved most concerns on the first call and escalated the rest with full notes."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing",
+      "school": "Surigao Northern College",
+      "location": "Surigao City, Surigao del Norte",
+      "start": "2016",
+      "end": "2020"
+    }
+  ]
+}

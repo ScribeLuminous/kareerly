@@ -1,0 +1,57 @@
+{
+  "candidate_id": "CAT08-R02",
+  "full_name": "Allan Tolentino",
+  "location": "Jordan, Guimaras",
+  "email": "allan.tolentino@example.com",
+  "phone": "+63 945 678 9787",
+  "headline": "Social Media Content Creator",
+  "summary": "Fresh graduate and content creator who has built a following for local food and travel content on Guimaras. I shoot and edit short videos, design posts in Canva and know what makes island audiences stop scrolling. I am looking for my first role on a brand's social media team.",
+  "skills": [
+    "Social media management (Facebook, Instagram, TikTok)",
+    "Short-form content and social media trends",
+    "Canva",
+    "Caption and blog writing",
+    "Video editing in CapCut",
+    "Mobile and product photography"
+  ],
+  "experience": [
+    {
+      "title": "Content Creator",
+      "employer": "self-employed (Guimaras food and travel pages)",
+      "location": "Jordan, Guimaras",
+      "start": "2025-10",
+      "end": "Present",
+      "type": "part-time",
+      "bullets": [
+        "Create short videos on Guimaras mangoes, beaches and eateries for pages with about 18,000 followers.",
+        "Worked with four local resorts and cafés on paid posts in exchange for fees or stays."
+      ]
+    },
+    {
+      "title": "Communications Intern",
+      "employer": "Guimaras Island Tourism Association",
+      "location": "Jordan, Guimaras",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Photographed and wrote captions for the Manggahan Festival coverage."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Communication",
+      "school": "Guimaras Strait College",
+      "location": "Jordan, Guimaras",
+      "start": "2021",
+      "end": "2025"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Island eats video series",
+      "description": "A 20-episode TikTok series featuring family-run eateries, with the most-watched episode reaching 250,000 views."
+    }
+  ]
+}

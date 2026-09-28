@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT24-R04",
+  "full_name": "Leonardo Lagumbay",
+  "location": "Kabankalan City, Negros Occidental",
+  "email": "leonardo.lagumbay@example.com",
+  "phone": "+63 928 687 1233",
+  "headline": "CCTV Operator",
+  "experience": [
+    {
+      "title": "CCTV Operator",
+      "employer": "Kabankalan Sugar Mill Security Agency",
+      "location": "Kabankalan City, Negros Occidental",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Monitor 120 CCTV cameras across a sugar mill, warehouses and staff housing.",
+        "Alert guards and the security supervisor to intrusions, fights and fires, and guide them by radio.",
+        "Coordinate with fire and rescue teams during incidents and log each response.",
+        "Protect recorded footage and passwords so only authorised staff can access them.",
+        "Encode incident reports and daily logs into the security system."
+      ]
+    },
+    {
+      "title": "Security Guard",
+      "employer": "Negros South Security Services",
+      "location": "Kabankalan City, Negros Occidental",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Guarded a bank branch entrance and kept the visitor log.",
+        "Patrolled the premises at night and reported incidents."
+      ]
+    }
+  ],
+  "summary": "CCTV operator with three years monitoring a sugar mill complex in Negros Occidental. I watch and control camera systems, alert and guide guards during incidents, coordinate emergency responses and keep footage and incident records secure.",
+  "skills": [
+    "Security monitoring and CCTV operation",
+    "Public safety and site security",
+    "Emergency response coordination",
+    "Protecting footage and access credentials",
+    "Data encoding of incident reports",
+    "Clear radio and spoken English"
+  ],
+  "education": [
+    {
+      "credential": "Security Services NC II",
+      "school": "Negros Occidental Security Training Center",
+      "location": "Bacolod City, Negros Occidental",
+      "start": "2022-06",
+      "end": "2022-11"
+    }
+  ]
+}

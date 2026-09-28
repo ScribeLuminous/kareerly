@@ -1,0 +1,86 @@
+{
+  "candidate_id": "CAT01-R05",
+  "full_name": "Kevin Cruz",
+  "location": "Naval, Biliran",
+  "email": "kevin.cruz@example.com",
+  "phone": "+63 955 412 9909",
+  "headline": "Senior Software Engineer — Java Back End",
+  "summary": "Senior software engineer with nine years of experience designing Java back-end services for payments and banking. I lead code reviews, set testing standards and mentor junior developers while still writing production code. I work remotely from Biliran with distributed agile teams and own services from design through deployment on AWS.",
+  "highlights": [
+    "Cut a nightly settlement batch from five hours to 70 minutes by redesigning its SQL and splitting it into parallel jobs.",
+    "Raised automated test coverage on the core payments service from 38% to 81% and made passing builds a merge requirement.",
+    "Mentored six junior developers; four now own services of their own."
+  ],
+  "skills": [
+    "Java 17 and Spring Boot",
+    "Object-oriented design and design patterns",
+    "SQL on PostgreSQL and Oracle",
+    "Automated testing with JUnit and Mockito",
+    "Git workflows and code review",
+    "Agile development in Scrum and Kanban teams",
+    "JavaScript and Vue.js for internal tools",
+    "Debugging and profiling with IntelliJ and VisualVM",
+    "AWS (EC2, RDS, S3)",
+    "Sprint planning and estimation",
+    "Technical writing for stakeholders"
+  ],
+  "experience": [
+    {
+      "title": "Senior Software Engineer",
+      "employer": "Kinaadman Fintech Systems",
+      "location": "Remote (team based in Cebu City)",
+      "start": "2022-01",
+      "end": "Present",
+      "bullets": [
+        "Own the settlement and reconciliation services that process merchant payouts for about 4,000 small merchants.",
+        "Run design reviews and sprint planning for a team of seven, and keep estimates honest with data from past sprints.",
+        "Moved three services onto AWS with the platform team, writing the runbooks the support team now uses."
+      ]
+    },
+    {
+      "title": "Software Engineer",
+      "employer": "Pagtuon Payments Corp.",
+      "location": "Cebu City, Cebu",
+      "start": "2019-03",
+      "end": "2021-12",
+      "bullets": [
+        "Built Java services for bills-payment partners and the SQL reports finance used for daily reconciliation.",
+        "Found and fixed a race condition in duplicate-payment detection by reproducing it under load and stepping through it in the debugger.",
+        "Built a small Vue.js console that let operations staff re-run failed transactions safely."
+      ]
+    },
+    {
+      "title": "Junior Java Developer",
+      "employer": "Leyte Gulf Business Solutions",
+      "location": "Tacloban City, Leyte",
+      "start": "2017-06",
+      "end": "2019-02",
+      "bullets": [
+        "Maintained Java desktop and web modules for cooperative bookkeeping clients in Eastern Visayas.",
+        "Wrote the SQL migration scripts that moved twelve clients from spreadsheets to a shared database."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Computer Science",
+      "school": "Eastern Visayas Institute of Science and Technology",
+      "location": "Tacloban City, Leyte",
+      "start": "2013",
+      "end": "2017"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Oracle Certified Professional, Java SE 11 Developer",
+      "issuer": "Oracle",
+      "date": "2020-11"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Waray",
+    "Cebuano"
+  ]
+}

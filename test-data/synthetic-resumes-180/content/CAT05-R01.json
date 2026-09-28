@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT05-R01",
+  "full_name": "Carmina Lopez",
+  "location": "Odiongan, Romblon",
+  "email": "carmina.lopez@example.com",
+  "phone": "+63 927 995 4304",
+  "headline": "Administrative Assistant",
+  "summary": "Administrative assistant with a year of experience in a busy provincial hospital office. I keep the director's calendar and inbox in order, handle letters and memos, and maintain a correspondence log that anyone can search. I am organised, discreet and quick with Microsoft Office.",
+  "skills": [
+    "Office administration",
+    "Document and records management",
+    "Clerical work and filing",
+    "Microsoft Office (Word, Excel, Outlook)",
+    "Calendar management",
+    "Email management",
+    "Correspondence logs and records",
+    "Appointment scheduling",
+    "Business writing"
+  ],
+  "experience": [
+    {
+      "title": "Administrative Assistant",
+      "employer": "Tablas Island Medical Center",
+      "location": "Odiongan, Romblon",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Manage the medical director's calendar, meeting requests and inbox, and prepare the weekly schedule every Friday.",
+        "Draft, log and file incoming and outgoing letters; built a correspondence register that cut search time for old memos.",
+        "Organise the office's paper and digital files under one naming system.",
+        "Book patients' follow-up appointments with visiting specialists from Manila."
+      ]
+    },
+    {
+      "title": "Office Intern",
+      "employer": "Odiongan Tourism and Visitors Association",
+      "location": "Odiongan, Romblon",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Photocopied, sorted and filed permits, and answered visitor enquiries at the front desk."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Office Administration",
+      "school": "Tablas Island College",
+      "location": "Odiongan, Romblon",
+      "start": "2021",
+      "end": "2025"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Microsoft Office Specialist: Word",
+      "issuer": "Microsoft",
+      "date": "2024-11"
+    }
+  ]
+}

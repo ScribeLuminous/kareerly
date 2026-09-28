@@ -1,0 +1,58 @@
+{
+  "candidate_id": "CAT02-R04",
+  "full_name": "Janine Sarmiento",
+  "location": "Maasin City, Southern Leyte",
+  "email": "janine.sarmiento@example.net",
+  "phone": "+63 919 302 6949",
+  "headline": "Data Quality Analyst",
+  "experience": [
+    {
+      "title": "Data Quality Analyst",
+      "employer": "Southern Leyte Data Processing Services Inc.",
+      "location": "Maasin City, Southern Leyte",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Write SQL checks that catch duplicate, incomplete and out-of-range records in health-insurance claims before they are sent to the client.",
+        "Verify a weekly sample of about 2,000 scanned claim forms against the encoded data and log each error by type.",
+        "Maintain the folder structure, naming rules and retention schedule for scanned documents.",
+        "Send team leads a weekly error summary and walk new encoders through the most common mistakes."
+      ]
+    },
+    {
+      "title": "Data Encoder",
+      "employer": "Maasin Hardware and Construction Supply",
+      "location": "Maasin City, Southern Leyte",
+      "start": "2022-11",
+      "end": "2023-07",
+      "bullets": [
+        "Encoded delivery receipts and supplier invoices, and reconciled stock counts with the warehouse every Friday.",
+        "Set up an Excel checklist that caught price mismatches between supplier invoices and purchase orders."
+      ]
+    }
+  ],
+  "summary": "Data quality analyst with three years in claims processing and retail back-office work. I write SQL checks, verify records against source documents and track error trends so teams can fix causes rather than symptoms. Comfortable with large volumes and strict turnaround times.",
+  "skills": [
+    "Data analysis",
+    "SQL",
+    "Data verification and validation rules",
+    "Microsoft Excel",
+    "Data encoding",
+    "Document management and records retention",
+    "Writing clear error reports"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Systems",
+      "school": "Southern Leyte Technological College",
+      "location": "Maasin City, Southern Leyte",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

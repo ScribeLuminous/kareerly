@@ -1,0 +1,63 @@
+{
+  "candidate_id": "STRESS-006",
+  "full_name": "Rosalie Serrano",
+  "location": "Balanga City, Bataan",
+  "email": "rosalie.serrano@example.net",
+  "phone": "+63 998 774 6401",
+  "headline": "Banquet and Catering Supervisor",
+  "summary": "Banquet and catering supervisor with seven years in hotel and catering operations in Bataan. I lead a team of 20 servers and cooks at weddings, conferences and outside catering, coordinate events and bookings with clients, and make sure food is prepared and served safely and on time.",
+  "skills": [
+    "Food service and banquet operations",
+    "Food safety",
+    "Food preparation for large events",
+    "Table service standards",
+    "Food and beverage service",
+    "Event coordination",
+    "Guest relations",
+    "Booking and reservation handling",
+    "Staff supervision and scheduling"
+  ],
+  "experience": [
+    {
+      "title": "Banquet and Catering Supervisor",
+      "employer": "Bataan Bayview Hotel and Events",
+      "location": "Balanga City, Bataan",
+      "start": "2022-03",
+      "end": "Present",
+      "bullets": [
+        "Supervise 20 servers and cooks for weddings, conferences and outside catering of up to 600 guests.",
+        "Plan each event's menu, timing and staffing with the client and the kitchen.",
+        "Take event bookings and keep the banquet calendar.",
+        "Brief staff on food handling, service standards and guest needs before each event.",
+        "Handle guests' requests and complaints during events."
+      ]
+    },
+    {
+      "title": "Banquet Captain",
+      "employer": "Mariveles Harbor Hotel",
+      "location": "Balanga City, Bataan",
+      "start": "2019-06",
+      "end": "2022-02",
+      "bullets": [
+        "Led a team of eight servers at banquets and buffets.",
+        "Set up function rooms and checked table settings before guests arrived."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Hotel and Restaurant Services",
+      "school": "Bataan Peninsula College of Agriculture",
+      "location": "Balanga City, Bataan",
+      "start": "2016",
+      "end": "2018"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Food and Beverage Services NC II",
+      "issuer": "TESDA",
+      "date": "2018-10"
+    }
+  ]
+}

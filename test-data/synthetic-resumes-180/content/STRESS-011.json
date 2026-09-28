@@ -1,0 +1,55 @@
+{
+  "candidate_id": "STRESS-011",
+  "full_name": "Trisha Mangubat",
+  "location": "Mati City, Davao Oriental",
+  "email": "trisha.mangubat@example.com",
+  "phone": "+63 905 582 1466",
+  "headline": "Events Sales Executive",
+  "summary": "Events sales executive with five years selling and coordinating weddings, conferences and team-building events at a beach resort in Davao Oriental. I find and win event clients, negotiate packages and contracts, and then coordinate the event with our operations team so clients get what we promised.",
+  "experience": [
+    {
+      "title": "Events Sales Executive",
+      "employer": "Mati Bay Beach Resort and Convention Center",
+      "location": "Mati City, Davao Oriental",
+      "start": "2023-01",
+      "end": "Present",
+      "paragraph": "Responsible for event sales and client management for a resort with three function halls and a beachfront venue.",
+      "bullets": [
+        "Find leads from companies, schools and wedding planners, and bring in about ₱24 million in event sales a year.",
+        "Negotiate packages, rates and contracts with clients.",
+        "Handle event and room bookings for groups and keep the events calendar.",
+        "Coordinate each event with operations and look after clients on the day."
+      ]
+    },
+    {
+      "title": "Guest Relations and Sales Associate",
+      "employer": "Davao Oriental Seaside Inn",
+      "location": "Mati City, Davao Oriental",
+      "start": "2021-06",
+      "end": "2022-12",
+      "paragraph": "Split between guest relations and small-group sales.",
+      "bullets": [
+        "Welcomed VIP guests and handled their requests during their stay.",
+        "Sold group packages to companies and kept client records."
+      ]
+    }
+  ],
+  "skills": [
+    "Event coordination",
+    "Guest relations",
+    "Group and event reservations",
+    "Sales techniques",
+    "Negotiation",
+    "Lead generation",
+    "Customer relationship management"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Hospitality Management",
+      "school": "Davao Oriental Pacific College",
+      "location": "Mati City, Davao Oriental",
+      "start": "2017",
+      "end": "2021"
+    }
+  ]
+}

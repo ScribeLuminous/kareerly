@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT18-R04",
+  "full_name": "Bea Santos",
+  "location": "Daet, Camarines Norte",
+  "email": "bea.santos@example.com",
+  "phone": "+63 991 946 2313",
+  "headline": "Events Coordinator",
+  "summary": "Events coordinator with three years organising festivals, weddings and corporate events in Camarines Norte. I coordinate suppliers, programs and venues, take part in the province's tourism events, and design the promotional materials that bring people in. Guests' experience on the day is what I care about most.",
+  "experience": [
+    {
+      "title": "Events Coordinator",
+      "employer": "Bicol Coastline Events and Tourism Services",
+      "location": "Daet, Camarines Norte",
+      "start": "2023-08",
+      "end": "Present",
+      "paragraph": "Coordinate about 40 events a year, from beach weddings to company outings and festival activities.",
+      "bullets": [
+        "Plan timelines, suppliers and budgets and run each event on the day.",
+        "Organise the company's booths and activities during the Pinyasan Festival and surfing competitions.",
+        "Design posters and social media promos in Canva for public events.",
+        "Welcome VIP guests and look after them throughout the program."
+      ]
+    },
+    {
+      "title": "Events Assistant",
+      "employer": "Daet Bayside Function Hall",
+      "location": "Daet, Camarines Norte",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Set up venues and coordinated caterers and sound suppliers.",
+        "Kept event checklists and supplier contacts up to date."
+      ]
+    }
+  ],
+  "skills": [
+    "Event coordination",
+    "Tourism events and festivals",
+    "Guest relations",
+    "Project coordination",
+    "Canva",
+    "Event marketing and promotions",
+    "Business communication"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Tourism Management",
+      "school": "Camarines Norte Bayside College",
+      "location": "Daet, Camarines Norte",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

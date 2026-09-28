@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT11-R04",
+  "full_name": "Jan Carlo Flores",
+  "location": "Caloocan City, Metro Manila",
+  "email": "jan.flores@example.org",
+  "phone": "+63 998 498 1386",
+  "headline": "Photographer",
+  "summary": "Photographer with three years in events, products and food photography around Caloocan and Quezon City. I shoot and edit in Lightroom and Photoshop, plan shot lists with clients, and deliver galleries quickly. I also manage my studio's social media page.",
+  "skills": [
+    "Event, product and food photography",
+    "Adobe Lightroom",
+    "Adobe Photoshop retouching",
+    "Shot lists and content planning",
+    "Studio and flash lighting",
+    "Client handling and bookings",
+    "Social media page management"
+  ],
+  "experience": [
+    {
+      "title": "Photographer",
+      "employer": "Kalookan Lens and Light Studio",
+      "location": "Caloocan City, Metro Manila",
+      "start": "2023-06",
+      "end": "Present",
+      "bullets": [
+        "Shoot about six events a month: weddings, debuts, christenings and company outings.",
+        "Photograph products and menus for small food and clothing brands in the studio.",
+        "Edit and retouch galleries in Lightroom and Photoshop, delivering within a week.",
+        "Run the studio's Facebook and Instagram pages and answer booking enquiries."
+      ]
+    },
+    {
+      "title": "Photography Assistant",
+      "employer": "Quezon City Portrait Studio",
+      "location": "Quezon City, Metro Manila",
+      "start": "2023-01",
+      "end": "2023-05",
+      "bullets": [
+        "Set up lights and backdrops and managed client queues during school photo days.",
+        "Backed up and sorted photos after each shoot."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Photography and Digital Imaging",
+      "school": "Metro North Institute of Visual Arts",
+      "location": "Caloocan City, Metro Manila",
+      "start": "2020",
+      "end": "2022"
+    }
+  ]
+}

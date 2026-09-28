@@ -1,0 +1,76 @@
+{
+  "candidate_id": "CAT08-R03",
+  "full_name": "Erlinda Dagondon",
+  "location": "Marawi City, Lanao del Sur",
+  "email": "erlinda.dagondon@example.com",
+  "phone": "+63 998 273 5118",
+  "headline": "SEO Specialist",
+  "summary": "SEO specialist with four years growing organic traffic for e-commerce and travel sites. I plan content around search demand, fix technical issues, and report on results in Google Analytics and Search Console. I also manage Google Ads budgets and connect paid and organic results into one digital plan.",
+  "certifications": [
+    {
+      "name": "Google Analytics Certification",
+      "issuer": "Google",
+      "date": "2024-05"
+    },
+    {
+      "name": "Google Ads Search Certification",
+      "issuer": "Google",
+      "date": "2023-11"
+    },
+    {
+      "name": "Content Marketing Certification",
+      "issuer": "online course",
+      "date": "2022-09"
+    }
+  ],
+  "skills": [
+    "Search engine optimization: technical, on-page and link building",
+    "Google Analytics 4 and Search Console",
+    "Content marketing strategy",
+    "Keyword research and content briefs",
+    "Digital marketing planning",
+    "Marketing analytics and reporting",
+    "Google Ads (search and shopping)",
+    "SEO content writing"
+  ],
+  "experience": [
+    {
+      "title": "SEO Specialist",
+      "employer": "Ranao Digital Marketing Agency",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2023-10",
+      "end": "Present",
+      "bullets": [
+        "Manage search optimisation for eleven clients, mainly online shops and travel operators.",
+        "Grew a halal food delivery client's organic traffic by 140% in a year through content planning and technical fixes.",
+        "Build monthly reports that tie traffic, conversions and ad spend together for each client.",
+        "Manage Google Ads budgets of up to ₱150,000 a month."
+      ]
+    },
+    {
+      "title": "SEO Content Writer",
+      "employer": "Iligan Bay Web Solutions",
+      "location": "Iligan City, Lanao del Norte",
+      "start": "2022-06",
+      "end": "2023-09",
+      "bullets": [
+        "Wrote search-optimised articles and product pages for Philippine and Australian clients.",
+        "Researched keywords and updated old articles that had lost rankings."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in English",
+      "school": "Lanao Lakeside State College",
+      "location": "Marawi City, Lanao del Sur",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Maranao"
+  ]
+}

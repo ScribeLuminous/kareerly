@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT10-R04",
+  "full_name": "Nerissa Elnas",
+  "location": "Malaybalay City, Bukidnon",
+  "email": "nerissa.elnas@example.com",
+  "phone": "+63 947 342 3100",
+  "headline": "Scriptwriter",
+  "experience": [
+    {
+      "title": "Scriptwriter",
+      "employer": "Bukidnon Highland Media Productions",
+      "location": "Malaybalay City, Bukidnon",
+      "start": "2023-09",
+      "end": "Present",
+      "bullets": [
+        "Write scripts for tourism videos, school documentaries and a weekly local radio drama.",
+        "Develop story concepts with directors and turn interviews into narration.",
+        "Rewrite scripts after shoots so narration matches the footage we actually got.",
+        "Plan content calendars for the company's YouTube channel with the producer."
+      ]
+    },
+    {
+      "title": "Copywriter",
+      "employer": "Malaybalay Print and Advertising",
+      "location": "Malaybalay City, Bukidnon",
+      "start": "2023-01",
+      "end": "2023-08",
+      "bullets": [
+        "Wrote radio spots, tarpaulin slogans and flyers for local businesses.",
+        "Helped cut and assemble simple promo videos for the shop's social pages."
+      ]
+    }
+  ],
+  "summary": "Scriptwriter with three years writing for video, radio and advertising in Bukidnon. I develop story ideas with directors, write scripts and ad copy, and rework drafts after shoots and feedback. I also help plan content and do simple video edits.",
+  "skills": [
+    "Scriptwriting and content writing",
+    "Copywriting for radio and print ads",
+    "Rewriting scripts and narration",
+    "Creative concept development",
+    "Video editing basics (Premiere Pro)",
+    "Content planning",
+    "English, Filipino and Binukid"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Mass Communication",
+      "school": "Bukidnon Plateau College",
+      "location": "Malaybalay City, Bukidnon",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

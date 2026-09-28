@@ -1,0 +1,88 @@
+{
+  "candidate_id": "CAT02-R03",
+  "full_name": "Diane Ocampo",
+  "location": "San Jose de Buenavista, Antique",
+  "email": "diane.ocampo@example.com",
+  "phone": "+63 989 110 8677",
+  "headline": "Business Intelligence Analyst",
+  "summary": "Business intelligence analyst with four years in banking and consumer-goods distribution. I design Power BI data models and dashboards, write the SQL behind them, and work with sales and finance leads to decide which measures matter. I also look after the reporting database so figures stay consistent from month to month.",
+  "skill_groups": [
+    {
+      "label": "Reporting",
+      "items": [
+        "Power BI (DAX, data modelling, row-level access)",
+        "data visualization",
+        "business analytics for sales and credit"
+      ]
+    },
+    {
+      "label": "Data",
+      "items": [
+        "SQL (SQL Server, MySQL)",
+        "database management and scheduled refreshes",
+        "data analysis",
+        "statistical techniques: forecasting and variance analysis"
+      ]
+    },
+    {
+      "label": "Other",
+      "items": [
+        "Microsoft Excel",
+        "stakeholder presentations"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "title": "Business Intelligence Analyst",
+      "employer": "Panay Consumer Goods Distribution Corp.",
+      "location": "Iloilo City, Iloilo (hybrid)",
+      "start": "2024-01",
+      "end": "Present",
+      "bullets": [
+        "Built the company's sales performance dashboards in Power BI, now used weekly by 25 area supervisors across Panay and Guimaras.",
+        "Designed a star-schema reporting database and nightly SQL loads from the ordering system.",
+        "Introduced a simple demand forecast for fast-moving goods that reduced stock-outs in two warehouses."
+      ]
+    },
+    {
+      "title": "Data Analyst",
+      "employer": "Sibalom Valley Rural Bank",
+      "location": "San Jose de Buenavista, Antique",
+      "start": "2022-02",
+      "end": "2023-12",
+      "bullets": [
+        "Prepared monthly loan-portfolio and deposit reports for the board using SQL and Excel.",
+        "Analysed delinquency by loan product and barangay, which led to a revised collection schedule for farm loans."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Applied Mathematics",
+      "school": "Antique Western State College",
+      "location": "San Jose de Buenavista, Antique",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Microsoft Certified: Power BI Data Analyst Associate",
+      "issuer": "Microsoft",
+      "date": "2023-06"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Board reporting pack",
+      "description": "Replaced a 40-tab Excel workbook at the rural bank with a six-page Power BI report."
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Kinaray-a",
+    "Hiligaynon"
+  ]
+}

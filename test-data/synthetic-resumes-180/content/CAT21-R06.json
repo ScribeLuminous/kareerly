@@ -1,0 +1,71 @@
+{
+  "candidate_id": "CAT21-R06",
+  "full_name": "Jocelyn Tuazon",
+  "location": "Puerto Princesa City, Palawan",
+  "email": "jocelyn.tuazon@example.net",
+  "phone": "+63 975 347 0951",
+  "headline": "Food Plant Machine Operator",
+  "summary": "Agriculture graduate and former farm technician now operating canning and packing machines at a fruit processing plant in Palawan. Four years managing cashew and fruit farms gave me a strong sense of product quality from the field; I now run the canning line machines and inspect product before packing.",
+  "certifications": [
+    {
+      "name": "Food Processing NC II",
+      "issuer": "TESDA",
+      "date": "2025-02"
+    },
+    {
+      "name": "Good Manufacturing Practices Training",
+      "issuer": "accredited training provider",
+      "date": "2025-07"
+    },
+    {
+      "name": "Basic Food Safety and HACCP Awareness",
+      "issuer": "accredited training provider",
+      "date": "2025-07"
+    }
+  ],
+  "skills": [
+    "Machine operation: fillers, seamers, retorts",
+    "Food canning line operation",
+    "Packaging",
+    "Quality inspection of raw fruit and finished cans",
+    "Crop production",
+    "Harvest methods and post-harvest handling",
+    "Food safety",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Machine Operator",
+      "employer": "Palawan Tropical Fruits Processing Inc.",
+      "location": "Puerto Princesa City, Palawan",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Operate filling, seaming and retort machines on the canned mango and pineapple line.",
+        "Pack cans into cartons and label them for storage.",
+        "Inspect incoming fruit and finished cans and set aside rejects."
+      ]
+    },
+    {
+      "title": "Farm Technician",
+      "employer": "Palawan Cashew and Fruit Growers Cooperative",
+      "location": "Puerto Princesa City, Palawan",
+      "start": "2021-06",
+      "end": "2025-05",
+      "bullets": [
+        "Managed planting, fertilising and pest control on 40 hectares of cashew and mango.",
+        "Supervised harvesting and grading of fruit for buyers and processors.",
+        "Trained member farmers on proper harvest and post-harvest handling."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Agriculture, major in Horticulture",
+      "school": "Palawan Western College of Agriculture",
+      "location": "Puerto Princesa City, Palawan",
+      "start": "2017",
+      "end": "2021"
+    }
+  ]
+}

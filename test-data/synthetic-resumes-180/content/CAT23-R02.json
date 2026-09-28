@@ -1,0 +1,55 @@
+{
+  "candidate_id": "CAT23-R02",
+  "full_name": "Raymond Ong",
+  "location": "Tandag City, Surigao del Sur",
+  "email": "raymond.ong@example.com",
+  "phone": "+63 961 120 0717",
+  "headline": "Local Government Program Assistant",
+  "summary": "Public administration graduate looking for a program assistant post in local government or a public authority. During my OJT I helped run a livelihood assistance program: I assisted residents at the help desk, encoded applications and joined community orientations in the barangays.",
+  "projects": [
+    {
+      "name": "Livelihood assistance help desk",
+      "context": "OJT project",
+      "bullets": [
+        "Assisted about 50 residents a day with application forms and requirements.",
+        "Encoded 900 applications and checked them for missing requirements."
+      ]
+    },
+    {
+      "name": "Barangay youth survey",
+      "context": "undergraduate research",
+      "description": "Surveyed 200 young people in Tandag on job interests and presented the results at a barangay assembly."
+    }
+  ],
+  "skills": [
+    "Government service support at the help desk",
+    "Community engagement and orientations",
+    "Data encoding",
+    "Customer service to residents",
+    "Microsoft Office",
+    "Clear spoken English, Filipino and Surigaonon"
+  ],
+  "experience": [
+    {
+      "title": "Program Assistant Intern (OJT)",
+      "employer": "Surigao del Sur Coastal Livelihood Authority",
+      "location": "Tandag City, Surigao del Sur",
+      "start": "2026-01",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Staffed the help desk for the livelihood assistance program and answered residents' questions.",
+        "Joined program orientations in six coastal barangays."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Public Administration",
+      "school": "Tandag Bay College",
+      "location": "Tandag City, Surigao del Sur",
+      "start": "2022",
+      "end": "2026"
+    }
+  ]
+}

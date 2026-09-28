@@ -1,0 +1,66 @@
+{
+  "candidate_id": "CAT04-R03",
+  "full_name": "Lalaine Ramirez",
+  "location": "Mambajao, Camiguin",
+  "email": "lalaine.ramirez@example.com",
+  "phone": "+63 906 824 7400",
+  "headline": "Financial Analyst",
+  "experience": [
+    {
+      "title": "Financial Analyst",
+      "employer": "Camiguin Island Resorts Holdings",
+      "location": "Mambajao, Camiguin",
+      "start": "2023-11",
+      "end": "Present",
+      "bullets": [
+        "Build the monthly management report for four resorts: revenue by channel, cost per occupied room and budget variance.",
+        "Forecast cash needs 13 weeks ahead and flag shortfalls before the typhoon-season low months.",
+        "Prepared the analysis that moved laundry in-house, saving about ₱1.2 million a year.",
+        "Draft the quarterly financial statements with the external accountant and answer the board's questions."
+      ]
+    },
+    {
+      "title": "Budget and Finance Assistant",
+      "employer": "Northern Mindanao Agri-Ventures Corp.",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2022-01",
+      "end": "2023-10",
+      "bullets": [
+        "Tracked spending against the annual budget for three plantations and wrote the monthly variance notes.",
+        "Maintained the fixed-asset and equipment register and reconciled it with the physical count every year."
+      ]
+    }
+  ],
+  "summary": "Financial analyst with four years in agribusiness and hospitality. I build management reports and cash-flow forecasts, control budgets across several business units, and turn the numbers into charts and short recommendations for owners. I have a background in economics and like connecting financial results to what is happening in the market.",
+  "skills": [
+    "Financial reporting and management reports",
+    "Cash-flow forecasting and treasury",
+    "Budget control and variance analysis",
+    "Asset and resource planning",
+    "Preparation of financial statements",
+    "Data analysis and charts in Excel",
+    "Economic and market analysis",
+    "Board and owner presentations"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Economics",
+      "school": "Misamis Oriental College of Business and Economics",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Financial Modelling and Valuation",
+      "issuer": "online course",
+      "date": "2023-05"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

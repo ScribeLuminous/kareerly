@@ -1,0 +1,56 @@
+{
+  "candidate_id": "CAT23-R07",
+  "full_name": "Mark Anthony Dela Peña",
+  "location": "Alaminos City, Pangasinan",
+  "email": "mark.delapena@example.net",
+  "phone": "+63 956 896 0205",
+  "headline": "Risk and Compliance Assistant (Public Sector)",
+  "summary": "Risk and compliance assistant with three years at a coastal management authority in Pangasinan. I prepare risk reports, check that programs follow regulations and audit findings, research laws and rules for management, and keep compliance records and legal documents in order.",
+  "skills": [
+    "Risk reporting",
+    "Government service support",
+    "Policy support and research",
+    "Public records management",
+    "Regulatory compliance",
+    "Legal research",
+    "Legal documentation",
+    "Audit techniques and follow-up of findings",
+    "Business writing"
+  ],
+  "experience": [
+    {
+      "title": "Risk and Compliance Assistant",
+      "employer": "Western Pangasinan Coastal Management Authority",
+      "location": "Alaminos City, Pangasinan",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Prepare the quarterly risk register and report for the management committee.",
+        "Track audit findings and check that each office completes its corrective actions.",
+        "Research laws and rules on coastal use and tourism and summarise them for management.",
+        "Keep permits, contracts and compliance records complete and easy to retrieve.",
+        "Draft notices and endorsements for the legal officer's review."
+      ]
+    },
+    {
+      "title": "Administrative Assistant",
+      "employer": "Hundred Islands Tourism Services Cooperative",
+      "location": "Alaminos City, Pangasinan",
+      "start": "2023-01",
+      "end": "2023-06",
+      "bullets": [
+        "Processed visitor permits and filed documents.",
+        "Answered public enquiries at the front office."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Political Science",
+      "school": "Pangasinan Coastal University",
+      "location": "Dagupan City, Pangasinan",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

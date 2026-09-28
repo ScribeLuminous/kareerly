@@ -1,0 +1,76 @@
+{
+  "candidate_id": "CAT16-R06",
+  "full_name": "Rodel Bacus",
+  "location": "Cagayan de Oro City, Misamis Oriental",
+  "email": "rodel.bacus@example.org",
+  "phone": "+63 977 402 7483",
+  "headline": "Draftsman (CAD)",
+  "summary": "Carpenter and mason foreman of seven years who moved into CAD drafting. After years of building from plans, I trained in AutoCAD and have spent the past year drafting house and fit-out plans for a contractor in Cagayan de Oro. I draw with the builder in mind, so my details are easy to build on site.",
+  "projects": [
+    {
+      "name": "Two-storey house plan set",
+      "context": "drafting project",
+      "bullets": [
+        "Drew the complete floor plans, elevations, sections and details of a 180 m² house in AutoCAD.",
+        "Added carpentry and masonry details that the site crew used without asking for clarification."
+      ]
+    },
+    {
+      "name": "Shop fit-out drawings",
+      "context": "drafting project",
+      "description": "Produced shop drawings for cabinets and partitions in a mall store fit-out."
+    }
+  ],
+  "skills": [
+    "Technical drafting",
+    "AutoCAD",
+    "Reading and preparing blueprints",
+    "CAD operation",
+    "Carpentry",
+    "Masonry",
+    "Construction safety",
+    "Clear communication with foremen and clients"
+  ],
+  "experience": [
+    {
+      "title": "CAD Draftsman",
+      "employer": "Cagayan de Oro Homebuilders Co.",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Draft house and fit-out plans from engineers' and architects' mark-ups.",
+        "Prepare shop drawings for cabinets and partitions.",
+        "Visit sites to check that drawings match what can be built."
+      ]
+    },
+    {
+      "title": "Carpenter and Mason Foreman",
+      "employer": "Macajalar Bay Construction Services",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2018-06",
+      "end": "2025-05",
+      "bullets": [
+        "Led crews of up to 12 carpenters and masons on residential and small commercial projects.",
+        "Built formworks, walls and finishes from plans and checked work against them.",
+        "Ran daily safety talks and enforced harness and helmet use on site."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Technical Drafting NC II",
+      "school": "Misamis Oriental Skills Institute",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2024-06",
+      "end": "2025-03"
+    },
+    {
+      "credential": "Diploma in Building Construction Technology",
+      "school": "Northern Mindanao Trade School",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2015",
+      "end": "2017"
+    }
+  ]
+}

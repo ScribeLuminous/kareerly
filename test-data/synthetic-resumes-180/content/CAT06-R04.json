@@ -1,0 +1,52 @@
+{
+  "candidate_id": "CAT06-R04",
+  "full_name": "Kevin Ocampo",
+  "location": "Batangas City, Batangas",
+  "email": "kevin.ocampo@example.org",
+  "phone": "+63 918 112 7000",
+  "headline": "Project Coordinator",
+  "summary": "Project coordinator with three years at a construction materials company running office renovation and branch opening projects. I keep plans, schedules and documents in Asana and in shared folders, run weekly check-ins, and make sure suppliers and teams know what is due.",
+  "skills": [
+    "Project coordination",
+    "Asana",
+    "Calendar and meeting management",
+    "Project management principles: scope, schedule, budget",
+    "Document management",
+    "Office administration",
+    "Clear business communication"
+  ],
+  "experience": [
+    {
+      "title": "Project Coordinator",
+      "employer": "Batangas Bay Building Materials Corp.",
+      "location": "Batangas City, Batangas",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Coordinated the opening of three branch stores, each on time and within 5% of budget.",
+        "Keep every project's tasks, owners and deadlines in Asana and send a weekly status summary.",
+        "Organise permits, contracts and turnover documents in one shared folder per project."
+      ]
+    },
+    {
+      "title": "Administrative Assistant",
+      "employer": "Batangas Bay Building Materials Corp.",
+      "location": "Batangas City, Batangas",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Supported the operations manager with scheduling, filing and supplier follow-ups.",
+        "Prepared meeting materials and took minutes for management meetings."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Industrial Engineering",
+      "school": "Southern Tagalog Institute of Technology",
+      "location": "Batangas City, Batangas",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

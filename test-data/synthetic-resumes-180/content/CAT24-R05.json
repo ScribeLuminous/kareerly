@@ -1,0 +1,81 @@
+{
+  "candidate_id": "CAT24-R05",
+  "full_name": "Arnel Dimaculangan",
+  "location": "Gingoog City, Misamis Oriental",
+  "email": "arnel.dimaculangan@example.org",
+  "phone": "+63 939 665 7486",
+  "headline": "Compliance Manager",
+  "summary": "Compliance manager with ten years in banking, mining supply and government contracting in Northern Mindanao. I build compliance programs, review contracts and procurement against the law, and advise management on legal and regulatory risk. I lead a team of four and report compliance and risk to the board.",
+  "highlights": [
+    "Built the compliance program of a cooperative bank that passed its regulator examination without major findings.",
+    "Set up contract review for all supply contracts, cutting disputes with suppliers by half.",
+    "Led the company's first data privacy compliance program under the Data Privacy Act."
+  ],
+  "skills": [
+    "Regulatory compliance programs",
+    "Compliance with laws and regulations",
+    "Procurement and contracting compliance",
+    "Contract review",
+    "Contract law",
+    "Legal documentation",
+    "Legal research",
+    "Compiling legal and regulatory filings",
+    "Risk reporting to the board",
+    "Compliance audits",
+    "Team management",
+    "ICT and data privacy law"
+  ],
+  "experience": [
+    {
+      "title": "Compliance Manager",
+      "employer": "Gingoog Bay Mining and Industrial Supply Corp.",
+      "location": "Gingoog City, Misamis Oriental",
+      "start": "2020-03",
+      "end": "Present",
+      "bullets": [
+        "Lead a team of four covering regulatory, contract and data privacy compliance.",
+        "Review supply and government contracts for legal and procurement compliance before signing.",
+        "Present quarterly compliance and risk reports to the board."
+      ]
+    },
+    {
+      "title": "Compliance Officer",
+      "employer": "Misamis Oriental Cooperative Bank",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2016-04",
+      "end": "2020-02",
+      "bullets": [
+        "Monitored the bank's compliance with banking and anti-money-laundering rules.",
+        "Ran compliance audits of branches and followed up findings."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master in Business Administration",
+      "school": "Northern Mindanao Graduate School of Business",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2017",
+      "end": "2020"
+    },
+    {
+      "credential": "Bachelor of Science in Legal Management",
+      "school": "Misamis Oriental College of Business and Economics",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Compliance Officer",
+      "issuer": "professional training course",
+      "date": "2018-08"
+    },
+    {
+      "name": "Certified Data Protection Officer",
+      "issuer": "professional training course",
+      "date": "2021-05"
+    }
+  ]
+}

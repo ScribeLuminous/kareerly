@@ -1,0 +1,58 @@
+{
+  "candidate_id": "CAT04-R04",
+  "full_name": "Randy Omaña",
+  "location": "Zamboanga City, Zamboanga del Sur",
+  "email": "randy.omana@example.net",
+  "phone": "+63 961 152 6486",
+  "headline": "Payroll Specialist",
+  "summary": "Payroll specialist with three years at a shipping and a trading company in Zamboanga City. I run semi-monthly payroll for up to 300 employees, compute SSS, PhilHealth and Pag-IBIG contributions and withholding tax, and work with HR on new hires, leaves and final pay. I am careful with deadlines and with employee questions.",
+  "skills": [
+    "Payroll processing for 300 employees",
+    "Government contributions (SSS, PhilHealth, Pag-IBIG) and withholding tax",
+    "Final pay and 13th-month computation",
+    "Bookkeeping entries for payroll",
+    "Microsoft Excel",
+    "Data encoding of timekeeping records",
+    "HR support: onboarding, leave records and employee files"
+  ],
+  "experience": [
+    {
+      "title": "Payroll Specialist",
+      "employer": "Basilan Strait Shipping Lines",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2024-03",
+      "end": "Present",
+      "bullets": [
+        "Run semi-monthly payroll for about 300 crew and office staff, including sea allowances and overtime.",
+        "Compute and remit SSS, PhilHealth and Pag-IBIG contributions and prepare the annual tax certificates.",
+        "Post payroll journal entries and reconcile the payroll bank account every cutoff.",
+        "Coordinate with HR on new hires, separations and leave balances so the first and last pays are right."
+      ]
+    },
+    {
+      "title": "Payroll and HR Assistant",
+      "employer": "Zamboanga Peninsula Trading Co.",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2023-01",
+      "end": "2024-02",
+      "bullets": [
+        "Encoded biometric time records and leave forms for 80 employees each cutoff.",
+        "Kept the 201 files of employees complete and helped prepare new-hire requirements."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Financial Management",
+      "school": "Western Mindanao College of Commerce",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Chavacano"
+  ]
+}
