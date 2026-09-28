@@ -393,7 +393,6 @@ function AppContent() {
           onEmployerStart={showEmployerSignUp}
           onLogin={showCandidateSignIn}
           onSignUp={showSignUpDefault}
-          onAdminLogin={showAdminSignIn}
         />
       )}
       {view === 'candidate-login' && (
