@@ -92,6 +92,7 @@ const page = await loadPage([
 const { renderToStaticMarkup } = require('react-dom/server');
 const employerPage = await loadPage([
   '../src/pages/employer/model.ts',
+  '../src/pages/employer/insights/matchTiers.ts',
   '../src/pages/employer/evaluation.ts',
   '../src/pages/employer/EvaluationPanels.tsx',
   '../src/pages/employer/ApplicantRow.tsx',
@@ -306,12 +307,12 @@ test('applicant rows point at the assessment before a scorecard can start', () =
   assert.match(row(null), /Match 100%/);
 });
 
-test('the high-match quick filter keeps applicants at 70% or more', () => {
+test('the high-match quick filter keeps applicants at 75% or more', () => {
   const app = (id, matched) => ({ id, jobId: 'J1', appliedDate: '2026-09-01', lastActivity: '', status: 'Pending', publicId: id, fullName: id, matchedSkills: matched, missingSkills: ['X'], messageRequestState: 'none' });
   const jobs = [{ id: 'J1', requiredSkills: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] }];
-  const applications = [app('seven', ['A', 'B', 'C', 'D', 'E', 'F', 'G']), app('six', ['A', 'B', 'C', 'D', 'E', 'F']), app('none', [])];
+  const applications = [app('eight', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']), app('seven', ['A', 'B', 'C', 'D', 'E', 'F', 'G']), app('none', [])];
   const filters = { ...employerPage.DEFAULT_CANDIDATE_FILTERS, jobId: 'J1', highMatch: true };
-  assert.deepEqual(employerPage.visibleApplicants(applications, jobs, filters, new Map()).map((item) => item.id), ['seven']);
+  assert.deepEqual(employerPage.visibleApplicants(applications, jobs, filters, new Map()).map((item) => item.id), ['eight']);
 });
 
 test('bulk stage changes follow the same rules as the database', () => {

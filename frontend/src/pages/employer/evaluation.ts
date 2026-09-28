@@ -12,6 +12,7 @@
 //   criterion has been rated at least once.
 
 import { candidateDisplayName, type CandidateApplication, type CandidateStatus, type EmployerJob } from './model';
+import { STRONG_MATCH_PERCENT } from './insights/matchTiers';
 
 // ---------- Profile match ----------
 
@@ -52,7 +53,7 @@ export function profileMatch(candidate: Pick<CandidateApplication, 'matchedSkill
 }
 
 /** The quick filter on the Candidates page: applicants at or above this profile match. */
-export const HIGH_MATCH_PERCENT = 70;
+export const HIGH_MATCH_PERCENT = STRONG_MATCH_PERCENT;
 
 /** Short match figure for lists, e.g. "Match 80%". */
 export function matchScoreLabel(match: ProfileMatch): string {
@@ -62,8 +63,7 @@ export function matchScoreLabel(match: ProfileMatch): string {
 export function matchScoreBadgeClass(match: ProfileMatch): string {
   if (match.percent === null) return 'k-badge k-badge-outline';
   if (match.percent >= HIGH_MATCH_PERCENT) return 'k-badge k-badge-success';
-  if (match.percent >= 40) return 'k-badge k-badge-warn';
-  return 'k-badge k-badge-outline';
+  return 'k-badge k-badge-warn';
 }
 
 export function profileMatchLabel(match: ProfileMatch): string {

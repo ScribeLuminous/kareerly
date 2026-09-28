@@ -125,25 +125,9 @@ export type JobMatchInsight = {
   highMatchShare: number | null;
   advanced: number;
   hired: number;
-  /** Applicants in each match band; `noFigure` have no skill evidence yet. */
-  bands: MatchBands;
-  /** Sum of the match figures, so totals across jobs average exactly. */
-  matchSum: number;
   /** Required skills most often not found, most frequent first. */
   commonGaps: Array<{ skill: string; count: number }>;
 };
-
-/** Below HIGH_MATCH_PERCENT, a partial match still has at least this share of required skills. */
-export const PARTIAL_MATCH_PERCENT = 40;
-
-export type MatchBands = { strong: number; partial: number; low: number; noFigure: number };
-
-export const MATCH_BAND_LABELS: Array<{ key: keyof MatchBands; label: string; range: string }> = [
-  { key: 'strong', label: 'Strong', range: `${HIGH_MATCH_PERCENT}% or more` },
-  { key: 'partial', label: 'Partial', range: `${PARTIAL_MATCH_PERCENT}–${HIGH_MATCH_PERCENT - 1}%` },
-  { key: 'low', label: 'Low', range: `under ${PARTIAL_MATCH_PERCENT}%` },
-  { key: 'noFigure', label: 'No figure', range: 'no skill evidence yet' },
-];
 
 export function jobMatchInsights(applications: CandidateApplication[], jobs: EmployerJob[], gapLimit = 3): JobMatchInsight[] {
   const insights = jobs.map((job) => {
@@ -161,19 +145,15 @@ export function jobMatchInsights(applications: CandidateApplication[], jobs: Emp
       });
     });
     const highMatches = percents.filter((percent) => percent >= HIGH_MATCH_PERCENT).length;
-    const partial = percents.filter((percent) => percent >= PARTIAL_MATCH_PERCENT && percent < HIGH_MATCH_PERCENT).length;
-    const matchSum = percents.reduce((sum, value) => sum + value, 0);
     return {
       job,
       applicants: forJob.length,
       withMatch: percents.length,
-      averageMatch: percents.length ? Math.round(matchSum / percents.length) : null,
+      averageMatch: percents.length ? Math.round(percents.reduce((sum, value) => sum + value, 0) / percents.length) : null,
       highMatches,
       highMatchShare: percents.length ? Math.round((100 * highMatches) / percents.length) : null,
       advanced: forJob.filter((candidate) => candidate.status === 'Interviewing' || candidate.status === 'Hired').length,
       hired: forJob.filter((candidate) => candidate.status === 'Hired').length,
-      bands: { strong: highMatches, partial, low: percents.length - highMatches - partial, noFigure: forJob.length - percents.length },
-      matchSum,
       commonGaps: Array.from(gaps.values())
         .sort((a, b) => b.count - a.count || a.skill.localeCompare(b.skill))
         .slice(0, gapLimit),
@@ -183,72 +163,6 @@ export function jobMatchInsights(applications: CandidateApplication[], jobs: Emp
   return insights
     .filter((insight) => insight.applicants > 0)
     .sort((a, b) => b.highMatches - a.highMatches || (b.averageMatch ?? -1) - (a.averageMatch ?? -1) || b.applicants - a.applicants || a.job.title.localeCompare(b.job.title));
-}
-
-export type InsightTotals = {
-  jobs: number;
-  applicants: number;
-  withMatch: number;
-  averageMatch: number | null;
-  highMatches: number;
-  highMatchShare: number | null;
-  advanced: number;
-  /** Jobs whose applicants have match figures but none at HIGH_MATCH_PERCENT or more. */
-  jobsWithoutStrong: number;
-};
-
-/** One set of headline figures across the given jobs' insights. */
-export function insightTotals(insights: JobMatchInsight[]): InsightTotals {
-  const sum = (pick: (insight: JobMatchInsight) => number) => insights.reduce((total, insight) => total + pick(insight), 0);
-  const withMatch = sum((insight) => insight.withMatch);
-  const highMatches = sum((insight) => insight.highMatches);
-  return {
-    jobs: insights.length,
-    applicants: sum((insight) => insight.applicants),
-    withMatch,
-    averageMatch: withMatch ? Math.round(sum((insight) => insight.matchSum) / withMatch) : null,
-    highMatches,
-    highMatchShare: withMatch ? Math.round((100 * highMatches) / withMatch) : null,
-    advanced: sum((insight) => insight.advanced),
-    jobsWithoutStrong: insights.filter((insight) => insight.withMatch > 0 && insight.highMatches === 0).length,
-  };
-}
-
-export type SkillGapInsight = {
-  skill: string;
-  /** Applicants with skill evidence who lack this required skill. */
-  missing: number;
-  /** Applicants with skill evidence to the jobs that require it. */
-  assessed: number;
-  jobTitles: string[];
-};
-
-/** Required skills applicants most often lack, across the given jobs. */
-export function skillGapsAcrossJobs(applications: CandidateApplication[], jobs: EmployerJob[], limit = 8): SkillGapInsight[] {
-  const gaps = new Map<string, { skill: string; missing: number; assessed: number; jobTitles: Set<string> }>();
-  jobs.forEach((job) => {
-    applications
-      .filter((candidate) => candidate.jobId === job.id && candidate.status !== 'Withdrawn')
-      .forEach((candidate) => {
-        const profile = profileMatch(candidate, job);
-        if (profile.percent === null) return;
-        profile.required.forEach((skill) => {
-          const key = skill.trim().toLowerCase();
-          const entry = gaps.get(key) || { skill, missing: 0, assessed: 0, jobTitles: new Set<string>() };
-          entry.assessed += 1;
-          if (profile.notFound.includes(skill)) {
-            entry.missing += 1;
-            entry.jobTitles.add(job.title);
-          }
-          gaps.set(key, entry);
-        });
-      });
-  });
-  return Array.from(gaps.values())
-    .filter((entry) => entry.missing > 0)
-    .map((entry) => ({ skill: entry.skill, missing: entry.missing, assessed: entry.assessed, jobTitles: Array.from(entry.jobTitles).sort() }))
-    .sort((a, b) => b.missing - a.missing || b.missing / b.assessed - a.missing / a.assessed || a.skill.localeCompare(b.skill))
-    .slice(0, limit);
 }
 
 // ---------- PDF ----------
