@@ -1,0 +1,72 @@
+{
+  "candidate_id": "STRESS-010",
+  "full_name": "Ricardo Omaña",
+  "location": "Pagadian City, Zamboanga del Sur",
+  "email": "ricardo.omana@example.net",
+  "phone": "+63 977 809 0840",
+  "headline": "Project Engineer (Civil)",
+  "summary": "Licensed civil engineer with seven years managing road, school and commercial building projects in Zamboanga del Sur. I plan and track projects, prepare quantities and cost estimates, check work on site with the survey crew, and enforce construction safety. I use Procore and AutoCAD daily.",
+  "certifications": [
+    {
+      "name": "Registered Civil Engineer",
+      "issuer": "Professional Regulation Commission",
+      "date": "2019-06"
+    },
+    {
+      "name": "Construction Occupational Safety and Health (COSH)",
+      "issuer": "DOLE-accredited training organisation",
+      "date": "2020-02"
+    },
+    {
+      "name": "Project Management Professional (PMP)",
+      "issuer": "Project Management Institute",
+      "date": "2024-05"
+    }
+  ],
+  "skills": [
+    "Civil engineering",
+    "Engineering measurement and site checks",
+    "AutoCAD",
+    "Quantity surveying and cost estimates",
+    "Project coordination",
+    "Construction project management",
+    "Procore",
+    "Construction safety",
+    "Construction site inspection"
+  ],
+  "experience": [
+    {
+      "title": "Project Engineer",
+      "employer": "Pagadian Bay Construction and Development Corp.",
+      "location": "Pagadian City, Zamboanga del Sur",
+      "start": "2022-01",
+      "end": "Present",
+      "bullets": [
+        "Manage road and school building projects worth up to ₱180 million from mobilisation to turnover.",
+        "Prepare schedules, quantity take-offs and progress billings.",
+        "Run coordination meetings with subcontractors and the client and track issues in Procore.",
+        "Inspect work and safety on site every day with the foreman and safety officer."
+      ]
+    },
+    {
+      "title": "Site Engineer",
+      "employer": "Zamboanga del Sur Builders Corp.",
+      "location": "Pagadian City, Zamboanga del Sur",
+      "start": "2019-07",
+      "end": "2021-12",
+      "bullets": [
+        "Supervised concrete and earthworks on road and drainage projects.",
+        "Checked lines and levels with the survey crew and prepared as-built drawings in AutoCAD."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Civil Engineering",
+      "school": "Western Mindanao Institute of Engineering",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2013",
+      "end": "2018"
+    }
+  ]
+}

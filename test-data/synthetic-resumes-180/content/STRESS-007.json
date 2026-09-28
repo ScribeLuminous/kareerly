@@ -1,0 +1,61 @@
+{
+  "candidate_id": "STRESS-007",
+  "full_name": "Ariel Alcantara",
+  "location": "Legazpi City, Albay",
+  "email": "ariel.alcantara@example.org",
+  "phone": "+63 981 508 1561",
+  "headline": "E-learning Developer",
+  "summary": "E-learning developer with five years building online courses for a bank and a BPO in Bicol. I design courses from needs analysis to evaluation, produce videos and animations for them, and still facilitate live sessions for new hires. I combine instructional design with multimedia production.",
+  "skills": [
+    "Instructional design",
+    "Digital learning materials and e-learning modules",
+    "Training facilitation",
+    "Learning evaluation",
+    "Educational resources and job aids",
+    "Multimedia design",
+    "Video editing",
+    "Canva",
+    "2D animation for explainer videos"
+  ],
+  "experience": [
+    {
+      "title": "E-learning Developer",
+      "employer": "Bicol Regional Rural Bank",
+      "location": "Legazpi City, Albay",
+      "start": "2023-01",
+      "end": "Present",
+      "bullets": [
+        "Design and build 15 online courses on products, compliance and customer service for 400 staff.",
+        "Produce explainer videos and short animations for each course.",
+        "Measure learning with quizzes and branch results and revise weak modules."
+      ]
+    },
+    {
+      "title": "Training Specialist",
+      "employer": "Legazpi Contact Solutions",
+      "location": "Legazpi City, Albay",
+      "start": "2021-06",
+      "end": "2022-12",
+      "bullets": [
+        "Facilitated new-hire and product training for customer service agents.",
+        "Created job aids and quick-reference guides in Canva."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Education Technology",
+      "school": "Albay Mayon College",
+      "location": "Tabaco City, Albay",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Articulate Storyline and Rise Training",
+      "issuer": "online course",
+      "date": "2023-04"
+    }
+  ]
+}
