@@ -44,4 +44,18 @@ psql_docs -c "create table public.resumes (id uuid primary key default gen_rando
 psql_docs -f "$here/../migrations/20260930090000_job_post_screening_and_shared_documents.sql"
 psql_docs -f "$here/../migrations/20260930090000_job_post_screening_and_shared_documents.sql"
 psql_docs -f "$here/shared_documents_tests.sql"
+psql_run -c "create database security_hardening"
+psql_sec() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d security_hardening -v ON_ERROR_STOP=1 -q "$@"; }
+psql_sec -f "$here/supabase_stub.sql"
+psql_sec -f "$here/employer_evaluation_stub.sql"
+psql_sec -f "$here/employer_evaluation_seed.sql"
+psql_sec -f "$here/../migrations/20260929090000_employer_structured_evaluation.sql"
+psql_sec -f "$here/../migrations/20261001090000_candidate_assessments.sql"
+psql_sec -f "$here/../migrations/20261002090000_assessment_delivery_fix.sql"
+psql_sec -f "$here/../migrations/20261003090000_assessment_templates.sql"
+psql_sec -f "$here/security_hardening_setup.sql"
+# Applied twice: the migration must be safe to re-run.
+psql_sec -f "$here/../migrations/20261004090000_security_hardening.sql"
+psql_sec -f "$here/../migrations/20261004090000_security_hardening.sql"
+psql_sec -f "$here/security_hardening_tests.sql"
 echo "All RLS and evaluation checks passed."
