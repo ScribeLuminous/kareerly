@@ -1,0 +1,59 @@
+{
+  "candidate_id": "CAT09-R04",
+  "full_name": "Precious Morales",
+  "location": "Bacolod City, Negros Occidental",
+  "email": "precious.morales@example.org",
+  "phone": "+63 956 813 8999",
+  "headline": "Retail Store Supervisor",
+  "summary": "Retail store supervisor with four years in shoe and apparel stores in Bacolod. I run daily store operations, lead a team of ten, take care of customers and settle complaints, and keep stock and sales on target. I enjoy the floor and want to grow into area management.",
+  "skills": [
+    "Retail store operations",
+    "Customer service on the sales floor",
+    "Handling regular and key clients",
+    "Resolving customer complaints",
+    "Supervising and scheduling staff",
+    "Inventory counts and stock replenishment",
+    "Sales techniques and upselling"
+  ],
+  "experience": [
+    {
+      "title": "Retail Store Supervisor",
+      "employer": "Negros Footwear and Apparel Retail Corp.",
+      "location": "Bacolod City, Negros Occidental",
+      "start": "2024-02",
+      "end": "Present",
+      "bullets": [
+        "Supervise ten sales staff and cashiers in a mall branch with monthly sales of about ₱3 million.",
+        "Prepare staff schedules around mall hours, payday weekends and the MassKara Festival rush.",
+        "Resolve customer complaints and returns on the spot within company policy.",
+        "Run weekly stock counts and request replenishment from the warehouse.",
+        "Coach staff on suggesting matching items, raising average receipt value by 12%."
+      ]
+    },
+    {
+      "title": "Sales Associate",
+      "employer": "Negros Footwear and Apparel Retail Corp.",
+      "location": "Silay City, Negros Occidental",
+      "start": "2022-04",
+      "end": "2024-01",
+      "bullets": [
+        "Assisted customers, handled fitting and payment, and kept displays tidy.",
+        "Looked after regular customers and informed them of new arrivals."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing Management",
+      "school": "Negros Occidental College of Business",
+      "location": "Bacolod City, Negros Occidental",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Hiligaynon"
+  ]
+}

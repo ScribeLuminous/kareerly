@@ -1,0 +1,60 @@
+{
+  "candidate_id": "CAT08-R07",
+  "full_name": "Elmer Buenaventura",
+  "location": "Baler, Aurora",
+  "email": "elmer.buenaventura@example.com",
+  "phone": "+63 905 214 7513",
+  "headline": "Trade Marketing Officer",
+  "experience": [
+    {
+      "title": "Trade Marketing Officer",
+      "employer": "Aurora Pacific Beverages Distribution",
+      "location": "Baler, Aurora",
+      "start": "2023-03",
+      "end": "Present",
+      "bullets": [
+        "Plan trade programs for sari-sari stores, groceries and resorts across Aurora and Nueva Ecija.",
+        "Designed a buy-ten-get-one promo for store owners that lifted case sales by 22% in the lean season.",
+        "Visit stores with the sales team to check displays, pricing and competitor activity.",
+        "Negotiate display space and shelf positions with grocery owners."
+      ]
+    },
+    {
+      "title": "Sales Merchandiser",
+      "employer": "Central Luzon Snack Foods Inc.",
+      "location": "Cabanatuan City, Nueva Ecija",
+      "start": "2022-01",
+      "end": "2023-02",
+      "bullets": [
+        "Set up displays and maintained stock in 30 supermarkets and groceries.",
+        "Reported product and competitor information to the area sales manager every week."
+      ]
+    }
+  ],
+  "summary": "Trade marketing officer with four years in beverage and snack distribution. I design channel programs and store promotions, run store surveys and work side by side with the sales team to turn plans into sell-out. I know the sari-sari store and provincial grocery trade well.",
+  "skills": [
+    "Channel and trade marketing",
+    "Store promotions and trade programs",
+    "Market research and store audits",
+    "Campaign planning",
+    "Sales techniques",
+    "Product knowledge of beverages and snacks",
+    "Retail operations and merchandising",
+    "Negotiation with store owners",
+    "Microsoft Excel"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing",
+      "school": "Aurora Pacific College",
+      "location": "Baler, Aurora",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ilocano"
+  ]
+}

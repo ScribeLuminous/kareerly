@@ -1,0 +1,74 @@
+{
+  "candidate_id": "CAT07-R05",
+  "full_name": "Ariel Flores",
+  "location": "Davao City, Davao del Sur",
+  "email": "ariel.flores@example.net",
+  "phone": "+63 966 647 3810",
+  "headline": "Procurement Manager",
+  "summary": "Procurement manager with ten years in food manufacturing and agribusiness in Davao. I lead a team of six buyers, source raw materials and packaging from local and foreign suppliers, and negotiate contracts that protect both cost and supply. I keep procurement compliant with company policy and audit requirements.",
+  "certifications": [
+    {
+      "name": "Certified Professional in Supply Management (CPSM)",
+      "issuer": "Institute for Supply Management",
+      "date": "2021-08"
+    },
+    {
+      "name": "Procurement and Contract Management",
+      "issuer": "professional training course",
+      "date": "2018-03"
+    }
+  ],
+  "skills": [
+    "Strategic sourcing and purchasing",
+    "Purchase orders and supplier contracts",
+    "Negotiation",
+    "Supplier and commodity market analysis",
+    "Product and material specifications",
+    "Procurement operations reporting",
+    "Supply chain management",
+    "Inventory planning",
+    "Purchasing and contracting compliance",
+    "Contract review",
+    "Team leadership"
+  ],
+  "experience": [
+    {
+      "title": "Procurement Manager",
+      "employer": "Davao Tropical Fruit Processing Corp.",
+      "location": "Davao City, Davao del Sur",
+      "start": "2021-01",
+      "end": "Present",
+      "bullets": [
+        "Lead six buyers purchasing about ₱900 million a year of fruit, sugar, packaging and spare parts.",
+        "Negotiated two-year packaging contracts that held prices flat through a year of 15% resin increases.",
+        "Built a supplier scorecard for quality, delivery and price, reviewed with suppliers every quarter.",
+        "Review every contract with legal for compliance with the company's purchasing policy."
+      ]
+    },
+    {
+      "title": "Senior Buyer",
+      "employer": "Mindanao Agri-Processing Inc.",
+      "location": "Panabo City, Davao del Norte",
+      "start": "2016-08",
+      "end": "2020-12",
+      "bullets": [
+        "Sourced fertiliser, chemicals and farm equipment for 3,000 hectares of plantations.",
+        "Tracked commodity prices and advised management on the best times to buy."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Industrial Engineering",
+      "school": "Davao Institute of Engineering and Technology",
+      "location": "Davao City, Davao del Sur",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

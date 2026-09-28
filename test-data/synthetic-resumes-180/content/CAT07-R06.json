@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT07-R06",
+  "full_name": "Sheila Samonte",
+  "location": "Pasig City, Metro Manila",
+  "email": "sheila.samonte@example.org",
+  "phone": "+63 991 423 8512",
+  "headline": "Purchasing and Inventory Assistant",
+  "summary": "Former warehouse inventory staff who has moved into purchasing at the same distribution company. After three years counting, storing and issuing stock, I now raise purchase orders, process branch orders and follow up deliveries. Knowing the warehouse helps me order the right quantities at the right time.",
+  "skills": [
+    "Purchasing support",
+    "Preparing purchase orders",
+    "Branch order processing",
+    "Microsoft Excel",
+    "Inventory management and stock counts",
+    "Warehouse operations",
+    "Safe stock storage",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Purchasing and Inventory Assistant",
+      "employer": "Ortigas Home and Office Supplies Distribution",
+      "location": "Pasig City, Metro Manila",
+      "start": "2025-01",
+      "end": "Present",
+      "bullets": [
+        "Prepare about 120 purchase orders a month from approved requests and reorder reports.",
+        "Process replenishment orders from 18 branches and confirm dispatch dates with the warehouse.",
+        "Follow up late deliveries with suppliers and update the incoming-stock list daily."
+      ]
+    },
+    {
+      "title": "Warehouse Inventory Staff",
+      "employer": "Ortigas Home and Office Supplies Distribution",
+      "location": "Pasig City, Metro Manila",
+      "start": "2022-01",
+      "end": "2024-12",
+      "bullets": [
+        "Counted, labelled and stored incoming stock and picked branch orders.",
+        "Ran cycle counts and investigated variances with the inventory controller.",
+        "Kept aisles and racks safe by following stacking limits and clearing damaged stock."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Logistics and Supply Chain Operations",
+      "school": "Pasig Technical Institute",
+      "location": "Pasig City, Metro Manila",
+      "start": "2019",
+      "end": "2021"
+    }
+  ]
+}

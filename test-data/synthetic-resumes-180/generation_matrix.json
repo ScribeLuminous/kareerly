@@ -3833,11 +3833,11 @@
       ],
       "intentionally_missing_skills": [
         "Zendesk",
-        "Customer relationship management"
+        "Email Support"
       ],
       "intentionally_missing_skill_ids": [
         "SK644",
-        "SK276"
+        "SK690"
       ],
       "adjacent_skills": [],
       "adjacent_skill_ids": [],
@@ -4165,13 +4165,13 @@
       "intentionally_missing_skills": [
         "Handle complaints",
         "Zendesk",
-        "Customer relationship management",
+        "Customer Experience",
         "Chat Support"
       ],
       "intentionally_missing_skill_ids": [
         "SK314",
         "SK644",
-        "SK276",
+        "SK694",
         "SK689"
       ],
       "adjacent_skills": [

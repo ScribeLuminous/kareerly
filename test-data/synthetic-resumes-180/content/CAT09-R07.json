@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT09-R07",
+  "full_name": "Rosalie Bacus",
+  "location": "Gingoog City, Misamis Oriental",
+  "email": "rosalie.bacus@example.com",
+  "phone": "+63 956 744 7785",
+  "headline": "Technical Support Representative",
+  "summary": "Technical support representative with three years at an internet provider's help desk. I troubleshoot modems, Wi-Fi and account problems by phone and email, and I helped design the support process our team now follows. I understand networks well enough to fix most issues without a site visit.",
+  "skills": [
+    "Help desk support",
+    "Customer service",
+    "Support process design and escalation rules",
+    "Email support",
+    "Technical troubleshooting",
+    "Home and small-office network setup",
+    "Online security awareness",
+    "Clear English communication"
+  ],
+  "experience": [
+    {
+      "title": "Technical Support Representative",
+      "employer": "Misamis Oriental Broadband Services",
+      "location": "Gingoog City, Misamis Oriental",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Resolve about 40 support tickets a day on slow connections, Wi-Fi setup and modem faults.",
+        "Walk subscribers through router settings and replace faulty units without sending a technician.",
+        "Helped write the support tiers and escalation rules when the team grew from 6 to 20.",
+        "Teach subscribers to spot fake payment messages and secure their Wi-Fi passwords."
+      ]
+    },
+    {
+      "title": "Computer Technician",
+      "employer": "Gingoog Computer Sales and Repair",
+      "location": "Gingoog City, Misamis Oriental",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Repaired laptops and desktops and set up home networks for walk-in customers.",
+        "Explained repair options and costs to customers before starting work."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Gingoog Coastal College",
+      "location": "Gingoog City, Misamis Oriental",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}
