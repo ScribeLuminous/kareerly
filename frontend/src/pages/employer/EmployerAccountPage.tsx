@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { FormField, PageHeader } from '../../components/ui';
+import { ProvinceSelect } from '../../components/ProvinceSelect';
+import { industryPsocGroups } from '../../lib/employerOptions';
 import { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from './model';
 
 export type EmployerAccountForm = {
   company: string;
   industry: string;
   size: string;
-  location: string;
+  city: string;
+  province: string;
   website: string;
   about: string;
   contactPerson: string;
@@ -42,6 +45,7 @@ const ACCESS_RULES = [
 
 export function EmployerAccountPage({ profile, password, isSaving, onProfileChange, onSave, onPasswordChange, onUpdatePassword, onRequestDelete }: EmployerAccountPageProps) {
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const psoc = industryPsocGroups(profile.industry);
   const set = (key: keyof EmployerAccountForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => onProfileChange({ ...profile, [key]: event.target.value });
 
   return (
@@ -60,20 +64,29 @@ export function EmployerAccountPage({ profile, password, isSaving, onProfileChan
             <FormField label="Company name *" className="k-span-2">
               <input className="k-input" value={profile.company} onChange={set('company')} autoComplete="organization" required />
             </FormField>
-            <FormField label="Industry">
+            <FormField
+              label="Industry"
+              help={psoc.length > 0
+                ? `Aligned with PSOC 2012: ${psoc.map((group) => `${group.code} ${group.title}`).join(' · ')}`
+                : 'Industries follow the skill areas candidates choose from.'}
+              className="k-span-2"
+            >
               <select className="k-select" value={profile.industry} onChange={set('industry')}>
                 <option value="">Select an industry</option>
                 {withSaved(EMPLOYER_INDUSTRIES, profile.industry).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
+            </FormField>
+            <FormField label="City or municipality">
+              <input className="k-input" value={profile.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="address-level2" />
+            </FormField>
+            <FormField label="Province">
+              <ProvinceSelect value={profile.province} onChange={(province) => onProfileChange({ ...profile, province })} />
             </FormField>
             <FormField label="Company size">
               <select className="k-select" value={profile.size} onChange={set('size')}>
                 <option value="">Select a size</option>
                 {withSaved(EMPLOYER_COMPANY_SIZES, profile.size).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
-            </FormField>
-            <FormField label="Location">
-              <input className="k-input" value={profile.location} onChange={set('location')} placeholder="e.g. Makati City" autoComplete="address-level2" />
             </FormField>
             <FormField label="Website">
               <input className="k-input" type="url" inputMode="url" value={profile.website} onChange={set('website')} placeholder="https://" autoComplete="url" />

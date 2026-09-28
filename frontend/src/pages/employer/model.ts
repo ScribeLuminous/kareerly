@@ -1,5 +1,6 @@
 import { savedMatchScore } from '../../lib/uiData';
 import { splitJobContent } from '../../lib/jobDescription';
+import { splitLocation } from '../../lib/phProvinces';
 
 export type { EmployerPage } from './routes';
 export { EMPLOYER_PAGE_PATHS, employerJobIdFromPath, employerJobPath, employerPageFromPath, employerTemplateIdFromPath, employerTemplatePath, isEmployerWorkspacePath } from './routes';
@@ -139,7 +140,8 @@ export type JobFormState = {
   responsibilities: string;
   workSetup: string;
   employmentType: string;
-  location: string;
+  city: string;
+  province: string;
   salaryRange: string;
   deadline: string;
   status: JobStatus;
@@ -361,8 +363,7 @@ export const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
   niceToHaveSkills: splitSkills(row.preferred_skills),
   workSetup: row.work_setup || '',
   employmentType: row.employment_type || '',
-  city: (row.location || '').split(',')[0]?.trim() || '',
-  province: (row.location || '').split(',').slice(1).join(',').trim(),
+  ...splitLocation(row.location),
   salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
   deadline: row.application_deadline || '',
   status: row.posting_status !== 'archived' && row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
@@ -416,7 +417,8 @@ export const emptyJobForm: JobFormState = {
   responsibilities: '',
   workSetup: '',
   employmentType: '',
-  location: '',
+  city: '',
+  province: '',
   salaryRange: '',
   deadline: '',
   status: 'draft',
