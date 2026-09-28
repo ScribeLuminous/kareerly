@@ -6,18 +6,21 @@ import { loadApplicationMessages, loadEmployerAccountSettings, requestAccountDel
 import { supabase } from '../lib/supabase';
 import { joinJobContent } from '../lib/jobDescription';
 import { isEvaluationUnavailable, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveRubric, type EvaluationSummary } from '../lib/evaluationApi';
+import { loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
 import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
 import { EmployerAccountPage, type EmployerAccountForm } from './employer/EmployerAccountPage';
 import { EmployerCandidatesPage } from './employer/EmployerCandidatesPage';
 import { RubricEditorModal } from './employer/RubricEditorModal';
-import { DEFAULT_CANDIDATE_FILTERS, visibleApplicants, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
+import { candidateActionBlocker, DEFAULT_CANDIDATE_FILTERS, HIGH_MATCH_PERCENT, profileMatch, visibleApplicants, type CandidateBulkAction, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
 import { EmployerHomePage } from './employer/EmployerHomePage';
-import { EmployerJobsPage } from './employer/EmployerJobsPage';
+import { EmployerJobsPage, type JobBulkAction } from './employer/EmployerJobsPage';
 import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
 import { JobEditorModal } from './employer/JobEditorModal';
 import {
   daysUntil,
   EMPLOYER_PAGE_PATHS,
+  employerJobIdFromPath,
+  employerJobPath,
   employerPageFromPath,
   emptyJobForm,
   getCategoryCode,
@@ -26,6 +29,7 @@ import {
   initialApplications,
   initialJobs,
   initialNotifications,
+  JOB_POSTING_STATUS,
   MIN_EMPLOYER_SALARY,
   REJECTION_REASONS,
   statusActionLabel,
@@ -104,7 +108,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
   const [toast, setToast] = useState<ToastState>(null);
   const [selectedJobId, setSelectedJobId] = useState<string>(initialJobs[0]?.id || '');
-  const [jobDetailOpen, setJobDetailOpen] = useState(false);
+  const detailJobId = employerJobIdFromPath(location.pathname);
   const [jobsPanelMode, setJobsPanelMode] = useState<JobsPanelMode>('detail');
   const [jobForm, setJobForm] = useState<JobFormState>(emptyJobForm);
   const [jobFormError, setJobFormError] = useState('');
@@ -112,12 +116,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [niceSkillsDraft, setNiceSkillsDraft] = useState<string[]>([]);
   const [requiredSkillInput, setRequiredSkillInput] = useState('');
   const [niceSkillInput, setNiceSkillInput] = useState('');
-  const [closeJobTarget, setCloseJobTarget] = useState<EmployerJob | null>(null);
   const [rawCandidateFilters, setCandidateFilters] = useState<CandidateFilters>(DEFAULT_CANDIDATE_FILTERS);
   const [rubrics, setRubrics] = useState<Rubric[]>([]);
   const [evaluationUnavailable, setEvaluationUnavailable] = useState(false);
   const [summaryState, setSummaryState] = useState<{ jobPostId: string; rows: Map<string, EvaluationSummary> }>({ jobPostId: '', rows: new Map() });
   const [summaryVersion, setSummaryVersion] = useState(0);
+  const [assessments, setAssessments] = useState<Map<string, CandidateAssessment>>(new Map());
+  const [assessmentVersion, setAssessmentVersion] = useState(0);
   const [rubricEditor, setRubricEditor] = useState<{ jobId: string; inUse: boolean } | null>(null);
   const [isSavingRubric, setIsSavingRubric] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string>('');
@@ -498,6 +503,20 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     };
   }, [jobs, jobsLoadStatus]);
 
+  // Candidate Assessments for every applicant: the Candidates list, Home and
+  // bulk actions all read the same copy. Candidates answer on their side, so poll.
+  const applicationIdsKey = useMemo(() => applications.map((candidate) => candidate.id).sort().join(','), [applications]);
+  useEffect(() => {
+    let isMounted = true;
+    const ids = applicationIdsKey ? applicationIdsKey.split(',') : [];
+    const refresh = () => void loadAssessments(ids)
+      .then((rows) => { if (isMounted) setAssessments(rows); })
+      .catch((error) => console.warn('Unable to load candidate assessments:', error));
+    refresh();
+    const timer = window.setInterval(refresh, 10000);
+    return () => { isMounted = false; window.clearInterval(timer); };
+  }, [applicationIdsKey, assessmentVersion]);
+
   const markNotificationsRead = () => {
     const ids = notifications.filter((item) => item.id.startsWith('assessment-') && item.unread).map((item) => item.id.slice('assessment-'.length));
     if (ids.length) void supabase.from('candidate_notifications').update({ read_at: new Date().toISOString() }).in('id', ids);
@@ -738,23 +757,44 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     setJobsPanelMode('detail');
   };
 
-  const closeJobPosting = async (jobId: string) => {
-    const job = jobs.find((item) => item.id === jobId);
-    if (!job) return;
-    const { error } = await supabase.from('employer_job_posts').update({ posting_status: 'closed', updated_at: new Date().toISOString() }).eq('job_id', jobId);
-    if (error) {
-      showToast('Unable to close this job. Please try again.', 'danger');
+  const bulkJobAction = async (action: JobBulkAction, jobIds: string[]) => {
+    if (jobIds.length === 0) return;
+    const now = new Date().toISOString();
+    if (action === 'delete') {
+      const { data, error } = await supabase.from('employer_job_posts').delete().in('job_id', jobIds).select('job_id');
+      if (error) {
+        console.warn('Unable to delete jobs:', error);
+        showToast('Unable to delete the selected jobs. Please try again.', 'danger');
+        return;
+      }
+      const deleted = new Set((data || []).map((row) => String(row.job_id)));
+      setJobs((current) => current.filter((job) => !deleted.has(job.id)));
+      showToast(`${deleted.size} job${deleted.size === 1 ? '' : 's'} deleted.`, deleted.size === jobIds.length ? 'success' : 'warn');
       return;
     }
-    setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, status: 'closed' } : job)));
-    showToast('Job closed. It no longer takes applications.', 'success');
+    const nextStatus: JobStatus = action === 'open' ? 'open' : action === 'close' ? 'closed' : 'archived';
+    const { data, error } = await supabase
+      .from('employer_job_posts')
+      .update({ posting_status: JOB_POSTING_STATUS[nextStatus], updated_at: now })
+      .in('job_id', jobIds)
+      .select('job_id');
+    if (error) {
+      console.warn('Unable to update job status:', error);
+      showToast('Unable to update the selected jobs. Please try again.', 'danger');
+      return;
+    }
+    const updated = new Set((data || []).map((row) => String(row.job_id)));
+    setJobs((current) => current.map((job) => (updated.has(job.id) ? { ...job, status: nextStatus } : job)));
+    const verb = { open: 'opened', close: 'closed', archive: 'archived' }[action];
+    const detail = action === 'close' ? ' They no longer take applications.' : action === 'archive' ? ' They are hidden from candidates.' : '';
+    showToast(`${updated.size} job${updated.size === 1 ? '' : 's'} ${verb}.${detail}`, updated.size === jobIds.length ? 'success' : 'warn');
   };
 
   const openReview = (candidateId: string) => {
     const candidate = applications.find((item) => item.id === candidateId);
     // Reviews always happen inside one job's list, so moving between applicants stays within that job.
     if (candidate && candidate.jobId !== candidateFilters.jobId) {
-      setCandidateFilters((current) => ({ ...current, jobId: candidate.jobId, status: 'all', search: '' }));
+      setCandidateFilters((current) => ({ ...current, jobId: candidate.jobId, status: 'all', search: '', highMatch: false }));
     }
     setReviewModalId(candidateId);
   };
@@ -828,7 +868,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       return;
     }
 
-    const label = applications.find((candidate) => candidate.id === confirmModal.candidateId)?.publicId || 'Applicant';
+    const target = applications.find((candidate) => candidate.id === confirmModal.candidateId);
+    const label = target?.publicId || 'Applicant';
     setApplications((current) =>
       current.map((candidate) =>
         candidate.id === confirmModal.candidateId && !['Hired', 'Rejected', 'Withdrawn'].includes(candidate.status)
@@ -839,13 +880,82 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           : candidate,
       ),
     );
+    closeConfirm();
+    setSummaryVersion((value) => value + 1);
     if (nextStatus === 'Interviewing') {
       showToast(`${label} moved to Interviewing. You can now send a message request.`, 'success');
+    } else if (nextStatus === 'Shortlisted' && target && rubricsByJob.has(target.jobId)) {
+      // Shortlisting is when the Candidate Assessment goes out.
+      const { sent, errors } = await sendAssessments([target.id]);
+      if (sent > 0) showToast(`${label} shortlisted and sent the Candidate Assessment.`, 'success');
+      else showToast(`${label} shortlisted, but the assessment wasn't sent: ${errors[0] || 'try Send Assessment again.'}`, 'warn');
+    } else if (nextStatus === 'Shortlisted') {
+      showToast(`${label} shortlisted. Set up this job's assessment to send it to them.`, 'warn');
     } else {
       showToast(`${label} moved to ${nextStatus}.`, 'success');
     }
-    closeConfirm();
+  };
+
+  /** Sends the Candidate Assessment to each applicant; returns how many went out and why others didn't. */
+  const sendAssessments = async (candidateIds: string[]) => {
+    const results = await Promise.all(candidateIds.map((id) => sendAssessment(id)
+      .then(() => null)
+      .catch((error: unknown) => (error instanceof Error ? error.message : 'Unable to send the assessment.'))));
+    setAssessmentVersion((value) => value + 1);
     setSummaryVersion((value) => value + 1);
+    const errors = results.filter((result): result is string => result !== null);
+    return { sent: results.length - errors.length, errors };
+  };
+
+  /** Moves each applicant to the stage; returns the ids that moved and the first error. */
+  const moveApplicants = async (candidateIds: string[], status: CandidateStatus, reason = '') => {
+    const results = await Promise.all(candidateIds.map((id) => updateEmployerApplicationStatus({ applicationId: id, status: status.toLowerCase(), rejectionReason: reason })
+      .then(() => id)
+      .catch((error: unknown) => {
+        console.warn('Unable to update application status:', error);
+        return error instanceof Error ? new Error(error.message) : new Error('Unable to update applicant status.');
+      })));
+    const moved = new Set(results.filter((result): result is string => typeof result === 'string'));
+    const firstError = results.find((result): result is Error => result instanceof Error)?.message || '';
+    if (moved.size > 0) {
+      setApplications((current) => current.map((candidate) => (moved.has(candidate.id) ? { ...candidate, status } : candidate)));
+      setSummaryVersion((value) => value + 1);
+    }
+    return { moved, firstError };
+  };
+
+  const bulkCandidateAction = async (action: CandidateBulkAction, candidateIds: string[], reason: string) => {
+    // Re-check against the latest data; the list may have refreshed since selecting.
+    const eligible = candidateIds.filter((id) => {
+      const candidate = applications.find((item) => item.id === id);
+      return candidate && !candidateActionBlocker(action, candidate, assessments.get(id) || null, rubricsByJob.has(candidate.jobId));
+    });
+    if (eligible.length === 0) {
+      showToast('None of the selected applicants can take this step any more.', 'warn');
+      return;
+    }
+    const people = (count: number) => `${count} applicant${count === 1 ? '' : 's'}`;
+    if (action === 'shortlisted' || action === 'send-assessment') {
+      const pendingIds = eligible.filter((id) => applications.find((item) => item.id === id)?.status === 'Pending');
+      const { moved, firstError } = pendingIds.length > 0 ? await moveApplicants(pendingIds, 'Shortlisted') : { moved: new Set<string>(), firstError: '' };
+      const readyIds = eligible.filter((id) => !pendingIds.includes(id) || moved.has(id));
+      const withRubric = readyIds.filter((id) => rubricsByJob.has(applications.find((item) => item.id === id)?.jobId || ''));
+      const { sent, errors } = withRubric.length > 0 ? await sendAssessments(withRubric) : { sent: 0, errors: [] as string[] };
+      const parts = [
+        moved.size > 0 ? `${people(moved.size)} shortlisted` : '',
+        sent > 0 ? `Candidate Assessment sent to ${people(sent)}` : '',
+      ].filter(Boolean);
+      const problem = firstError || errors[0] || (withRubric.length < readyIds.length ? "Set up this job's assessment to send it." : '');
+      showToast(`${parts.join('; ') || 'Nothing changed'}.${problem ? ` ${problem}` : ''}`, problem ? 'warn' : 'success');
+      return;
+    }
+    const status: CandidateStatus = action === 'interviewing' ? 'Interviewing' : action === 'hired' ? 'Hired' : 'Rejected';
+    const { moved, firstError } = await moveApplicants(eligible, status, reason);
+    const failed = eligible.length - moved.size;
+    showToast(
+      `${people(moved.size)} moved to ${status}.${failed > 0 ? ` ${people(failed)} couldn't be moved: ${firstError}` : ''}`,
+      failed > 0 ? 'warn' : 'success',
+    );
   };
 
   const sendMessageRequest = (candidateId: string) => {
@@ -950,8 +1060,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const openJob = (jobId: string) => {
     setSelectedJobId(jobId);
-    setJobDetailOpen(true);
-    goPage('jobs');
+    navigate(employerJobPath(jobId));
+    window.scrollTo({ top: 0 });
   };
 
   const postJob = () => {
@@ -959,8 +1069,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   };
 
   const viewApplicants = (jobId: string) => {
-    setCandidateFilters((current) => ({ ...current, jobId, status: 'all', search: '' }));
-    setJobDetailOpen(false);
+    setCandidateFilters((current) => ({ ...current, jobId, status: 'all', search: '', highMatch: false }));
     goPage('candidates');
   };
 
@@ -978,11 +1087,19 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     .filter((job) => job.status === 'open')
     .map((job) => ({ ...job, applicantCount: jobStats.get(job.id)?.applications || 0 }));
   const closingDays = closingSoon ? daysUntil(closingSoon.deadline, currentDate) : null;
+  const activeApplicants = applications.filter((candidate) => ['Pending', 'Shortlisted', 'Interviewing'].includes(candidate.status));
+  const submittedAssessments = activeApplicants.filter((candidate) => assessments.get(candidate.id)?.status === 'submitted');
+  const shortlistedWithoutAssessment = activeApplicants.filter((candidate) => candidate.status === 'Shortlisted' && !assessments.has(candidate.id) && rubricsByJob.has(candidate.jobId));
+  const openJobWithoutRubric = !evaluationUnavailable ? jobs.find((job) => job.status === 'open' && !rubricsByJob.has(job.id)) : undefined;
+  const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
   const nextSteps: NextStep[] = [
     ...(!isLoadingJobs && jobs.length === 0 ? [{ id: 'first-job', title: 'Post your first job', detail: 'Kareerly matches applicants to your required skills as soon as it is live.', actionLabel: 'Post a job', onAction: postJob }] : []),
-    ...(pendingApplicants.length > 0 ? [{ id: 'pending', title: `Review ${pendingApplicants.length} new applicant${pendingApplicants.length === 1 ? '' : 's'}`, detail: 'Shortlist, interview or decline to keep candidates informed.', actionLabel: 'Review applicants', onAction: () => goPage('candidates') }] : []),
+    ...(submittedAssessments.length > 0 ? [{ id: 'assessments', title: `Review ${plural(submittedAssessments.length, 'submitted assessment')}`, detail: 'Candidates answered your questions. Rate their answers on your scorecard, then decide on an interview.', actionLabel: 'Open applicant', onAction: () => openReview(submittedAssessments[0].id) }] : []),
+    ...(pendingApplicants.length > 0 ? [{ id: 'pending', title: `Review ${pendingApplicants.length} new applicant${pendingApplicants.length === 1 ? '' : 's'}`, detail: 'Shortlisting sends the Candidate Assessment. Use the Match ≥ 70% filter to start with the strongest matches.', actionLabel: 'Review applicants', onAction: () => goPage('candidates') }] : []),
+    ...(shortlistedWithoutAssessment.length > 0 ? [{ id: 'send-assessments', title: `Send the assessment to ${plural(shortlistedWithoutAssessment.length, 'shortlisted applicant')}`, detail: "They're shortlisted but haven't received the Candidate Assessment yet.", actionLabel: 'Open applicants', onAction: () => { setCandidateFilters((current) => ({ ...current, jobId: shortlistedWithoutAssessment[0].jobId, status: 'Shortlisted', search: '', highMatch: false })); goPage('candidates'); } }] : []),
     ...(awaitingRequest ? [{ id: 'request', title: `Message ${awaitingRequest.publicId || 'your interviewing candidate'}`, detail: `Interviewing for ${awaitingRequest.role}. Send a message request to set up next steps.`, actionLabel: 'Open applicant', onAction: () => openReview(awaitingRequest.id) }] : []),
     ...(closingSoon ? [{ id: 'closing', title: `${closingSoon.title} ${closingDays === 0 ? 'closes today' : `closes in ${closingDays} day${closingDays === 1 ? '' : 's'}`}`, detail: 'Extend the deadline if you need more applicants.', actionLabel: 'Edit job', onAction: () => startEditJobForm(closingSoon) }] : []),
+    ...(openJobWithoutRubric ? [{ id: 'rubric', title: `Set up the assessment for ${openJobWithoutRubric.title}`, detail: 'Shortlisted applicants receive its questions automatically once it is set up.', actionLabel: 'Set up assessment', onAction: () => void openRubricEditor(openJobWithoutRubric.id) }] : []),
     ...(draftJob ? [{ id: 'draft', title: `Finish your draft: ${draftJob.title}`, detail: 'Drafts are hidden from candidates until you post them.', actionLabel: 'Continue editing', onAction: () => startEditJobForm(draftJob) }] : []),
   ];
   const reviewQueue = jobs
@@ -997,6 +1114,40 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     label: status,
     count: applications.filter((candidate) => candidate.status === status).length,
   }));
+  const strongMatches = activeApplicants
+    .filter((candidate) => candidate.status !== 'Interviewing')
+    .map((candidate) => ({ candidate, percent: profileMatch(candidate, jobMap.get(candidate.jobId) || null).percent }))
+    .filter((row): row is { candidate: CandidateApplication; percent: number } => row.percent !== null && row.percent >= HIGH_MATCH_PERCENT)
+    .sort((left, right) => right.percent - left.percent)
+    .slice(0, 5)
+    .map(({ candidate, percent }) => {
+      const assessment = assessments.get(candidate.id);
+      return {
+        id: candidate.id,
+        label: candidate.publicId || 'Applicant',
+        jobTitle: candidate.role,
+        percent,
+        assessment: candidate.status === 'Pending' ? 'Not shortlisted yet'
+          : !assessment ? 'Assessment not sent'
+            : assessment.status === 'pending' ? 'Assessment awaiting response'
+              : assessment.status === 'submitted' ? 'Assessment ready to review' : 'Assessment reviewed',
+      };
+    });
+  const assessmentList = Array.from(assessments.values());
+  const homeAssessments = {
+    awaitingCandidate: assessmentList.filter((item) => item.status === 'pending').length,
+    toReview: assessmentList.filter((item) => item.status === 'submitted').length,
+    reviewed: assessmentList.filter((item) => item.status === 'reviewed').length,
+  };
+  const weekAgo = new Date(`${currentDate}T00:00:00`);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoIso = weekAgo.toISOString().slice(0, 10);
+  const snapshot = {
+    newThisWeek: applications.filter((candidate) => candidate.appliedDate && candidate.appliedDate > weekAgoIso).length,
+    openJobs: openJobsList.length,
+    interviewing: applications.filter((candidate) => candidate.status === 'Interviewing').length,
+    hired: applications.filter((candidate) => candidate.status === 'Hired').length,
+  };
   const requestAwaiting = messageThreads.filter((candidate) => candidate.messageRequestState === 'pending').length;
 
   const confirmCandidate = confirmModal.candidateId ? applications.find((candidate) => candidate.id === confirmModal.candidateId) : null;
@@ -1063,6 +1214,11 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           pipeline={pipeline}
           reviewQueue={reviewQueue}
           openJobs={openJobsList}
+          strongMatches={strongMatches}
+          highMatchPercent={HIGH_MATCH_PERCENT}
+          assessments={homeAssessments}
+          snapshot={snapshot}
+          onOpenApplicant={openReview}
           onOpenCandidates={() => goPage('candidates')}
           onOpenJobApplicants={viewApplicants}
           onOpenJobs={() => goPage('jobs')}
@@ -1077,16 +1233,14 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           jobStats={jobStats}
           rubricVersions={rubricVersions}
           isLoading={isLoadingJobs}
-          isDesktop={isDesktop}
-          selectedJobId={selectedJobId}
-          detailOpen={jobDetailOpen}
-          onSelect={(jobId) => { setSelectedJobId(jobId); setJobDetailOpen(true); }}
-          onCloseDetail={() => setJobDetailOpen(false)}
+          detailJobId={detailJobId}
+          onOpenJob={openJob}
+          onBackToList={() => goPage('jobs')}
           onPostJob={postJob}
           onEdit={startEditJobForm}
           onEditRubric={(jobId) => void openRubricEditor(jobId)}
           onViewApplicants={viewApplicants}
-          onCloseJob={setCloseJobTarget}
+          onBulkAction={bulkJobAction}
         />
       )}
 
@@ -1099,6 +1253,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           filters={candidateFilters}
           onFilters={setCandidateFilters}
           summaries={summaries}
+          assessments={assessments}
+          onBulkAction={bulkCandidateAction}
           hasRubric={rubricsByJob.has(candidateFilters.jobId)}
           evaluationUnavailable={evaluationUnavailable}
           onReview={openReview}
@@ -1170,7 +1326,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onPrevious={reviewIndex > 0 ? () => setReviewModalId(reviewList[reviewIndex - 1].id) : null}
           onNext={reviewIndex >= 0 && reviewIndex < reviewList.length - 1 ? () => setReviewModalId(reviewList[reviewIndex + 1].id) : null}
           onEditRubric={(jobId) => void openRubricEditor(jobId)}
-          onEvaluationChanged={() => setSummaryVersion((value) => value + 1)}
+          onEvaluationChanged={() => { setSummaryVersion((value) => value + 1); setAssessmentVersion((value) => value + 1); }}
           onToast={showToast}
           onClose={closeReview}
           onAction={openConfirmStatus}
@@ -1209,19 +1365,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
             </FormField>
           )}
         </ConfirmDialog>
-      )}
-
-      {closeJobTarget && (
-        <ConfirmDialog
-          title="Close this job?"
-          message={`${closeJobTarget.title} will stop taking applications. Current applicants stay in Candidates.`}
-          confirmLabel="Close job"
-          onCancel={() => setCloseJobTarget(null)}
-          onConfirm={async () => {
-            await closeJobPosting(closeJobTarget.id);
-            setCloseJobTarget(null);
-          }}
-        />
       )}
 
       {deleteProfileModalOpen && (

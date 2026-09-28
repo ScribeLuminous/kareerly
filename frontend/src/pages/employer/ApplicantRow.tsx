@@ -2,7 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronRight, faUser } from '@fortawesome/free-solid-svg-icons';
 import type { CandidateAssessment } from '../../lib/assessmentApi';
 import type { EvaluationSummary } from '../../lib/evaluationApi';
-import { nextAction, profileMatch, profileMatchLabel, weightedRating, assessmentStatusLabel } from './evaluation';
+import { assessmentAwareAction, matchScoreBadgeClass, matchScoreLabel, profileMatch, profileMatchLabel, weightedRating, assessmentStatusLabel } from './evaluation';
 import {
   applicantTitle,
   candidateStatusBadgeClass,
@@ -33,7 +33,7 @@ export function ApplicantRow({ candidate, job, summary, assessment = null, hasRu
   const title = applicantTitle(candidate);
   const profile = profileMatch(candidate, job);
   const result = summary?.result || null;
-  const action = nextAction(candidate.status, candidate.messageRequestState, result, hasRubric, summary?.myScorecard === 'submitted');
+  const action = assessmentAwareAction(candidate.status, candidate.messageRequestState, result, hasRubric, summary?.myScorecard === 'submitted', assessment);
   const reviewed = !hasRubric
     ? 'No rubric'
     : !result || result.submittedScorecards === 0
@@ -46,7 +46,7 @@ export function ApplicantRow({ candidate, job, summary, assessment = null, hasRu
       className={`k-row items-start ${candidate.status === 'Withdrawn' ? 'opacity-70' : ''}`}
       type="button"
       onClick={() => onReview(candidate.id)}
-      aria-label={`Review ${title}, ${candidate.status}. Profile match ${profileMatchLabel(profile)}. Reviewed evaluation ${reviewed}. Assessment ${assessmentStatusLabel(assessment)}. Next: ${action.label}.`}
+      aria-label={`Review ${title}, ${candidate.status}. ${matchScoreLabel(profile)}. Profile match ${profileMatchLabel(profile)}. Reviewed evaluation ${reviewed}. Assessment ${assessmentStatusLabel(assessment)}. Next: ${action.label}.`}
     >
       <span className="k-avatar mt-0.5 bg-tan text-dark" aria-hidden="true">
         {revealed ? getInitials(candidate.fullName) : <FontAwesomeIcon icon={faUser} />}
@@ -55,6 +55,7 @@ export function ApplicantRow({ candidate, job, summary, assessment = null, hasRu
         <span className="flex flex-wrap items-center gap-2">
           <span className="k-label truncate">{title}</span>
           <span className={candidateStatusBadgeClass(candidate.status)}>{candidate.status}</span>
+          <span className={matchScoreBadgeClass(profile)}>{matchScoreLabel(profile)}</span>
         </span>
         <span className="k-meta k-dot-sep mt-0.5 block truncate">
           {revealed && candidate.publicId && <span>{candidate.publicId}</span>}
