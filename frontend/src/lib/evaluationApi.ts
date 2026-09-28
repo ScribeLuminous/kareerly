@@ -9,12 +9,15 @@ import {
   type ApplicationEvaluation,
   type EvaluationResult,
   type RatingDraft,
+  templateCriteriaToDraft,
+  type AssessmentTemplate,
   type Rubric,
   type RubricCriterionDraft,
   type Scorecard,
 } from '../pages/employer/evaluation';
 
-type RubricRow = { id: string; job_post_id: string; version: number; created_at: string; superseded_at: string | null };
+type RubricRow = { id: string; job_post_id: string; version: number; created_at: string; superseded_at: string | null; template_id?: string | null };
+type TemplateRow = { id: string; name: string; description: string | null; criteria: unknown; updated_at: string };
 type CriterionRow = { id: string; rubric_id: string; position: number; name: string; description: string; weight: number; is_required: boolean; anchors: unknown; prompts: string[] | null; question: string };
 type ScorecardRow = { id: string; application_id: string; rubric_id: string; reviewer_user_id: string; status: 'draft' | 'submitted'; summary_notes: string; updated_at: string; submitted_at: string | null };
 type RatingRow = { scorecard_id: string; criterion_id: string; rating: number | null; evidence: string };
@@ -67,6 +70,7 @@ export async function loadRubrics(jobPostIds: string[]): Promise<Rubric[]> {
     version: row.version,
     createdAt: row.created_at,
     supersededAt: row.superseded_at,
+    templateId: row.template_id || null,
     criteria: criteria.get(row.id) || [],
   }));
 }
@@ -166,4 +170,52 @@ export async function rubricHasScorecards(rubricId: string): Promise<boolean> {
   const { count: assessmentCount, error: assessmentError } = await supabase.from('candidate_assessments').select('id', { count: 'exact', head: true }).eq('rubric_id', rubricId);
   if (assessmentError) fail(assessmentError, 'Unable to check sent assessments.');
   return (assessmentCount || 0) > 0;
+}
+
+// ---------- Assessment templates ----------
+
+/** Templates are optional: a database without the migration just has none. */
+export function isTemplatesUnavailable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return /assessment_templates|apply_assessment_template|PGRST202|PGRST205|42P01|schema cache/i.test(message);
+}
+
+export async function loadAssessmentTemplates(): Promise<AssessmentTemplate[]> {
+  const { data, error } = await supabase.from('assessment_templates').select('id,name,description,criteria,updated_at').order('name');
+  if (error) fail(error, 'Unable to load assessment templates.');
+  return ((data as TemplateRow[]) || []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description || '',
+    criteria: templateCriteriaToDraft(row.criteria),
+    updatedAt: row.updated_at,
+  }));
+}
+
+/** Creates the template when no id is given; returns its id. */
+export async function saveAssessmentTemplate(params: { id?: string; employerProfileId: string; name: string; description: string; criteria: RubricCriterionDraft[] }): Promise<string> {
+  const row = { name: params.name.trim(), description: params.description.trim(), criteria: rubricPayload(params.criteria), updated_at: new Date().toISOString() };
+  const query = params.id
+    ? supabase.from('assessment_templates').update(row).eq('id', params.id).select('id').single()
+    : supabase.from('assessment_templates').insert({ ...row, employer_id: params.employerProfileId }).select('id').single();
+  const { data, error } = await query;
+  if (error) {
+    if (/duplicate key|unique/i.test(error.message || '')) throw new Error('You already have a template with that name.');
+    fail(error, 'Unable to save the template.');
+  }
+  return String((data as { id: string }).id);
+}
+
+export async function deleteAssessmentTemplates(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const { data, error } = await supabase.from('assessment_templates').delete().in('id', ids).select('id');
+  if (error) fail(error, 'Unable to delete the templates.');
+  return (data || []).length;
+}
+
+/** Gives each job (employer_job_posts.id) a new rubric version from the template. */
+export async function applyAssessmentTemplate(templateId: string, jobPostIds: string[]): Promise<number> {
+  const { data, error } = await supabase.rpc('apply_assessment_template', { target_template_id: templateId, target_job_post_ids: jobPostIds });
+  if (error) fail(error, 'Unable to apply the template.');
+  return Number(data) || 0;
 }

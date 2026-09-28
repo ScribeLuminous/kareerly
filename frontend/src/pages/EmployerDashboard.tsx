@@ -5,13 +5,14 @@ import { AppShell, ConfirmDialog, DESKTOP_QUERY, FormField, ToastRegion, useMedi
 import { loadApplicationMessages, loadEmployerAccountSettings, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { joinJobContent } from '../lib/jobDescription';
-import { isEvaluationUnavailable, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveRubric, type EvaluationSummary } from '../lib/evaluationApi';
+import { applyAssessmentTemplate, deleteAssessmentTemplates, isEvaluationUnavailable, isTemplatesUnavailable, loadAssessmentTemplates, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveAssessmentTemplate, saveRubric, type EvaluationSummary } from '../lib/evaluationApi';
 import { loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
 import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
+import { AssessmentTemplatesPage, type JobsSection } from './employer/AssessmentTemplatesPage';
 import { EmployerAccountPage, type EmployerAccountForm } from './employer/EmployerAccountPage';
 import { EmployerCandidatesPage } from './employer/EmployerCandidatesPage';
 import { RubricEditorModal } from './employer/RubricEditorModal';
-import { candidateActionBlocker, DEFAULT_CANDIDATE_FILTERS, HIGH_MATCH_PERCENT, profileMatch, visibleApplicants, type CandidateBulkAction, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
+import { candidateActionBlocker, combineTemplates, DEFAULT_CANDIDATE_FILTERS, validateRubricDraft, type AssessmentTemplate, HIGH_MATCH_PERCENT, profileMatch, visibleApplicants, type CandidateBulkAction, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
 import { EmployerHomePage } from './employer/EmployerHomePage';
 import { EmployerJobsPage, type JobBulkAction } from './employer/EmployerJobsPage';
 import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
@@ -22,6 +23,8 @@ import {
   employerJobIdFromPath,
   employerJobPath,
   employerPageFromPath,
+  employerTemplateIdFromPath,
+  employerTemplatePath,
   emptyJobForm,
   getCategoryCode,
   getInitials,
@@ -109,6 +112,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [toast, setToast] = useState<ToastState>(null);
   const [selectedJobId, setSelectedJobId] = useState<string>(initialJobs[0]?.id || '');
   const detailJobId = employerJobIdFromPath(location.pathname);
+  // null outside the templates section, '' on its list, else a template id or 'new'.
+  const templateRouteId = employerTemplateIdFromPath(location.pathname);
+  const [templates, setTemplates] = useState<AssessmentTemplate[]>([]);
+  const [templatesStatus, setTemplatesStatus] = useState<'loading' | 'ready' | 'error' | 'unavailable'>('loading');
   const [jobsPanelMode, setJobsPanelMode] = useState<JobsPanelMode>('detail');
   const [jobForm, setJobForm] = useState<JobFormState>(emptyJobForm);
   const [jobFormError, setJobFormError] = useState('');
@@ -331,6 +338,37 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     });
     return result;
   }, [jobs, rubrics]);
+  const latestRubrics = useMemo(() => new Map(Array.from(rubricsByJob.entries()).map(([jobId, list]) => [jobId, list[0]])), [rubricsByJob]);
+  const templateUsage = useMemo(() => {
+    const usage = new Map<string, number>();
+    latestRubrics.forEach((rubric) => { if (rubric.templateId) usage.set(rubric.templateId, (usage.get(rubric.templateId) || 0) + 1); });
+    return usage;
+  }, [latestRubrics]);
+  const describeJobAssessment = (job: EmployerJob) => {
+    const rubric = latestRubrics.get(job.id);
+    if (!rubric) return 'No assessment yet';
+    const template = templates.find((item) => item.id === rubric.templateId);
+    return template ? `Uses ${template.name}` : `Own assessment v${rubric.version}`;
+  };
+
+  const refreshTemplates = useCallback(() => loadAssessmentTemplates()
+    .then((rows) => { setTemplates(rows); setTemplatesStatus('ready'); })
+    .catch((error: unknown) => {
+      console.warn('Unable to load assessment templates:', error);
+      setTemplatesStatus(isTemplatesUnavailable(error) ? 'unavailable' : 'error');
+    }), []);
+  useEffect(() => {
+    if (!employerProfileId) return;
+    let isMounted = true;
+    loadAssessmentTemplates()
+      .then((rows) => { if (isMounted) { setTemplates(rows); setTemplatesStatus('ready'); } })
+      .catch((error: unknown) => {
+        console.warn('Unable to load assessment templates:', error);
+        if (isMounted) setTemplatesStatus(isTemplatesUnavailable(error) ? 'unavailable' : 'error');
+      });
+    return () => { isMounted = false; };
+  }, [employerProfileId]);
+
   const rubricVersions = useMemo(() => new Map(Array.from(rubricsByJob.entries()).map(([jobId, list]) => [jobId, list[0].version])), [rubricsByJob]);
 
   // The Candidates page always shows one job; start with the one with the most waiting applicants.
@@ -790,6 +828,68 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     showToast(`${updated.size} job${updated.size === 1 ? '' : 's'} ${verb}.${detail}`, updated.size === jobIds.length ? 'success' : 'warn');
   };
 
+  const reloadRubrics = async () => {
+    const postIds = jobs.map((item) => item.databaseId).filter((id): id is string => Boolean(id));
+    setRubrics(await loadRubrics(postIds));
+    setSummaryVersion((value) => value + 1);
+  };
+
+  const saveTemplate = async (draft: { id?: string; name: string; description: string; criteria: RubricCriterionDraft[] }): Promise<string | null> => {
+    try {
+      const id = await saveAssessmentTemplate({ ...draft, employerProfileId });
+      await refreshTemplates();
+      showToast(draft.id ? 'Template saved. Jobs already using it keep their questions until you apply it again.' : 'Template saved.', 'success');
+      if (!draft.id) navigate(employerTemplatePath(id), { replace: true });
+      return id;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save the template.', 'danger');
+      return null;
+    }
+  };
+
+  const deleteTemplates = async (ids: string[]) => {
+    try {
+      const count = await deleteAssessmentTemplates(ids);
+      await refreshTemplates();
+      showToast(`${count} template${count === 1 ? '' : 's'} deleted. Jobs keep their questions.`, 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to delete the templates.', 'danger');
+    }
+  };
+
+  /** One template is applied as itself; several are combined into one assessment first. */
+  const applyTemplates = async (templateIds: string[], jobIds: string[]): Promise<boolean> => {
+    const chosen = templateIds.map((id) => templates.find((item) => item.id === id)).filter((item): item is AssessmentTemplate => Boolean(item));
+    const postIds = jobIds.map((id) => jobMap.get(id)?.databaseId).filter((id): id is string => Boolean(id));
+    if (chosen.length === 0 || postIds.length === 0) {
+      showToast('Choose at least one template and one saved job.', 'warn');
+      return false;
+    }
+    try {
+      if (chosen.length === 1) {
+        await applyAssessmentTemplate(chosen[0].id, postIds);
+      } else {
+        const combined = combineTemplates(chosen);
+        const problem = validateRubricDraft(combined);
+        if (problem) throw new Error(problem);
+        for (const postId of postIds) await saveRubric(postId, combined);
+      }
+      await reloadRubrics();
+      const what = chosen.length === 1 ? chosen[0].name : `${chosen.length} combined templates`;
+      showToast(`${what} applied to ${postIds.length} job${postIds.length === 1 ? '' : 's'}. Shortlisted applicants will receive these questions.`, 'success');
+      return true;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to apply the assessment.', 'danger');
+      await reloadRubrics().catch(() => undefined);
+      return false;
+    }
+  };
+
+  const openJobsSection = (section: JobsSection) => {
+    navigate(section === 'templates' ? employerTemplatePath() : EMPLOYER_PAGE_PATHS.jobs);
+    window.scrollTo({ top: 0 });
+  };
+
   const openReview = (candidateId: string) => {
     const candidate = applications.find((item) => item.id === candidateId);
     // Reviews always happen inside one job's list, so moving between applicants stays within that job.
@@ -813,12 +913,20 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     setRubricEditor({ jobId, inUse });
   };
 
-  const saveRubricDraft = async (criteria: RubricCriterionDraft[]) => {
+  const saveRubricDraft = async (criteria: RubricCriterionDraft[], templateName: string) => {
     const job = rubricEditor ? jobMap.get(rubricEditor.jobId) : null;
     if (!job?.databaseId) return;
     setIsSavingRubric(true);
     try {
       await saveRubric(job.databaseId, criteria);
+      if (templateName) {
+        try {
+          await saveAssessmentTemplate({ employerProfileId, name: templateName, description: `Saved from ${job.title}.`, criteria });
+          await refreshTemplates();
+        } catch (error) {
+          showToast(`Assessment saved, but not as a template: ${error instanceof Error ? error.message : 'try again from Assessment templates.'}`, 'warn');
+        }
+      }
       const postIds = jobs.map((item) => item.databaseId).filter((id): id is string => Boolean(id));
       setRubrics(await loadRubrics(postIds));
       setSummaryVersion((value) => value + 1);
@@ -1227,11 +1335,33 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         />
       )}
 
-      {activePage === 'jobs' && (
+      {activePage === 'jobs' && templateRouteId !== null && (
+        <AssessmentTemplatesPage
+          templates={templates}
+          status={templatesStatus}
+          jobs={jobs}
+          latestRubrics={latestRubrics}
+          usage={templateUsage}
+          describeJob={describeJobAssessment}
+          templateId={templateRouteId}
+          onOpen={(id) => { navigate(employerTemplatePath(id)); window.scrollTo({ top: 0 }); }}
+          onBackToList={() => openJobsSection('templates')}
+          onSection={openJobsSection}
+          onSave={saveTemplate}
+          onDelete={deleteTemplates}
+          onApply={applyTemplates}
+        />
+      )}
+
+      {activePage === 'jobs' && templateRouteId === null && (
         <EmployerJobsPage
           jobs={jobs}
           jobStats={jobStats}
           rubricVersions={rubricVersions}
+          latestRubrics={latestRubrics}
+          templates={templates}
+          onApplyTemplates={applyTemplates}
+          onSection={openJobsSection}
           isLoading={isLoadingJobs}
           detailJobId={detailJobId}
           onOpenJob={openJob}
@@ -1341,8 +1471,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           rubric={rubricsByJob.get(rubricEditor.jobId)?.[0] || null}
           inUse={rubricEditor.inUse}
           saving={isSavingRubric}
+          templates={templates}
           onCancel={() => setRubricEditor(null)}
-          onSave={(criteria) => void saveRubricDraft(criteria)}
+          onSave={(criteria, templateName) => void saveRubricDraft(criteria, templateName)}
         />
       )}
 
