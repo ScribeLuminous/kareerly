@@ -1,0 +1,76 @@
+{
+  "candidate_id": "CAT10-R06",
+  "full_name": "Sittie Aisah Tomawis",
+  "location": "Parang, Maguindanao del Norte",
+  "email": "sittie.tomawis@example.com",
+  "phone": "+63 921 617 7068",
+  "headline": "English Communication Coach",
+  "summary": "Licensed English teacher with seven years in senior high school, moving into corporate English coaching. I design and run speaking and writing sessions, assess learners' English, and proofread and write materials. For the past year I have coached call centre applicants on weekends and want to do this full time.",
+  "certifications": [
+    {
+      "name": "TESOL Certificate (120 hours)",
+      "issuer": "accredited training provider",
+      "date": "2025-02"
+    },
+    {
+      "name": "Licensed Professional Teacher",
+      "issuer": "Professional Regulation Commission",
+      "date": "2019-03"
+    },
+    {
+      "name": "Business English Trainer Course",
+      "issuer": "online course",
+      "date": "2025-08"
+    }
+  ],
+  "skills": [
+    "English communication coaching",
+    "Business communication and email writing",
+    "Proofreading",
+    "Writing learning materials",
+    "Training facilitation",
+    "Lesson planning",
+    "Assessing learners' speaking and writing",
+    "Microsoft Office"
+  ],
+  "experience": [
+    {
+      "title": "English Communication Coach",
+      "employer": "self-employed",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2025-06",
+      "end": "Present",
+      "type": "part-time",
+      "bullets": [
+        "Coach small groups of call centre applicants on pronunciation, listening and handling calls.",
+        "Assess each learner's speaking at the start and end of a four-week course; 70% passed their account interview."
+      ]
+    },
+    {
+      "title": "Senior High School English Teacher",
+      "employer": "Parang Coastal National High School",
+      "location": "Parang, Maguindanao del Norte",
+      "start": "2019-06",
+      "end": "Present",
+      "bullets": [
+        "Teach Oral Communication, Reading and Writing, and English for Academic Purposes to Grade 11 and 12.",
+        "Plan lessons and assessments for four sections of about 40 learners each.",
+        "Proofread and write the school's publications and certificates."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Secondary Education, major in English",
+      "school": "Cotabato Riverside College",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2014",
+      "end": "2018"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Maguindanaon"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "candidate_id": "CAT12-R01",
+  "full_name": "Michael Lumbaya",
+  "location": "Bayombong, Nueva Vizcaya",
+  "email": "michael.lumbaya@example.net",
+  "phone": "+63 919 909 4940",
+  "headline": "Elementary School Teacher",
+  "education": [
+    {
+      "credential": "Bachelor of Elementary Education",
+      "school": "Nueva Vizcaya Valley State College",
+      "location": "Bayombong, Nueva Vizcaya",
+      "start": "2020",
+      "end": "2024",
+      "notes": [
+        "Licensed Professional Teacher, passed the LEPT in 2024",
+        "Practice teaching: Grade 3, Bayombong Central School"
+      ]
+    }
+  ],
+  "summary": "Licensed elementary teacher in my first full year handling a Grade 2 class in Nueva Vizcaya. I plan lessons around the MATATAG curriculum, keep a calm and organised classroom of 38 learners, and assess reading and numeracy regularly to decide who needs extra help. I make many of my own learning materials.",
+  "projects": [
+    {
+      "name": "Mother-tongue reading corner",
+      "context": "classroom initiative",
+      "description": "Set up a reading corner with 60 short stories in Ilocano and Filipino made from recycled materials; non-readers in my class fell from nine to three by the third quarter."
+    },
+    {
+      "name": "Numeracy games kit",
+      "context": "school learning action cell",
+      "description": "Designed a set of counting and place-value games now shared by all Grade 2 teachers in the school."
+    }
+  ],
+  "skills": [
+    "Lesson planning (MATATAG curriculum)",
+    "Classroom management",
+    "Reading and numeracy assessment",
+    "Teaching primary grade subjects",
+    "Child-centred teaching methods",
+    "Making learning materials",
+    "Evaluating learning outcomes",
+    "English, Filipino and Ilocano"
+  ],
+  "experience": [
+    {
+      "title": "Teacher I",
+      "employer": "Bayombong East Elementary School",
+      "location": "Bayombong, Nueva Vizcaya",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Teach all subjects to a Grade 2 class of 38 learners.",
+        "Prepare weekly lesson plans and learning activity sheets.",
+        "Assess learners' reading levels three times a year and group them for remediation.",
+        "Meet parents each quarter to explain progress and home reading routines."
+      ]
+    },
+    {
+      "title": "Substitute Teacher",
+      "employer": "Solano Learning Center",
+      "location": "Bayombong, Nueva Vizcaya",
+      "start": "2024-09",
+      "end": "2025-05",
+      "type": "part-time",
+      "bullets": [
+        "Covered Grade 1 to 4 classes and ran after-school tutorials in reading."
+      ]
+    }
+  ]
+}

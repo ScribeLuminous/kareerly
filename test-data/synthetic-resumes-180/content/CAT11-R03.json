@@ -1,0 +1,72 @@
+{
+  "candidate_id": "CAT11-R03",
+  "full_name": "Yvonne Alcoseba",
+  "location": "Danao City, Cebu",
+  "email": "yvonne.alcoseba@example.net",
+  "phone": "+63 927 217 7009",
+  "headline": "Video Editor and Motion Designer",
+  "summary": "Video editor with four years cutting commercials, corporate videos and social content for brands in Cebu. I edit in Premiere Pro, animate titles and explainer graphics in After Effects, and clean up and mix audio. I help plan content from the concept stage so edits come together faster.",
+  "certifications": [
+    {
+      "name": "Adobe Certified Professional: Video Design",
+      "issuer": "Adobe",
+      "date": "2023-09"
+    },
+    {
+      "name": "Adobe Certified Professional: Visual Effects and Motion Graphics",
+      "issuer": "Adobe",
+      "date": "2024-06"
+    }
+  ],
+  "skills": [
+    "Video editing",
+    "Adobe Premiere Pro",
+    "Adobe After Effects",
+    "Motion graphics and 2D animation",
+    "Audio editing and mixing",
+    "Multimedia design",
+    "Content planning and storyboards",
+    "Creative concept development",
+    "Working with clients and directors"
+  ],
+  "experience": [
+    {
+      "title": "Video Editor",
+      "employer": "Danao Bay Creative Productions",
+      "location": "Danao City, Cebu",
+      "start": "2023-04",
+      "end": "Present",
+      "bullets": [
+        "Edit commercials, corporate videos and event highlights for about 30 clients a year.",
+        "Animate logos, lower thirds and short explainer sequences in After Effects.",
+        "Clean dialogue, balance music and mix final audio for broadcast and online.",
+        "Join concept meetings and storyboard sessions so shoots capture what the edit needs."
+      ]
+    },
+    {
+      "title": "Junior Video Editor",
+      "employer": "Mandaue Media Hub",
+      "location": "Mandaue City, Cebu",
+      "start": "2022-03",
+      "end": "2023-03",
+      "bullets": [
+        "Cut short social videos and YouTube episodes for lifestyle clients.",
+        "Organised footage and project files for the senior editors."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Multimedia Arts",
+      "school": "Central Cebu College of Arts and Design",
+      "location": "Cebu City, Cebu",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

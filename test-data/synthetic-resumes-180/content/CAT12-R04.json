@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT12-R04",
+  "full_name": "Katrina Villanueva",
+  "location": "Dasmariñas City, Cavite",
+  "email": "katrina.villanueva@example.com",
+  "phone": "+63 961 766 4270",
+  "headline": "Library Assistant",
+  "summary": "Library assistant with three years at a university library in Cavite. I help students and faculty find materials, catalogue and process new books in Koha, keep circulation records accurate and encode our collection data. I enjoy making the library easier to use.",
+  "skills": [
+    "Library assistance and reference help",
+    "Records organisation and circulation records",
+    "Koha library system",
+    "Cataloguing and book processing",
+    "Document scanning and digital archives",
+    "Data encoding",
+    "Friendly spoken and written English"
+  ],
+  "experience": [
+    {
+      "title": "Library Assistant",
+      "employer": "Cavite Southern University Library",
+      "location": "Dasmariñas City, Cavite",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Help about 200 students a day find books, journals and online databases.",
+        "Catalogue and process around 150 new titles a month in Koha.",
+        "Keep circulation and overdue records accurate and send reminders.",
+        "Scan and index old theses for the digital repository.",
+        "Encode inventory data during the yearly collection audit."
+      ]
+    },
+    {
+      "title": "Student Library Assistant",
+      "employer": "Cavite Southern University Library",
+      "location": "Dasmariñas City, Cavite",
+      "start": "2022-06",
+      "end": "2023-03",
+      "type": "part-time",
+      "bullets": [
+        "Shelved returned books and assisted at the circulation desk."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Library and Information Science",
+      "school": "Cavite Southern University",
+      "location": "Dasmariñas City, Cavite",
+      "start": "2019",
+      "end": "2023"
+    }
+  ]
+}
