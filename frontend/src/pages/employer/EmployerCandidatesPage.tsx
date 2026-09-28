@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { faClipboardCheck, faPaperPlane, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faClipboardCheck, faDownload, faPaperPlane, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Banner, ConfirmDialog, EmptyState, FormField, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
 import type { CandidateAssessment } from '../../lib/assessmentApi';
 import type { EvaluationSummary } from '../../lib/evaluationApi';
 import { ApplicantRow } from './ApplicantRow';
+import { ExportApplicantsDialog, MatchInsightsCard } from './ApplicantReports';
 import {
   APPLICANT_SORTS,
   CANDIDATE_BULK_LABEL,
@@ -23,6 +24,7 @@ import {
   type CandidateStatus,
   type EmployerJob,
 } from './model';
+import { jobMatchInsights } from './reports';
 
 type EmployerCandidatesPageProps = {
   applications: CandidateApplication[];
@@ -84,6 +86,8 @@ export function EmployerCandidatesPage({
   const [pending, setPending] = useState<PendingBulk | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   const job = jobs.find((item) => item.id === filters.jobId) || null;
   const forJob = useMemo(() => applications.filter((candidate) => candidate.jobId === filters.jobId), [applications, filters.jobId]);
@@ -97,6 +101,7 @@ export function EmployerCandidatesPage({
     return percent !== null && percent >= HIGH_MATCH_PERCENT && (filters.status === 'all' || candidate.status === filters.status);
   }).length, [forJob, job, filters.status]);
   const visible = useMemo(() => visibleApplicants(applications, jobs, filters, summaries), [applications, jobs, filters, summaries]);
+  const insights = useMemo(() => jobMatchInsights(applications, jobs), [applications, jobs]);
   const applicantCount = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId).length;
   const jobOptions = jobs.filter((item) => (item.status !== 'draft' && item.status !== 'archived') || applicantCount(item.id) > 0);
   // Changing what is shown clears the selection, so an action never reaches hidden applicants.
@@ -150,7 +155,14 @@ export function EmployerCandidatesPage({
 
   return (
     <div className="k-page">
-      <PageHeader title="Candidates">
+      <PageHeader
+        title="Candidates"
+        actions={!isLoading && applications.length > 0 ? (
+          <button className="k-btn k-btn-secondary" type="button" onClick={() => { setExportError(''); setExporting(true); }}>
+            <FontAwesomeIcon icon={faDownload} aria-hidden="true" />Download
+          </button>
+        ) : undefined}
+      >
         <p className="k-secondary mt-1 flex items-center gap-1">
           Review applicants one job at a time, against that job's criteria.
           <InfoTip label="How applicant privacy works" align="left">
@@ -170,6 +182,9 @@ export function EmployerCandidatesPage({
         />
       ) : (
         <>
+          {exportError && <Banner tone="warn" className="mb-4" onDismiss={() => setExportError('')}>{exportError}</Banner>}
+          <MatchInsightsCard insights={insights} selectedJobId={filters.jobId} onSelectJob={(jobId) => set({ jobId, status: 'all' })} />
+
           <div className="grid gap-3 [&>.k-field+.k-field]:mt-0 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end">
             <FormField label="Job">
               <select className="k-select" value={filters.jobId} onChange={(event) => set({ jobId: event.target.value, status: 'all' })}>
@@ -295,6 +310,19 @@ export function EmployerCandidatesPage({
             </section>
           )}
         </>
+      )}
+
+      {exporting && (
+        <ExportApplicantsDialog
+          job={job}
+          shown={visible}
+          applications={applications}
+          jobs={jobs}
+          summaries={summaries}
+          assessments={assessments}
+          onClose={() => setExporting(false)}
+          onError={(message) => { setExporting(false); setExportError(message); }}
+        />
       )}
 
       {pending && (
