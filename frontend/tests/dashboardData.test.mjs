@@ -380,3 +380,36 @@ test('scorecard shows submitted evidence before the employer rating', () => {
   assert.match(html, /Add notes supporting your rating/);
   assert.match(html, /Not assessed/);
 });
+
+test('assessment templates live under /employer/jobs/assessments, never as a job id', async () => {
+  const routes = await loadUtility('../src/pages/employer/routes.ts');
+  assert.equal(routes.employerTemplatePath(), '/employer/jobs/assessments');
+  assert.equal(routes.employerTemplatePath('t1'), '/employer/jobs/assessments/t1');
+  assert.equal(routes.employerTemplateIdFromPath('/employer/jobs/assessments'), '');
+  assert.equal(routes.employerTemplateIdFromPath('/employer/jobs/assessments/new'), 'new');
+  assert.equal(routes.employerTemplateIdFromPath('/employer/jobs/EMP-1'), null);
+  assert.equal(routes.employerJobIdFromPath('/employer/jobs/assessments'), '');
+  assert.equal(routes.employerPageFromPath('/employer/jobs/assessments/t1'), 'jobs');
+  assert.ok(routes.isEmployerWorkspacePath('/employer/jobs/assessments/t1'));
+});
+
+test('combined templates ask a shared question once, in the order chosen', () => {
+  const draft = (name, question = `About ${name}?`) => ({ key: name, name, description: '', weight: 2, isRequired: true, anchors: ['a', 'b', 'c', 'd'], prompts: [''], question });
+  const combined = employerPage.combineTemplates([{ criteria: [draft('SQL'), draft('Communication')] }, { criteria: [draft('communication '), draft('Excel')] }]);
+  assert.deepEqual(combined.map((item) => item.name), ['SQL', 'Communication', 'Excel']);
+  assert.notEqual(combined[0].key, 'SQL');
+  const stored = employerPage.templateCriteriaToDraft([{ name: 'SQL', question: 'Q?', weight: 3, is_required: false }]);
+  assert.equal(stored[0].question, 'Q?');
+  assert.equal(stored[0].isRequired, false);
+  assert.equal(stored[0].anchors.length, 4);
+});
+
+test('the assessment summary lists each question and what is still missing', () => {
+  const draft = (name, question) => ({ key: name || 'blank', name, description: '', weight: 2, isRequired: true, anchors: ['a', 'b', 'c', 'd'], prompts: [''], question });
+  const summary = employerPage.summarizeCriteria([draft('SQL', 'Describe a query.'), draft('', '')]);
+  assert.equal(summary.rows.length, 2);
+  assert.equal(summary.ready, 1);
+  assert.deepEqual(summary.rows[1].issues, ['Needs a name', 'Needs a question']);
+  assert.equal(summary.rows[0].share, 50);
+  assert.ok(summary.problem);
+});

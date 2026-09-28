@@ -106,7 +106,18 @@ export type Rubric = {
   version: number;
   createdAt: string;
   supersededAt: string | null;
+  /** The assessment template this version was applied from, if any. */
+  templateId?: string | null;
   criteria: RubricCriterion[];
+};
+
+/** A reusable Candidate Assessment an employer can apply to any of their jobs. */
+export type AssessmentTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  criteria: RubricCriterionDraft[];
+  updatedAt: string;
 };
 
 let draftCounter = 0;
@@ -180,6 +191,78 @@ export function rubricPayload(criteria: RubricCriterionDraft[]) {
     prompts: criterion.prompts.map((prompt) => prompt.trim()).filter(Boolean),
     question: criterion.question.trim(),
   }));
+}
+
+/** Template criteria as stored (the save_evaluation_rubric payload) back into editor drafts. */
+export function templateCriteriaToDraft(raw: unknown): RubricCriterionDraft[] {
+  const list = Array.isArray(raw) ? raw : [];
+  return list.map((item) => {
+    const row = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+    const anchors = Array.isArray(row.anchors) ? row.anchors.map(String) : [];
+    const prompts = Array.isArray(row.prompts) ? row.prompts.map(String) : [];
+    return {
+      key: newDraftKey(),
+      name: String(row.name || ''),
+      description: String(row.description || ''),
+      weight: Number(row.weight) >= 1 && Number(row.weight) <= 5 ? Number(row.weight) : 2,
+      isRequired: row.is_required !== false,
+      anchors: anchors.length === 4 ? anchors : [...DEFAULT_ANCHORS],
+      prompts: prompts.length > 0 ? prompts : [''],
+      question: String(row.question || prompts[0] || ''),
+    };
+  });
+}
+
+/**
+ * Several templates merged into one assessment, in the order given. A
+ * criterion whose name already appeared is left out, so combining two
+ * templates that both ask about "Communication" asks once.
+ */
+export function combineTemplates(templates: Array<Pick<AssessmentTemplate, 'criteria'>>): RubricCriterionDraft[] {
+  const seen = new Set<string>();
+  const combined: RubricCriterionDraft[] = [];
+  templates.forEach((template) => template.criteria.forEach((criterion) => {
+    const key = criterion.name.trim().toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    combined.push({ ...criterion, key: newDraftKey(), anchors: [...criterion.anchors], prompts: [...criterion.prompts] });
+  }));
+  return combined;
+}
+
+export type CriterionSummary = {
+  key: string;
+  index: number;
+  name: string;
+  share: number;
+  isRequired: boolean;
+  question: string;
+  /** What still needs doing before this criterion can be saved; empty when ready. */
+  issues: string[];
+};
+
+/** One line per criterion, so the whole assessment reads at a glance. */
+export function summarizeCriteria(criteria: RubricCriterionDraft[]): { rows: CriterionSummary[]; required: number; ready: number; problem: string | null } {
+  const shares = weightShares(criteria);
+  const names = new Map<string, number>();
+  criteria.forEach((criterion) => {
+    const name = criterion.name.trim().toLowerCase();
+    if (name) names.set(name, (names.get(name) || 0) + 1);
+  });
+  const rows = criteria.map((criterion, index) => {
+    const issues: string[] = [];
+    if (!criterion.name.trim()) issues.push('Needs a name');
+    else if ((names.get(criterion.name.trim().toLowerCase()) || 0) > 1) issues.push('Duplicate name');
+    if (!criterion.question.trim()) issues.push('Needs a question');
+    if (criterion.anchors.some((anchor) => !anchor.trim())) issues.push('Rating guidance incomplete');
+    return { key: criterion.key, index, name: criterion.name.trim(), share: shares[index], isRequired: criterion.isRequired, question: criterion.question.trim(), issues };
+  });
+  return {
+    rows,
+    required: criteria.filter((criterion) => criterion.isRequired).length,
+    ready: rows.filter((row) => row.issues.length === 0).length,
+    problem: validateRubricDraft(criteria),
+  };
 }
 
 /** Share of the total weight each criterion carries, as whole percents. */

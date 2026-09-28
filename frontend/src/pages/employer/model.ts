@@ -2,7 +2,7 @@ import { savedMatchScore } from '../../lib/uiData';
 import { splitJobContent } from '../../lib/jobDescription';
 
 export type { EmployerPage } from './routes';
-export { EMPLOYER_PAGE_PATHS, employerJobIdFromPath, employerJobPath, employerPageFromPath, isEmployerWorkspacePath } from './routes';
+export { EMPLOYER_PAGE_PATHS, employerJobIdFromPath, employerJobPath, employerPageFromPath, employerTemplateIdFromPath, employerTemplatePath, isEmployerWorkspacePath } from './routes';
 export { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from '../../lib/employerOptions';
 
 export type JobStatus = 'open' | 'draft' | 'closed' | 'archived';
