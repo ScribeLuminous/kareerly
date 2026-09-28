@@ -1,0 +1,66 @@
+{
+  "candidate_id": "CAT13-R01",
+  "full_name": "Leonardo Rabanal",
+  "location": "Vigan City, Ilocos Sur",
+  "email": "leonardo.rabanal@example.com",
+  "phone": "+63 928 608 1875",
+  "headline": "Social Welfare Assistant, RSW",
+  "summary": "Registered social worker with a year of casework at a family welfare foundation in Ilocos Sur. I meet families in crisis, write intake and case notes, give counselling support, and connect clients with the services and people who can help them. I build trust quickly with parents and children.",
+  "skills": [
+    "Community engagement and home visits",
+    "Case documentation: intake, case notes, social case study reports",
+    "Counselling support for families and children",
+    "Talking with clients in Ilocano, Filipino and English",
+    "Referral to community resources",
+    "Referral to partner agencies",
+    "Building helping relationships",
+    "Business writing"
+  ],
+  "experience": [
+    {
+      "title": "Social Welfare Assistant",
+      "employer": "Vigan Heritage Family Welfare Foundation",
+      "location": "Vigan City, Ilocos Sur",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Handle a caseload of about 35 families facing poverty, abuse or abandonment.",
+        "Conduct intake interviews and home visits and write social case study reports within a week.",
+        "Give counselling support to parents and children and follow up every two weeks.",
+        "Refer families to health, legal aid and livelihood programs and track whether help arrived."
+      ]
+    },
+    {
+      "title": "Social Work Field Practicum Student",
+      "employer": "Ilocos Sur Children's Shelter Foundation",
+      "location": "Vigan City, Ilocos Sur",
+      "start": "2024-01",
+      "end": "2024-04",
+      "type": "internship",
+      "bullets": [
+        "Assisted house parents and wrote progress notes for twelve children in residential care."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Social Work",
+      "school": "Ilocos Sur Heritage College",
+      "location": "Vigan City, Ilocos Sur",
+      "start": "2020",
+      "end": "2024"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Social Worker",
+      "issuer": "Professional Regulation Commission",
+      "date": "2025-03"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ilocano"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "candidate_id": "CAT14-R07",
+  "full_name": "Liezl Mercado",
+  "location": "Mamburao, Occidental Mindoro",
+  "email": "liezl.mercado@example.org",
+  "phone": "+63 939 398 2190",
+  "headline": "Medical Secretary",
+  "summary": "Medical secretary with three years supporting doctors at a multi-specialty clinic in Occidental Mindoro and, remotely, a US practice. I manage doctors' calendars and emails, schedule and coordinate patients, prepare medical billing and claims, and keep clinical notes and forms in order. I know medical terms well enough to catch errors before they cause problems.",
+  "skills": [
+    "Medical terminology",
+    "Clinical documentation support",
+    "Medical billing and HMO/PhilHealth claims",
+    "Patient coordination",
+    "Appointment scheduling",
+    "Virtual assistance for a US practice",
+    "Calendar management",
+    "Email management"
+  ],
+  "experience": [
+    {
+      "title": "Medical Secretary",
+      "employer": "Mamburao Multi-Specialty Clinic",
+      "location": "Mamburao, Occidental Mindoro",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Manage the calendars and email of four specialists and schedule about 90 patients a day.",
+        "Prepare billing, HMO letters of authorisation and PhilHealth claims.",
+        "Type and file consultation notes, referral letters and medical certificates."
+      ]
+    },
+    {
+      "title": "Medical Virtual Assistant",
+      "employer": "self-employed, client in California",
+      "location": "Remote",
+      "start": "2024-02",
+      "end": "Present",
+      "type": "part-time",
+      "bullets": [
+        "Confirm and reschedule appointments for a family practice by email and phone.",
+        "Verify patient insurance and prepare billing summaries for the practice's biller."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Office Administration",
+      "school": "Mindoro Western College",
+      "location": "San Jose, Occidental Mindoro",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Medical Terminology for Health Professionals",
+      "issuer": "online course",
+      "date": "2023-03"
+    }
+  ]
+}

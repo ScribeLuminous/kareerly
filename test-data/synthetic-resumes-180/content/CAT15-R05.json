@@ -1,0 +1,77 @@
+{
+  "candidate_id": "CAT15-R05",
+  "full_name": "Danica Aguilar",
+  "location": "Laoag City, Ilocos Norte",
+  "email": "danica.aguilar@example.org",
+  "phone": "+63 955 104 3658",
+  "headline": "Care Home Supervisor, RN",
+  "summary": "Registered nurse and care home supervisor with ten years in elderly and end-of-life care. I run the daily care of 40 residents in a home for older adults, lead a team of 18 caregivers and nursing aides, and make sure each resident's care plan fits their abilities, wishes and health. I train staff in safe medication, dementia care and palliative care.",
+  "highlights": [
+    "Cut falls among residents by 40% in a year with personalised mobility plans and night checks.",
+    "Introduced a palliative care pathway with the visiting physician so residents can spend their last days at the home.",
+    "Trained all caregivers in medication safety; no serious medication errors in three years."
+  ],
+  "skills": [
+    "Caregiving and elderly care",
+    "Geriatric nursing",
+    "Palliative and end-of-life care",
+    "Medication assistance and safety",
+    "Assessing residents' abilities and needs",
+    "Wellness and activity programs",
+    "Basic Life Support",
+    "Clinical documentation and care plans",
+    "Staff supervision and training",
+    "Communication with families"
+  ],
+  "experience": [
+    {
+      "title": "Care Home Supervisor",
+      "employer": "Laoag Golden Sunset Home for the Aged",
+      "location": "Laoag City, Ilocos Norte",
+      "start": "2020-01",
+      "end": "Present",
+      "bullets": [
+        "Supervise the care of 40 residents and a team of 18 caregivers and nursing aides.",
+        "Assess new residents and write and review individual care plans with families.",
+        "Organise daily wellness activities: exercise, music, gardening and outings."
+      ]
+    },
+    {
+      "title": "Staff Nurse",
+      "employer": "Ilocos Norte Riverside Hospital",
+      "location": "Laoag City, Ilocos Norte",
+      "start": "2016-06",
+      "end": "2019-12",
+      "bullets": [
+        "Worked on the medical ward with many older patients with chronic illness.",
+        "Coordinated with families on discharge and home care arrangements."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Nursing",
+      "school": "Laoag Northern College",
+      "location": "Laoag City, Ilocos Norte",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Nurse",
+      "issuer": "Professional Regulation Commission",
+      "date": "2015-12"
+    },
+    {
+      "name": "Palliative Care Nursing Course",
+      "issuer": "professional training course",
+      "date": "2021-08"
+    },
+    {
+      "name": "Trainers Methodology Level I",
+      "issuer": "TESDA",
+      "date": "2022-04"
+    }
+  ]
+}

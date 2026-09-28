@@ -1,0 +1,83 @@
+{
+  "candidate_id": "CAT14-R01",
+  "full_name": "Mylene Carreon",
+  "location": "Tacloban City, Leyte",
+  "email": "mylene.carreon@example.com",
+  "phone": "+63 965 350 9985",
+  "headline": "Registered Nurse",
+  "education": [
+    {
+      "credential": "Bachelor of Science in Nursing",
+      "school": "Leyte Gulf College of Nursing",
+      "location": "Tacloban City, Leyte",
+      "start": "2020",
+      "end": "2024",
+      "notes": [
+        "Related learning experience in medical-surgical, pediatric, maternity and community settings",
+        "Registered Nurse, Philippine Nurse Licensure Examination, 2024"
+      ]
+    }
+  ],
+  "summary": "Registered nurse with a year of experience in a busy outpatient and urgent-care clinic in Tacloban. I take histories and vital signs, assess patients before they see the doctor, document care accurately and respond first in emergencies. I am calm under pressure and careful about infection control.",
+  "projects": [
+    {
+      "name": "Hypertension follow-up list",
+      "context": "clinic initiative",
+      "description": "Started a follow-up list for patients with uncontrolled blood pressure and called them before each visit; missed follow-ups dropped noticeably within three months."
+    }
+  ],
+  "skills": [
+    "Patient assessment and triage",
+    "Clinical documentation and nursing notes",
+    "Medical terminology",
+    "Basic Life Support (BLS) and first aid",
+    "Monitoring patients' response to treatment",
+    "Infection control and hygiene",
+    "Taking health histories",
+    "Explaining care to patients and families"
+  ],
+  "experience": [
+    {
+      "title": "Staff Nurse",
+      "employer": "Leyte Gulf Family Clinic and Urgent Care",
+      "location": "Tacloban City, Leyte",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Assess and triage about 60 outpatients a shift, taking histories and vital signs before consultation.",
+        "Monitor patients under observation and report changes to the physician on duty.",
+        "Document assessments, treatments and teaching in the clinic's electronic medical record.",
+        "Respond to emergencies with BLS until transfer, and keep the emergency cart checked."
+      ]
+    },
+    {
+      "title": "Nurse Volunteer",
+      "employer": "Eastern Visayas Medical Mission Network",
+      "location": "Ormoc City, Leyte",
+      "start": "2025-01",
+      "end": "2025-05",
+      "type": "volunteer",
+      "bullets": [
+        "Screened patients and gave health teaching during weekend medical missions in upland barangays.",
+        "Recorded blood pressure and blood sugar readings for follow-up by the mission doctors."
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Nurse",
+      "issuer": "Professional Regulation Commission",
+      "date": "2024-12"
+    },
+    {
+      "name": "Basic Life Support Provider",
+      "issuer": "accredited training provider",
+      "date": "2025-05"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Waray"
+  ]
+}

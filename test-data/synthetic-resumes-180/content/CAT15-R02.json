@@ -1,0 +1,55 @@
+{
+  "candidate_id": "CAT15-R02",
+  "full_name": "Zenaida Pascual",
+  "location": "Nabunturan, Davao de Oro",
+  "email": "zenaida.pascual@example.org",
+  "phone": "+63 995 499 5954",
+  "headline": "Home Care Aide",
+  "summary": "Senior high school graduate looking for a home care aide position. I helped look after my grandmother at home for two years and have volunteered with a parish program visiting elderly residents. I can cook healthy meals, keep a home clean and safe, and keep older people company.",
+  "projects": [
+    {
+      "name": "Caring for my grandmother",
+      "context": "family care, 2024–2026",
+      "bullets": [
+        "Helped her with bathing, dressing and walking after a hip injury.",
+        "Cooked low-salt meals and kept her room clean and free of tripping hazards."
+      ]
+    },
+    {
+      "name": "Parish elderly visitation program",
+      "context": "volunteer",
+      "description": "Visited housebound seniors every Sunday with other youth volunteers, bringing food packs and spending time talking with them."
+    }
+  ],
+  "skills": [
+    "Caregiving support",
+    "Companionship and daily living assistance for older people",
+    "Encouraging healthy habits: walking, meals, rest",
+    "Housekeeping and laundry",
+    "Cooking simple, healthy meals",
+    "English, Filipino and Cebuano"
+  ],
+  "experience": [
+    {
+      "title": "Elderly Visitation Volunteer",
+      "employer": "Nabunturan Youth Volunteers for Seniors",
+      "location": "Nabunturan, Davao de Oro",
+      "start": "2026-03",
+      "end": "Present",
+      "type": "volunteer",
+      "bullets": [
+        "Visit housebound senior citizens weekly and help them with small household tasks.",
+        "Bring food packs and check that each senior has water, medicines within reach and a tidy, safe room."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, TVL Track – Home Economics strand",
+      "school": "Davao de Oro Valley Integrated School",
+      "location": "Nabunturan, Davao de Oro",
+      "start": "2024",
+      "end": "2026"
+    }
+  ]
+}

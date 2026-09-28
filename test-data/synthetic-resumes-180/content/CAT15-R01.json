@@ -1,0 +1,71 @@
+{
+  "candidate_id": "CAT15-R01",
+  "full_name": "Gerald Pamintuan",
+  "location": "Boac, Marinduque",
+  "email": "gerald.pamintuan@example.com",
+  "phone": "+63 956 370 1205",
+  "headline": "Caregiver",
+  "education": [
+    {
+      "credential": "Caregiving NC II",
+      "school": "Marinduque Skills Development Institute",
+      "location": "Boac, Marinduque",
+      "start": "2024-06",
+      "end": "2024-12",
+      "notes": [
+        "Passed national assessment, 2025"
+      ]
+    },
+    {
+      "credential": "Senior High School, TVL Track – Home Economics strand",
+      "school": "Boac Heartland Integrated School",
+      "location": "Boac, Marinduque",
+      "start": "2022",
+      "end": "2024"
+    }
+  ],
+  "summary": "TESDA-certified caregiver with a year of experience caring for elderly clients in a private home-care service. I help with daily activities, give medicines on schedule, watch for changes in health and keep clients active and cheerful. I am trained in Basic Life Support and first aid.",
+  "projects": [
+    {
+      "name": "Morning exercise routine for seniors",
+      "context": "home-care initiative",
+      "description": "Built a gentle 20-minute morning routine with stretching and walking for two clients; both now walk to the garden every day."
+    }
+  ],
+  "skills": [
+    "Caregiving and personal care",
+    "Elderly care",
+    "Medication assistance on schedule",
+    "Basic Life Support and first aid",
+    "Care of older adults with chronic illness",
+    "Wellness activities and healthy routines",
+    "Daily care notes for families and nurses",
+    "Clear spoken English and Filipino"
+  ],
+  "experience": [
+    {
+      "title": "Caregiver",
+      "employer": "Marinduque Home Care Services",
+      "location": "Boac, Marinduque",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Care for two elderly clients at home, one with diabetes and one recovering from a stroke.",
+        "Give medicines on time according to the doctor's orders and record each dose.",
+        "Check blood pressure and blood sugar and report changes to the family and visiting nurse.",
+        "Help with bathing, meals and mobility exercises while keeping clients safe from falls."
+      ]
+    },
+    {
+      "title": "On-the-Job Trainee",
+      "employer": "Boac Senior Care Residence",
+      "location": "Boac, Marinduque",
+      "start": "2025-01",
+      "end": "2025-03",
+      "type": "internship",
+      "bullets": [
+        "Assisted caregivers with feeding, bathing and turning bedridden residents."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "candidate_id": "CAT13-R04",
+  "full_name": "Rex Lansangan",
+  "location": "Calapan City, Oriental Mindoro",
+  "email": "rex.lansangan@example.org",
+  "phone": "+63 956 813 8283",
+  "headline": "NGO Program Assistant",
+  "summary": "Program assistant with three years at an NGO running water, sanitation and livelihood projects in Oriental Mindoro. I coordinate activities with barangay partners, keep beneficiary records and project files, and prepare monitoring reports from our field data.",
+  "skills": [
+    "Community engagement with barangays and Mangyan communities",
+    "Project coordination",
+    "Beneficiary records and case files",
+    "Document management",
+    "Monitoring data analysis",
+    "Microsoft Excel",
+    "Donor reports and business writing"
+  ],
+  "experience": [
+    {
+      "title": "Program Assistant",
+      "employer": "Mindoro Water and Livelihood Initiative",
+      "location": "Calapan City, Oriental Mindoro",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Coordinate schedules, suppliers and barangay partners for 14 water system and livelihood projects.",
+        "Organise community meetings and consultations with Mangyan leaders.",
+        "Keep beneficiary lists and household profiles complete for about 1,200 families.",
+        "Analyse monitoring data in Excel and draft quarterly reports for two donors.",
+        "Maintain the project filing system for contracts, receipts and photos."
+      ]
+    },
+    {
+      "title": "Field Enumerator",
+      "employer": "Calapan Research and Survey Services",
+      "location": "Calapan City, Oriental Mindoro",
+      "start": "2023-01",
+      "end": "2023-06",
+      "type": "contract",
+      "bullets": [
+        "Interviewed households for a nutrition survey and checked forms for completeness.",
+        "Encoded survey results for the analysis team."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Development Studies",
+      "school": "Oriental Mindoro College of Arts and Sciences",
+      "location": "Calapan City, Oriental Mindoro",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

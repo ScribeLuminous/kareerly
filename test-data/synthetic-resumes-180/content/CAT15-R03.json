@@ -1,0 +1,66 @@
+{
+  "candidate_id": "CAT15-R03",
+  "full_name": "Sheila Galang",
+  "location": "Bangued, Abra",
+  "email": "sheila.galang@example.com",
+  "phone": "+63 956 450 2877",
+  "headline": "Personal Trainer",
+  "experience": [
+    {
+      "title": "Personal Trainer",
+      "employer": "Abra River Fitness Center",
+      "location": "Bangued, Abra",
+      "start": "2023-03",
+      "end": "Present",
+      "bullets": [
+        "Train about 25 regular clients a week, from teenagers to adults in their sixties.",
+        "Assess each client's strength, flexibility and health limits before writing a program.",
+        "Run small-group classes in circuit training and mobility, and coach on nutrition habits.",
+        "Keep the gym's first aid kit and emergency plan up to date and hold a current CPR certificate."
+      ]
+    },
+    {
+      "title": "Fitness Instructor",
+      "employer": "Bangued Community Sports Club",
+      "location": "Bangued, Abra",
+      "start": "2022-05",
+      "end": "2023-02",
+      "type": "part-time",
+      "bullets": [
+        "Led evening Zumba and circuit classes for 20 to 40 participants.",
+        "Welcomed new members and explained memberships and class schedules."
+      ]
+    }
+  ],
+  "summary": "Personal trainer with four years coaching adults of all ages in Abra. I assess each client's fitness and health limits, design training and lifestyle programs, and keep them motivated through personal attention. I also run group classes and handle client relations for the gym.",
+  "skills": [
+    "Fitness coaching and program design",
+    "Strength, cardio and mobility training",
+    "Fitness and health assessments",
+    "Wellness and lifestyle coaching",
+    "Basic Life Support and first aid",
+    "Client relations and retention",
+    "Customer service"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Physical Education",
+      "school": "Abra Riverbend State College",
+      "location": "Bangued, Abra",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Personal Trainer",
+      "issuer": "fitness certification body",
+      "date": "2022-09"
+    },
+    {
+      "name": "Basic Life Support and CPR",
+      "issuer": "accredited training provider",
+      "date": "2025-01"
+    }
+  ]
+}

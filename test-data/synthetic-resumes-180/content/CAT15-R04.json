@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT15-R04",
+  "full_name": "Michelle Villanueva",
+  "location": "Butuan City, Agusan del Norte",
+  "email": "michelle.villanueva@example.net",
+  "phone": "+63 977 453 3589",
+  "headline": "Nursing Aide",
+  "summary": "Nursing aide with three years on the medical ward of a hospital in Butuan. I help patients with personal care and mobility, give medicines under nurse supervision, take vital signs and keep the ward clean and safe. I respond quickly in emergencies and communicate well with nurses and families.",
+  "skills": [
+    "Patient care and personal care",
+    "Medication assistance under supervision",
+    "Basic Life Support",
+    "Vital signs and basic patient checks",
+    "Charting vital signs and care given",
+    "Infection control and hygiene",
+    "Communication with nurses and families"
+  ],
+  "experience": [
+    {
+      "title": "Nursing Aide",
+      "employer": "Agusan River General Hospital",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Assist 12 to 15 patients per shift with bathing, feeding, turning and walking.",
+        "Give oral medicines under the nurse's supervision and record them on the chart.",
+        "Take and chart vital signs every four hours and report abnormal readings right away.",
+        "Follow infection control rules for isolation rooms and clean equipment between patients."
+      ]
+    },
+    {
+      "title": "Caregiver",
+      "employer": "Butuan Home Health Partners",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Looked after a bedridden client at home and helped the family with daily care.",
+        "Reported changes in the client's condition to the family and the home-visit nurse."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Health Care Services NC II",
+      "school": "Caraga Northern Skills Center",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2022-06",
+      "end": "2022-12"
+    }
+  ]
+}
