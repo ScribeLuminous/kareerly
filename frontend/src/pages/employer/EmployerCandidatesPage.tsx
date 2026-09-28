@@ -1,13 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import { faClipboardCheck, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { useMemo, useState } from 'react';
+import { faClipboardCheck, faPaperPlane, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Banner, EmptyState, FormField, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
-import { loadAssessments, type CandidateAssessment } from '../../lib/assessmentApi';
+import { Banner, ConfirmDialog, EmptyState, FormField, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
+import type { CandidateAssessment } from '../../lib/assessmentApi';
 import type { EvaluationSummary } from '../../lib/evaluationApi';
 import { ApplicantRow } from './ApplicantRow';
-import { APPLICANT_SORTS, visibleApplicants, type ApplicantSort, type CandidateFilters } from './evaluation';
+import {
+  APPLICANT_SORTS,
+  CANDIDATE_BULK_LABEL,
+  candidateActionBlocker,
+  HIGH_MATCH_PERCENT,
+  profileMatch,
+  visibleApplicants,
+  type ApplicantSort,
+  type CandidateBulkAction,
+  type CandidateFilters,
+} from './evaluation';
 import {
   JOB_STATUS_LABEL,
+  REJECTION_REASONS,
   type CandidateApplication,
   type CandidateStatus,
   type EmployerJob,
@@ -21,14 +32,37 @@ type EmployerCandidatesPageProps = {
   filters: CandidateFilters;
   onFilters: (filters: CandidateFilters) => void;
   summaries: Map<string, EvaluationSummary>;
+  /** Candidate Assessments by application id. */
+  assessments: Map<string, CandidateAssessment>;
   hasRubric: boolean;
   evaluationUnavailable: boolean;
   onReview: (candidateId: string) => void;
   onOpenJobs: () => void;
   onEditRubric: (jobId: string) => void;
+  /** Applies a stage change to the eligible applicants; resolves when done. */
+  onBulkAction: (action: CandidateBulkAction, candidateIds: string[], rejectionReason: string) => Promise<void>;
 };
 
 const STATUSES: CandidateStatus[] = ['Pending', 'Shortlisted', 'Interviewing', 'Hired', 'Rejected', 'Withdrawn'];
+const BULK_ACTIONS: CandidateBulkAction[] = ['send-assessment', 'shortlisted', 'interviewing', 'hired', 'rejected'];
+
+type PendingBulk = { action: CandidateBulkAction; eligible: CandidateApplication[]; skipped: Array<{ candidate: CandidateApplication; reason: string }> };
+
+function bulkMessage({ action, eligible, skipped }: PendingBulk): string {
+  const people = `${eligible.length} applicant${eligible.length === 1 ? '' : 's'}`;
+  const shortlistFirst = action === 'send-assessment' && eligible.some((candidate) => candidate.status === 'Pending')
+    ? ' Pending applicants are shortlisted first, since the assessment is sent at shortlisting.'
+    : '';
+  const message = {
+    shortlisted: `${people} will be shortlisted and sent the Candidate Assessment.`,
+    'send-assessment': `${people} will receive the Candidate Assessment and be notified.${shortlistFirst}`,
+    interviewing: `${people} will move to Interviewing. Their name and contact details become visible to you.`,
+    hired: `${people} will be marked as hired. This is final.`,
+    rejected: `${people} will be declined with the reason below. This is final.`,
+  }[action];
+  const reasons = Array.from(new Set(skipped.map((item) => item.reason)));
+  return skipped.length > 0 ? `${message} ${skipped.length} selected applicant${skipped.length === 1 ? ' is' : 's are'} skipped (${reasons.join(', ')}).` : message;
+}
 
 export function EmployerCandidatesPage({
   applications,
@@ -38,18 +72,19 @@ export function EmployerCandidatesPage({
   filters,
   onFilters,
   summaries,
+  assessments,
   hasRubric,
   evaluationUnavailable,
   onReview,
   onOpenJobs,
   onEditRubric,
+  onBulkAction,
 }: EmployerCandidatesPageProps) {
-  const [assessments, setAssessments] = useState<Map<string, CandidateAssessment>>(new Map());
-  useEffect(() => {
-    let mounted = true;
-    void loadAssessments(applications.map((item) => item.id)).then((rows) => { if (mounted) setAssessments(rows); }).catch(() => { if (mounted) setAssessments(new Map()); });
-    return () => { mounted = false; };
-  }, [applications]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pending, setPending] = useState<PendingBulk | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [busy, setBusy] = useState(false);
+
   const job = jobs.find((item) => item.id === filters.jobId) || null;
   const forJob = useMemo(() => applications.filter((candidate) => candidate.jobId === filters.jobId), [applications, filters.jobId]);
   const counts = useMemo(() => {
@@ -57,12 +92,61 @@ export function EmployerCandidatesPage({
     forJob.forEach((candidate) => result.set(candidate.status, (result.get(candidate.status) || 0) + 1));
     return result;
   }, [forJob]);
+  const highMatchCount = useMemo(() => forJob.filter((candidate) => {
+    const percent = profileMatch(candidate, job).percent;
+    return percent !== null && percent >= HIGH_MATCH_PERCENT && (filters.status === 'all' || candidate.status === filters.status);
+  }).length, [forJob, job, filters.status]);
   const visible = useMemo(() => visibleApplicants(applications, jobs, filters, summaries), [applications, jobs, filters, summaries]);
   const applicantCount = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId).length;
-  const jobOptions = jobs.filter((item) => item.status !== 'draft' || applicantCount(item.id) > 0);
-  const set = (patch: Partial<CandidateFilters>) => onFilters({ ...filters, ...patch });
-  const isFiltered = Boolean(filters.search.trim()) || filters.status !== 'all';
+  const jobOptions = jobs.filter((item) => (item.status !== 'draft' && item.status !== 'archived') || applicantCount(item.id) > 0);
+  // Changing what is shown clears the selection, so an action never reaches hidden applicants.
+  const set = (patch: Partial<CandidateFilters>) => { setSelectedIds(new Set()); onFilters({ ...filters, ...patch }); };
+  const isFiltered = Boolean(filters.search.trim()) || filters.status !== 'all' || filters.highMatch;
   const scoreSort = filters.sort === 'profile-match' || filters.sort === 'reviewed';
+
+  const selectedVisible = visible.filter((candidate) => selectedIds.has(candidate.id));
+  const allSelected = visible.length > 0 && selectedVisible.length === visible.length;
+  const someSelected = selectedVisible.length > 0 && !allSelected;
+  const blocker = (action: CandidateBulkAction, candidate: CandidateApplication) => candidateActionBlocker(action, candidate, assessments.get(candidate.id) || null, hasRubric);
+  const eligibleCount = (action: CandidateBulkAction, list: CandidateApplication[]) => list.filter((candidate) => !blocker(action, candidate)).length;
+
+  const toggle = (candidateId: string) => setSelectedIds((current) => {
+    const next = new Set(current);
+    if (next.has(candidateId)) next.delete(candidateId);
+    else next.add(candidateId);
+    return next;
+  });
+  const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(visible.map((candidate) => candidate.id)));
+
+  const request = (action: CandidateBulkAction, targets: CandidateApplication[]) => {
+    const eligible: CandidateApplication[] = [];
+    const skipped: PendingBulk['skipped'] = [];
+    targets.forEach((candidate) => {
+      const reason = blocker(action, candidate);
+      if (reason) skipped.push({ candidate, reason });
+      else eligible.push(candidate);
+    });
+    setRejectionReason('');
+    setPending({ action, eligible, skipped });
+  };
+
+  const run = async () => {
+    if (!pending || pending.eligible.length === 0) {
+      setPending(null);
+      return;
+    }
+    setBusy(true);
+    try {
+      await onBulkAction(pending.action, pending.eligible.map((candidate) => candidate.id), rejectionReason);
+      setSelectedIds(new Set());
+    } finally {
+      setBusy(false);
+      setPending(null);
+    }
+  };
+
+  // Strong matches who still need the assessment, for the quick-send prompt.
+  const highMatchNeedingAssessment = filters.highMatch ? visible.filter((candidate) => !blocker('send-assessment', candidate)) : [];
 
   return (
     <div className="k-page">
@@ -88,7 +172,7 @@ export function EmployerCandidatesPage({
         <>
           <div className="grid gap-3 [&>.k-field+.k-field]:mt-0 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end">
             <FormField label="Job">
-              <select className="k-select" value={filters.jobId} onChange={(event) => onFilters({ ...filters, jobId: event.target.value, status: 'all' })}>
+              <select className="k-select" value={filters.jobId} onChange={(event) => set({ jobId: event.target.value, status: 'all' })}>
                 {jobOptions.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.title} · {JOB_STATUS_LABEL[item.status]} · {applicantCount(item.id)} applicant{applicantCount(item.id) === 1 ? '' : 's'}
@@ -97,7 +181,7 @@ export function EmployerCandidatesPage({
               </select>
             </FormField>
             <FormField label="Sort by">
-              <select className="k-select" value={filters.sort} onChange={(event) => set({ sort: event.target.value as ApplicantSort })}>
+              <select className="k-select" value={filters.sort} onChange={(event) => onFilters({ ...filters, sort: event.target.value as ApplicantSort })}>
                 {APPLICANT_SORTS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </FormField>
@@ -106,7 +190,11 @@ export function EmployerCandidatesPage({
             </div>
           </div>
 
-          <div className="k-chip-scroller my-4" role="group" aria-label="Filter by stage">
+          <div className="k-chip-scroller my-4" role="group" aria-label="Filter applicants">
+            <button className="k-chip" type="button" aria-pressed={filters.highMatch} onClick={() => set({ highMatch: !filters.highMatch })}>
+              Match ≥ {HIGH_MATCH_PERCENT}% <span className="k-chip-count">{highMatchCount}</span>
+            </button>
+            <span className="mx-1 w-px self-stretch bg-bdr" aria-hidden="true" />
             <button className="k-chip" type="button" aria-pressed={filters.status === 'all'} onClick={() => set({ status: 'all' })}>
               Every stage <span className="k-chip-count">{forJob.length}</span>
             </button>
@@ -123,11 +211,25 @@ export function EmployerCandidatesPage({
             <Banner
               tone="info"
               className="mb-4"
-              actions={<button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => onEditRubric(job.id)}><FontAwesomeIcon icon={faClipboardCheck} aria-hidden="true" />Set up rubric</button>}
+              actions={<button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => onEditRubric(job.id)}><FontAwesomeIcon icon={faClipboardCheck} aria-hidden="true" />Set up assessment</button>}
             >
-              Agree the criteria for {job.title} before scoring applicants, so every reviewer rates the same job-related evidence.
+              Set up the Candidate Assessment for {job.title}. Shortlisted applicants receive its questions, and every reviewer rates the answers against the same criteria.
             </Banner>
           ) : null}
+
+          {highMatchNeedingAssessment.length > 0 && (
+            <Banner
+              tone="info"
+              className="mb-4"
+              actions={(
+                <button className="k-btn k-btn-primary k-btn-sm" type="button" onClick={() => request('send-assessment', highMatchNeedingAssessment)}>
+                  <FontAwesomeIcon icon={faPaperPlane} aria-hidden="true" />Send Assessment to {highMatchNeedingAssessment.length}
+                </button>
+              )}
+            >
+              {highMatchNeedingAssessment.length} applicant{highMatchNeedingAssessment.length === 1 ? '' : 's'} matching {HIGH_MATCH_PERCENT}% or more of the required skills {highMatchNeedingAssessment.length === 1 ? "hasn't" : "haven't"} received the Candidate Assessment yet.
+            </Banner>
+          )}
 
           {scoreSort && (
             <p className="k-meta mb-3">
@@ -138,22 +240,85 @@ export function EmployerCandidatesPage({
           {visible.length === 0 ? (
             <EmptyState
               title="No applicants match"
-              text={isFiltered ? 'Try another search or stage.' : 'No one has applied to this job yet.'}
-              actions={isFiltered ? <button className="k-btn k-btn-secondary" type="button" onClick={() => set({ search: '', status: 'all' })}>Reset</button> : undefined}
+              text={isFiltered ? (filters.highMatch ? `No applicants here match ${HIGH_MATCH_PERCENT}% or more of the required skills.` : 'Try another search or stage.') : 'No one has applied to this job yet.'}
+              actions={isFiltered ? <button className="k-btn k-btn-secondary" type="button" onClick={() => set({ search: '', status: 'all', highMatch: false })}>Reset</button> : undefined}
             />
           ) : (
             <section aria-label={`Applicants for ${job?.title || 'this job'}`}>
-              <p className="k-meta mb-2" aria-live="polite">{visible.length} applicant{visible.length === 1 ? '' : 's'} shown</p>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <label className="k-select-all k-secondary mb-0">
+                  <span className="k-select-box -ml-1.5">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(input) => { if (input) input.indeterminate = someSelected; }}
+                      onChange={toggleAll}
+                    />
+                  </span>
+                  {selectedVisible.length > 0 ? `${selectedVisible.length} of ${visible.length} selected` : `Select all ${visible.length}`}
+                </label>
+                <p className="k-meta" aria-live="polite">{visible.length} applicant{visible.length === 1 ? '' : 's'} shown</p>
+              </div>
               <ul className="k-list">
                 {visible.map((candidate) => (
-                  <li key={candidate.id}>
-                    <ApplicantRow candidate={candidate} job={job} summary={summaries.get(candidate.id)} assessment={assessments.get(candidate.id) || null} hasRubric={hasRubric} onReview={onReview} />
+                  <li key={candidate.id} className="flex items-start">
+                    <label className="k-select-box ml-2 mt-3">
+                      <input type="checkbox" checked={selectedIds.has(candidate.id)} onChange={() => toggle(candidate.id)} aria-label={`Select ${candidate.publicId || 'applicant'}`} />
+                    </label>
+                    <div className="min-w-0 flex-1">
+                      <ApplicantRow candidate={candidate} job={job} summary={summaries.get(candidate.id)} assessment={assessments.get(candidate.id) || null} hasRubric={hasRubric} onReview={onReview} />
+                    </div>
                   </li>
                 ))}
               </ul>
+              {selectedVisible.length > 0 && (
+                <div className="k-bulk-bar" role="toolbar" aria-label="Actions for selected applicants">
+                  <span className="k-bulk-bar-count">{selectedVisible.length} selected</span>
+                  {BULK_ACTIONS.map((action) => {
+                    const count = eligibleCount(action, selectedVisible);
+                    return (
+                      <button
+                        key={action}
+                        className={`k-btn k-btn-sm ${action === 'rejected' ? 'k-btn-danger-outline' : action === 'send-assessment' ? 'k-btn-primary' : 'k-btn-secondary'}`}
+                        type="button"
+                        disabled={count === 0}
+                        title={count === 0 ? `None of the selected applicants can ${CANDIDATE_BULK_LABEL[action].toLowerCase()} right now.` : undefined}
+                        onClick={() => request(action, selectedVisible)}
+                      >
+                        {CANDIDATE_BULK_LABEL[action]}{count > 0 ? ` (${count})` : ''}
+                      </button>
+                    );
+                  })}
+                  <button className="k-btn k-btn-ghost k-btn-sm" type="button" onClick={() => setSelectedIds(new Set())}>Clear</button>
+                </div>
+              )}
             </section>
           )}
         </>
+      )}
+
+      {pending && (
+        <ConfirmDialog
+          title={pending.eligible.length === 0 ? 'No applicants can take this step' : `${CANDIDATE_BULK_LABEL[pending.action]}: ${pending.eligible.length} applicant${pending.eligible.length === 1 ? '' : 's'}?`}
+          message={pending.eligible.length === 0
+            ? `None of the selected applicants are eligible (${Array.from(new Set(pending.skipped.map((item) => item.reason))).join(', ')}).`
+            : bulkMessage(pending)}
+          confirmLabel={pending.eligible.length === 0 ? 'OK' : CANDIDATE_BULK_LABEL[pending.action]}
+          danger={pending.action === 'rejected' && pending.eligible.length > 0}
+          busy={busy}
+          confirmDisabled={pending.action === 'rejected' && pending.eligible.length > 0 && !rejectionReason}
+          onCancel={() => setPending(null)}
+          onConfirm={run}
+        >
+          {pending.action === 'rejected' && pending.eligible.length > 0 && (
+            <FormField label="Reason *" help="Use an objective, job-related reason. It is saved with each application." className="mt-4">
+              <select className="k-select" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} required>
+                <option value="">Select a reason</option>
+                {REJECTION_REASONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+              </select>
+            </FormField>
+          )}
+        </ConfirmDialog>
       )}
     </div>
   );

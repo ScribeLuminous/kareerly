@@ -51,6 +51,21 @@ export function profileMatch(candidate: Pick<CandidateApplication, 'matchedSkill
   };
 }
 
+/** The quick filter on the Candidates page: applicants at or above this profile match. */
+export const HIGH_MATCH_PERCENT = 70;
+
+/** Short match figure for lists, e.g. "Match 80%". */
+export function matchScoreLabel(match: ProfileMatch): string {
+  return match.percent === null ? 'Match n/a' : `Match ${match.percent}%`;
+}
+
+export function matchScoreBadgeClass(match: ProfileMatch): string {
+  if (match.percent === null) return 'k-badge k-badge-outline';
+  if (match.percent >= HIGH_MATCH_PERCENT) return 'k-badge k-badge-success';
+  if (match.percent >= 40) return 'k-badge k-badge-warn';
+  return 'k-badge k-badge-outline';
+}
+
 export function profileMatchLabel(match: ProfileMatch): string {
   if (match.percent === null) return match.required.length === 0 ? 'No required skills listed' : 'No skill evidence recorded';
   return `${match.found.length} of ${match.required.length} required skills`;
@@ -335,6 +350,59 @@ export function nextAction(status: CandidateStatus, messageState: CandidateAppli
   return { label: 'Record the outcome', detail: 'Mark as hired or decline when the team has decided.' };
 }
 
+type AssessmentState = { status: 'pending' | 'submitted' | 'reviewed' } | null;
+
+/**
+ * The next step once the Candidate Assessment is part of the flow: a scorecard
+ * can only start after the candidate submits, so earlier stages point at the
+ * assessment instead.
+ */
+export function assessmentAwareAction(status: CandidateStatus, messageState: CandidateApplication['messageRequestState'], evaluation: EvaluationResult | null, hasRubric: boolean, reviewedByMe: boolean, assessment: AssessmentState): NextAction {
+  if (status === 'Withdrawn' || status === 'Hired' || status === 'Rejected') return nextAction(status, messageState, evaluation, hasRubric, reviewedByMe);
+  if (!hasRubric) return { label: 'Set up the assessment', detail: 'Add the questions and criteria for this job.' };
+  if (status === 'Pending') return { label: 'Shortlist to send the assessment', detail: 'Shortlisting sends the Candidate Assessment.' };
+  if (!assessment) return { label: 'Send Assessment', detail: 'The candidate has not received the assessment yet.' };
+  if (assessment.status === 'pending') return { label: 'Awaiting candidate response', detail: 'The candidate can save a draft and submit when ready.' };
+  if (assessment.status === 'submitted' && !reviewedByMe) return { label: 'Review the assessment', detail: 'Rate the submitted answers on your scorecard.' };
+  return nextAction(status, messageState, evaluation, hasRubric, reviewedByMe);
+}
+
+// ---------- Bulk stage changes ----------
+
+export type CandidateBulkAction = 'shortlisted' | 'send-assessment' | 'interviewing' | 'hired' | 'rejected';
+
+export const CANDIDATE_BULK_LABEL: Record<CandidateBulkAction, string> = {
+  shortlisted: 'Shortlist',
+  'send-assessment': 'Send Assessment',
+  interviewing: 'Move to Interviewing',
+  hired: 'Mark as hired',
+  rejected: 'Decline',
+};
+
+/**
+ * Why this applicant can't take the bulk action, or null when it can. Mirrors
+ * the stage rules the database enforces (set_application_stage and
+ * send_candidate_assessment).
+ */
+export function candidateActionBlocker(action: CandidateBulkAction, candidate: Pick<CandidateApplication, 'status'>, assessment: AssessmentState, hasRubric: boolean): string | null {
+  const { status } = candidate;
+  if (status === 'Hired' || status === 'Rejected' || status === 'Withdrawn') return 'already closed';
+  if (action === 'shortlisted') return status === 'Pending' ? null : 'already past Pending';
+  if (action === 'send-assessment') {
+    if (!hasRubric) return 'no assessment set up for this job';
+    if (assessment) return 'assessment already sent';
+    return status === 'Pending' || status === 'Shortlisted' || status === 'Interviewing' ? null : 'not eligible';
+  }
+  if (action === 'interviewing') {
+    if (status === 'Interviewing') return 'already interviewing';
+    if (status === 'Pending') return 'shortlist first';
+    return assessment?.status === 'reviewed' ? null : 'assessment not reviewed yet';
+  }
+  if (action === 'hired') return status === 'Interviewing' ? null : 'not interviewing yet';
+  if (status === 'Interviewing') return null;
+  return assessment?.status === 'reviewed' ? null : 'assessment not reviewed yet';
+}
+
 // ---------- Candidates page filters ----------
 
 export type CandidateFilters = {
@@ -342,9 +410,11 @@ export type CandidateFilters = {
   status: 'all' | CandidateStatus;
   search: string;
   sort: ApplicantSort;
+  /** Only applicants with a profile match of at least HIGH_MATCH_PERCENT. */
+  highMatch: boolean;
 };
 
-export const DEFAULT_CANDIDATE_FILTERS: CandidateFilters = { jobId: '', status: 'all', search: '', sort: 'applied-oldest' };
+export const DEFAULT_CANDIDATE_FILTERS: CandidateFilters = { jobId: '', status: 'all', search: '', sort: 'applied-oldest', highMatch: false };
 
 /** Applicants in the order and filter the page shows; the review uses it to step between them. */
 export function visibleApplicants(applications: CandidateApplication[], jobs: EmployerJob[], filters: CandidateFilters, summaries: Map<string, { result: EvaluationResult }>): CandidateApplication[] {
@@ -360,7 +430,8 @@ export function visibleApplicants(applications: CandidateApplication[], jobs: Em
         .toLowerCase()
         .includes(query);
     })
-    .map((candidate) => ({ candidate, profile: profileMatch(candidate, job), evaluation: summaries.get(candidate.id)?.result || null }));
+    .map((candidate) => ({ candidate, profile: profileMatch(candidate, job), evaluation: summaries.get(candidate.id)?.result || null }))
+    .filter((row) => !filters.highMatch || (row.profile.percent !== null && row.profile.percent >= HIGH_MATCH_PERCENT));
   return sortApplicants(rows, filters.sort).map((row) => row.candidate);
 }
 

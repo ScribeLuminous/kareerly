@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronRight, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faChevronRight, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { NextStepCard, PageHeader, SectionHead, SeeAllLink, SkeletonRows, type NextStep } from '../../components/ui';
 import {
   formatDateLabel,
@@ -8,22 +8,84 @@ import {
   type EmployerJob,
 } from './model';
 
+export type HomeStrongMatch = {
+  id: string;
+  label: string;
+  jobTitle: string;
+  percent: number;
+  /** Where the applicant is in the assessment step, in words. */
+  assessment: string;
+};
+
+export type HomeSnapshot = { newThisWeek: number; openJobs: number; interviewing: number; hired: number };
+
+export type HomeAssessments = { awaitingCandidate: number; toReview: number; reviewed: number };
+
 type EmployerHomePageProps = {
   isLoading: boolean;
   nextSteps: NextStep[];
   pipeline: Array<{ label: string; count: number }>;
-  /** Jobs with applicants still at Pending, most waiting first. Never ranked by score. */
+  /** Jobs with applicants still at Pending, most waiting first. */
   reviewQueue: Array<{ job: EmployerJob; pending: number; oldestApplied: string }>;
   openJobs: Array<EmployerJob & { applicantCount: number }>;
+  /** Active applicants matching most of a job's required skills, strongest first. */
+  strongMatches: HomeStrongMatch[];
+  highMatchPercent: number;
+  assessments: HomeAssessments;
+  snapshot: HomeSnapshot;
   onOpenCandidates: () => void;
   onOpenJobApplicants: (jobId: string) => void;
   onOpenJobs: () => void;
   onOpenJob: (jobId: string) => void;
+  onOpenApplicant: (candidateId: string) => void;
   onPostJob: () => void;
 };
 
-export function EmployerHomePage({ isLoading, nextSteps, pipeline, reviewQueue, openJobs, onOpenCandidates, onOpenJobApplicants, onOpenJobs, onOpenJob, onPostJob }: EmployerHomePageProps) {
+/** Shown in place of the next-step card when nothing needs the employer right now. */
+function CaughtUpCard({ hasOpenJobs, onPostJob, onOpenJobs }: { hasOpenJobs: boolean; onPostJob: () => void; onOpenJobs: () => void }) {
+  return (
+    <section className="k-card" aria-labelledby="home-caught-up">
+      <p className="k-eyebrow flex items-center gap-1.5 text-green">
+        <FontAwesomeIcon icon={faCircleCheck} aria-hidden="true" />All caught up
+      </p>
+      <h2 id="home-caught-up" className="k-section-title mt-1">No applicants are waiting on you</h2>
+      <p className="k-secondary mt-1">
+        {hasOpenJobs
+          ? 'New applicants and submitted assessments will show up here. Meanwhile, a few ways to reach more candidates:'
+          : 'You have no open jobs, so no new applicants will arrive. Post or reopen a job to start receiving matches.'}
+      </p>
+      <ul className="k-secondary mt-3 list-disc space-y-1 pl-5">
+        <li>List the few skills that truly matter as required; move the rest to nice to have, so more candidates match.</li>
+        <li>Keep the deadline at least two weeks out; jobs close on their own when it passes.</li>
+        <li>Set up the Candidate Assessment so shortlisted applicants get your questions straight away.</li>
+      </ul>
+      <div className="k-button-row mt-4">
+        <button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>Post a job</button>
+        <button className="k-btn k-btn-secondary" type="button" onClick={onOpenJobs}>Review your jobs</button>
+      </div>
+    </section>
+  );
+}
+
+export function EmployerHomePage({
+  isLoading,
+  nextSteps,
+  pipeline,
+  reviewQueue,
+  openJobs,
+  strongMatches,
+  highMatchPercent,
+  assessments,
+  snapshot,
+  onOpenCandidates,
+  onOpenJobApplicants,
+  onOpenJobs,
+  onOpenJob,
+  onOpenApplicant,
+  onPostJob,
+}: EmployerHomePageProps) {
   const totalApplicants = pipeline.reduce((sum, stage) => sum + stage.count, 0);
+  const hasAssessments = assessments.awaitingCandidate + assessments.toReview + assessments.reviewed > 0;
   return (
     <div className="k-page">
       <PageHeader
@@ -36,7 +98,9 @@ export function EmployerHomePage({ isLoading, nextSteps, pipeline, reviewQueue, 
       />
       <div className="grid gap-7 lg:grid-cols-12 lg:gap-8">
         <div className="min-w-0 space-y-7 lg:col-span-8 lg:space-y-8">
-          <NextStepCard steps={nextSteps} />
+          {!isLoading && (nextSteps.length > 0
+            ? <NextStepCard steps={nextSteps} />
+            : <CaughtUpCard hasOpenJobs={openJobs.length > 0} onPostJob={onPostJob} onOpenJobs={onOpenJobs} />)}
 
           {isLoading ? (
             <section aria-label="Loading applicants">
@@ -65,9 +129,70 @@ export function EmployerHomePage({ isLoading, nextSteps, pipeline, reviewQueue, 
               </ul>
             </section>
           )}
+
+          {!isLoading && strongMatches.length > 0 && (
+            <section aria-labelledby="home-strong-matches">
+              <SectionHead id="home-strong-matches" title="Strong matches" count={strongMatches.length} action={<SeeAllLink onClick={onOpenCandidates} />} />
+              <p className="k-meta -mt-1 mb-2">Active applicants whose application shows {highMatchPercent}% or more of the job's required skills. A match is one input: read the evidence before deciding.</p>
+              <ul className="k-list">
+                {strongMatches.map((match) => (
+                  <li key={match.id}>
+                    <button className="k-row" type="button" onClick={() => onOpenApplicant(match.id)}>
+                      <span className="k-row-main">
+                        <span className="k-label block truncate">{match.label}</span>
+                        <span className="k-meta k-dot-sep mt-0.5 block">
+                          <span>{match.jobTitle}</span>
+                          <span>{match.assessment}</span>
+                        </span>
+                      </span>
+                      <span className="k-badge k-badge-success">Match {match.percent}%</span>
+                      <FontAwesomeIcon className="k-row-chevron" icon={faChevronRight} aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {!isLoading && hasAssessments && (
+            <section aria-labelledby="home-assessments">
+              <SectionHead id="home-assessments" title="Candidate Assessments" action={<SeeAllLink label="Open" onClick={onOpenCandidates} />} />
+              <dl className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Awaiting candidates', value: assessments.awaitingCandidate },
+                  { label: 'Ready to review', value: assessments.toReview },
+                  { label: 'Reviewed', value: assessments.reviewed },
+                ].map((item) => (
+                  <div key={item.label} className="k-card px-3 py-2">
+                    <dt className="k-meta">{item.label}</dt>
+                    <dd className="k-num text-[20px] font-bold leading-7 text-dark">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
         </div>
 
         <div className="min-w-0 space-y-7 lg:col-span-4 lg:space-y-8">
+          {!isLoading && (
+            <section aria-labelledby="home-snapshot">
+              <SectionHead id="home-snapshot" title="At a glance" />
+              <dl className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'New this week', value: snapshot.newThisWeek },
+                  { label: 'Open jobs', value: snapshot.openJobs },
+                  { label: 'Interviewing', value: snapshot.interviewing },
+                  { label: 'Hired', value: snapshot.hired },
+                ].map((item) => (
+                  <div key={item.label} className="k-card px-3 py-2">
+                    <dt className="k-meta">{item.label}</dt>
+                    <dd className="k-num text-[20px] font-bold leading-7 text-dark">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+
           {!isLoading && totalApplicants > 0 && (
             <section aria-labelledby="home-pipeline">
               <SectionHead id="home-pipeline" title="Pipeline" count={totalApplicants} action={<SeeAllLink label="Open" onClick={onOpenCandidates} />} />
