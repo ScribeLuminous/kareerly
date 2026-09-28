@@ -2444,3 +2444,57 @@ fieldset:disabled .k-rating-option {
   cursor: not-allowed;
   opacity: 0.7;
 }
+
+/* ---------- Bulk selection ---------- */
+
+/* A row or card checkbox; sits above a card's stretched link so it stays clickable. */
+.k-select-box {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.k-select-box input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--rust);
+}
+
+.k-bulk-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--bdr);
+  border-radius: var(--k-radius-card);
+  box-shadow: 0 6px 24px rgba(40, 24, 12, 0.12);
+}
+
+.k-bulk-bar-count {
+  margin-right: auto;
+  font-weight: 600;
+}
+
+.k-select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.k-job-card-selected {
+  border-color: var(--rust);
+}

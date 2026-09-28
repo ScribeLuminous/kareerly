@@ -62,7 +62,7 @@ function StatusActions({ candidate, assessment, onAction, onSendRequest, onOpenM
   if (status === 'Pending') {
     return (
       <div className={row}>
-        <button className="k-btn k-btn-secondary" type="button" onClick={() => onAction('shortlisted', id)}>Shortlist</button>
+        <button className="k-btn k-btn-secondary" type="button" onClick={() => onAction('shortlisted', id)}>Shortlist and send assessment</button>
       </div>
     );
   }
@@ -169,8 +169,10 @@ export function ApplicantReviewModal({
   const myOlderCards = scorecards.filter((card) => card.reviewerUserId === currentUserId && card.rubricId !== reviewRubric?.id);
   const action = candidate.status === 'Shortlisted' && assessment?.status === 'pending'
     ? { label: 'Awaiting candidate response', detail: 'The candidate can save a draft and submit when ready.' }
-    : candidate.status === 'Shortlisted' && !assessment
-      ? { label: currentRubric ? 'Send Assessment' : 'Configure Assessment', detail: 'Assessment questions are sent after shortlisting.' }
+    : (candidate.status === 'Shortlisted' || candidate.status === 'Interviewing') && !assessment && !evaluationUnavailable
+      ? { label: currentRubric ? 'Send Assessment' : 'Configure Assessment', detail: currentRubric ? "The candidate hasn't received the assessment yet." : 'Set up the questions for this job first.' }
+      : candidate.status === 'Pending'
+        ? { label: 'Shortlist to send the assessment', detail: 'Shortlisting sends the Candidate Assessment to the applicant.' }
       : nextAction(candidate.status, candidate.messageRequestState, currentResult, Boolean(reviewRubric), myCurrentCard?.status === 'submitted');
 
   const save = async (ratings: Record<string, RatingDraft>, summary: string, submit: boolean) => {
@@ -258,7 +260,7 @@ export function ApplicantReviewModal({
       <section className="k-detail-section mt-4" aria-labelledby="candidate-assessment-heading">
         <h3 id="candidate-assessment-heading" className="k-label">Candidate Assessment</h3>
         <p className="k-secondary mt-1">{assessment ? assessmentStatusLabel(assessment) : currentRubric ? 'Not sent' : 'No assessment has been configured for this job.'}</p>
-        {!assessment && candidate.status === 'Shortlisted' && (currentRubric ?
+        {!assessment && (candidate.status === 'Shortlisted' || candidate.status === 'Interviewing') && (currentRubric ?
           <button className="k-btn k-btn-primary k-btn-sm mt-2" type="button" disabled={sending} onClick={() => void send()}>Send Assessment</button> :
           <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => job && onEditRubric(job.id)}>Configure Assessment</button>)}
         {assessment?.status === 'submitted' && <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => setTab('scorecard')}>Review Assessment</button>}
