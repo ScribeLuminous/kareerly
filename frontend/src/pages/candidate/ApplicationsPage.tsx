@@ -33,6 +33,9 @@ const STATUS_ORDER: ApplicationStatus[] = ['Pending', 'Shortlisted', 'Interviewi
 type ApplicationsPageProps = {
   loadStatus: 'loading' | 'ready' | 'error';
   applications: DashboardApplication[];
+  /** Set by "View application" in a job detail: bring this row into view and mark it. */
+  focusedApplicationId?: string | null;
+  onFocusHandled?: () => void;
   onViewJob: (application: DashboardApplication) => void;
   onWithdraw: (application: DashboardApplication) => void;
   onOpenMessages: () => void;
@@ -41,7 +44,7 @@ type ApplicationsPageProps = {
   messageCount: number;
 };
 
-export function ApplicationsPage({ loadStatus, applications, onViewJob, onWithdraw, onOpenMessages, onOpenMatches, onTab, messageCount }: ApplicationsPageProps) {
+export function ApplicationsPage({ loadStatus, applications, focusedApplicationId = null, onFocusHandled, onViewJob, onWithdraw, onOpenMessages, onOpenMatches, onTab, messageCount }: ApplicationsPageProps) {
   const [search, setSearch] = useState('');
   const [assessments, setAssessments] = useState<Map<string, CandidateAssessment>>(new Map());
   const [assessmentOpen, setAssessmentOpen] = useState<string | null>(null);
@@ -54,6 +57,18 @@ export function ApplicationsPage({ loadStatus, applications, onViewJob, onWithdr
     return () => { mounted = false; window.clearInterval(timer); };
   }, [applications, assessmentVersion]);
   const [status, setStatus] = useState<ApplicationStatus | 'all'>('all');
+  // The page mounts fresh when "View application" opens it, so the filters already show every row.
+  const [highlightedId, setHighlightedId] = useState<string | null>(focusedApplicationId);
+  useEffect(() => {
+    if (!highlightedId || loadStatus !== 'ready') return;
+    onFocusHandled?.();
+    // Scroll to whichever layout (rows or table) is showing.
+    const target = Array.from(document.querySelectorAll<HTMLElement>(`[data-application-id="${CSS.escape(highlightedId)}"]`)).find((item) => item.offsetParent !== null);
+    target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    target?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+    const timer = window.setTimeout(() => setHighlightedId(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [highlightedId, loadStatus, onFocusHandled]);
   const pendingAssessments = applications.filter((application) => assessments.get(application.id)?.status === 'pending');
   const statusCounts = useMemo(() => STATUS_ORDER
     .map((value) => ({ value, count: applications.filter((application) => application.status === value).length }))
@@ -133,7 +148,7 @@ export function ApplicationsPage({ loadStatus, applications, onViewJob, onWithdr
                 {/* Phones and tablets: rows. */}
                 <ul className="k-list md:hidden">
                   {filtered.map((application) => (
-                    <li key={application.id} className={`k-row pr-1 ${application.status === 'Withdrawn' ? 'opacity-70' : ''}`}>
+                    <li key={application.id} data-application-id={application.id} aria-current={highlightedId === application.id ? 'true' : undefined} className={`k-row pr-1 transition-colors ${application.status === 'Withdrawn' ? 'opacity-70' : ''} ${highlightedId === application.id ? 'bg-rust-l' : ''}`}>
                       <button className="k-row-main min-h-[44px] text-left" type="button" onClick={() => onViewJob(application)}>
                         <span className="k-label block">{application.jobTitle}</span>
                         <span className="k-meta k-dot-sep mt-0.5 block">
@@ -163,7 +178,7 @@ export function ApplicationsPage({ loadStatus, applications, onViewJob, onWithdr
                     </thead>
                     <tbody className="divide-y divide-bdr border-t border-bdr">
                       {filtered.map((application) => (
-                        <tr key={application.id} className={application.status === 'Withdrawn' ? 'opacity-70' : undefined}>
+                        <tr key={application.id} data-application-id={application.id} aria-current={highlightedId === application.id ? 'true' : undefined} className={`transition-colors ${application.status === 'Withdrawn' ? 'opacity-70' : ''} ${highlightedId === application.id ? 'bg-rust-l' : ''}`}>
                           <td className="px-4 py-3">
                             <button className="min-h-[32px] text-left" type="button" onClick={() => onViewJob(application)}>
                               <span className="k-label block hover:underline">{application.jobTitle}</span>
