@@ -10,7 +10,12 @@ against the matrix: header, approved locations, dates and experience years,
 section rules, forbidden testing terms and leakage of intentionally missing
 skills into the visible text.
 
-Usage: python validate_dataset.py --matrix | --content [--only CAT01 CAT02]
+Phase 3 (``--pdfs``, run with the dataset venv): checks manifest.json/.csv,
+the 180 PDFs, their extracted text and PDF properties, hidden content,
+forbidden testing terms, reproducible rendering, and near-duplicates on the
+extracted text.
+
+Usage: python validate_dataset.py --matrix | --content [--only CAT01 CAT02] | --pdfs
 """
 from __future__ import annotations
 
@@ -421,10 +426,159 @@ def validate_content(only=None):
     return c, reviews, warnings, ok_files
 
 
+# ---------------------------------------------------------------- PDFs (Phase 3)
+
+def _words(text):
+    return set(re.findall(r"[a-z0-9ñ]+", text.lower()))
+
+
+def validate_pdfs():
+    import hashlib
+    import pdfplumber
+    import pypdf
+    import render_pdfs
+    import check_similarity as sim
+
+    c = Checks()
+    matrix = {r["candidate_id"]: r for r in json.loads((DATASET_DIR / "generation_matrix.json").read_text(encoding="utf-8"))["candidates"]}
+    manifest = json.loads((DATASET_DIR / "manifest.json").read_text(encoding="utf-8"))
+    with open(DATASET_DIR / "manifest.csv", encoding="utf-8", newline="") as handle:
+        manifest_csv = list(csv.DictReader(handle))
+
+    # ---- manifests
+    c.check("manifest.json has 180 records", len(manifest) == 180, str(len(manifest)))
+    c.check("manifest.csv has 180 records", len(manifest_csv) == 180, str(len(manifest_csv)))
+    ids = [m["candidate_id"] for m in manifest]
+    c.check("manifests sorted by candidate_id, no duplicates", ids == sorted(set(ids)) and [m["candidate_id"] for m in manifest_csv] == ids)
+    same = True
+    for mj, mc in zip(manifest, manifest_csv):
+        for field in render_pdfs.MANIFEST_FIELDS:
+            value = mj[field]
+            flat = "" if value is None else "|".join(value) if field in render_pdfs.LIST_FIELDS else str(value)
+            if flat != mc[field]:
+                same = False
+    c.check("manifest.json and manifest.csv hold identical data", same)
+    required = ["candidate_id", "resume_filename", "dataset_group", "target_skill_category", "profile_variant",
+                "experience_level", "experience_years", "city", "province", "region_code", "region_name",
+                "primary_role", "primary_skills", "supporting_skills", "intentionally_missing_skills",
+                "education_level", "resume_template_variant"]
+    c.check("manifest has every required field", all(all(f in m for f in required) for m in manifest))
+    stress_fields = ["primary_category", "secondary_categories", "overlap_skills", "category_specific_missing_skills", "stress_test_reason"]
+    ok = True
+    for m in manifest:
+        if m["dataset_group"] == "controlled":
+            ok &= all(m[f] is None for f in stress_fields)
+        else:
+            ok &= all(m[f] for f in stress_fields)
+            ok &= m["target_skill_category"] == m["primary_category"]
+            ok &= m["intentionally_missing_skills"] == m["category_specific_missing_skills"]
+    c.check("stress-only fields: null on controlled, filled and consistent on stress", ok)
+    c.check("manifest dataset_group values valid", {m["dataset_group"] for m in manifest} == {"controlled", "cross_category_stress"})
+    c.check("manifest UTF-8 keeps ñ", "ñ" in (DATASET_DIR / "manifest.csv").read_text(encoding="utf-8"))
+    groups = Counter(m["dataset_group"] for m in manifest)
+    c.check("168 controlled + 12 stress in manifest", groups == Counter({"controlled": 168, "cross_category_stress": 12}))
+    c.check("18 regions x 10 in manifest", set(Counter(m["region_code"] for m in manifest).values()) == {10} and len({m["region_code"] for m in manifest}) == 18)
+    c.check("24 categories x 7 controlled in manifest",
+            set(Counter(m["target_skill_category"] for m in manifest if m["dataset_group"] == "controlled").values()) == {7})
+
+    # ---- files
+    files = [DATASET_DIR / m["resume_filename"] for m in manifest]
+    c.check("180 resume files exist", all(f.exists() for f in files), ", ".join(str(f.name) for f in files if not f.exists()))
+    c.check("no duplicate filenames", len({f.name for f in files}) == 180)
+    on_disk = sorted(p.relative_to(DATASET_DIR).as_posix() for p in list((DATASET_DIR / "controlled").rglob("*.pdf")) + list((DATASET_DIR / "stress-tests").glob("*.pdf")))
+    c.check("no stray PDFs beyond the manifest", on_disk == sorted(m["resume_filename"] for m in manifest), f"{len(on_disk)} on disk")
+    c.check("168 controlled + 12 stress files", sum("controlled/" in m["resume_filename"] for m in manifest) == 168
+            and sum("stress-tests/" in m["resume_filename"] for m in manifest) == 12)
+
+    render_pdfs.register_fonts()
+    problems, reviews, extracted = defaultdict(list), [], {}
+    pages = Counter()
+    for m in manifest:
+        cid = m["candidate_id"]
+        path = DATASET_DIR / m["resume_filename"]
+        content = json.loads((DATASET_DIR / "content" / f"{cid}.json").read_text(encoding="utf-8"))
+        variant = matrix[cid]["resume_template_variant"]
+        data = path.read_bytes()
+        bad = problems[cid]
+        if len(data) < 2000:
+            bad.append("empty or tiny file")
+        if data != render_pdfs.render(content, variant):
+            bad.append("re-render differs (not reproducible)")
+        reader = pypdf.PdfReader(path)
+        pages[len(reader.pages)] += 1
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        with pdfplumber.open(path) as pdf:
+            text2 = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        extracted[cid] = text
+        if len(text.strip()) < 500 or len(text2.strip()) < 500:
+            bad.append("text extraction failed or too short")
+        for value in (content["full_name"], content["email"], content["phone"], content["location"]):
+            if value not in text or value not in text2:
+                bad.append(f"'{value}' not extracted exactly")
+        for section in ("experience", "education", "summary", "skills"):
+            title = layouts.LAYOUTS[variant]["titles"][section]
+            if title.upper() not in text.upper():
+                bad.append(f"section '{title}' missing")
+        expected = _words(layouts.plain_text(content, variant))
+        extra = _words(text) - expected
+        if extra:
+            bad.append(f"text not in content (hidden content?): {sorted(extra)[:5]}")
+        meta = reader.metadata or {}
+        if meta.get("/Title") != f"{content['full_name']} — Resume" or meta.get("/Author") != content["full_name"]:
+            bad.append("title/author metadata wrong")
+        if meta.get("/Subject") or meta.get("/Keywords"):
+            bad.append("subject/keywords not empty")
+        if "/Metadata" in reader.trailer["/Root"]:
+            bad.append("XMP metadata present")
+        if any("/Annots" in page for page in reader.pages):
+            bad.append("annotations present")
+        haystack = text + " " + " ".join(str(v) for v in meta.values())
+        for pattern in HARD_FAIL:
+            if re.search(pattern, haystack, re.IGNORECASE if pattern[0] == "\\" else 0):
+                bad.append(f"forbidden term /{pattern}/ in PDF text or metadata")
+        for pattern in REVIEW:
+            if re.search(pattern, haystack, re.IGNORECASE):
+                reviews.append(f"{cid}: /{pattern}/")
+        emails = re.findall(r"[\w.]+@[\w.]+", text)
+        if not emails or any(not re.fullmatch(r"[a-z0-9.]+@example\.(com|org|net)", e) for e in emails):
+            bad.append(f"email check failed: {emails}")
+        if "sulu" in text.lower() or "jolo" in text.lower():
+            bad.append("Sulu location in text")
+        ñ = [w for w in (content["full_name"] + " " + content["location"]).split() if "ñ" in w]
+        if any(w not in text for w in ñ):
+            bad.append("ñ lost in extraction")
+    for cid in sorted(problems):
+        if problems[cid]:
+            c.check(f"PDF {cid}", False, "; ".join(problems[cid]))
+    c.check("all 180 PDFs pass file, text, metadata, hidden-content and integrity checks",
+            not any(problems.values()), f"{sum(1 for v in problems.values() if v)} failing")
+    c.check("page counts", max(pages) <= 3, ", ".join(f"{k} page(s): {v}" for k, v in sorted(pages.items())))
+
+    # ---- near-duplicates on the extracted text
+    order = sorted(extracted)
+    group = {cid: (matrix[cid]["target_category_id"] if matrix[cid]["dataset_group"] == "controlled" else "stress") for cid in order}
+    scrubbed = []
+    for cid in order:
+        content = json.loads((DATASET_DIR / "content" / f"{cid}.json").read_text(encoding="utf-8"))
+        scrubbed.append(sim.scrub(extracted[cid], content, matrix[cid]))
+    vectors = sim.tfidf(scrubbed)
+    within, across, flagged = [], [], []
+    for i in range(len(order)):
+        for j in range(i + 1, len(order)):
+            score = sim.cosine(vectors[i], vectors[j])
+            (within if group[order[i]] == group[order[j]] else across).append(score)
+            if score >= sim.FULL_TEXT_LIMIT:
+                flagged.append(f"{order[i]}~{order[j]} {score:.3f}")
+    c.check("no extracted-text pair >= 0.80 cosine", not flagged,
+            f"within {sim.distribution(within)}; across {sim.distribution(across)}" if not flagged else "; ".join(flagged))
+    return c, reviews
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--matrix", action="store_true", help="validate generation_matrix.json (Phase 1)")
     parser.add_argument("--content", action="store_true", help="validate content/*.json (Phase 2)")
+    parser.add_argument("--pdfs", action="store_true", help="validate manifests and PDFs (Phase 3)")
     parser.add_argument("--only", nargs="*", help="candidate ID prefixes, e.g. CAT01 CAT02")
     parser.add_argument("--quiet", action="store_true", help="skip tables and warnings")
     args = parser.parse_args()
@@ -436,8 +590,14 @@ def main():
             print("Warnings:\n  " + "\n  ".join(warnings))
         print("\nChecks:")
         sys.exit(0 if checks.report() else 1)
+    if args.pdfs:
+        checks, reviews = validate_pdfs()
+        if reviews:
+            print("Flagged for manual review (not failures):\n  " + "\n  ".join(reviews))
+        print("\nChecks:")
+        sys.exit(0 if checks.report() else 1)
     if not args.matrix:
-        parser.error("choose --matrix or --content")
+        parser.error("choose --matrix, --content or --pdfs")
     checks = validate_matrix(show_tables=not args.quiet)
     print("\nChecks:")
     sys.exit(0 if checks.report() else 1)
