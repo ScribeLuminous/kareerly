@@ -148,7 +148,7 @@ export function JobMatchesPage({
         options={[
           { value: 'fit-now', label: 'Fit Now', count: fitNowJobs.length },
           { value: 'aspiration', label: 'Aspiration', count: aspirationJobs.length },
-          { value: 'saved', label: <><FontAwesomeIcon icon={faBookmark} className="h-3 w-3" aria-hidden="true" />Saved</>, count: savedJobs.size },
+          { value: 'saved', label: <><FontAwesomeIcon icon={faBookmark} className="h-3 w-3" aria-hidden="true" />Saved</>, count: savedJobRows.length },
         ]}
       />
 
