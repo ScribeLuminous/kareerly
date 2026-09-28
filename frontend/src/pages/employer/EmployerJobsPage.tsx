@@ -5,6 +5,7 @@ import {
   faBoxArchive,
   faBriefcase,
   faClipboardCheck,
+  faClipboardList,
   faLockOpen,
   faPen,
   faPlus,
@@ -14,6 +15,9 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { ConfirmDialog, EmptyState, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
 import { formatJobDescription } from '../../lib/jobDescription';
+import { AssessmentSummary } from './AssessmentCriteriaEditor';
+import { ChooseTemplatesModal, JobsSectionTabs, type JobsSection } from './AssessmentTemplatesPage';
+import { rubricToDraft, type AssessmentTemplate, type Rubric } from './evaluation';
 import {
   daysUntil,
   EMPTY_JOB_STATS,
@@ -41,6 +45,12 @@ type EmployerJobsPageProps = JobHandlers & {
   jobStats: Map<string, JobStats>;
   /** Latest rubric version per job id, when one exists. */
   rubricVersions: Map<string, number>;
+  /** Latest rubric per job id, for the assessment summary on a job's page. */
+  latestRubrics: Map<string, Rubric>;
+  templates: AssessmentTemplate[];
+  /** Gives the jobs one or more templates (combined in order); resolves true when saved. */
+  onApplyTemplates: (templateIds: string[], jobIds: string[]) => Promise<boolean>;
+  onSection: (section: JobsSection) => void;
   isLoading: boolean;
   /** The job whose page is open; '' shows the list. */
   detailJobId: string;
@@ -122,6 +132,25 @@ function JobPostCard({ job, stats, checked, onToggle, onOpen }: { job: EmployerJ
         {deadline && <span>{deadline}</span>}
       </p>
     </article>
+  );
+}
+
+function JobAssessmentSection({ rubric, templateName, onEditRubric }: { rubric: Rubric | null; templateName: string; onEditRubric: () => void }) {
+  return (
+    <section className="k-detail-section" aria-label="Candidate Assessment">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="k-label">Candidate Assessment{rubric ? ` · v${rubric.version}` : ''}</h3>
+        <button className="k-btn k-btn-ghost k-btn-sm" type="button" onClick={onEditRubric}>{rubric ? 'Edit' : 'Set up'}</button>
+      </div>
+      {rubric ? (
+        <>
+          {templateName && <p className="k-meta mb-2">Based on the template {templateName}.</p>}
+          <AssessmentSummary criteria={rubricToDraft(rubric)} compact />
+        </>
+      ) : (
+        <p className="k-secondary">No assessment yet. Shortlisted applicants receive its questions automatically once it is set up.</p>
+      )}
+    </section>
   );
 }
 
@@ -209,10 +238,12 @@ function JobDetailBody({ job, stats }: { job: EmployerJob; stats: JobStats }) {
 type PendingAction = { action: JobBulkAction; eligible: EmployerJob[]; skipped: Array<{ job: EmployerJob; reason: string }>; onDone?: () => void };
 
 /** A job's own page: everything about the posting, with its actions. */
-function JobDetailPage({ job, stats, rubricVersion, onBack, onEdit, onEditRubric, onViewApplicants, onRequestAction }: Omit<JobHandlers, 'onBulkAction'> & {
+function JobDetailPage({ job, stats, rubricVersion, rubric, templateName, onBack, onEdit, onEditRubric, onViewApplicants, onRequestAction }: Omit<JobHandlers, 'onBulkAction'> & {
   job: EmployerJob;
   stats: JobStats;
   rubricVersion?: number;
+  rubric: Rubric | null;
+  templateName: string;
   onBack: () => void;
   onRequestAction: (action: JobBulkAction) => void;
 }) {
@@ -262,6 +293,7 @@ function JobDetailPage({ job, stats, rubricVersion, onBack, onEdit, onEditRubric
           </div>
         </header>
         <div className="px-0">
+          <JobAssessmentSection rubric={rubric} templateName={templateName} onEditRubric={() => onEditRubric(job.id)} />
           <JobDetailBody job={job} stats={stats} />
         </div>
       </article>
@@ -273,6 +305,10 @@ export function EmployerJobsPage({
   jobs,
   jobStats,
   rubricVersions,
+  latestRubrics,
+  templates,
+  onApplyTemplates,
+  onSection,
   isLoading,
   detailJobId,
   onOpenJob,
@@ -288,6 +324,7 @@ export function EmployerJobsPage({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
+  const [choosingTemplate, setChoosingTemplate] = useState(false);
 
   const counts = useMemo(() => {
     const result: Record<StatusFilter, number> = { all: 0, open: 0, draft: 0, closed: 0, archived: 0 };
@@ -383,6 +420,8 @@ export function EmployerJobsPage({
           job={job}
           stats={jobStats.get(job.id) || EMPTY_JOB_STATS}
           rubricVersion={rubricVersions.get(job.id)}
+          rubric={latestRubrics.get(job.id) || null}
+          templateName={templates.find((item) => item.id === latestRubrics.get(job.id)?.templateId)?.name || ''}
           onBack={onBackToList}
           onEdit={onEdit}
           onEditRubric={onEditRubric}
@@ -407,6 +446,8 @@ export function EmployerJobsPage({
           </button>
         )}
       />
+
+      <JobsSectionTabs section="postings" templateCount={templates.length} onChange={onSection} />
 
       {isLoading ? (
         <SkeletonRows count={4} label="Loading jobs" />
@@ -474,6 +515,9 @@ export function EmployerJobsPage({
                   <button className="k-btn k-btn-secondary k-btn-sm" type="button" disabled={bulkCount('archive') === 0} onClick={() => requestAction('archive', selectedVisible)}>
                     <FontAwesomeIcon icon={faBoxArchive} aria-hidden="true" />Archive{bulkCount('archive') > 0 ? ` (${bulkCount('archive')})` : ''}
                   </button>
+                  <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => setChoosingTemplate(true)}>
+                    <FontAwesomeIcon icon={faClipboardList} aria-hidden="true" />Set assessment
+                  </button>
                   <button className="k-btn k-btn-danger-outline k-btn-sm" type="button" onClick={() => requestAction('delete', selectedVisible)}>
                     <FontAwesomeIcon icon={faTrash} aria-hidden="true" />Delete{bulkCount('delete') > 0 ? ` (${bulkCount('delete')})` : ''}
                   </button>
@@ -485,6 +529,19 @@ export function EmployerJobsPage({
         </>
       )}
       {confirm}
+      {choosingTemplate && (
+        <ChooseTemplatesModal
+          templates={templates}
+          jobCount={selectedVisible.length}
+          onApply={async (templateIds) => {
+            const done = await onApplyTemplates(templateIds, selectedVisible.map((job) => job.id));
+            if (done) setSelectedIds(new Set());
+            return done;
+          }}
+          onManage={() => { setChoosingTemplate(false); onSection('templates'); }}
+          onClose={() => setChoosingTemplate(false)}
+        />
+      )}
     </div>
   );
 }

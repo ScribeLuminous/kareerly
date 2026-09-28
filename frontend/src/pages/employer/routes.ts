@@ -10,7 +10,28 @@ export const EMPLOYER_PAGE_PATHS: Record<EmployerPage, string> = {
   account: '/employer/account',
 };
 
-const JOB_DETAIL_PATH = /^\/employer\/jobs\/([^/]+)$/;
+// "assessments" is the templates section under Jobs, never a job id.
+const JOB_DETAIL_PATH = /^\/employer\/jobs\/(?!assessments$)([^/]+)$/;
+const TEMPLATES_PATH = /^\/employer\/jobs\/assessments(?:\/([^/]+))?$/;
+
+/** The assessment templates list, or one template's page ('new' for a blank one). */
+export function employerTemplatePath(templateId = ''): string {
+  return `${EMPLOYER_PAGE_PATHS.jobs}/assessments${templateId ? `/${encodeURIComponent(templateId)}` : ''}`;
+}
+
+/**
+ * Where the URL is within the templates section: null outside it, '' on the
+ * list, otherwise the template id (or 'new').
+ */
+export function employerTemplateIdFromPath(pathname: string): string | null {
+  const match = pathname.replace(/\/+$/, '').match(TEMPLATES_PATH);
+  if (!match) return null;
+  try {
+    return match[1] ? decodeURIComponent(match[1]) : '';
+  } catch {
+    return null;
+  }
+}
 
 /** A job's own page, e.g. /employer/jobs/EMP-123. */
 export function employerJobPath(jobId: string): string {
@@ -30,12 +51,12 @@ export function employerJobIdFromPath(pathname: string): string {
 
 export function employerPageFromPath(pathname: string): EmployerPage {
   const path = pathname.replace(/\/+$/, '');
-  if (JOB_DETAIL_PATH.test(path)) return 'jobs';
+  if (JOB_DETAIL_PATH.test(path) || TEMPLATES_PATH.test(path)) return 'jobs';
   const match = (Object.entries(EMPLOYER_PAGE_PATHS) as Array<[EmployerPage, string]>).find(([, value]) => value === path);
   return match ? match[0] : 'dashboard';
 }
 
 export function isEmployerWorkspacePath(pathname: string): boolean {
   const path = pathname.replace(/\/+$/, '');
-  return Object.values(EMPLOYER_PAGE_PATHS).includes(path) || JOB_DETAIL_PATH.test(path);
+  return Object.values(EMPLOYER_PAGE_PATHS).includes(path) || JOB_DETAIL_PATH.test(path) || TEMPLATES_PATH.test(path);
 }
