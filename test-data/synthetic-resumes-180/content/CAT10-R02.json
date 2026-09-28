@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT10-R02",
+  "full_name": "Kevin Dizon",
+  "location": "San Pablo City, Laguna",
+  "email": "kevin.dizon@example.org",
+  "phone": "+63 916 434 9452",
+  "headline": "Proofreader",
+  "summary": "English graduate looking for a proofreading role in publishing or education. I proofread student theses and a university journal as a student assistant, check work against APA and in-house style guides, and write short feature articles. I have a sharp eye for grammar and consistency.",
+  "projects": [
+    {
+      "name": "University research journal",
+      "context": "student assistant work",
+      "bullets": [
+        "Proofread 18 research articles for the journal's 2025 issue.",
+        "Checked every citation and reference list against APA 7th edition."
+      ]
+    },
+    {
+      "name": "Thesis proofreading service",
+      "context": "freelance, 2025–2026",
+      "description": "Proofread about 25 undergraduate theses, marking grammar, spelling and formatting issues in tracked changes."
+    },
+    {
+      "name": "Campus feature stories",
+      "description": "Wrote six feature articles on alumni and local heritage for the university website."
+    }
+  ],
+  "skills": [
+    "Proofreading",
+    "APA and in-house style guides",
+    "Grammar and usage",
+    "Feature and article writing",
+    "Microsoft Word and tracked changes",
+    "Organising and versioning document files"
+  ],
+  "experience": [
+    {
+      "title": "Student Assistant, Research Office",
+      "employer": "Laguna Lakeshore University",
+      "location": "San Pablo City, Laguna",
+      "start": "2025-06",
+      "end": "2026-03",
+      "type": "part-time",
+      "bullets": [
+        "Proofread theses and journal articles before submission and kept each version in the office's shared folders."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in English",
+      "school": "Laguna Lakeshore University",
+      "location": "San Pablo City, Laguna",
+      "start": "2022",
+      "end": "2026"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "candidate_id": "CAT18-R03",
+  "full_name": "Lorenzo Elnas",
+  "location": "Iligan City, Lanao del Norte",
+  "email": "lorenzo.elnas@example.org",
+  "phone": "+63 956 120 0141",
+  "headline": "Travel Consultant",
+  "summary": "Travel consultant with four years planning domestic and international trips for families, schools and companies in Northern Mindanao. I build itineraries, book flights, hotels and tours on online platforms, and advise clients on destinations I know first-hand. I turn enquiries into bookings and repeat clients.",
+  "certifications": [
+    {
+      "name": "Travel Services NC II",
+      "issuer": "TESDA",
+      "date": "2021-10"
+    },
+    {
+      "name": "Amadeus Selling Platform Basic",
+      "issuer": "Amadeus training",
+      "date": "2022-06"
+    },
+    {
+      "name": "Philippine Destination Specialist course",
+      "issuer": "online course",
+      "date": "2024-02"
+    }
+  ],
+  "skills": [
+    "Tourism assistance and trip planning",
+    "Flight, hotel and tour reservations",
+    "Destination information and advice",
+    "Online booking and e-tourism platforms",
+    "Philippine and Asian destinations",
+    "Local tourism industry contacts in Mindanao",
+    "Guest relations",
+    "Sales of tour packages",
+    "Clear spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Travel Consultant",
+      "employer": "Iligan Bay Travel and Tours",
+      "location": "Iligan City, Lanao del Norte",
+      "start": "2023-02",
+      "end": "Present",
+      "bullets": [
+        "Plan and book about 60 trips a month for families, schools and company outings.",
+        "Build itineraries for Camiguin, Bukidnon and Siargao trips with local resorts and guides.",
+        "Book flights and hotels on online platforms and manage changes and refunds.",
+        "Turned a school field trip client into a yearly contract for four schools."
+      ]
+    },
+    {
+      "title": "Reservations and Ticketing Staff",
+      "employer": "Cagayan de Oro Skyways Travel",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2021-11",
+      "end": "2023-01",
+      "bullets": [
+        "Issued airline tickets and processed hotel bookings for walk-in clients.",
+        "Answered enquiries about destinations, fares and travel documents."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Tourism Management",
+      "school": "Iligan Bay College of Tourism",
+      "location": "Iligan City, Lanao del Norte",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

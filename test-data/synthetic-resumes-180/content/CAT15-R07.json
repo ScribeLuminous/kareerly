@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT15-R07",
+  "full_name": "Nathaniel Sanchez",
+  "location": "Valenzuela City, Metro Manila",
+  "email": "nathaniel.sanchez@example.net",
+  "phone": "+63 906 406 5040",
+  "headline": "Spa and Wellness Therapist",
+  "summary": "Spa and wellness therapist with three years at a Valenzuela wellness centre. I give massage and body treatments, run stretching and fitness sessions, assess each client's needs and limits, and keep a loyal client list through good care and follow-up. I also handle bookings and front-desk questions.",
+  "skills": [
+    "Wellness therapy and massage",
+    "Fitness coaching and stretching sessions",
+    "Physical fitness routines",
+    "Assessing clients' needs and limits",
+    "Personal grooming services",
+    "Client handling and retention",
+    "Customer service",
+    "Appointment scheduling",
+    "Business communication with suppliers"
+  ],
+  "experience": [
+    {
+      "title": "Spa and Wellness Therapist",
+      "employer": "Valenzuela Wellness and Spa Center",
+      "location": "Valenzuela City, Metro Manila",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Give about six massage and body treatments a day and adjust each one to the client's health and preferences.",
+        "Run weekend stretching and light fitness sessions for regular clients.",
+        "Offer grooming services such as foot spa and hand care for packages.",
+        "Book appointments and follow up regular clients, who make up 60% of my schedule."
+      ]
+    },
+    {
+      "title": "Salon Assistant",
+      "employer": "Marikina Beauty and Grooming Lounge",
+      "location": "Marikina City, Metro Manila",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Assisted with manicure, pedicure and foot spa services.",
+        "Greeted clients, answered calls and booked appointments."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Massage Therapy NC II",
+      "school": "Metro North Wellness Training Center",
+      "location": "Valenzuela City, Metro Manila",
+      "start": "2022-06",
+      "end": "2022-12"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Beauty Care (Nail Care) Services NC II",
+      "issuer": "TESDA",
+      "date": "2023-03"
+    }
+  ]
+}

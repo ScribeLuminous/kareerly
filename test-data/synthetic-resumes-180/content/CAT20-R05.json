@@ -1,0 +1,75 @@
+{
+  "candidate_id": "CAT20-R05",
+  "full_name": "Vanessa Sagarino",
+  "location": "Panabo City, Davao del Norte",
+  "email": "vanessa.sagarino@example.com",
+  "phone": "+63 961 159 1911",
+  "headline": "Supply Chain Manager",
+  "summary": "Supply chain manager with ten years in agribusiness and consumer goods in Davao. I lead planning, purchasing and warehousing for a banana and processed-food company, use data to set strategy, and manage a team of 25. I have taken inventory days down while keeping service levels above 97%.",
+  "highlights": [
+    "Cut inventory days on hand from 45 to 28 while holding service levels above 97%.",
+    "Set up a sales and operations planning process that aligned sales, production and purchasing every month.",
+    "Moved two warehouses to cross-docking for fast-moving goods, halving handling time."
+  ],
+  "skills": [
+    "Supply chain management and strategy",
+    "Supply chain trend and risk analysis",
+    "Supply chain principles and S&OP",
+    "Inventory management and planning",
+    "Warehouse inventory control",
+    "Materials and supplies management",
+    "Value-added warehouse services",
+    "Data analysis and dashboards",
+    "Purchasing and purchase orders",
+    "Team leadership and staff management",
+    "Executive reporting"
+  ],
+  "experience": [
+    {
+      "title": "Supply Chain Manager",
+      "employer": "Panabo Agri-Foods Corporation",
+      "location": "Panabo City, Davao del Norte",
+      "start": "2020-01",
+      "end": "Present",
+      "bullets": [
+        "Lead planning, purchasing, warehousing and distribution teams of 25 people.",
+        "Build monthly demand and supply plans and present them in the S&OP meeting.",
+        "Analyse supplier and freight trends and renegotiate contracts when costs shift."
+      ]
+    },
+    {
+      "title": "Inventory and Planning Supervisor",
+      "employer": "Davao Tropical Fruit Processing Corp.",
+      "location": "Davao City, Davao del Sur",
+      "start": "2016-06",
+      "end": "2019-12",
+      "bullets": [
+        "Planned raw material and packaging inventory for three production lines.",
+        "Oversaw labelling, repacking and kitting work in the warehouse."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master in Business Administration",
+      "school": "Davao Graduate School of Business",
+      "location": "Davao City, Davao del Sur",
+      "start": "2018",
+      "end": "2021"
+    },
+    {
+      "credential": "Bachelor of Science in Industrial Engineering",
+      "school": "Davao Institute of Engineering and Technology",
+      "location": "Davao City, Davao del Sur",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "APICS Certified Supply Chain Professional (CSCP)",
+      "issuer": "ASCM",
+      "date": "2022-05"
+    }
+  ]
+}

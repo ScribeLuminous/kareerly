@@ -1,0 +1,63 @@
+{
+  "candidate_id": "CAT19-R07",
+  "full_name": "Giselle Go",
+  "location": "Tabuk City, Kalinga",
+  "email": "giselle.go@example.net",
+  "phone": "+63 947 377 6324",
+  "headline": "Resort Barista and Server",
+  "summary": "Barista and server with three years at a mountain resort in Kalinga. I make coffee and drinks from local beans, serve guests at the table and help at the front desk and with bookings when the resort is busy. I enjoy talking with guests about Kalinga coffee.",
+  "experience": [
+    {
+      "title": "Barista and Server",
+      "employer": "Chico River Highland Resort",
+      "location": "Tabuk City, Kalinga",
+      "start": "2023-08",
+      "end": "Present",
+      "paragraph": "Part of a small team running the café and dining room of a 25-room resort.",
+      "bullets": [
+        "Prepare espresso, pour-over and native Kalinga coffee drinks for up to 150 guests a day.",
+        "Serve breakfast and dinner at the table and recommend local dishes and coffees.",
+        "Follow food safety rules for milk, pastries and the dining room.",
+        "Cover the front desk and take room reservations during peak weekends.",
+        "Welcome arriving guests with a coffee and help them with check-in."
+      ]
+    },
+    {
+      "title": "Service Crew",
+      "employer": "Tabuk Coffee and Pastry House",
+      "location": "Tabuk City, Kalinga",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Took orders and served drinks and pastries at the counter.",
+        "Kept tables and the service area clean."
+      ]
+    }
+  ],
+  "skills": [
+    "Food and beverage service",
+    "Table service",
+    "Barista skills: espresso and brewed coffee",
+    "Food safety",
+    "Customer service",
+    "Guest relations",
+    "Front desk support",
+    "Reservation handling"
+  ],
+  "education": [
+    {
+      "credential": "Food and Beverage Services NC II",
+      "school": "Kalinga Skills Training Institute",
+      "location": "Tabuk City, Kalinga",
+      "start": "2022-06",
+      "end": "2022-12"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Barista NC II",
+      "issuer": "TESDA",
+      "date": "2023-02"
+    }
+  ]
+}

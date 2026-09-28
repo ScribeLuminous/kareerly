@@ -1,0 +1,55 @@
+{
+  "candidate_id": "CAT11-R02",
+  "full_name": "Rex Carreon",
+  "location": "Boac, Marinduque",
+  "email": "rex.carreon@example.org",
+  "phone": "+63 947 860 4401",
+  "headline": "Canva Graphic Designer",
+  "skills": [
+    "Canva (Pro)",
+    "Graphic design for social media, menus and flyers",
+    "Content planning for small business pages",
+    "Smartphone product photography",
+    "Social media page management",
+    "Friendly, clear updates to clients"
+  ],
+  "summary": "Self-taught Canva designer from Marinduque looking for a remote or local design role. Since graduating from senior high school I have made social media posts, menus and flyers for local shops and resorts and taken the product photos behind them. I work fast and follow each client's colours and style.",
+  "experience": [
+    {
+      "title": "Freelance Canva Designer",
+      "employer": "self-employed",
+      "location": "Boac, Marinduque",
+      "start": "2025-12",
+      "end": "Present",
+      "type": "freelance",
+      "bullets": [
+        "Create weekly social media posts for five local shops, cafés and a beach resort.",
+        "Photograph food and products with a smartphone and simple lighting for their pages.",
+        "Plan a monthly posting calendar with each client around paydays and the Moriones season."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, Arts and Design Track",
+      "school": "Marinduque Heart Island Integrated School",
+      "location": "Boac, Marinduque",
+      "start": "2023",
+      "end": "2025"
+    },
+    {
+      "credential": "Canva Design Essentials (online course)",
+      "school": "online learning platform",
+      "location": "Remote",
+      "start": "2025-06",
+      "end": "2025-08"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Moriones Festival poster series",
+      "context": "personal project",
+      "description": "A set of eight festival posters shared by the municipal tourism page."
+    }
+  ]
+}

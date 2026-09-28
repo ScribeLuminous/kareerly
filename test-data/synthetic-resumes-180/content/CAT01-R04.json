@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT01-R04",
+  "full_name": "Michael Tayaban",
+  "location": "San Fernando City, La Union",
+  "email": "michael.tayaban@example.com",
+  "phone": "+63 926 203 7239",
+  "headline": "PHP and WordPress Developer",
+  "summary": "PHP developer with three years of experience building and looking after WordPress and custom PHP sites for resorts, schools and small shops in La Union and Pangasinan. I handle theme customisation, MySQL databases and on-page SEO, and I explain options to business owners in plain terms.",
+  "skills": [
+    "PHP 8 (custom sites and WordPress plugins)",
+    "MySQL database design",
+    "HTML5 and CSS3 with Bootstrap",
+    "WordPress themes and WooCommerce",
+    "On-page SEO and Google Search Console",
+    "Website build and maintenance",
+    "Client communication in English, Filipino and Ilocano"
+  ],
+  "experience": [
+    {
+      "title": "PHP Developer",
+      "employer": "Poro Point Web Works",
+      "location": "San Fernando City, La Union",
+      "start": "2024-02",
+      "end": "Present",
+      "bullets": [
+        "Built 14 WordPress sites for surf resorts and inns along the La Union coast, each with a custom booking-inquiry form.",
+        "Wrote a PHP plugin that pulls room rates from a MySQL table so owners update prices in one place.",
+        "Raised page-speed scores on five client sites by compressing images and removing unused CSS.",
+        "Set up on-page SEO for a surf school, which reached the first page for its main local search term within four months.",
+        "Walked owners through quotes, timelines and hosting renewals before each project started."
+      ]
+    },
+    {
+      "title": "Web Developer",
+      "employer": "self-employed",
+      "location": "San Fernando City, La Union",
+      "start": "2023-06",
+      "end": "2024-01",
+      "type": "freelance",
+      "bullets": [
+        "Maintained PHP enrollment and payment-reference forms for a private high school.",
+        "Moved a hardware store's product catalogue from spreadsheets into a WooCommerce shop."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "La Union Coastal Institute of Technology",
+      "location": "San Fernando City, La Union",
+      "start": "2019",
+      "end": "2023"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Search Engine Optimization Fundamentals",
+      "issuer": "online course",
+      "date": "2024-09"
+    }
+  ]
+}

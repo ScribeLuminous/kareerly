@@ -1,0 +1,70 @@
+{
+  "candidate_id": "STRESS-003",
+  "full_name": "Ricardo Gonzales",
+  "location": "Parañaque City, Metro Manila",
+  "email": "ricardo.gonzales@example.net",
+  "phone": "+63 918 395 2490",
+  "headline": "Marketing Analytics Specialist",
+  "summary": "Marketing analytics specialist with four years at an e-commerce company in Parañaque. I measure campaign performance in Google Analytics and Google Ads, analyse sales and traffic data in Excel, and build Power BI reports that show marketing which channels pay off. I bridge the marketing and data teams.",
+  "highlights": [
+    "Built the marketing performance report in Power BI that replaced six weekly spreadsheets.",
+    "Found that 30% of paid search spend went to low-converting keywords and helped move it to better ones.",
+    "Set up conversion tracking across the website and app for the first time."
+  ],
+  "skills": [
+    "Marketing analytics",
+    "Google Analytics 4",
+    "Google Ads",
+    "Digital marketing",
+    "Data analysis",
+    "Data visualization and dashboards",
+    "Microsoft Excel (Power Query, pivot tables)",
+    "Power BI"
+  ],
+  "experience": [
+    {
+      "title": "Marketing Analytics Specialist",
+      "employer": "Parañaque Home and Living Online Store",
+      "location": "Parañaque City, Metro Manila",
+      "start": "2023-03",
+      "end": "Present",
+      "bullets": [
+        "Measure performance of paid, social and email campaigns and report results weekly.",
+        "Build and maintain Power BI reports on traffic, conversions and revenue by channel.",
+        "Analyse Google Ads data with the digital team and recommend budget shifts."
+      ]
+    },
+    {
+      "title": "Digital Marketing Associate",
+      "employer": "Manila Bay Fashion Retail Corp.",
+      "location": "Manila, Metro Manila",
+      "start": "2022-01",
+      "end": "2023-02",
+      "bullets": [
+        "Ran Google Ads campaigns and set up tracking tags on the website.",
+        "Prepared monthly Excel reports on traffic and sales."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing Management",
+      "school": "Manila Bay Business College",
+      "location": "Manila, Metro Manila",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Google Analytics Certification",
+      "issuer": "Google",
+      "date": "2023-05"
+    },
+    {
+      "name": "Microsoft Certified: Power BI Data Analyst Associate",
+      "issuer": "Microsoft",
+      "date": "2024-09"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "candidate_id": "CAT17-R05",
+  "full_name": "Randy Garcia",
+  "location": "Ilagan City, Isabela",
+  "email": "randy.garcia@example.net",
+  "phone": "+63 989 697 8956",
+  "headline": "Site Foreman",
+  "summary": "Site foreman with fourteen years on houses, schools, warehouses and bridges in Isabela and the Cagayan Valley. I prepare sites, set up temporary facilities, lead carpentry, masonry and electrical crews of up to 40 workers, and inspect work and safety every day. I read plans and take-offs as well as any engineer and report progress and risks clearly.",
+  "highlights": [
+    "Led construction of a 20-classroom school building, finished two weeks early with no lost-time accidents.",
+    "Trained more than 30 helpers who became carpenters and masons.",
+    "Recovered a delayed warehouse project by resequencing crews, meeting the owner's deadline."
+  ],
+  "skills": [
+    "Construction safety and daily site inspection",
+    "Site preparation and temporary facilities",
+    "Carpentry and formworks",
+    "Masonry and concrete works",
+    "Electrical installation coordination",
+    "Maintenance of structures",
+    "Crew leadership and staff management",
+    "Quantity take-offs",
+    "Measuring and setting out",
+    "Reading technical drawings",
+    "Progress and risk reporting"
+  ],
+  "experience": [
+    {
+      "title": "Site Foreman",
+      "employer": "Isabela Heartland Construction Corp.",
+      "location": "Ilagan City, Isabela",
+      "start": "2018-03",
+      "end": "Present",
+      "bullets": [
+        "Lead crews of up to 40 carpenters, masons, steelmen and electricians on public and private projects.",
+        "Set up site offices, bunkhouses, fencing and temporary power before each project.",
+        "Inspect work quality and safety daily and report progress and risks to the project engineer."
+      ]
+    },
+    {
+      "title": "Leadman (Carpentry and Masonry)",
+      "employer": "Cagayan Valley Builders Inc.",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2012-06",
+      "end": "2018-02",
+      "bullets": [
+        "Led carpentry and masonry teams on houses, warehouses and a river bridge.",
+        "Checked levels and dimensions and computed material needs from the plans."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Building Construction Technology",
+      "school": "Cagayan Valley Trade School",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2010",
+      "end": "2012"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Construction Occupational Safety and Health (COSH)",
+      "issuer": "DOLE-accredited training organisation",
+      "date": "2019-04"
+    }
+  ]
+}

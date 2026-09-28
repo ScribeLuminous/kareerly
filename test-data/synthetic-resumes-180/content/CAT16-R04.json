@@ -1,0 +1,60 @@
+{
+  "candidate_id": "CAT16-R04",
+  "full_name": "Melvin Maglasang",
+  "location": "Roxas City, Capiz",
+  "email": "melvin.maglasang@example.net",
+  "phone": "+63 975 263 4976",
+  "headline": "Electronics Technician",
+  "summary": "Electronics technician with three years repairing equipment in a rice mill and an ice plant in Capiz. I troubleshoot control panels and motor drives from wiring diagrams, measure and test circuits, and handle mechanical maintenance on the machines they control.",
+  "skills": [
+    "Electronics repair: control boards, sensors, motor drives",
+    "Reading electrical and wiring diagrams",
+    "Measurement with multimeters and clamp meters",
+    "Mechanical maintenance of motors and conveyors",
+    "Electrical wiring and installation",
+    "Operating mill machinery for testing",
+    "Clear written repair reports"
+  ],
+  "experience": [
+    {
+      "title": "Electronics Technician",
+      "employer": "Capiz Golden Harvest Rice Mill",
+      "location": "Roxas City, Capiz",
+      "start": "2023-10",
+      "end": "Present",
+      "bullets": [
+        "Repair control panels, sensors and variable-speed drives on milling and drying lines.",
+        "Trace faults from wiring diagrams and test circuits with multimeters and clamp meters.",
+        "Replace bearings, belts and couplings during planned maintenance stops.",
+        "Wire new motors and panels during a line upgrade with the plant electrician."
+      ]
+    },
+    {
+      "title": "Maintenance Helper",
+      "employer": "Roxas City Ice and Cold Storage",
+      "location": "Roxas City, Capiz",
+      "start": "2023-01",
+      "end": "2023-09",
+      "bullets": [
+        "Assisted in repairing compressors and fans and cleaned condensers.",
+        "Operated the ice-making machines during night shifts."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Electronics Engineering Technology",
+      "school": "Capiz Riverside Polytechnic Institute",
+      "location": "Roxas City, Capiz",
+      "start": "2020",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Electronic Products Assembly and Servicing NC II",
+      "issuer": "TESDA",
+      "date": "2022-08"
+    }
+  ]
+}

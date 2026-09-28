@@ -1,0 +1,89 @@
+{
+  "candidate_id": "CAT10-R05",
+  "full_name": "Rodel Llaguno",
+  "location": "Tabaco City, Albay",
+  "email": "rodel.llaguno@example.com",
+  "phone": "+63 995 883 3641",
+  "headline": "Corporate Communications Manager",
+  "summary": "Corporate communications manager with ten years in energy and cooperatives across Bicol. I lead internal and external communications, write executive speeches and annual reports, and advise management on public relations during outages and disasters. I manage a team of four writers and designers.",
+  "experience": [
+    {
+      "title": "Corporate Communications Manager",
+      "employer": "Albay Geothermal Power Services Corp.",
+      "location": "Tabaco City, Albay",
+      "start": "2020-01",
+      "end": "Present",
+      "paragraph": "Head of a four-person team handling media, community and employee communications for a power generation company.",
+      "bullets": [
+        "Write the president's speeches, board letters and the annual sustainability report.",
+        "Advise management on statements during eruption alerts and typhoon outages, and speak to local media.",
+        "Set the company's content plan across newsletter, website and social media.",
+        "Wrote the house style guide and edit all published materials against it."
+      ]
+    },
+    {
+      "title": "Communications Officer",
+      "employer": "Kabikolan Power Cooperatives Alliance",
+      "location": "Legazpi City, Albay",
+      "start": "2016-01",
+      "end": "2019-12",
+      "paragraph": "Covered member communications for eight electric cooperatives in the region.",
+      "bullets": [
+        "Produced the monthly member newsletter and rewrote technical advisories in plain language.",
+        "Wrote job descriptions and recruitment copy with HR during a restructuring."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Writing",
+      "items": [
+        "business and executive communication",
+        "content writing",
+        "copywriting",
+        "proofreading",
+        "style guides",
+        "rewriting technical material",
+        "job descriptions"
+      ]
+    },
+    {
+      "label": "Public relations",
+      "items": [
+        "media relations",
+        "PR advice to management",
+        "content marketing strategy"
+      ]
+    },
+    {
+      "label": "Leadership",
+      "items": [
+        "team management",
+        "English and Bikol"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master of Arts in Communication",
+      "school": "Bicol Graduate School of Communication",
+      "location": "Legazpi City, Albay",
+      "start": "2017",
+      "end": "2020"
+    },
+    {
+      "credential": "Bachelor of Arts in Journalism",
+      "school": "Albay Mayon College",
+      "location": "Tabaco City, Albay",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Crisis Communication Management",
+      "issuer": "professional training course",
+      "date": "2021-05"
+    }
+  ]
+}

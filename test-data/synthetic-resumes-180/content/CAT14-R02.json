@@ -1,0 +1,61 @@
+{
+  "candidate_id": "CAT14-R02",
+  "full_name": "Dominic Mercado",
+  "location": "Valenzuela City, Metro Manila",
+  "email": "dominic.mercado@example.com",
+  "phone": "+63 939 576 4298",
+  "headline": "Medical Records Clerk",
+  "summary": "Health information graduate looking for a first job in a hospital records section. During my internship I transcribed physicians' dictated notes, encoded discharge summaries and learned the medical terms behind them. Fast, accurate typist and careful with confidential information.",
+  "experience": [
+    {
+      "title": "Medical Records Intern",
+      "employer": "Valenzuela North General Hospital",
+      "location": "Valenzuela City, Metro Manila",
+      "start": "2026-01",
+      "end": "2026-04",
+      "type": "internship",
+      "paragraph": "Four-month internship in the records section of a 200-bed private hospital.",
+      "bullets": [
+        "Transcribed dictated operative and consultation notes for three physicians.",
+        "Encoded discharge summaries and ICD codes into the hospital information system.",
+        "Retrieved and refiled charts for audits and follow-up clinics."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Health information",
+      "items": [
+        "medical terminology",
+        "medical transcription",
+        "ICD-10 coding basics",
+        "data encoding",
+        "confidential file handling and archiving"
+      ]
+    },
+    {
+      "label": "Office",
+      "items": [
+        "Microsoft Office",
+        "typing at 65 words per minute",
+        "clear English"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Health Information Management",
+      "school": "Metro North College of Health Sciences",
+      "location": "Valenzuela City, Metro Manila",
+      "start": "2022",
+      "end": "2026"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Medical Transcription NC II",
+      "issuer": "TESDA",
+      "date": "2025-07"
+    }
+  ]
+}

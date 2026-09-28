@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT20-R04",
+  "full_name": "Hamid Kusain",
+  "location": "Cagayan de Oro City, Misamis Oriental",
+  "email": "hamid.kusain@example.org",
+  "phone": "+63 917 468 5177",
+  "headline": "Dispatcher",
+  "experience": [
+    {
+      "title": "Dispatcher",
+      "employer": "Cagayan de Oro Cargo and Trucking Services",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2023-09",
+      "end": "Present",
+      "bullets": [
+        "Dispatch 30 trucks a day to customers across Northern Mindanao.",
+        "Plan routes and schedules around road closures, weather and customer time windows.",
+        "Take calls from drivers and customers and resolve delays by phone.",
+        "Enforce rest breaks and speed rules for drivers and review trip logs for violations.",
+        "Encode trip tickets and fuel records into Excel daily."
+      ]
+    },
+    {
+      "title": "Dispatch Clerk",
+      "employer": "Iligan Bus and Freight Lines",
+      "location": "Iligan City, Lanao del Norte",
+      "start": "2023-01",
+      "end": "2023-08",
+      "bullets": [
+        "Recorded departures and arrivals and answered customer calls about cargo.",
+        "Prepared daily trip reports for the operations manager."
+      ]
+    }
+  ],
+  "summary": "Dispatcher with three years coordinating trucks and drivers for cargo and bus lines in Northern Mindanao. I plan routes and schedules, keep drivers safe and on time, and handle calls from drivers and customers all day. I keep trip records accurate.",
+  "skills": [
+    "Delivery coordination and dispatch",
+    "Route planning",
+    "Driving safety rules and trip monitoring",
+    "Phone support for drivers and customers",
+    "Data encoding",
+    "Microsoft Excel"
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Logistics Management",
+      "school": "Northern Mindanao Trade School",
+      "location": "Cagayan de Oro City, Misamis Oriental",
+      "start": "2020",
+      "end": "2022"
+    }
+  ]
+}

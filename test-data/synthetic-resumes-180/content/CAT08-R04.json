@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT08-R04",
+  "full_name": "Michelle Llaguno",
+  "location": "Sorsogon City, Sorsogon",
+  "email": "michelle.llaguno@example.net",
+  "phone": "+63 915 419 8919",
+  "headline": "Marketing Coordinator",
+  "summary": "Marketing coordinator with three years organising promotional campaigns and events for a regional appliance retailer in Bicol. I plan campaign calendars, coordinate store events and trade-fair booths, and design the posters and tarpaulins that go with them.",
+  "skills": [
+    "Planning marketing campaigns",
+    "Supporting campaign development",
+    "Event marketing and store activations",
+    "Canva for posters, tarpaulins and flyers",
+    "Event coordination",
+    "Project coordination with stores and suppliers",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Marketing Coordinator",
+      "employer": "Bicol Home Appliance Centers Inc.",
+      "location": "Sorsogon City, Sorsogon",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Plan the yearly promotions calendar for 14 branches with the marketing manager.",
+        "Organise mall and plaza activations for Christmas, back-to-school and Kasanggayahan Festival season.",
+        "Coordinate supplier-funded promotions with appliance brands and track their materials and deadlines.",
+        "Design posters, tarpaulins and price tags in Canva for every branch.",
+        "Ran a trade-in promo that sold 900 refrigerators in six weeks."
+      ]
+    },
+    {
+      "title": "Events Assistant",
+      "employer": "Legazpi Events and Promotions",
+      "location": "Legazpi City, Albay",
+      "start": "2023-01",
+      "end": "2023-06",
+      "bullets": [
+        "Helped set up product launches and school fairs for local businesses.",
+        "Prepared event checklists and supplier contact sheets."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing Management",
+      "school": "Sorsogon Bay College",
+      "location": "Sorsogon City, Sorsogon",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

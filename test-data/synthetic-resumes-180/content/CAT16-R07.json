@@ -1,0 +1,72 @@
+{
+  "candidate_id": "CAT16-R07",
+  "full_name": "Kristine Buenaventura",
+  "location": "Dumaguete City, Negros Oriental",
+  "email": "kristine.buenaventura@example.com",
+  "phone": "+63 908 441 2048",
+  "headline": "Mechanical Maintenance Technician",
+  "summary": "Mechanical maintenance technician with four years in a sugar mill and a coconut processing plant in Negros Oriental. I plan and carry out preventive maintenance, measure wear and alignment precisely, and inspect repaired equipment for quality before it goes back into production. I work closely with production operators.",
+  "experience": [
+    {
+      "title": "Mechanical Maintenance Technician",
+      "employer": "Negros Oriental Coconut Processing Inc.",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2024-02",
+      "end": "Present",
+      "paragraph": "Part of a six-person maintenance crew for a plant producing coconut oil and desiccated coconut.",
+      "bullets": [
+        "Carry out preventive maintenance on expellers, dryers, pumps and conveyors.",
+        "Measure shafts, bearings and alignment with micrometers, dial gauges and laser tools.",
+        "Check repaired machines against quality standards before handing them back to production.",
+        "Run daily checks of plant equipment with operators and follow lockout safety rules."
+      ]
+    },
+    {
+      "title": "Maintenance Mechanic",
+      "employer": "Bais Sugar Milling Services",
+      "location": "Bais City, Negros Oriental",
+      "start": "2022-06",
+      "end": "2024-01",
+      "paragraph": "Worked the milling season on mill tandem and boiler-house equipment.",
+      "bullets": [
+        "Repaired and overhauled mill rollers, gearboxes and pumps.",
+        "Monitored machine performance during production and reported problems early."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Maintenance",
+      "items": [
+        "mechanical maintenance",
+        "mechanical engineering principles",
+        "precision measurement",
+        "quality control of repairs"
+      ]
+    },
+    {
+      "label": "Plant",
+      "items": [
+        "machine operation for testing",
+        "plant equipment checks",
+        "production monitoring",
+        "workplace safety and lockout"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "business communication"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Mechanical Engineering Technology",
+      "school": "Negros Oriental College of Engineering",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

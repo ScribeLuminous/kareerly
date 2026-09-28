@@ -1,0 +1,52 @@
+{
+  "candidate_id": "CAT21-R04",
+  "full_name": "Marjorie Lumactod",
+  "location": "General Santos City, South Cotabato",
+  "email": "marjorie.lumactod@example.net",
+  "phone": "+63 906 159 9927",
+  "headline": "Assembly Technician",
+  "summary": "Assembly technician with three years building and repairing electronic modules in General Santos. I assemble and solder boards and small parts under magnification, troubleshoot faulty units from wiring diagrams, and maintain the hand tools and fixtures we use. Detail-oriented and patient with fine work.",
+  "skills": [
+    "Assembly work",
+    "Microassembly and fine soldering",
+    "Electronics repair and rework",
+    "Reading wiring and electrical diagrams",
+    "Mechanical maintenance of fixtures and tools",
+    "Microsoft Excel"
+  ],
+  "experience": [
+    {
+      "title": "Assembly Technician",
+      "employer": "GenSan Marine Electronics Inc.",
+      "location": "General Santos City, South Cotabato",
+      "start": "2023-09",
+      "end": "Present",
+      "bullets": [
+        "Assemble fish-finder and radio modules for fishing boats, about 60 units a day.",
+        "Solder fine-pitch components and cables under a microscope.",
+        "Repair and rework units returned by fishing fleets, tracing faults from wiring diagrams.",
+        "Maintain soldering stations, jigs and fixtures and record repairs in Excel."
+      ]
+    },
+    {
+      "title": "Electronics Repair Assistant",
+      "employer": "Koronadal Electronics Service Center",
+      "location": "Koronadal City, South Cotabato",
+      "start": "2023-01",
+      "end": "2023-08",
+      "bullets": [
+        "Repaired radios, TVs and chargers for walk-in customers.",
+        "Replaced parts and tested repaired units."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Electronics Technology",
+      "school": "South Cotabato Technical Institute",
+      "location": "Koronadal City, South Cotabato",
+      "start": "2020",
+      "end": "2022"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "candidate_id": "CAT04-R01",
+  "full_name": "Francis Serrano",
+  "location": "Tagum City, Davao del Norte",
+  "email": "francis.serrano@example.com",
+  "phone": "+63 919 469 1284",
+  "headline": "Junior Accountant",
+  "education": [
+    {
+      "credential": "Bachelor of Science in Accountancy",
+      "school": "Davao Gulf College of Business",
+      "location": "Tagum City, Davao del Norte",
+      "start": "2020",
+      "end": "2024",
+      "notes": [
+        "Passed the Certified Public Accountant Licensure Examination, May 2025",
+        "Varsity member, Junior Philippine Institute of Accountants chapter"
+      ]
+    }
+  ],
+  "summary": "Newly licensed CPA with a year of experience as a junior accountant at a banana exporter. I prepare journal entries and month-end schedules, keep supplier and customer ledgers up to date in QuickBooks, and help draft the financial statements. I want to deepen my experience in corporate accounting and audit.",
+  "projects": [
+    {
+      "name": "Cooperative bookkeeping clinic",
+      "context": "university extension project",
+      "description": "Helped a Tagum vegetable growers' cooperative set up a cash book, simple ledgers and a monthly Excel trial balance, then trained two officers to keep them."
+    }
+  ],
+  "skills": [
+    "General accounting and journal entries",
+    "Bookkeeping in QuickBooks Online",
+    "Month-end close and preparation of financial statements",
+    "Accounts payable processing",
+    "Collection follow-ups on accounts receivable",
+    "Microsoft Excel (reconciliations, lookups, pivot tables)",
+    "Written and verbal business communication"
+  ],
+  "experience": [
+    {
+      "title": "Junior Accountant",
+      "employer": "Mindanao Cavendish Exporters Inc.",
+      "location": "Tagum City, Davao del Norte",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Record about 400 supplier invoices a month and prepare the weekly payment run for approval.",
+        "Send statements and follow up overdue customer balances, bringing accounts over 60 days down by a fifth.",
+        "Prepare bank and intercompany reconciliations and the supporting schedules for the monthly financial statements.",
+        "Keep the QuickBooks chart of accounts tidy and document each recurring entry for the next person."
+      ]
+    },
+    {
+      "title": "Accounting Intern",
+      "employer": "Panabo Rural Credit Cooperative",
+      "location": "Panabo City, Davao del Norte",
+      "start": "2024-01",
+      "end": "2024-04",
+      "type": "internship",
+      "bullets": [
+        "Posted daily collections to member ledgers and prepared the cooperative's monthly trial balance."
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Public Accountant (CPA)",
+      "issuer": "Professional Regulation Commission",
+      "date": "2025-07"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}
