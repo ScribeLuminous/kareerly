@@ -1,0 +1,71 @@
+{
+  "candidate_id": "STRESS-001",
+  "full_name": "Rogelio Ilagan",
+  "location": "Lipa City, Batangas",
+  "email": "rogelio.ilagan@example.com",
+  "phone": "+63 936 959 7833",
+  "headline": "Web Designer",
+  "summary": "Web designer with four years designing websites and landing pages for resorts, coffee brands and schools in Batangas. I design in Figma, prepare images in Photoshop, and build the pages myself in WordPress or hand-coded HTML, CSS and JavaScript. I sit comfortably between design and front-end work.",
+  "certifications": [
+    {
+      "name": "Google UX Design Certificate",
+      "issuer": "Google",
+      "date": "2023-08"
+    },
+    {
+      "name": "Responsive Web Design certificate",
+      "issuer": "freeCodeCamp",
+      "date": "2022-05"
+    },
+    {
+      "name": "Adobe Certified Professional: Visual Design using Photoshop",
+      "issuer": "Adobe",
+      "date": "2022-11"
+    }
+  ],
+  "skills": [
+    "UI design for websites and landing pages",
+    "Figma: wireframes, prototypes, design systems",
+    "Graphic design for web banners and brand assets",
+    "Adobe Photoshop",
+    "HTML and CSS",
+    "JavaScript for interactions",
+    "Website development in WordPress",
+    "Presenting designs to clients"
+  ],
+  "experience": [
+    {
+      "title": "Web Designer",
+      "employer": "Lipa Highlands Digital Studio",
+      "location": "Lipa City, Batangas",
+      "start": "2023-09",
+      "end": "Present",
+      "bullets": [
+        "Design and build about 20 websites a year for resorts, coffee farms and private schools.",
+        "Create clickable Figma prototypes and test them with clients before development.",
+        "Build pages in WordPress and custom HTML, CSS and JavaScript, including booking forms and galleries.",
+        "Prepare web images and banners in Photoshop for fast loading."
+      ]
+    },
+    {
+      "title": "Graphic and Web Design Associate",
+      "employer": "Batangas Bay Creative Agency",
+      "location": "Batangas City, Batangas",
+      "start": "2022-06",
+      "end": "2023-08",
+      "bullets": [
+        "Designed social media graphics, brochures and website mock-ups for clients.",
+        "Updated client WordPress sites with new content and layouts."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology, major in Web and Multimedia",
+      "school": "Batangas Uplands College",
+      "location": "Lipa City, Batangas",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

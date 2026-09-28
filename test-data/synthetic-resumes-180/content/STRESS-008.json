@@ -1,0 +1,63 @@
+{
+  "candidate_id": "STRESS-008",
+  "full_name": "Wilfredo Cañete",
+  "location": "Tubigon, Bohol",
+  "email": "wilfredo.canete@example.com",
+  "phone": "+63 921 692 3728",
+  "headline": "Content and Digital Marketing Writer",
+  "summary": "Content writer with four years writing for travel, food and resort brands in Bohol and online clients. I write and proofread blogs, web copy and newsletters, optimise them for search, plan content around each brand's strategy and design simple social graphics in Canva.",
+  "highlights": [
+    "Grew a Bohol resort's organic website traffic threefold in 18 months through a blog and SEO plan.",
+    "Wrote a 12-email welcome series for an online food shop that became its top sales email flow.",
+    "Built a content calendar and tone-of-voice guide that three clients now use."
+  ],
+  "skills": [
+    "Content writing: blogs, web copy, newsletters",
+    "Copywriting",
+    "Proofreading and editing",
+    "Search engine optimization",
+    "Content marketing strategy",
+    "Social media management",
+    "Canva",
+    "Email marketing"
+  ],
+  "experience": [
+    {
+      "title": "Content and Digital Marketing Writer",
+      "employer": "Bohol Island Stories Content Studio",
+      "location": "Tagbilaran City, Bohol",
+      "start": "2023-02",
+      "end": "Present",
+      "bullets": [
+        "Write about 20 articles and pages a month for travel, food and resort clients.",
+        "Plan content calendars and search keywords with each client.",
+        "Write and schedule email newsletters and social media posts."
+      ]
+    },
+    {
+      "title": "Content Writer",
+      "employer": "Tubigon Coastal Media",
+      "location": "Tubigon, Bohol",
+      "start": "2022-01",
+      "end": "2023-01",
+      "bullets": [
+        "Wrote destination guides and news features for a Bohol tourism site.",
+        "Proofread other writers' articles before publishing."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Communication",
+      "school": "Bohol Island College of Arts",
+      "location": "Tagbilaran City, Bohol",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}
