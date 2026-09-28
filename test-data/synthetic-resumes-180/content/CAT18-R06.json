@@ -1,0 +1,61 @@
+{
+  "candidate_id": "CAT18-R06",
+  "full_name": "Samuel Cabahug",
+  "location": "Bayawan City, Negros Oriental",
+  "email": "samuel.cabahug@example.net",
+  "phone": "+63 916 731 0859",
+  "headline": "Guest Relations Officer",
+  "summary": "Resort restaurant server of three years now working in guest relations at the same resort in Negros Oriental. Serving guests every day taught me to read their moods and anticipate what they need; I now welcome arriving guests, handle the front desk during peak hours and help them plan their stay.",
+  "skills": [
+    "Guest relations",
+    "Front desk support",
+    "Welcoming and registering arriving guests",
+    "Tourism assistance: tours, dive trips, transport",
+    "Table service",
+    "Food and beverage service",
+    "Food safety and hygiene",
+    "Clear spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Guest Relations Officer",
+      "employer": "Bayawan Cove Beach Resort",
+      "location": "Bayawan City, Negros Oriental",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Welcome arriving guests, explain the resort's facilities and help them settle in.",
+        "Cover the front desk during peak hours and weekend check-ins.",
+        "Arrange island-hopping, dive trips and transport with local operators."
+      ]
+    },
+    {
+      "title": "Restaurant Server",
+      "employer": "Bayawan Cove Beach Resort",
+      "location": "Bayawan City, Negros Oriental",
+      "start": "2022-05",
+      "end": "2025-05",
+      "bullets": [
+        "Served breakfast buffets and à la carte dinners for up to 150 guests.",
+        "Followed food safety and hygiene rules in the dining room and pantry.",
+        "Remembered regular guests' preferences, earning frequent mentions in guest reviews."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Food and Beverage Services NC II",
+      "school": "Negros Oriental Hospitality Skills Center",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2021-06",
+      "end": "2021-12"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Front Office Services NC II",
+      "issuer": "TESDA",
+      "date": "2025-03"
+    }
+  ]
+}

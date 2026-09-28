@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT18-R07",
+  "full_name": "Kenneth Castro",
+  "location": "Mandaue City, Cebu",
+  "email": "kenneth.castro@example.org",
+  "phone": "+63 956 300 5122",
+  "headline": "Ecotourism Tour Guide",
+  "summary": "Ecotourism tour guide with three years leading nature and farm tours in Cebu's highlands and mangroves. I explain local ecology, history and farming to visitors, work with communities on tree planting and conservation, and make sure every tour leaves the site better than we found it.",
+  "skills": [
+    "Tour guiding and tourism assistance",
+    "Ecotourism",
+    "Agritourism and farm tours",
+    "Tourism information for visitors",
+    "Environmental conservation",
+    "Tree planting and mangrove activities",
+    "Community engagement",
+    "Clear spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Ecotourism Tour Guide",
+      "employer": "Cebu Highlands and Mangroves Eco-Tours",
+      "location": "Mandaue City, Cebu",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Lead nature walks, mangrove boat tours and farm visits for about 30 groups a month.",
+        "Explain the ecology, history and livelihoods of each site in English, Filipino and Cebuano.",
+        "Organise tree-planting activities for school and company groups with partner communities.",
+        "Brief visitors on leave-no-trace rules and collect feedback after each tour."
+      ]
+    },
+    {
+      "title": "Community Tourism Volunteer",
+      "employer": "Danao Mountain Farmers Association",
+      "location": "Danao City, Cebu",
+      "start": "2023-01",
+      "end": "2023-06",
+      "type": "volunteer",
+      "bullets": [
+        "Guided visitors through coffee and vegetable farms and explained organic practices.",
+        "Helped farmers welcome visitors and sell their produce."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Tourism Management",
+      "school": "Central Visayas College of Arts",
+      "location": "Cebu City, Cebu",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Tour Guiding Services NC II",
+      "issuer": "TESDA",
+      "date": "2023-05"
+    }
+  ]
+}

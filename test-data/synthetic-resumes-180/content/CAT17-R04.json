@@ -1,0 +1,55 @@
+{
+  "candidate_id": "CAT17-R04",
+  "full_name": "Adrian Sarmiento",
+  "location": "Lagawe, Ifugao",
+  "email": "adrian.sarmiento@example.org",
+  "phone": "+63 970 109 5267",
+  "headline": "Building Maintenance Technician",
+  "summary": "Building maintenance technician with three years looking after a hotel and office building in Ifugao. I repair electrical, plumbing and mechanical problems, keep lighting and office equipment working, and fix doors, walls and ceilings. I answer tenants' and guests' requests quickly and politely.",
+  "experience": [
+    {
+      "title": "Building Maintenance Technician",
+      "employer": "Ifugao Terraces View Hotel and Offices",
+      "location": "Lagawe, Ifugao",
+      "start": "2023-08",
+      "end": "Present",
+      "paragraph": "One of two technicians for a 40-room hotel and a three-storey office building.",
+      "bullets": [
+        "Repair outlets, switches and circuits and install new wiring for added equipment.",
+        "Maintain pumps, water heaters and aircon units on a monthly schedule.",
+        "Replace and repair lighting fixtures, ballasts and exit lights.",
+        "Set up projectors, printers and sound systems for meetings and events.",
+        "Fix doors, ceilings and walls, and repair small electronic devices."
+      ]
+    },
+    {
+      "title": "Maintenance Helper",
+      "employer": "Banaue Highland Inn",
+      "location": "Lagawe, Ifugao",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Assisted in plumbing and electrical repairs and painted guest rooms.",
+        "Responded to guest requests for repairs."
+      ]
+    }
+  ],
+  "skills": [
+    "Mechanical maintenance of pumps and aircons",
+    "Electrical installation and repair",
+    "Building repairs: doors, walls, ceilings",
+    "Lighting fixture maintenance",
+    "Office and event equipment setup",
+    "Electronics repair",
+    "Customer service for guests and tenants"
+  ],
+  "education": [
+    {
+      "credential": "Electrical Installation and Maintenance NC II",
+      "school": "Ifugao Highland Skills Institute",
+      "location": "Lagawe, Ifugao",
+      "start": "2022-06",
+      "end": "2022-12"
+    }
+  ]
+}

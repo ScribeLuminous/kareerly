@@ -1,0 +1,80 @@
+{
+  "candidate_id": "CAT16-R01",
+  "full_name": "Noel Bobis",
+  "location": "Virac, Catanduanes",
+  "email": "noel.bobis@example.org",
+  "phone": "+63 918 194 5474",
+  "headline": "Junior Civil Engineer",
+  "education": [
+    {
+      "credential": "Bachelor of Science in Civil Engineering",
+      "school": "Catanduanes Island Polytechnic College",
+      "location": "Virac, Catanduanes",
+      "start": "2020",
+      "end": "2024",
+      "notes": [
+        "Passed the Civil Engineering Licensure Examination, November 2024",
+        "Design project: a typhoon-resistant two-storey evacuation centre"
+      ]
+    }
+  ],
+  "summary": "Licensed civil engineer with a year on road and drainage projects in Catanduanes. I stake out and check work on site with the total station and level, prepare AutoCAD drawings and quantity take-offs, and help prepare progress billings. I want to build my experience in structural and road design.",
+  "projects": [
+    {
+      "name": "Typhoon-resistant evacuation centre",
+      "context": "design project",
+      "bullets": [
+        "Designed the structural frame of a two-storey evacuation centre for 250-kph winds.",
+        "Prepared the full plan set in AutoCAD and a bill of quantities for the barangay proposal."
+      ]
+    },
+    {
+      "name": "Farm-to-market road survey",
+      "context": "field course",
+      "description": "Surveyed a 2-kilometre farm-to-market road with a total station and produced the profile and cross-section drawings."
+    }
+  ],
+  "skills": [
+    "Civil engineering design and site work",
+    "Engineering measurement: total station, auto level, tape",
+    "AutoCAD",
+    "Reading blueprints and structural plans",
+    "Surveying support: stake-out and as-built checks",
+    "Technical drafting",
+    "Quantity take-offs and bills of quantities",
+    "Microsoft Excel"
+  ],
+  "experience": [
+    {
+      "title": "Junior Civil Engineer",
+      "employer": "Catanduanes Island Builders Corp.",
+      "location": "Virac, Catanduanes",
+      "start": "2025-02",
+      "end": "Present",
+      "bullets": [
+        "Check lines, grades and elevations for concrete road and drainage works with the survey crew.",
+        "Prepare as-built drawings and revisions in AutoCAD for three road projects.",
+        "Compute quantities for monthly progress billings and check them against the approved plans.",
+        "Inspect formwork and rebar placement before each pour with the project engineer."
+      ]
+    },
+    {
+      "title": "Engineering Intern",
+      "employer": "Virac Engineering Consultants",
+      "location": "Virac, Catanduanes",
+      "start": "2024-01",
+      "end": "2024-04",
+      "type": "internship",
+      "bullets": [
+        "Helped draft site development plans and computed earthwork volumes."
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Civil Engineer",
+      "issuer": "Professional Regulation Commission",
+      "date": "2024-12"
+    }
+  ]
+}
