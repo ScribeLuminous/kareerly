@@ -1,21 +1,38 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { deleteAdminUser, fetchAdminUsers, suspendAdminUser, updateAdminUser } from '../../lib/api';
 import type { AdminUserRow } from '../../lib/api';
-import { buttonClass, chipClass, dangerButtonClass, dateText } from './adminShared';
-import { PanelMessage, Pager, Pill, SearchBox } from './adminUi';
+import { bulkButtonClass, bulkDangerButtonClass, buttonClass, dangerButtonClass, dateText, reportBulk, runBulk, selectCellClass } from './adminShared';
+import { AdminSearch, AdminToolbar, BulkBar, FilterSelect, FilterTabs, PanelMessage, Pager, Pill, SelectBox } from './adminUi';
+import { useDebouncedValue, useRowSelection } from './adminHooks';
 import type { AdminPanelProps } from './adminShared';
 
 type Role = 'candidate' | 'employer' | 'admin';
+type StatusFilter = 'all' | 'active' | 'suspended' | 'deletion';
 const roleLabels: Record<Role, string> = { candidate: 'Candidates', employer: 'Employers', admin: 'Admins' };
+const statusOptions: Array<{ value: StatusFilter; label: string }> = [
+  { value: 'all', label: 'Any status' },
+  { value: 'active', label: 'Active' },
+  { value: 'suspended', label: 'Suspended' },
+  { value: 'deletion', label: 'Deletion requested' },
+];
+
+function matchesStatus(user: AdminUserRow, status: StatusFilter): boolean {
+  if (status === 'active') return !user.suspended;
+  if (status === 'suspended') return Boolean(user.suspended);
+  if (status === 'deletion') return Boolean(user.deletion_requested);
+  return true;
+}
 
 export default function AdminUsersPanel({ getToken, notify, onViewResumes }: AdminPanelProps & { onViewResumes: (email: string) => void }) {
   const [role, setRole] = useState<Role>('candidate');
   const [query, setQuery] = useState('');
-  const [search, setSearch] = useState('');
+  const search = useDebouncedValue(query.trim());
+  const [status, setStatus] = useState<StatusFilter>('all');
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<{ users: AdminUserRow[]; has_more: boolean; limit: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,6 +51,19 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
     void load();
   }, [load]);
 
+  // A new search term starts again from the first page.
+  const [lastSearch, setLastSearch] = useState(search);
+  if (lastSearch !== search) {
+    setLastSearch(search);
+    setOffset(0);
+  }
+
+  const users = useMemo(() => (data?.users || []).filter((user) => matchesStatus(user, status)), [data, status]);
+  // Administrator accounts cannot be suspended or deleted, so they are never selectable.
+  const selectableIds = useMemo(() => users.filter((user) => user.role !== 'admin').map((user) => user.id), [users]);
+  const selection = useRowSelection(selectableIds);
+  const selectable = role !== 'admin';
+
   const act = async (userId: string, action: (token: string) => Promise<unknown>, success: string) => {
     setBusyId(userId);
     try {
@@ -45,6 +75,34 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
     } finally {
       setBusyId(null);
     }
+  };
+
+  const bulk = async (action: (token: string, user: AdminUserRow) => Promise<unknown>, done: string) => {
+    const chosen = users.filter((user) => selection.selected.includes(user.id));
+    setBulkBusy(true);
+    try {
+      const token = await getToken();
+      reportBulk(notify, await runBulk(chosen, (user) => action(token, user)), done);
+      selection.clear();
+      await load();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Unable to update the selected users.', 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkSuspend = (suspending: boolean) => {
+    const count = selection.selected.length;
+    const prompt = suspending
+      ? `Suspend ${count} selected ${count === 1 ? 'account' : 'accounts'}? They will be signed out and unable to log in until reactivated.`
+      : `Reactivate ${count} selected ${count === 1 ? 'account' : 'accounts'}?`;
+    if (window.confirm(prompt)) void bulk((token, user) => suspendAdminUser(token, user.id, suspending), suspending ? 'Suspended' : 'Reactivated');
+  };
+  const bulkDelete = () => {
+    const count = selection.selected.length;
+    const typed = window.prompt(`Permanently delete ${count} selected ${count === 1 ? 'account' : 'accounts'} and all of their data (resumes, applications, messages, job posts)? This cannot be undone.\n\nType DELETE to confirm.`);
+    if (typed === 'DELETE') void bulk((token, user) => deleteAdminUser(token, user.id), 'Deleted');
   };
 
   const editEmail = (user: AdminUserRow) => {
@@ -69,22 +127,30 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
     if (typed === 'DELETE') void act(user.id, (token) => deleteAdminUser(token, user.id), 'Account deleted.');
   };
 
-  const users = data?.users || [];
+  const filtered = status !== 'all' || Boolean(search);
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bdr px-4 py-3">
-        <div className="flex flex-wrap gap-2" aria-label="User role filter">
-          {(Object.keys(roleLabels) as Role[]).map((item) => (
-            <button key={item} className={chipClass(role === item)} type="button" onClick={() => { setRole(item); setOffset(0); }}>{roleLabels[item]}</button>
-          ))}
-        </div>
-        <SearchBox value={query} onChange={setQuery} onSubmit={() => { setSearch(query.trim()); setOffset(0); }} placeholder="Search name or email" />
-      </div>
-      {loading && !data ? <PanelMessage>Loading users...</PanelMessage> : users.length === 0 ? <PanelMessage>No {roleLabels[role].toLowerCase()} found.</PanelMessage> : (
+      <AdminToolbar aside={<AdminSearch value={query} onChange={setQuery} placeholder="Search name or email" />}>
+        <FilterTabs label="User role" items={(Object.keys(roleLabels) as Role[]).map((item) => ({ id: item, label: roleLabels[item] }))} value={role} onChange={(item) => { setRole(item); setOffset(0); selection.clear(); }} />
+        <FilterSelect label="Status" value={status} options={statusOptions} onChange={setStatus} />
+      </AdminToolbar>
+      {selectable && (
+        <BulkBar count={selection.selected.length} onClear={selection.clear} busy={bulkBusy}>
+          <button className={bulkButtonClass} type="button" disabled={bulkBusy} onClick={() => bulkSuspend(true)}>Suspend</button>
+          <button className={bulkButtonClass} type="button" disabled={bulkBusy} onClick={() => bulkSuspend(false)}>Reactivate</button>
+          <button className={bulkDangerButtonClass} type="button" disabled={bulkBusy} onClick={bulkDelete}>Delete</button>
+        </BulkBar>
+      )}
+      {loading && !data ? <PanelMessage>Loading users...</PanelMessage> : users.length === 0 ? <PanelMessage>No {filtered ? 'matching ' : ''}{roleLabels[role].toLowerCase()} found.</PanelMessage> : (
         <div className="overflow-x-auto border-t border-bdr">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-bg text-xs uppercase text-soft-text">
               <tr>
+                {selectable && (
+                  <th className={selectCellClass}>
+                    <SelectBox label="Select all users on this page" checked={selection.allSelected} indeterminate={selection.someSelected} disabled={selectableIds.length === 0} onChange={selection.toggleAll} />
+                  </th>
+                )}
                 <th className="px-4 py-3 font-extrabold">User</th>
                 <th className="px-4 py-3 font-extrabold">{role === 'employer' ? 'Company' : role === 'candidate' ? 'Resumes' : 'Role'}</th>
                 <th className="px-4 py-3 font-extrabold">Status</th>
@@ -94,7 +160,12 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
             </thead>
             <tbody className="divide-y divide-bdr">
               {users.map((user) => (
-                <tr key={user.id} className="bg-card align-top">
+                <tr key={user.id} className={`align-top ${selection.isSelected(user.id) ? 'bg-rust-l/50' : 'bg-card'}`}>
+                  {selectable && (
+                    <td className={selectCellClass}>
+                      {user.role !== 'admin' && <SelectBox label={`Select ${user.email}`} checked={selection.isSelected(user.id)} onChange={() => selection.toggle(user.id)} />}
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="font-bold text-dark">{`${user.first_name} ${user.last_name}`.trim() || '-'}</div>
                     <div className="text-xs text-soft-text">{user.email}</div>
