@@ -1,0 +1,61 @@
+{
+  "candidate_id": "CAT07-R07",
+  "full_name": "Benjie Fernandez",
+  "location": "La Trinidad, Benguet",
+  "email": "benjie.fernandez@example.org",
+  "phone": "+63 916 862 7735",
+  "headline": "Sales and Marketing Associate",
+  "summary": "Sales and marketing associate with three years selling highland vegetables and strawberry products to restaurants, groceries and tourists in Benguet. I find new buyers, explain our products and seasonality, and support the marketing side with social media and market research. I would like to grow into a full sales role.",
+  "skills": [
+    "Sales techniques",
+    "Finding new buyers and leads",
+    "Product knowledge of highland produce",
+    "Market analysis of prices and demand",
+    "Digital marketing",
+    "Social media management",
+    "Market research surveys",
+    "Planning marketing campaigns"
+  ],
+  "experience": [
+    {
+      "title": "Sales and Marketing Associate",
+      "employer": "La Trinidad Highland Produce Cooperative",
+      "location": "La Trinidad, Benguet",
+      "start": "2023-06",
+      "end": "Present",
+      "bullets": [
+        "Found 22 new restaurant and grocery buyers in Baguio and Pangasinan through visits and referrals.",
+        "Explain seasonal availability and grading of lettuce, broccoli and strawberries to buyers.",
+        "Track weekly trading-post prices to advise members when to harvest and sell.",
+        "Planned the cooperative's strawberry festival campaign on Facebook, which doubled pasalubong sales that month.",
+        "Ran a survey of 150 tourists on packaging and pricing for strawberry jam."
+      ]
+    },
+    {
+      "title": "Sales Clerk",
+      "employer": "Baguio Session Road Souvenir Shop",
+      "location": "Baguio City, Benguet",
+      "start": "2022-09",
+      "end": "2023-05",
+      "bullets": [
+        "Sold souvenirs and delicacies to tourists and kept the shelves stocked.",
+        "Suggested bundle packs that became the shop's best sellers."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Agribusiness",
+      "school": "Benguet Highlands College",
+      "location": "La Trinidad, Benguet",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ilocano",
+    "Kankanaey"
+  ]
+}

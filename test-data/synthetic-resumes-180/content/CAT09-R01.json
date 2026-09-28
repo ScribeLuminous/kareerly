@@ -1,0 +1,75 @@
+{
+  "candidate_id": "CAT09-R01",
+  "full_name": "Ronald Dimaculangan",
+  "location": "Lucena City, Quezon",
+  "email": "ronald.dimaculangan@example.org",
+  "phone": "+63 981 332 6726",
+  "headline": "Customer Service Representative (Voice)",
+  "summary": "Customer service representative with a year on a US health insurance voice account. I take 60 to 80 calls a day, calm frustrated callers and resolve their concerns on the first call whenever possible. My quality and satisfaction scores have been above target every month since nesting.",
+  "certifications": [
+    {
+      "name": "Customer Service Excellence",
+      "issuer": "company training academy",
+      "date": "2025-08"
+    },
+    {
+      "name": "HIPAA Awareness for Call Center Agents",
+      "issuer": "company training academy",
+      "date": "2025-08"
+    },
+    {
+      "name": "Business English Communication",
+      "issuer": "online course",
+      "date": "2025-02"
+    }
+  ],
+  "skills": [
+    "Customer service on inbound calls",
+    "Phone support and call control",
+    "Handling complaints and de-escalation",
+    "Clear, empathetic communication with customers",
+    "Customer relationship management software (Salesforce Service Cloud)",
+    "American English accent and grammar",
+    "Meeting quality and satisfaction targets",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Customer Service Representative (Voice)",
+      "employer": "Quezon Province Contact Solutions",
+      "location": "Lucena City, Quezon",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Answer about 70 inbound calls a day from members asking about claims, benefits and bills.",
+        "Resolve 84% of concerns on the first call; escalate the rest with complete case notes.",
+        "Turn around angry callers by listening first and explaining next steps plainly; named top agent of the month twice.",
+        "Record every call and follow-up in the account's Salesforce Service Cloud."
+      ]
+    },
+    {
+      "title": "Front Desk Intern",
+      "employer": "Lucena Grand Pavilion Hotel",
+      "location": "Lucena City, Quezon",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Welcomed guests and answered phone enquiries about rooms and events."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in English Language Studies",
+      "school": "Tayabas Bay College",
+      "location": "Lucena City, Quezon",
+      "start": "2021",
+      "end": "2025"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino"
+  ]
+}

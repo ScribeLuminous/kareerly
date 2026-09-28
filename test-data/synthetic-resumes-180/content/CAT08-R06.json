@@ -1,0 +1,82 @@
+{
+  "candidate_id": "CAT08-R06",
+  "full_name": "Allan Go",
+  "location": "San Fernando City, La Union",
+  "email": "allan.go@example.net",
+  "phone": "+63 927 966 9424",
+  "headline": "Public Relations Officer",
+  "skill_groups": [
+    {
+      "label": "Public relations",
+      "items": [
+        "media relations and press releases",
+        "PR advice to management",
+        "crisis statements",
+        "content strategy for owned channels"
+      ]
+    },
+    {
+      "label": "Channels",
+      "items": [
+        "social media management",
+        "press conferences and media visits"
+      ]
+    },
+    {
+      "label": "Writing",
+      "items": [
+        "news and feature writing",
+        "proofreading",
+        "rewriting technical material for the public"
+      ]
+    }
+  ],
+  "summary": "Former community newspaper correspondent who has worked in public relations for the past year. After five years covering La Union's local government, tourism and surf scene, I now write releases, manage media relations and advise a resort group's management on public statements. I want to grow as a PR officer.",
+  "experience": [
+    {
+      "title": "Public Relations Officer",
+      "employer": "San Juan Surf Coast Resorts Group",
+      "location": "San Fernando City, La Union",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Write press releases and handle media enquiries for four resorts and a surf school.",
+        "Advise management on statements about beach access and environmental complaints.",
+        "Plan the content strategy and posting schedule for the group's social media accounts."
+      ]
+    },
+    {
+      "title": "Correspondent",
+      "employer": "Amianan Coastal Weekly",
+      "location": "San Fernando City, La Union",
+      "start": "2020-01",
+      "end": "2025-05",
+      "bullets": [
+        "Covered provincial government, tourism and disaster response, filing three to five stories a week.",
+        "Edited and proofread other correspondents' stories before print.",
+        "Rewrote government advisories into plain-language articles for readers."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Journalism",
+      "school": "La Union Coastal Institute of Technology",
+      "location": "San Fernando City, La Union",
+      "start": "2015",
+      "end": "2019"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Strategic Public Relations",
+      "issuer": "online course",
+      "date": "2025-03"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ilocano"
+  ]
+}

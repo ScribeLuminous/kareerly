@@ -165,7 +165,7 @@ CONTROLLED = {
     ],
     "K09": [
         ("strong_entry", "Customer Service Representative (Voice)", 1, "bach", "",
-         "SK029 SK691 SK314 SK295 SK300 SK031 SK297", "SK020", "SK644 SK276", ""),
+         "SK029 SK691 SK314 SK295 SK300 SK031 SK297", "SK020", "SK644 SK690", ""),
         ("partial_entry", "Chat Support Agent", 0, "shs", "",
          "SK689 SK029 SK031", "SK017 SK629 SK020", "SK314 SK300 SK644 SK690", ""),
         ("strong_mid", "Customer Experience Specialist", 4, "bach", "",
@@ -175,7 +175,7 @@ CONTROLLED = {
         ("advanced", "Customer Success Manager", 9, "bach", "",
          "SK639 SK640 SK276 SK643 SK642 SK694 SK297 SK293 SK030 SK267", "SK020", "SK299 SK641", "SK261 SK005"),
         ("career_transition", "Healthcare Customer Service Representative", 3, "bach_lic", "Clinic Assistant",
-         "SK029 SK691 SK690 SK300", "SK031", "SK314 SK644 SK276 SK689", "SK057 SK058 SK655"),
+         "SK029 SK691 SK690 SK300", "SK031", "SK314 SK644 SK694 SK689", "SK057 SK058 SK655"),
         ("mixed_boundary", "Technical Support Representative", 3, "bach", "",
          "SK641 SK029 SK299 SK690", "SK031", "SK276 SK300 SK314 SK694", "SK007 SK009 SK010"),
     ],

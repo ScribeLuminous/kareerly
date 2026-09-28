@@ -1,0 +1,62 @@
+{
+  "candidate_id": "CAT09-R02",
+  "full_name": "Jamila Masukat",
+  "location": "Bongao, Tawi-Tawi",
+  "email": "jamila.masukat@example.net",
+  "phone": "+63 981 253 2597",
+  "headline": "Chat Support Agent",
+  "education": [
+    {
+      "credential": "Senior High School, Humanities and Social Sciences (HUMSS) strand",
+      "school": "Tawi-Tawi Coastal Integrated School",
+      "location": "Bongao, Tawi-Tawi",
+      "start": "2024",
+      "end": "2026",
+      "notes": [
+        "With high honors",
+        "Editor, school paper English section"
+      ]
+    }
+  ],
+  "summary": "Senior high school graduate with strong written English looking for a chat support role. I answered customer messages for a family online store and a telco retailer during work immersion, and I type quickly and accurately. I am patient, friendly and comfortable working night shifts from home.",
+  "skills": [
+    "Chat support and messaging",
+    "Customer service",
+    "Written English (school paper editor)",
+    "Typing at 55 words per minute",
+    "Data encoding",
+    "Microsoft Excel",
+    "Polite business writing"
+  ],
+  "experience": [
+    {
+      "title": "Online Store Assistant",
+      "employer": "Masukat Family Store",
+      "location": "Bongao, Tawi-Tawi",
+      "start": "2025-11",
+      "end": "Present",
+      "type": "part-time",
+      "bullets": [
+        "Reply to customer messages about prices, stock and delivery on the store's Facebook page.",
+        "Encode orders and payments in an Excel sheet each evening."
+      ]
+    },
+    {
+      "title": "Work Immersion Student",
+      "employer": "Bongao Mobile and Prepaid Center",
+      "location": "Bongao, Tawi-Tawi",
+      "start": "2026-02",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Answered customer questions about load promos and phone accessories at the counter and by message."
+      ]
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Sinama",
+    "Tausug"
+  ]
+}

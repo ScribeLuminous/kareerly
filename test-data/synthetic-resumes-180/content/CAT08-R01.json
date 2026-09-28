@@ -1,0 +1,74 @@
+{
+  "candidate_id": "CAT08-R01",
+  "full_name": "Harold Mendoza",
+  "location": "Alabel, Sarangani",
+  "email": "harold.mendoza@example.net",
+  "phone": "+63 975 958 0175",
+  "headline": "Digital Marketing Assistant",
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing Management",
+      "school": "Sarangani Bay College",
+      "location": "Alabel, Sarangani",
+      "start": "2021",
+      "end": "2025",
+      "notes": [
+        "Best in marketing plan, graduating class of 2025"
+      ]
+    }
+  ],
+  "summary": "Digital marketing assistant with a year of experience running social media and email for a tuna products company. I plan and post content, set up Facebook ad campaigns, send monthly Mailchimp newsletters and read the Google Analytics numbers behind them. I want to take on bigger campaigns and more of the strategy.",
+  "projects": [
+    {
+      "name": "Marketing plan for a Sarangani resort",
+      "context": "capstone project",
+      "description": "Wrote a digital marketing plan for a small beach resort in Glan, including a three-month content calendar and a ₱30,000 ad budget; the owner used it for the following summer."
+    },
+    {
+      "name": "Barangay tourism page",
+      "context": "volunteer",
+      "description": "Set up and ran a Facebook page promoting a coastal barangay's festival, growing it to 4,000 followers."
+    }
+  ],
+  "skills": [
+    "Digital marketing",
+    "Social media management (Facebook, Instagram, TikTok)",
+    "Social media marketing and content calendars",
+    "Facebook Ads Manager",
+    "Mailchimp email campaigns",
+    "Canva",
+    "Google Analytics",
+    "Content writing for posts and newsletters"
+  ],
+  "experience": [
+    {
+      "title": "Digital Marketing Assistant",
+      "employer": "Sarangani Bay Seafoods Corp.",
+      "location": "General Santos City, South Cotabato",
+      "start": "2025-08",
+      "end": "Present",
+      "bullets": [
+        "Post daily content on the brand's Facebook, Instagram and TikTok accounts and reply to comments and messages.",
+        "Set up and monitor Facebook ad campaigns for new canned tuna flavours, with a monthly budget of ₱60,000.",
+        "Send a monthly Mailchimp newsletter to 3,500 resellers and track opens and clicks.",
+        "Pull website traffic from Google Analytics for the weekly marketing meeting."
+      ]
+    },
+    {
+      "title": "Marketing Intern",
+      "employer": "Alabel Municipal Tourism Office",
+      "location": "Alabel, Sarangani",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Designed posters and social media posts in Canva for a provincial foundation day event."
+      ]
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

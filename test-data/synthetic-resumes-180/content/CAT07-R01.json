@@ -1,0 +1,69 @@
+{
+  "candidate_id": "CAT07-R01",
+  "full_name": "Mylene Ybañez",
+  "location": "Toledo City, Cebu",
+  "email": "mylene.ybanez@example.org",
+  "phone": "+63 939 978 1531",
+  "headline": "Sales Development Representative",
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing Management",
+      "school": "Western Cebu College of Commerce",
+      "location": "Toledo City, Cebu",
+      "start": "2021",
+      "end": "2025",
+      "notes": [
+        "Placed second in the regional student sales pitch competition, 2024"
+      ]
+    }
+  ],
+  "summary": "Sales development representative with a year of experience booking meetings for a solar energy company's commercial team. I research prospects, make 60 to 80 calls a day, and qualify leads before handing them to account executives. I know our systems well enough to answer technical questions on the first call.",
+  "projects": [
+    {
+      "name": "Sari-sari store supplier survey",
+      "context": "marketing research class",
+      "description": "Interviewed 40 store owners in Toledo about how they choose suppliers and presented a sales approach for a local snack distributor."
+    }
+  ],
+  "skills": [
+    "Lead generation and prospect research",
+    "Cold calling",
+    "Consultative selling and sales techniques",
+    "Sales pitches and handling objections",
+    "Product knowledge of rooftop solar systems",
+    "Customer relationship management software (HubSpot)",
+    "Clear spoken and written English",
+    "Business emails and follow-ups"
+  ],
+  "experience": [
+    {
+      "title": "Sales Development Representative",
+      "employer": "Visayas Sunpower Energy Solutions",
+      "location": "Cebu City, Cebu",
+      "start": "2025-08",
+      "end": "Present",
+      "bullets": [
+        "Research and call owners of factories, resorts and malls across Cebu, averaging 70 calls a day.",
+        "Book about 14 qualified meetings a month for three account executives, above the team target.",
+        "Explain payback periods and net-metering basics to prospects so meetings start with the right questions.",
+        "Log every call and next step in HubSpot and keep the prospect lists clean."
+      ]
+    },
+    {
+      "title": "Sales Intern",
+      "employer": "Toledo Agri-Supply Trading",
+      "location": "Toledo City, Cebu",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Called farm supply stores to introduce a new fertiliser line and recorded their feedback."
+      ]
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano"
+  ]
+}

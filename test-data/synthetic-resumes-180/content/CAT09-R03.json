@@ -1,0 +1,83 @@
+{
+  "candidate_id": "CAT09-R03",
+  "full_name": "Abdulrahman Sarip",
+  "location": "General Santos City, South Cotabato",
+  "email": "abdulrahman.sarip@example.net",
+  "phone": "+63 945 892 9431",
+  "headline": "Customer Experience Specialist",
+  "skill_groups": [
+    {
+      "label": "Customer experience",
+      "items": [
+        "customer experience design",
+        "customer service",
+        "customer satisfaction and NPS programs",
+        "handling complaints and escalations"
+      ]
+    },
+    {
+      "label": "Tools",
+      "items": [
+        "customer relationship management",
+        "CRM software",
+        "Zendesk",
+        "email support"
+      ]
+    },
+    {
+      "label": "Analysis",
+      "items": [
+        "call centre performance analysis",
+        "data analysis in Excel"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "business communication"
+      ]
+    }
+  ],
+  "summary": "Customer experience specialist with four years in contact centre operations for telecom and e-commerce clients. I analyse call, email and survey data to find what frustrates customers, redesign the processes behind it, and coach agents on handling escalations. I have raised satisfaction scores on every account I have worked on.",
+  "experience": [
+    {
+      "title": "Customer Experience Specialist",
+      "employer": "Soccsksargen Contact Hub Inc.",
+      "location": "General Santos City, South Cotabato",
+      "start": "2023-11",
+      "end": "Present",
+      "bullets": [
+        "Analyse call and email contact reasons, handling times and survey comments for an e-commerce account of 250 agents.",
+        "Redesigned the refund request journey, cutting repeat contacts by 27%.",
+        "Run the complaint escalation desk and coach team leads on difficult cases.",
+        "Rebuilt the Zendesk macros and help articles so agents give consistent answers."
+      ]
+    },
+    {
+      "title": "Customer Service Representative",
+      "employer": "South Cotabato Telecom Services",
+      "location": "Koronadal City, South Cotabato",
+      "start": "2022-06",
+      "end": "2023-10",
+      "bullets": [
+        "Handled billing and service calls and emails for postpaid subscribers.",
+        "Kept customer records updated in the CRM after each contact."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Psychology",
+      "school": "General Santos Bay College",
+      "location": "General Santos City, South Cotabato",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Cebuano",
+    "Maguindanaon"
+  ]
+}

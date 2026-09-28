@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT07-R04",
+  "full_name": "Camille Ilagan",
+  "location": "Tuguegarao City, Cagayan",
+  "email": "camille.ilagan@example.net",
+  "phone": "+63 908 299 6381",
+  "headline": "E-commerce Specialist",
+  "summary": "E-commerce specialist with three years running online stores for a Cagayan coffee and native-delicacies brand. I manage the Shopify store and marketplace listings, handle orders from checkout to courier pickup, and create the social media posts that drive shoppers to the store.",
+  "skills": [
+    "E-commerce operations",
+    "Shopify",
+    "Order processing and courier coordination",
+    "Marketplace listings",
+    "Customer service for online shoppers",
+    "Social media management",
+    "Canva",
+    "Digital marketing basics"
+  ],
+  "experience": [
+    {
+      "title": "E-commerce Specialist",
+      "employer": "Cagayan Heritage Food Products",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2023-09",
+      "end": "Present",
+      "bullets": [
+        "Run the Shopify store and two marketplace shops, with about 1,100 orders a month.",
+        "Process orders daily, print waybills and coordinate pickups with three couriers.",
+        "Answer shopper messages and resolve delivery problems within a day.",
+        "Design product posts in Canva and schedule them on the brand's Facebook and Instagram pages."
+      ]
+    },
+    {
+      "title": "Online Seller Assistant",
+      "employer": "Tuguegarao Crafts and Pasalubong Center",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2023-01",
+      "end": "2023-08",
+      "bullets": [
+        "Photographed products and wrote listings for the store's first online shop.",
+        "Packed orders and tracked deliveries."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Entrepreneurship",
+      "school": "Cagayan River Valley College",
+      "location": "Tuguegarao City, Cagayan",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}
