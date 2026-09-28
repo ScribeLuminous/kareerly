@@ -1,0 +1,66 @@
+{
+  "candidate_id": "CAT21-R01",
+  "full_name": "Patrick Cabrera",
+  "location": "San Jose, Dinagat Islands",
+  "email": "patrick.cabrera@example.net",
+  "phone": "+63 989 428 4065",
+  "headline": "Production Operator",
+  "skills": [
+    "Machine operation: pick-and-place and reflow",
+    "Assembly work",
+    "Monitoring the production line",
+    "Visual quality inspection",
+    "Microassembly under magnification",
+    "Monitoring conveyors",
+    "Workplace safety and ESD control",
+    "Clear shift handover reports"
+  ],
+  "summary": "TESDA-certified production operator with a year on an electronics assembly line. I run pick-and-place and reflow machines, assemble small components under magnification, watch the line and conveyors for problems and inspect boards before they move on. I follow ESD and safety rules closely.",
+  "experience": [
+    {
+      "title": "Production Operator",
+      "employer": "Dinagat Precision Electronics Assembly Inc.",
+      "location": "Surigao City, Surigao del Norte",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Operate pick-and-place and reflow machines on a surface-mount line making sensor boards.",
+        "Assemble connectors and small parts by hand under a microscope.",
+        "Watch the line and conveyor for jams or misfeeds and alert the technician right away.",
+        "Inspect boards visually and log defects before they move to testing."
+      ]
+    },
+    {
+      "title": "Production Trainee",
+      "employer": "Surigao Industrial Manufacturing Corp.",
+      "location": "Surigao City, Surigao del Norte",
+      "start": "2025-02",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Learned line procedures, 5S and ESD rules and assisted operators on the packing line."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Electronic Products Assembly and Servicing NC II",
+      "school": "Dinagat Islands Skills Center",
+      "location": "San Jose, Dinagat Islands",
+      "start": "2024-06",
+      "end": "2024-12"
+    },
+    {
+      "credential": "Senior High School, TVL Track – Electronics",
+      "school": "Dinagat Coastal Integrated School",
+      "location": "San Jose, Dinagat Islands",
+      "start": "2022",
+      "end": "2024"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Surigaonon"
+  ]
+}

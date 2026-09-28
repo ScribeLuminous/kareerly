@@ -357,7 +357,7 @@ CONTROLLED = {
     ],
     "K21": [
         ("strong_entry", "Production Operator", 1, "tesda", "",
-         "SK089 SK092 SK545 SK094 SK091 SK572 SK576", "SK020", "SK090 SK076", ""),
+         "SK089 SK092 SK545 SK094 SK091 SK572 SK576", "SK020", "SK074 SK076", ""),
         ("partial_entry", "Packaging Operator", 0, "shs", "",
          "SK093 SK576 SK091", "SK031", "SK094 SK089 SK090 SK092", "SK099 SK098"),
         ("strong_mid", "Quality Inspector", 5, "voc", "",

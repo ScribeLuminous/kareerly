@@ -9524,11 +9524,11 @@
         "SK020"
       ],
       "intentionally_missing_skills": [
-        "Production Monitoring",
+        "Mechanical Maintenance",
         "Quality Control"
       ],
       "intentionally_missing_skill_ids": [
-        "SK090",
+        "SK074",
         "SK076"
       ],
       "adjacent_skills": [],
