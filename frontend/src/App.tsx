@@ -9,6 +9,7 @@ import EmployerSignUp from './pages/EmployerSignUp';
 import Landing from './pages/Landing';
 import Onboarding from './pages/Onboarding';
 import PasswordRecovery from './pages/PasswordRecovery';
+import ResetPassword from './pages/ResetPassword';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import SignUpDefault from './pages/SignUpDefault';
@@ -17,6 +18,7 @@ import { clearGuestOnboarding, stashGuestOnboarding } from './lib/guestOnboardin
 import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/userData';
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
+import { initialRecoveryLink, PASSWORD_RESET_PATH, type RecoveryLink } from './lib/passwordRecoveryLink';
 import { isCandidateWorkspacePath } from './pages/candidate/routes';
 import { isEmployerWorkspacePath } from './pages/employer/routes';
 
@@ -48,7 +50,8 @@ type AppView =
   | 'dashboard'
   | 'employer-dashboard'
   | 'admin-dashboard'
-  | 'password-recovery';
+  | 'password-recovery'
+  | 'password-reset';
 type AuthRole = 'candidate' | 'employer' | 'admin';
 type AuthUser = KareerlyUser;
 type EmployerUser = KareerlyUser & { company: string };
@@ -57,12 +60,13 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { state, reset, goToStep, restoreGuestReport, setSavedResumeId, setError } = useOnboarding();
-  const [view, setView] = useState<AppView>('landing');
+  const [view, setView] = useState<AppView>(initialRecoveryLink.kind !== 'none' ? 'password-reset' : 'landing');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [currentEmployer, setCurrentEmployer] = useState<EmployerUser | null>(null);
   const [currentAdmin, setCurrentAdmin] = useState<AuthUser | null>(null);
   const [authRole, setAuthRole] = useState<AuthRole>('candidate');
-  const [isRestoringSession, setIsRestoringSession] = useState(true);
+  const [isRestoringSession, setIsRestoringSession] = useState(initialRecoveryLink.kind === 'none');
+  const [recoveryLink, setRecoveryLink] = useState<RecoveryLink>(initialRecoveryLink);
   const resumeCandidateName = state.resumeAnalysis?.candidate_profile?.full_name?.trim() || '';
   // The account the guest report was last saved for. Saving runs once per
   // sign-in (a renamed user object must not save a second copy); a failed save
@@ -112,9 +116,16 @@ function AppContent() {
   useEffect(() => {
     let isMounted = true;
 
+    // A password-reset email link opens the "choose a new password" screen
+    // instead of the dashboard the recovery session would otherwise land on.
+    if (initialRecoveryLink.kind !== 'none' && window.location.pathname !== PASSWORD_RESET_PATH) {
+      navigate(PASSWORD_RESET_PATH, { replace: true });
+    }
+
     getCurrentKareerlyUser()
       .then((user) => {
         if (!isMounted) return;
+        if (initialRecoveryLink.kind !== 'none') return;
         if (user) {
           applyAuthenticatedUser(user);
         } else if (location.pathname === '/candidate/login') {
@@ -140,6 +151,12 @@ function AppContent() {
       });
 
     const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryLink((current) => (current.kind === 'none' ? { kind: 'session' } : current));
+        setView('password-reset');
+        if (window.location.pathname !== PASSWORD_RESET_PATH) navigate(PASSWORD_RESET_PATH, { replace: true });
+        return;
+      }
       if (event === 'SIGNED_OUT') {
         const status = getAuthStatus();
         if (status === 'verifying_role' || status === 'role_mismatch') return;
@@ -372,6 +389,21 @@ function AppContent() {
     void handleCandidateLoginAuthenticated(user);
   };
 
+  const finishPasswordReset = async () => {
+    setRecoveryLink({ kind: 'none' });
+    const user = await getCurrentKareerlyUser().catch(() => null);
+    if (user) {
+      applyAuthenticatedUser(user);
+      return;
+    }
+    showCandidateSignIn();
+  };
+  const requestNewResetLink = () => {
+    setRecoveryLink({ kind: 'none' });
+    setView('password-recovery');
+    navigate('/', { replace: true });
+  };
+
   if (isRestoringSession) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-bg px-6 text-center text-mid">
@@ -433,6 +465,14 @@ function AppContent() {
       )}
       {view === 'password-recovery' && (
         <PasswordRecovery onBackToLogin={authRole === 'admin' ? showAdminSignIn : authRole === 'employer' ? showEmployerSignIn : showCandidateSignIn} onHome={showHome} />
+      )}
+      {view === 'password-reset' && (
+        <ResetPassword
+          link={recoveryLink}
+          onRequestNewLink={requestNewResetLink}
+          onComplete={finishPasswordReset}
+          onHome={showHome}
+        />
       )}
       {view === 'candidate-signup' && (
         <SignUp onAuthenticated={handleCandidateSignUpAuthenticated} onSignIn={showCandidateSignIn} onHome={showHome} />
