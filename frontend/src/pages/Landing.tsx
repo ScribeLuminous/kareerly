@@ -8,7 +8,6 @@ type LandingProps = {
   onEmployerStart: () => void;
   onLogin: () => void;
   onSignUp: () => void;
-  onAdminLogin: () => void;
 };
 
 const roles = [
@@ -32,7 +31,7 @@ const roles = [
   },
 ] as const;
 
-export default function Landing({ onHome, onCandidateStart, onEmployerStart, onLogin, onSignUp, onAdminLogin }: LandingProps) {
+export default function Landing({ onHome, onCandidateStart, onEmployerStart, onLogin, onSignUp }: LandingProps) {
   return (
     <div className="min-h-screen bg-bg text-dark">
       <Header onHome={onHome} onLogin={onLogin} onSignUp={onSignUp} />
@@ -51,7 +50,7 @@ export default function Landing({ onHome, onCandidateStart, onEmployerStart, onL
               key={role.key}
               type="button"
               onClick={role.key === 'candidate' ? onCandidateStart : onEmployerStart}
-              className={`group flex flex-col rounded-2xl border bg-card p-5 text-left transition-colors hover:border-rust sm:p-6 ${role.primary ? 'border-rust-m' : 'border-bdr'}`}
+              className={`group flex flex-col rounded-2xl border bg-card p-5 text-left transition-colors sm:p-6 ${role.primary ? 'border-rust-m hover:border-rust' : 'border-forest-m hover:border-forest'}`}
             >
               <span className="flex items-center gap-3">
                 <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${role.primary ? 'bg-rust-l text-rust' : 'bg-forest-l text-forest'}`}>
@@ -59,8 +58,8 @@ export default function Landing({ onHome, onCandidateStart, onEmployerStart, onL
                 </span>
                 <span className="font-display text-xl font-bold text-dark">{role.title}</span>
               </span>
-              <span className="mt-3 text-[15px] leading-relaxed text-mid">{role.text}</span>
-              <span className="mt-4 flex flex-col gap-2">
+              <span className="mt-3 text-[15px] leading-relaxed text-mid md:min-h-[3.25em]">{role.text}</span>
+              <span className="mb-5 mt-4 flex flex-col gap-2">
                 {role.items.map((item) => (
                   <span key={item} className="flex items-center gap-2 text-sm text-mid">
                     <FontAwesomeIcon icon={faCheck} className="text-green" aria-hidden="true" />
@@ -68,20 +67,13 @@ export default function Landing({ onHome, onCandidateStart, onEmployerStart, onL
                   </span>
                 ))}
               </span>
-              <span className={`k-btn mt-5 ${role.primary ? 'k-btn-primary' : 'k-btn-secondary'} group-hover:no-underline`}>
+              <span
+                className={`k-btn mt-auto border bg-transparent ${role.primary ? 'border-rust text-rust group-hover:bg-rust' : 'border-forest text-forest group-hover:bg-forest'} group-hover:text-white`}
+              >
                 {role.cta}<FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
               </span>
             </button>
           ))}
-        </div>
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={onAdminLogin}
-            className="text-xs font-semibold text-mid underline-offset-2 transition-colors hover:text-forest hover:underline"
-          >
-            Administrator sign in
-          </button>
         </div>
       </main>
     </div>
