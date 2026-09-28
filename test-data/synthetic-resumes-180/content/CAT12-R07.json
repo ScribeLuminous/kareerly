@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT12-R07",
+  "full_name": "Glenn Tabañag",
+  "location": "Panabo City, Davao del Norte",
+  "email": "glenn.tabanag@example.net",
+  "phone": "+63 991 291 0340",
+  "headline": "Community Learning Facilitator",
+  "summary": "Community learning facilitator with three years running Alternative Learning System sessions and livelihood trainings in Davao del Norte. I facilitate adult classes in barangay halls, keep learners' records, and work with community leaders and social workers to reach out-of-school youth and adults.",
+  "skills": [
+    "Training facilitation for adults",
+    "Conducting community education sessions",
+    "Adult education (Alternative Learning System)",
+    "Learner records organisation",
+    "Community engagement and outreach",
+    "Counselling support and referrals",
+    "Working with vulnerable learners",
+    "English, Filipino and Cebuano"
+  ],
+  "experience": [
+    {
+      "title": "Community Learning Facilitator",
+      "employer": "Panabo Community Learning Foundation",
+      "location": "Panabo City, Davao del Norte",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Facilitate Alternative Learning System sessions for about 60 out-of-school youth and adults in four barangays.",
+        "Organise livelihood trainings on food processing and basic bookkeeping with local partners.",
+        "Keep learners' attendance, portfolios and progress records for the accreditation exams.",
+        "Visit families with the barangay social worker to bring back learners who stopped attending."
+      ]
+    },
+    {
+      "title": "Youth Volunteer Coordinator",
+      "employer": "Tagum Youth Development Network",
+      "location": "Tagum City, Davao del Norte",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Recruited and scheduled volunteers for weekend reading and sports activities.",
+        "Listened to young people's concerns and referred them to counsellors when needed."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Social Work",
+      "school": "Davao Northern College",
+      "location": "Tagum City, Davao del Norte",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

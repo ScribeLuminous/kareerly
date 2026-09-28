@@ -1,0 +1,95 @@
+{
+  "candidate_id": "CAT12-R05",
+  "full_name": "Camille Umali",
+  "location": "Manila, Metro Manila",
+  "email": "camille.umali@example.net",
+  "phone": "+63 970 585 8301",
+  "headline": "Academic Coordinator",
+  "summary": "Academic coordinator with twelve years in secondary education, the last five leading the academic program of a private high school in Manila. I oversee curriculum, lesson plans and assessments across subjects, supervise and mentor 45 teachers, and track learning results to guide improvement. I still teach one science class every year.",
+  "experience": [
+    {
+      "title": "Academic Coordinator",
+      "employer": "Sampaloc Heights Academy",
+      "location": "Manila, Metro Manila",
+      "start": "2021-06",
+      "end": "Present",
+      "paragraph": "Responsible for the academic program of a private high school with 1,300 learners and 45 teachers.",
+      "bullets": [
+        "Lead curriculum mapping for Grades 7 to 12 and review every department's lesson plans and assessments.",
+        "Observe and coach teachers each quarter and plan their in-service training.",
+        "Analyse quarterly exam results with department heads and set targets for weak competencies.",
+        "Work with the guidance office on learners at risk of failing."
+      ]
+    },
+    {
+      "title": "High School Science Teacher",
+      "employer": "Sampaloc Heights Academy",
+      "location": "Manila, Metro Manila",
+      "start": "2014-06",
+      "end": "2021-05",
+      "paragraph": "Taught Chemistry and General Science to Grades 9 and 10.",
+      "bullets": [
+        "Planned lessons and laboratory activities for five sections a year.",
+        "Chaired the Science department for three years, mentoring new teachers."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Curriculum and teaching",
+      "items": [
+        "curriculum development",
+        "lesson planning",
+        "instructional design",
+        "secondary science teaching",
+        "pedagogy",
+        "classroom management"
+      ]
+    },
+    {
+      "label": "Assessment",
+      "items": [
+        "student assessment",
+        "learning evaluation and results analysis"
+      ]
+    },
+    {
+      "label": "Leadership",
+      "items": [
+        "supervising and coaching teachers",
+        "working with department heads",
+        "staff management",
+        "counselling support with guidance"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "reports to school leadership and parents"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master of Arts in Education, major in Educational Management",
+      "school": "Manila Graduate School of Education",
+      "location": "Manila, Metro Manila",
+      "start": "2017",
+      "end": "2020"
+    },
+    {
+      "credential": "Bachelor of Secondary Education, major in Physical Science",
+      "school": "Manila Bay Teachers College",
+      "location": "Manila, Metro Manila",
+      "start": "2010",
+      "end": "2014"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Licensed Professional Teacher",
+      "issuer": "Professional Regulation Commission",
+      "date": "2014-09"
+    }
+  ]
+}
