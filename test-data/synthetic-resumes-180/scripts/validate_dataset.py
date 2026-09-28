@@ -354,7 +354,8 @@ def validate_content(only=None):
         for item in doc.get("experience", []) + doc.get("education", []):
             loc = item.get("location", "")
             base = re.sub(r"\s*\((hybrid|remote)\)$", "", loc)
-            if not (base in lookup or loc.startswith("Remote")):
+            remote_ok = loc == "Remote" or (loc.startswith("Remote (") and any(f"{city}" in loc for _, city, _ in ref.LOCATIONS))
+            if not (base in lookup or remote_ok):
                 bad.append(f"unapproved location '{loc}'")
         # dates
         for item in doc.get("experience", []) + doc.get("education", []) + doc.get("certifications", []):

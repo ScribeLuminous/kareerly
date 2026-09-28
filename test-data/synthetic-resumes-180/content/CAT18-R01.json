@@ -1,0 +1,73 @@
+{
+  "candidate_id": "CAT18-R01",
+  "full_name": "Ana Marie Buenaventura",
+  "location": "Calamba City, Laguna",
+  "email": "ana.buenaventura@example.net",
+  "phone": "+63 935 925 8204",
+  "headline": "Hotel Front Desk Associate",
+  "summary": "Hospitality management graduate with a year at the front desk of a hot-spring resort hotel in Laguna. I check guests in and out, manage bookings from the channel manager and online travel sites, and handle requests and complaints with a smile. I want to grow into front office supervision.",
+  "projects": [
+    {
+      "name": "Late check-out upsell",
+      "context": "front office initiative",
+      "bullets": [
+        "Suggested offering paid late check-out at the desk on Sunday mornings.",
+        "It became a steady source of extra room revenue on weekends."
+      ]
+    },
+    {
+      "name": "Hotel operations practicum",
+      "context": "college requirement",
+      "description": "Rotated through front office, housekeeping and food service at a 120-room hotel during the final year."
+    }
+  ],
+  "skills": [
+    "Front desk operations",
+    "Guest relations",
+    "Reservations and channel manager",
+    "Check-in and arrival handling",
+    "Check-out and departure handling",
+    "Online travel booking platforms",
+    "Handling guest complaints",
+    "Clear spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Front Desk Associate",
+      "employer": "Calamba Hot Springs Resort Hotel",
+      "location": "Calamba City, Laguna",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Check in and out up to 150 guests a day on weekends, including large family groups.",
+        "Manage bookings from the website and three online travel platforms and fix rate mismatches.",
+        "Handle guest requests and complaints and follow up with housekeeping and maintenance.",
+        "Settle bills and prepare the shift cash report."
+      ]
+    },
+    {
+      "title": "Hotel Practicum Trainee",
+      "employer": "San Pablo Lakeside Hotel",
+      "location": "San Pablo City, Laguna",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Assisted front office staff with arrivals, departures and phone reservations."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Hospitality Management",
+      "school": "Laguna Hills College of Hospitality",
+      "location": "Calamba City, Laguna",
+      "start": "2021",
+      "end": "2025"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino"
+  ]
+}

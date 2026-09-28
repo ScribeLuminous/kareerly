@@ -1,0 +1,73 @@
+{
+  "candidate_id": "CAT16-R05",
+  "full_name": "Marco Torres",
+  "location": "Kidapawan City, Cotabato",
+  "email": "marco.torres@example.net",
+  "phone": "+63 945 273 7911",
+  "headline": "Architect and BIM Lead",
+  "summary": "Licensed architect with ten years designing schools, clinics and commercial buildings in Mindanao, the last four leading BIM for a design-build firm. I take projects from concept to construction documents in Revit, AutoCAD and SketchUp, integrate structural and MEP engineering into the design, and coordinate consultants and site teams.",
+  "highlights": [
+    "Led the move from 2D drafting to Revit BIM for a 15-person design team.",
+    "Designed a 3-storey provincial learning centre that finished within 2% of budget.",
+    "Cut drawing clashes found on site by about 70% through coordinated BIM models."
+  ],
+  "skills": [
+    "Architectural design",
+    "Integrating structural and MEP engineering in design",
+    "Revit (BIM)",
+    "AutoCAD",
+    "SketchUp",
+    "CAD standards and BIM execution plans",
+    "Construction drawings and blueprints",
+    "Technical drafting",
+    "Project coordination with consultants",
+    "Construction safety awareness on site",
+    "Presenting to clients"
+  ],
+  "experience": [
+    {
+      "title": "BIM Lead and Senior Architect",
+      "employer": "Mt. Apo Design and Build Inc.",
+      "location": "Kidapawan City, Cotabato",
+      "start": "2022-06",
+      "end": "Present",
+      "bullets": [
+        "Lead a BIM team of six on schools, clinics and commercial buildings.",
+        "Set the firm's BIM execution plan, templates and CAD standards.",
+        "Coordinate architectural, structural and MEP models and resolve clashes before tender."
+      ]
+    },
+    {
+      "title": "Architect",
+      "employer": "Cotabato Valley Architects",
+      "location": "Kidapawan City, Cotabato",
+      "start": "2016-06",
+      "end": "2022-05",
+      "bullets": [
+        "Designed houses, a hospital extension and a market building from concept to construction drawings.",
+        "Visited sites to answer contractors' questions and check work against the plans."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Architecture",
+      "school": "Mindanao Southern College of Architecture",
+      "location": "Davao City, Davao del Sur",
+      "start": "2010",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered and Licensed Architect",
+      "issuer": "Professional Regulation Commission",
+      "date": "2016-02"
+    },
+    {
+      "name": "Autodesk Certified Professional: Revit for Architectural Design",
+      "issuer": "Autodesk",
+      "date": "2021-09"
+    }
+  ]
+}

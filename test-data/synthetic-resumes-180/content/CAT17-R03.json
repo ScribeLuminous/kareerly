@@ -1,0 +1,66 @@
+{
+  "candidate_id": "CAT17-R03",
+  "full_name": "Ariel Yabut",
+  "location": "San Jose, Occidental Mindoro",
+  "email": "ariel.yabut@example.org",
+  "phone": "+63 918 979 1341",
+  "headline": "Lead Fit-out Carpenter",
+  "skills": [
+    "Carpentry: cabinets, partitions, ceilings, doors",
+    "Masonry repairs and finishes",
+    "Construction safety",
+    "Maintaining and repairing structures",
+    "Protecting finished surfaces during works",
+    "Reading blueprints and shop drawings",
+    "Accurate measuring and levelling",
+    "Communicating with site engineers and clients"
+  ],
+  "summary": "Lead fit-out carpenter with five years building offices, shops and resort rooms in Occidental Mindoro and Palawan. I lead a crew of five, build cabinets, partitions and ceilings from shop drawings, and handle masonry repairs and finishing. My crews keep sites safe and finished work protected.",
+  "experience": [
+    {
+      "title": "Lead Fit-out Carpenter",
+      "employer": "Mindoro Coastal Fit-out and Interiors",
+      "location": "San Jose, Occidental Mindoro",
+      "start": "2023-02",
+      "end": "Present",
+      "bullets": [
+        "Lead a crew of five on shop, office and resort fit-outs.",
+        "Build cabinets, counters, partitions and ceilings from shop drawings to within 2 mm.",
+        "Repair and refinish damaged walls, floors and door frames in older buildings.",
+        "Run toolbox talks and check scaffolds and power tools every morning."
+      ]
+    },
+    {
+      "title": "Carpenter",
+      "employer": "Puerto Princesa Resort Builders",
+      "location": "Puerto Princesa City, Palawan",
+      "start": "2021-05",
+      "end": "2023-01",
+      "bullets": [
+        "Built cottages, decks and furniture for two beach resorts.",
+        "Laid out and levelled floors and roofs with the foreman."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Carpentry NC II",
+      "school": "Mindoro Western Trade School",
+      "location": "San Jose, Occidental Mindoro",
+      "start": "2020-06",
+      "end": "2020-12"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Carpentry NC III",
+      "issuer": "TESDA",
+      "date": "2023-08"
+    },
+    {
+      "name": "Carpentry NC II",
+      "issuer": "TESDA",
+      "date": "2021-01"
+    }
+  ]
+}
