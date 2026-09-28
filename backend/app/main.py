@@ -563,6 +563,16 @@ def _set_application_stage_as_employer(authorization: str | None, application_id
         raise
 
 
+# PostgreSQL constraint errors quote the offending row values, for example
+# 'Key (email)=(someone@example.com) already exists.'. Those values can be
+# another user's email, so they never reach API responses or logs.
+_CONSTRAINT_VALUE_PATTERN = re.compile(r"(Key \([^)]*\)=\().*?(\)\s+(?:already exists|is not present|is still referenced))")
+
+
+def _redact_constraint_values(detail: str) -> str:
+    return _CONSTRAINT_VALUE_PATTERN.sub(r"\1[redacted]\2", detail)
+
+
 def _supabase_request(
     path: str,
     *,
@@ -603,7 +613,7 @@ def _supabase_request(
         with urllib.request.urlopen(request, timeout=15) as response:
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore") or exc.reason
+        detail = _redact_constraint_values(exc.read().decode("utf-8", errors="ignore")) or exc.reason
         raise HTTPException(status_code=exc.code, detail=detail) from exc
     except urllib.error.URLError as exc:
         raise HTTPException(status_code=503, detail=f"Unable to reach Supabase: {exc.reason}") from exc
@@ -2024,7 +2034,9 @@ def _job_applicant_count(job_id: str) -> int | None:
     if not job_id:
         return None
     try:
-        rows = _supabase_request("/rest/v1/rpc/get_job_applicant_counts", method="POST", body={"target_job_ids": [job_id]})
+        rows = _supabase_request(
+            "/rest/v1/rpc/get_job_applicant_counts", method="POST", service_role=True, body={"target_job_ids": [job_id]}
+        )
     except HTTPException as exc:
         if exc.status_code == 404 or "PGRST202" in str(exc.detail):
             return None
