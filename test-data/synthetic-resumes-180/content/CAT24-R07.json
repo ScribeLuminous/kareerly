@@ -1,0 +1,55 @@
+{
+  "candidate_id": "CAT24-R07",
+  "full_name": "Carlo Dela Peña",
+  "location": "Digos City, Davao del Sur",
+  "email": "carlo.delapena@example.net",
+  "phone": "+63 947 117 9696",
+  "headline": "Legal Secretary",
+  "summary": "Legal secretary with three years supporting lawyers in a Digos law office. I prepare and compile legal documents, do basic legal research, manage the lawyers' calendars and hearing schedules, and keep files and correspondence organised.",
+  "skills": [
+    "Legal documentation",
+    "Compiling case files and annexes",
+    "Basic legal research",
+    "Document management",
+    "Clerical work and filing",
+    "Calendar and hearing schedule management",
+    "Correspondence records",
+    "Clear spoken and written English"
+  ],
+  "experience": [
+    {
+      "title": "Legal Secretary",
+      "employer": "Digos Mount Apo Law Offices",
+      "location": "Digos City, Davao del Sur",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Type and format pleadings, affidavits and letters for three lawyers.",
+        "Compile annexes and prepare copies for filing and service.",
+        "Manage hearing schedules and remind lawyers of deadlines.",
+        "Look up laws and decisions requested by the lawyers.",
+        "Keep the correspondence log and case folders complete."
+      ]
+    },
+    {
+      "title": "Office Clerk",
+      "employer": "Digos Realty and Development Co.",
+      "location": "Digos City, Davao del Sur",
+      "start": "2023-01",
+      "end": "2023-06",
+      "bullets": [
+        "Filed documents, answered phones and prepared simple letters.",
+        "Maintained the office's incoming mail log."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Office Administration",
+      "school": "Davao del Sur Heritage College",
+      "location": "Digos City, Davao del Sur",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

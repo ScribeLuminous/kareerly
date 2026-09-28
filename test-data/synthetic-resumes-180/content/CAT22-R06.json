@@ -1,0 +1,71 @@
+{
+  "candidate_id": "CAT22-R06",
+  "full_name": "Frances Sanchez",
+  "location": "Ozamiz City, Misamis Occidental",
+  "email": "frances.sanchez@example.com",
+  "phone": "+63 992 842 6987",
+  "headline": "Agricultural Extension Worker",
+  "summary": "Community development organiser of five years who moved into agricultural extension in Misamis Occidental. I now train rice and corn farmers on conservation practices, pest management and composting, using the community organising skills that got farmers to trust our programs. I work best in the field.",
+  "certifications": [
+    {
+      "name": "Organic Agriculture Production NC II",
+      "issuer": "TESDA",
+      "date": "2024-10"
+    },
+    {
+      "name": "Farmer Field School Facilitator Training",
+      "issuer": "professional training course",
+      "date": "2025-02"
+    },
+    {
+      "name": "Integrated Pest Management Course",
+      "issuer": "online course",
+      "date": "2025-04"
+    }
+  ],
+  "skills": [
+    "Crop production (rice and corn)",
+    "Conservation agriculture",
+    "Integrated pest management",
+    "Farm waste composting",
+    "Community engagement and organising",
+    "Farmer training facilitation",
+    "Talking with farmers and families",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Agricultural Extension Worker",
+      "employer": "Misamis Occidental Farmers Development Foundation",
+      "location": "Ozamiz City, Misamis Occidental",
+      "start": "2025-05",
+      "end": "Present",
+      "bullets": [
+        "Run farmer field schools on rice and corn for about 120 farmers in five barangays.",
+        "Teach pest scouting and safer pest control, cutting pesticide spending on demo farms.",
+        "Set up composting of rice straw and corn stalks with farmer groups."
+      ]
+    },
+    {
+      "title": "Community Development Organizer",
+      "employer": "Ozamiz Bay Community Development Network",
+      "location": "Ozamiz City, Misamis Occidental",
+      "start": "2020-06",
+      "end": "2025-04",
+      "bullets": [
+        "Organised fisherfolk and farmer associations and helped them register.",
+        "Facilitated planning workshops and trainings with community leaders.",
+        "Visited families to understand their needs and linked them to programs."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Development Communication",
+      "school": "Misamis Occidental Bayview College",
+      "location": "Oroquieta City, Misamis Occidental",
+      "start": "2016",
+      "end": "2020"
+    }
+  ]
+}

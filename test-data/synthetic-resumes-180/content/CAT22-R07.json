@@ -1,0 +1,61 @@
+{
+  "candidate_id": "CAT22-R07",
+  "full_name": "Camille Esguerra",
+  "location": "Legazpi City, Albay",
+  "email": "camille.esguerra@example.net",
+  "phone": "+63 905 967 0754",
+  "headline": "Fish Processing Quality Aide",
+  "summary": "Fish processing quality aide with three years at a Bicol seafood plant. I check the freshness and handling of fish from landing to packing, follow hygienic practices on the processing floor and make sure products meet food safety and quality standards before they are packed.",
+  "skills": [
+    "Fish handling and freshness checks",
+    "Seafood processing: smoked, dried and frozen fish",
+    "Hygienic practices in fishery operations",
+    "Knowledge of the fishing industry",
+    "Food safety and food safety principles",
+    "Packaging checks",
+    "Product quality checks",
+    "Workplace safety"
+  ],
+  "experience": [
+    {
+      "title": "Fish Processing Quality Aide",
+      "employer": "Albay Gulf Seafood Processing Inc.",
+      "location": "Legazpi City, Albay",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Check fish at receiving for freshness, temperature and damage, and reject poor lots.",
+        "Watch hygiene on the processing floor: handwashing, clean tools and ice use.",
+        "Check smoked, dried and frozen products against quality standards before packing.",
+        "Inspect packs for seal, weight and labelling and record the results."
+      ]
+    },
+    {
+      "title": "Fish Processing Worker",
+      "employer": "Tabaco Bay Dried Fish Cooperative",
+      "location": "Tabaco City, Albay",
+      "start": "2023-01",
+      "end": "2023-06",
+      "bullets": [
+        "Cleaned, salted and dried fish for the cooperative's products.",
+        "Packed dried fish for market."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Fish Processing Technology",
+      "school": "Bicol Coastal Fisheries Institute",
+      "location": "Tabaco City, Albay",
+      "start": "2020",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Fish Products Packaging NC II",
+      "issuer": "TESDA",
+      "date": "2022-09"
+    }
+  ]
+}

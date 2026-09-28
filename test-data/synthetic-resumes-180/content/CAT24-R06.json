@@ -1,0 +1,84 @@
+{
+  "candidate_id": "CAT24-R06",
+  "full_name": "Rafael Alcantara",
+  "location": "Tagbilaran City, Bohol",
+  "email": "rafael.alcantara@example.org",
+  "phone": "+63 918 476 1999",
+  "headline": "Emergency Response Officer",
+  "summary": "Construction safety officer of five years who moved into emergency response for a resort and port company in Bohol. I plan and lead emergency response, keep people safe during incidents, look after health and safety programs and protective equipment, and train staff and guests in drills.",
+  "experience": [
+    {
+      "title": "Emergency Response Officer",
+      "employer": "Bohol Island Ports and Resorts Group",
+      "location": "Tagbilaran City, Bohol",
+      "start": "2025-04",
+      "end": "Present",
+      "paragraph": "Responsible for emergency preparedness across a ferry terminal and two resorts.",
+      "bullets": [
+        "Lead the emergency response team for fire, earthquake, storm-surge and medical incidents.",
+        "Plan evacuation routes and run quarterly drills for staff and guests.",
+        "Manage protective equipment, fire extinguishers and rescue gear and inspect them monthly.",
+        "Run health and safety briefings for new staff and contractors."
+      ]
+    },
+    {
+      "title": "Construction Safety Officer",
+      "employer": "Tagbilaran Bay Builders Inc.",
+      "location": "Tagbilaran City, Bohol",
+      "start": "2020-01",
+      "end": "2025-03",
+      "paragraph": "Covered safety on mid-rise hotel and commercial construction projects.",
+      "bullets": [
+        "Inspected sites daily and stopped unsafe work.",
+        "Enforced use of harnesses, helmets and other protective equipment.",
+        "Ran toolbox talks and kept safety records for inspections."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Emergency and safety",
+      "items": [
+        "emergency response",
+        "public safety and security",
+        "health, well-being and safety programs",
+        "protective safety equipment"
+      ]
+    },
+    {
+      "label": "Construction background",
+      "items": [
+        "construction safety",
+        "construction site inspection",
+        "workplace safety"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "briefings and business communication"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Civil Engineering",
+      "school": "Bohol Island College of Engineering",
+      "location": "Tagbilaran City, Bohol",
+      "start": "2014",
+      "end": "2019"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Basic Occupational Safety and Health (BOSH)",
+      "issuer": "DOLE-accredited training organisation",
+      "date": "2020-03"
+    },
+    {
+      "name": "Emergency Response Team Training",
+      "issuer": "accredited training provider",
+      "date": "2025-02"
+    }
+  ]
+}

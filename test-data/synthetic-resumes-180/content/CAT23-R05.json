@@ -1,0 +1,81 @@
+{
+  "candidate_id": "CAT23-R05",
+  "full_name": "Anwar Macaraya",
+  "location": "Buluan, Maguindanao del Sur",
+  "email": "anwar.macaraya@example.com",
+  "phone": "+63 927 800 4710",
+  "headline": "Planning and Development Coordinator",
+  "summary": "Planning and development coordinator with twelve years in public planning in Maguindanao del Sur. I lead the preparation of development plans and investment programs, turn policies into projects, and set up performance monitoring and risk reporting so leaders see results. I manage a team of seven planners and analysts.",
+  "highlights": [
+    "Led the lake-basin development plan that secured funding for 18 flood-control and livelihood projects.",
+    "Built a performance scorecard for 30 programs, reviewed by the board every quarter.",
+    "Introduced quarterly risk reports that flagged delayed projects months earlier."
+  ],
+  "skills": [
+    "Policy analysis and support",
+    "Government policy implementation",
+    "Managing policy implementation",
+    "Performance management in public administration",
+    "Risk reporting",
+    "Data analysis and visualization",
+    "Support to executives and the board",
+    "Government service support",
+    "Public records management",
+    "Financial reporting of programs",
+    "Team management",
+    "Business communication"
+  ],
+  "experience": [
+    {
+      "title": "Planning and Development Coordinator",
+      "employer": "Buluan Lake Basin Development Authority",
+      "location": "Buluan, Maguindanao del Sur",
+      "start": "2019-03",
+      "end": "Present",
+      "bullets": [
+        "Lead a team of seven preparing the authority's development plan and annual investment program.",
+        "Monitor 30 programs against targets and present results and risks to the board.",
+        "Prepare physical and financial accomplishment reports for oversight agencies."
+      ]
+    },
+    {
+      "title": "Planning Officer",
+      "employer": "Cotabato River Basin Development Council",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2014-06",
+      "end": "2019-02",
+      "bullets": [
+        "Analysed data on flooding, farming and poverty to set project priorities.",
+        "Drafted policy papers and resolutions for council members."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master in Public Administration",
+      "school": "Mindanao Graduate School of Governance",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2016",
+      "end": "2019"
+    },
+    {
+      "credential": "Bachelor of Science in Economics",
+      "school": "Cotabato Riverside College",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2010",
+      "end": "2014"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Civil Service Professional Eligibility",
+      "issuer": "Civil Service Commission",
+      "date": "2014-10"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Maguindanaon"
+  ]
+}
