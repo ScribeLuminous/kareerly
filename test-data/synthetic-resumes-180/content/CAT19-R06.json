@@ -1,0 +1,70 @@
+{
+  "candidate_id": "CAT19-R06",
+  "full_name": "Zenaida Pabualan",
+  "location": "Molave, Zamboanga del Sur",
+  "email": "zenaida.pabualan@example.org",
+  "phone": "+63 970 263 3954",
+  "headline": "Seafood Line Cook",
+  "summary": "Former fish port worker now cooking on the seafood line of a restaurant in Zamboanga del Sur. Five years handling and sorting fresh catch taught me how to judge and keep seafood fresh; I trained in cookery and now prepare and cook fish and shellfish dishes while following food safety and hygiene rules.",
+  "certifications": [
+    {
+      "name": "Cookery NC II",
+      "issuer": "TESDA",
+      "date": "2025-03"
+    },
+    {
+      "name": "Food Safety and Sanitation Training",
+      "issuer": "accredited training provider",
+      "date": "2025-04"
+    },
+    {
+      "name": "Fish Processing NC II",
+      "issuer": "TESDA",
+      "date": "2021-08"
+    }
+  ],
+  "skills": [
+    "Cooking fish and shellfish",
+    "Food preparation: filleting, cleaning and portioning",
+    "Food safety and hygiene compliance",
+    "Fish handling and freshness checks",
+    "Seafood processing: drying and smoking",
+    "Hygienic practices from fishery work",
+    "Spoken English, Filipino and Cebuano"
+  ],
+  "experience": [
+    {
+      "title": "Seafood Line Cook",
+      "employer": "Molave Seafood and Grill",
+      "location": "Molave, Zamboanga del Sur",
+      "start": "2025-05",
+      "end": "Present",
+      "bullets": [
+        "Clean, fillet and portion fish and shellfish for the day's service.",
+        "Cook grilled, soup and kinilaw dishes on the seafood line.",
+        "Follow the kitchen's hygiene rules for raw seafood and keep chillers at the right temperature."
+      ]
+    },
+    {
+      "title": "Fish Port Worker",
+      "employer": "Pagadian Bay Fish Landing Cooperative",
+      "location": "Pagadian City, Zamboanga del Sur",
+      "start": "2020-06",
+      "end": "2025-04",
+      "bullets": [
+        "Unloaded, sorted and iced fresh catch at the landing site before dawn.",
+        "Dried and smoked fish for the cooperative's processing unit.",
+        "Kept tools, crates and the sorting area clean following hygiene rules."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Cookery NC II",
+      "school": "Pagadian Skills Development Center",
+      "location": "Pagadian City, Zamboanga del Sur",
+      "start": "2024-09",
+      "end": "2025-02"
+    }
+  ]
+}

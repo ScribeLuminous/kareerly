@@ -1,0 +1,70 @@
+{
+  "candidate_id": "CAT20-R01",
+  "full_name": "Benjie Ybañez",
+  "location": "Lapu-Lapu City, Cebu",
+  "email": "benjie.ybanez@example.org",
+  "phone": "+63 929 168 5999",
+  "headline": "Warehouse Associate",
+  "education": [
+    {
+      "credential": "Senior High School, TVL Track – ICT strand",
+      "school": "Lapu-Lapu Harbor Integrated School",
+      "location": "Lapu-Lapu City, Cebu",
+      "start": "2022",
+      "end": "2024",
+      "notes": [
+        "Work immersion in a freight forwarder's warehouse"
+      ]
+    },
+    {
+      "credential": "Forklift Operation NC II",
+      "school": "Mactan Logistics Skills Center",
+      "location": "Lapu-Lapu City, Cebu",
+      "start": "2024-09",
+      "end": "2024-12"
+    }
+  ],
+  "summary": "Warehouse associate with a year in an export processing zone warehouse on Mactan. I receive, store, pick and count stock, operate a forklift safely, and check every delivery against its paperwork before it goes into the system. I want to become an inventory controller.",
+  "projects": [
+    {
+      "name": "Bin location clean-up",
+      "context": "warehouse project",
+      "description": "Relabelled 600 bin locations and corrected their records with the inventory team, reducing picking errors in the following quarter."
+    }
+  ],
+  "skills": [
+    "Warehouse operations: receiving, putaway, picking, staging",
+    "Inventory management and cycle counts",
+    "Warehouse stock records",
+    "Safe stacking and storage",
+    "Forklift operation and workplace safety",
+    "Checking deliveries against documents",
+    "Microsoft Excel"
+  ],
+  "experience": [
+    {
+      "title": "Warehouse Associate",
+      "employer": "Mactan Export Logistics Center",
+      "location": "Lapu-Lapu City, Cebu",
+      "start": "2025-02",
+      "end": "Present",
+      "bullets": [
+        "Receive and put away about 40 pallets of electronics components a day.",
+        "Pick and stage outbound orders and scan them into the warehouse system.",
+        "Run weekly cycle counts and report variances to the inventory controller.",
+        "Operate a reach forklift and follow the site's stacking height and aisle rules."
+      ]
+    },
+    {
+      "title": "Work Immersion Student",
+      "employer": "Cebu Harbor Freight Forwarders",
+      "location": "Mandaue City, Cebu",
+      "start": "2024-02",
+      "end": "2024-04",
+      "type": "internship",
+      "bullets": [
+        "Checked incoming cartons against packing lists and labelled them for storage."
+      ]
+    }
+  ]
+}

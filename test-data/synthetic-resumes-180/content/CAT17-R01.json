@@ -1,0 +1,75 @@
+{
+  "candidate_id": "CAT17-R01",
+  "full_name": "Maricel Ilagan",
+  "location": "Pasig City, Metro Manila",
+  "email": "maricel.ilagan@example.org",
+  "phone": "+63 947 525 7569",
+  "headline": "Electrician",
+  "summary": "TESDA-certified electrician with a year of residential and condominium work in Pasig. I install wiring, outlets, lighting, panels and household appliances to the Philippine Electrical Code, and I read electrical plans before starting any job. I take safety on site seriously.",
+  "projects": [
+    {
+      "name": "Condominium unit rewiring",
+      "context": "work project",
+      "bullets": [
+        "Rewired 12 condo units, installing new panels, circuits, outlets and LED lighting.",
+        "Every unit passed the building administrator's inspection on the first visit."
+      ]
+    },
+    {
+      "name": "Aircon and water heater installations",
+      "context": "work project",
+      "description": "Installed dedicated circuits and mounted about 40 split-type aircons and water heaters for households."
+    }
+  ],
+  "skills": [
+    "Electrical installation: wiring, panels, outlets, lighting",
+    "Installing electrical and electronic equipment",
+    "Installing household appliances",
+    "Reading electrical plans and diagrams",
+    "Construction safety and PPE",
+    "Workplace safety and lockout",
+    "Talking clearly with clients about the work"
+  ],
+  "experience": [
+    {
+      "title": "Electrician",
+      "employer": "Ortigas Electrical Contractors",
+      "location": "Pasig City, Metro Manila",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Install wiring, panels and lighting in condominium units and houses with a team of four.",
+        "Mount and connect aircons, water heaters and range hoods on dedicated circuits.",
+        "Follow the electrical plans and check each circuit with a tester before energising.",
+        "Wear harness and PPE on ladders and scaffolds and keep work areas tidy."
+      ]
+    },
+    {
+      "title": "Electrician Trainee",
+      "employer": "Marikina Power Wiring Services",
+      "location": "Marikina City, Metro Manila",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Pulled wires, installed boxes and assisted the lead electrician on house projects."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Electrical Installation and Maintenance NC II",
+      "school": "Pasig Riverside Technical Institute",
+      "location": "Pasig City, Metro Manila",
+      "start": "2024-06",
+      "end": "2024-12"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Electrical Installation and Maintenance NC II",
+      "issuer": "TESDA",
+      "date": "2025-01"
+    }
+  ]
+}

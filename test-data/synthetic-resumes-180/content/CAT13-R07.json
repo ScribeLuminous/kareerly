@@ -1,0 +1,50 @@
+{
+  "candidate_id": "CAT13-R07",
+  "full_name": "Danica Pascual",
+  "location": "City of San Fernando, Pampanga",
+  "email": "danica.pascual@example.net",
+  "phone": "+63 918 911 5529",
+  "headline": "Municipal Social Services Staff",
+  "summary": "Social services staff with four years in local government social programs in Pampanga. I explain program rules and eligibility to residents in plain language, keep case and beneficiary records, and help the office handle public records and policy updates. I work mainly with senior citizens, persons with disability and solo parents.",
+  "skills": [
+    "Community engagement",
+    "Case and beneficiary records",
+    "Explaining social welfare laws and eligibility to residents",
+    "Talking with seniors, PWDs and solo parents",
+    "Government service support",
+    "Public records management",
+    "Policy support",
+    "Microsoft Office"
+  ],
+  "experience": [
+    {
+      "title": "Social Services Staff",
+      "employer": "San Fernando Pampanga Social Assistance Council",
+      "location": "City of San Fernando, Pampanga",
+      "start": "2022-09",
+      "end": "Present",
+      "bullets": [
+        "Process ID and benefit applications for senior citizens, persons with disability and solo parents.",
+        "Explain the rules of each program at barangay orientations and at the help desk.",
+        "Maintain case and beneficiary records and the office's public records archive.",
+        "Help draft updates to local social welfare guidelines after new national laws took effect."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Public Administration",
+      "school": "Pampanga Heartland College",
+      "location": "City of San Fernando, Pampanga",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Civil Service Professional Eligibility",
+      "issuer": "Civil Service Commission",
+      "date": "2022-11"
+    }
+  ]
+}

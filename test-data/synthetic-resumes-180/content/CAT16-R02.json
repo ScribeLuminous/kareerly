@@ -1,0 +1,48 @@
+{
+  "candidate_id": "CAT16-R02",
+  "full_name": "Amir Dalandas",
+  "location": "Cotabato City, Maguindanao del Norte",
+  "email": "amir.dalandas@example.org",
+  "phone": "+63 949 397 9188",
+  "headline": "CAD Operator",
+  "summary": "Drafting technology graduate looking for a CAD operator role. I produce floor plans, elevations and details in AutoCAD from engineers' sketches, and I am quick and neat with layers, dimensions and title blocks. I want to join a design or construction firm and keep learning.",
+  "skills": [
+    "CAD operation",
+    "AutoCAD 2D",
+    "Technical drafting",
+    "Making plans, elevations and details",
+    "Layer and title block standards",
+    "Microsoft Office",
+    "Clear communication with engineers"
+  ],
+  "experience": [
+    {
+      "title": "Drafting Intern",
+      "employer": "Cotabato Riverside Design Studio",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2026-02",
+      "end": "2026-05",
+      "type": "internship",
+      "bullets": [
+        "Drafted floor plans and elevations for four residential projects from the architect's sketches.",
+        "Cleaned up and standardised layers and title blocks on older drawing files."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Drafting Technology",
+      "school": "Cotabato City Technical Institute",
+      "location": "Cotabato City, Maguindanao del Norte",
+      "start": "2023",
+      "end": "2026"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Technical Drafting NC II",
+      "issuer": "TESDA",
+      "date": "2025-10"
+    }
+  ]
+}

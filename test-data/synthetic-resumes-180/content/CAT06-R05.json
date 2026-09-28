@@ -1,0 +1,87 @@
+{
+  "candidate_id": "CAT06-R05",
+  "full_name": "Christian Dulnuan",
+  "location": "Ilagan City, Isabela",
+  "email": "christian.dulnuan@example.net",
+  "phone": "+63 953 343 9079",
+  "headline": "IT Project Manager",
+  "summary": "IT project manager with eleven years delivering software and infrastructure projects for banks, cooperatives and the public sector. I run agile and PRINCE2 projects, manage budgets of up to ₱60 million, and lead cross-functional teams of up to twenty people. I am known for honest status reporting and for getting vendors and users to agree on scope.",
+  "highlights": [
+    "Delivered a core banking migration for 32 cooperative branches with no unplanned downtime.",
+    "Introduced Scrum and Jira across five delivery teams; forecast accuracy on releases rose from about 50% to 85%.",
+    "Renegotiated a vendor contract mid-project, saving ₱7 million without cutting scope."
+  ],
+  "skills": [
+    "ICT project management",
+    "Agile (Scrum, Kanban) and PRINCE2 methods",
+    "Lean process improvement",
+    "Project planning, budgeting and risk management",
+    "Jira and Confluence",
+    "Team leadership and staff management",
+    "Vendor and contract negotiation",
+    "Working with agile development teams",
+    "Stakeholder and executive reporting"
+  ],
+  "experience": [
+    {
+      "title": "IT Project Manager",
+      "employer": "Cagayan Valley Cooperative Technology Services",
+      "location": "Ilagan City, Isabela",
+      "start": "2019-04",
+      "end": "Present",
+      "bullets": [
+        "Lead a portfolio of four to six IT projects at a time for member cooperatives across Northern Luzon.",
+        "Manage a team of 14 developers, testers and analysts, including hiring and performance reviews.",
+        "Run steering committees and monthly budget reviews with cooperative boards."
+      ]
+    },
+    {
+      "title": "Project Lead",
+      "employer": "Isabela Digital Solutions Inc.",
+      "location": "Cauayan City, Isabela",
+      "start": "2016-01",
+      "end": "2019-03",
+      "bullets": [
+        "Led the rollout of document tracking systems for three provincial government offices.",
+        "Coordinated developers, trainers and client focal persons across multiple sites."
+      ]
+    },
+    {
+      "title": "Systems Analyst",
+      "employer": "Isabela Digital Solutions Inc.",
+      "location": "Cauayan City, Isabela",
+      "start": "2015-06",
+      "end": "2015-12",
+      "bullets": [
+        "Gathered requirements and wrote specifications for the company's first government project.",
+        "Prepared test scripts and user manuals for the pilot office."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Isabela Valley State College",
+      "location": "Ilagan City, Isabela",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "PRINCE2 Practitioner",
+      "issuer": "PeopleCert",
+      "date": "2018-07"
+    },
+    {
+      "name": "Professional Scrum Master I",
+      "issuer": "Scrum.org",
+      "date": "2020-02"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Ilocano"
+  ]
+}

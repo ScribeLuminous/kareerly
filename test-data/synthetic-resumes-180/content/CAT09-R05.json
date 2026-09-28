@@ -1,0 +1,85 @@
+{
+  "candidate_id": "CAT09-R05",
+  "full_name": "Katrina Lansangan",
+  "location": "Cabanatuan City, Nueva Ecija",
+  "email": "katrina.lansangan@example.com",
+  "phone": "+63 920 409 7208",
+  "headline": "Customer Success Manager",
+  "summary": "Customer success manager with nine years in SaaS and BPO support, now leading a team that looks after 140 business clients of a payroll software company. I own onboarding, renewals and client health, work in Salesforce and HubSpot, and use data to spot at-risk accounts early. I keep a client-first mindset while hitting retention targets.",
+  "highlights": [
+    "Raised gross revenue retention from 86% to 94% over two years.",
+    "Designed a 30-day onboarding program that halved time to first payroll run.",
+    "Built an account health score from usage and support data that flags churn risk three months ahead."
+  ],
+  "skills": [
+    "Customer success management",
+    "Client onboarding",
+    "Customer relationship management",
+    "Salesforce",
+    "HubSpot",
+    "Customer experience programs",
+    "Client satisfaction and retention",
+    "Client-centred service design",
+    "Key account handling",
+    "Contact centre performance analysis",
+    "Team leadership",
+    "Data analysis for account health"
+  ],
+  "experience": [
+    {
+      "title": "Customer Success Manager",
+      "employer": "Nueva Ecija Cloud Payroll Systems",
+      "location": "Cabanatuan City, Nueva Ecija",
+      "start": "2022-04",
+      "end": "Present",
+      "bullets": [
+        "Lead five customer success associates managing 140 business clients.",
+        "Run quarterly business reviews with key clients and plan renewals with sales.",
+        "Report client health and retention to the leadership team every month."
+      ]
+    },
+    {
+      "title": "Customer Success Associate",
+      "employer": "Nueva Ecija Cloud Payroll Systems",
+      "location": "Cabanatuan City, Nueva Ecija",
+      "start": "2019-06",
+      "end": "2022-03",
+      "bullets": [
+        "Onboarded new clients and trained their HR staff on the software.",
+        "Managed renewals for 60 small business accounts."
+      ]
+    },
+    {
+      "title": "Customer Service Team Leader",
+      "employer": "Central Luzon Customer Care Center",
+      "location": "Tarlac City, Tarlac",
+      "start": "2017-08",
+      "end": "2019-05",
+      "bullets": [
+        "Led 15 agents on an inbound account and reviewed their calls against quality standards.",
+        "Analysed call volumes and staffing to cut abandoned calls."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Management",
+      "school": "Nueva Ecija Heartland College",
+      "location": "Cabanatuan City, Nueva Ecija",
+      "start": "2013",
+      "end": "2017"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Customer Success Manager",
+      "issuer": "professional training course",
+      "date": "2022-10"
+    },
+    {
+      "name": "HubSpot Service Hub Software Certification",
+      "issuer": "HubSpot Academy",
+      "date": "2023-04"
+    }
+  ]
+}

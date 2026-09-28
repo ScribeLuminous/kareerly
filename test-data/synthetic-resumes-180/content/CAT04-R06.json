@@ -1,0 +1,81 @@
+{
+  "candidate_id": "CAT04-R06",
+  "full_name": "Alvin Aguilar",
+  "location": "Iriga City, Camarines Sur",
+  "email": "alvin.aguilar@example.org",
+  "phone": "+63 961 849 1673",
+  "headline": "Bookkeeper",
+  "summary": "Former retail store supervisor now working as a bookkeeper. After four years handling cash, inventory and customers at a department store branch, I trained in bookkeeping and Xero and have kept the books of three small businesses in Iriga for the past year. I want a full-time bookkeeping role with room to grow.",
+  "projects": [
+    {
+      "name": "Bookkeeping for a bakery chain",
+      "context": "client project",
+      "bullets": [
+        "Set up a Xero file, bank feeds and a chart of accounts for a three-branch bakery.",
+        "Record daily sales, expenses and supplier bills, and send the owner a monthly profit summary."
+      ]
+    },
+    {
+      "name": "Invoicing for a water refilling business",
+      "context": "client project",
+      "description": "Replaced handwritten delivery slips with numbered invoices in Xero and a weekly Excel collection list."
+    }
+  ],
+  "skills": [
+    "Bookkeeping",
+    "Xero",
+    "Invoicing and billing",
+    "Microsoft Excel",
+    "Retail cash handling and store operations",
+    "Inventory counts and stock control",
+    "Customer service",
+    "Clear communication with business owners"
+  ],
+  "experience": [
+    {
+      "title": "Bookkeeper",
+      "employer": "self-employed",
+      "location": "Iriga City, Camarines Sur",
+      "start": "2025-08",
+      "end": "Present",
+      "type": "freelance",
+      "bullets": [
+        "Keep the books of three small businesses: a bakery chain, a water refilling station and a motorcycle parts shop.",
+        "Issue invoices and receipts and reconcile bank and e-wallet accounts every week."
+      ]
+    },
+    {
+      "title": "Retail Store Supervisor",
+      "employer": "Rinconada Department Store",
+      "location": "Iriga City, Camarines Sur",
+      "start": "2021-05",
+      "end": "2025-07",
+      "bullets": [
+        "Supervised 12 sales staff and the cash counters of a two-floor store.",
+        "Balanced daily cash and card sales and prepared deposit slips.",
+        "Ran monthly inventory counts and investigated stock variances with the warehouse."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing",
+      "school": "Rinconada Valley College",
+      "location": "Iriga City, Camarines Sur",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Bookkeeping NC III",
+      "issuer": "TESDA",
+      "date": "2025-04"
+    },
+    {
+      "name": "Xero Advisor Certification",
+      "issuer": "Xero",
+      "date": "2025-06"
+    }
+  ]
+}

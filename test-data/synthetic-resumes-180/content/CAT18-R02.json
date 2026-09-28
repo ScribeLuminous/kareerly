@@ -1,0 +1,48 @@
+{
+  "candidate_id": "CAT18-R02",
+  "full_name": "Irene Carreon",
+  "location": "Malolos City, Bulacan",
+  "email": "irene.carreon@example.com",
+  "phone": "+63 955 939 1324",
+  "headline": "Room Attendant",
+  "summary": "TESDA-certified housekeeper looking for my first hotel room attendant job. During on-the-job training at a Bulacan hotel I cleaned and set up guest rooms to inspection standard, handled guest laundry and linen, and helped guests politely with their requests. I work quickly and pay attention to detail.",
+  "skills": [
+    "Housekeeping and room preparation",
+    "Laundry and linen handling",
+    "Friendly guest relations",
+    "Customer service",
+    "Safe use of cleaning chemicals and equipment",
+    "Spoken English and Filipino"
+  ],
+  "experience": [
+    {
+      "title": "Housekeeping Trainee (OJT)",
+      "employer": "Malolos Heritage Hotel",
+      "location": "Malolos City, Bulacan",
+      "start": "2026-02",
+      "end": "2026-04",
+      "type": "internship",
+      "bullets": [
+        "Prepared 10 to 12 rooms a shift under a room attendant's supervision.",
+        "Sorted, washed and folded guest laundry and linen in the laundry room.",
+        "Delivered amenities and answered guest requests politely."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Housekeeping NC II",
+      "school": "Bulacan Hospitality Skills Center",
+      "location": "Malolos City, Bulacan",
+      "start": "2025-09",
+      "end": "2026-01"
+    },
+    {
+      "credential": "Senior High School, TVL Track – Home Economics strand",
+      "school": "Malolos Riverside Integrated School",
+      "location": "Malolos City, Bulacan",
+      "start": "2023",
+      "end": "2025"
+    }
+  ]
+}

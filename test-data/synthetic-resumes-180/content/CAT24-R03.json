@@ -1,0 +1,74 @@
+{
+  "candidate_id": "CAT24-R03",
+  "full_name": "Wilfredo Dizon",
+  "location": "Antipolo City, Rizal",
+  "email": "wilfredo.dizon@example.org",
+  "phone": "+63 998 911 6320",
+  "headline": "Paralegal",
+  "summary": "Paralegal with five years in a law firm handling family, property and commercial cases in Rizal and Metro Manila. I draft pleadings, contracts and deeds, research laws and jurisprudence, review contracts for the partners and keep clients compliant with filing and registration rules. I manage heavy caseloads and court deadlines reliably.",
+  "certifications": [
+    {
+      "name": "Paralegal Certificate Program",
+      "issuer": "law school continuing education",
+      "date": "2021-11"
+    },
+    {
+      "name": "Notarial Practice and Legal Forms Seminar",
+      "issuer": "professional training course",
+      "date": "2023-06"
+    },
+    {
+      "name": "Land Titling and Registration Seminar",
+      "issuer": "professional training course",
+      "date": "2024-09"
+    }
+  ],
+  "skills": [
+    "Legal documentation: pleadings, deeds, contracts",
+    "Legal research",
+    "Contract review support",
+    "Compiling case records and annexes",
+    "Contract law",
+    "Family law: annulment, custody, support",
+    "Property law: titles, sales, estate settlement",
+    "Regulatory compliance for registrations and filings",
+    "Compliance with procedural rules and deadlines",
+    "Business communication",
+    "Document management"
+  ],
+  "experience": [
+    {
+      "title": "Paralegal",
+      "employer": "Rizal Heights Law Firm",
+      "location": "Antipolo City, Rizal",
+      "start": "2023-01",
+      "end": "Present",
+      "bullets": [
+        "Support two partners on about 60 active family, property and commercial cases.",
+        "Draft pleadings, deeds of sale, extrajudicial settlements and lease contracts.",
+        "Research laws and decisions and prepare case memos for the partners.",
+        "Track court and registration deadlines and file documents with courts and registries."
+      ]
+    },
+    {
+      "title": "Legal Assistant",
+      "employer": "Marikina Legal Associates",
+      "location": "Marikina City, Metro Manila",
+      "start": "2021-06",
+      "end": "2022-12",
+      "bullets": [
+        "Prepared affidavits and notarial documents and kept the notarial register.",
+        "Organised case files and client records."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Arts in Legal Management",
+      "school": "Rizal Eastern College",
+      "location": "Antipolo City, Rizal",
+      "start": "2017",
+      "end": "2021"
+    }
+  ]
+}

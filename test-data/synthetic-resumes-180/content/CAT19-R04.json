@@ -1,0 +1,53 @@
+{
+  "candidate_id": "CAT19-R04",
+  "full_name": "Ronald Cabrera",
+  "location": "Nabunturan, Davao de Oro",
+  "email": "ronald.cabrera@example.net",
+  "phone": "+63 955 179 8023",
+  "headline": "Commissary Staff",
+  "experience": [
+    {
+      "title": "Commissary Staff",
+      "employer": "Davao de Oro Bakeshop and Snack Chain",
+      "location": "Nabunturan, Davao de Oro",
+      "start": "2023-08",
+      "end": "Present",
+      "bullets": [
+        "Prepare dough fillings, sauces and ready-to-cook items for 12 branch stores.",
+        "Pack and seal products in portions and label them for delivery.",
+        "Store incoming ingredients and count stock at the end of each week.",
+        "Load delivery vans with branch orders early each morning.",
+        "Serve customers at the store counter when the branch is short-staffed."
+      ]
+    },
+    {
+      "title": "Service Crew",
+      "employer": "Nabunturan Fast Food Station",
+      "location": "Nabunturan, Davao de Oro",
+      "start": "2023-01",
+      "end": "2023-07",
+      "bullets": [
+        "Took orders, served food and cleaned the dining area.",
+        "Helped prepare simple meals in the kitchen during rush hours."
+      ]
+    }
+  ],
+  "summary": "Commissary staff with three years preparing and packing food for a bakeshop and snack chain in Davao de Oro. I prepare ingredients in bulk, pack and label products for the branches, and help with storage and stock counts. I work fast and follow safe work practices.",
+  "skills": [
+    "Bulk food preparation",
+    "Packing, sealing and labelling",
+    "Food service at the counter",
+    "Workplace safety",
+    "Storeroom and warehouse tasks",
+    "Stock counts and inventory"
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, TVL Track – Home Economics strand",
+      "school": "Davao de Oro Valley Integrated School",
+      "location": "Nabunturan, Davao de Oro",
+      "start": "2020",
+      "end": "2022"
+    }
+  ]
+}

@@ -7,6 +7,10 @@ import AdminMatchQualityPanel from '../components/admin/AdminMatchQualityPanel';
 import AdminReportsPanel from '../components/admin/AdminReportsPanel';
 import AdminResumesPanel from '../components/admin/AdminResumesPanel';
 import AdminUsersPanel from '../components/admin/AdminUsersPanel';
+import { bulkButtonClass, bulkDangerButtonClass, downloadCsv, matchesSearch, reportBulk, runBulk, selectCellClass } from '../components/admin/adminShared';
+import { AdminSearch, AdminToolbar, BulkBar, FilterSelect, SelectBox } from '../components/admin/adminUi';
+import { useRowSelection } from '../components/admin/adminHooks';
+import { Tabs } from '../components/ui';
 import { deleteAdminJob, fetchAdminOverview, resetAdminApplication, updateAdminApplication, updateAdminJob } from '../lib/api';
 import type { AdminOverview } from '../lib/api';
 import { supabase } from '../lib/supabase';
@@ -33,6 +37,13 @@ const tabs: Array<{ id: AdminTab; label: string }> = [
   { id: 'evidence', label: 'Evidence' },
   { id: 'learning', label: 'Learning & Skills' },
 ];
+
+const tableConfig: Record<TableTab, { filterKey: string; filterLabel: string; search: string }> = {
+  jobs: { filterKey: 'posting_status', filterLabel: 'Status', search: 'Search title, company or code' },
+  applications: { filterKey: 'status', filterLabel: 'Status', search: 'Search role or company' },
+  messages: { filterKey: 'sender_role', filterLabel: 'Sender', search: 'Search kind or application' },
+  evidence: { filterKey: 'status', filterLabel: 'Status', search: 'Search skill or file' },
+};
 
 function valueText(value: unknown): string {
   if (value === null || value === undefined || value === '') return '-';
@@ -72,42 +83,117 @@ function StatusPill({ value }: { value: unknown }) {
   return <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${className}`}>{text}</span>;
 }
 
+type TableColumn = { key: string; label: string; render?: (row: Record<string, unknown>) => ReactNode };
+type BulkControls = { rows: Array<Record<string, unknown>>; busy: boolean; run: (action: (row: Record<string, unknown>) => Promise<unknown>, done: string) => void };
+
+const rowId = (row: Record<string, unknown>, index: number) => String(row.id ?? index);
+
 function AdminTable({
   rows,
   columns,
   empty,
+  filterKey,
+  filterLabel,
+  exportName,
+  searchPlaceholder,
+  bulkActions,
+  onBulk,
 }: {
   rows: Array<Record<string, unknown>>;
-  columns: Array<{ key: string; label: string; render?: (row: Record<string, unknown>) => ReactNode }>;
+  columns: TableColumn[];
   empty: string;
+  filterKey: string;
+  filterLabel: string;
+  exportName: string;
+  searchPlaceholder: string;
+  bulkActions?: (controls: BulkControls) => ReactNode;
+  onBulk: (rows: Array<Record<string, unknown>>, action: (row: Record<string, unknown>) => Promise<unknown>, done: string) => Promise<void>;
 }) {
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [busy, setBusy] = useState(false);
+  const dataColumns = useMemo(() => columns.filter((column) => column.key !== 'actions'), [columns]);
+  const filterOptions = useMemo(() => {
+    const values = Array.from(new Set(rows.map((row) => valueText(row[filterKey])).filter((value) => value !== '-'))).sort();
+    return [{ value: 'all', label: `Any ${filterLabel.toLowerCase()}` }, ...values.map((value) => ({ value, label: value }))];
+  }, [rows, filterKey, filterLabel]);
+  const visible = useMemo(() => rows.filter((row) => (
+    (filter === 'all' || valueText(row[filterKey]) === filter)
+    && matchesSearch(query, ...dataColumns.map((column) => row[column.key]), row.psoc_title)
+  )), [rows, filter, filterKey, query, dataColumns]);
+  const ids = useMemo(() => visible.map(rowId), [visible]);
+  const selection = useRowSelection(ids);
+  const selectedRows = visible.filter((row, index) => selection.isSelected(rowId(row, index)));
+
+  const run = (action: (row: Record<string, unknown>) => Promise<unknown>, done: string) => {
+    setBusy(true);
+    void onBulk(selectedRows, action, done).finally(() => {
+      setBusy(false);
+      selection.clear();
+    });
+  };
+
   return (
-    <div className="overflow-x-auto border-t border-bdr">
-      <table className="min-w-full text-left text-sm">
-        <thead className="bg-bg text-xs uppercase text-soft">
-          <tr>
-            {columns.map((column) => (
-              <th key={column.key} className="whitespace-nowrap px-4 py-3 font-extrabold">{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-bdr">
-          {rows.length > 0 ? rows.map((row, index) => (
-            <tr key={String(row.id || index)} className="bg-card align-top">
+    <div>
+      <AdminToolbar aside={<AdminSearch value={query} onChange={setQuery} placeholder={searchPlaceholder} />}>
+        <FilterSelect label={filterLabel} value={filter} options={filterOptions} onChange={setFilter} />
+        {visible.length !== rows.length && <span className="text-xs text-soft-text">{visible.length} of {rows.length} shown</span>}
+      </AdminToolbar>
+      <BulkBar count={selectedRows.length} onClear={selection.clear} busy={busy}>
+        {bulkActions?.({ rows: selectedRows, busy, run })}
+        <button className={bulkButtonClass} type="button" disabled={busy} onClick={() => downloadCsv(`kareerly-${exportName}.csv`, dataColumns, selectedRows)}>Export CSV</button>
+      </BulkBar>
+      <div className="overflow-x-auto border-t border-bdr">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-bg text-xs uppercase text-soft">
+            <tr>
+              <th className={selectCellClass}>
+                <SelectBox label="Select all rows" checked={selection.allSelected} indeterminate={selection.someSelected} disabled={visible.length === 0} onChange={selection.toggleAll} />
+              </th>
               {columns.map((column) => (
-                <td key={column.key} className="max-w-[360px] px-4 py-3 text-mid">
-                  {column.render ? column.render(row) : truncate(row[column.key])}
-                </td>
+                <th key={column.key} className="whitespace-nowrap px-4 py-3 font-extrabold">{column.label}</th>
               ))}
             </tr>
-          )) : (
-            <tr>
-              <td className="px-4 py-8 text-center text-soft" colSpan={columns.length}>{empty}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-bdr">
+            {visible.length > 0 ? visible.map((row, index) => {
+              const id = rowId(row, index);
+              return (
+                <tr key={id} className={`align-top ${selection.isSelected(id) ? 'bg-rust-l/50' : 'bg-card'}`}>
+                  <td className={selectCellClass}>
+                    <SelectBox label="Select row" checked={selection.isSelected(id)} onChange={() => selection.toggle(id)} />
+                  </td>
+                  {columns.map((column) => (
+                    <td key={column.key} className="max-w-[360px] px-4 py-3 text-mid">
+                      {column.render ? column.render(row) : truncate(row[column.key])}
+                    </td>
+                  ))}
+                </tr>
+              );
+            }) : (
+              <tr>
+                <td className="px-4 py-8 text-center text-soft" colSpan={columns.length + 1}>{rows.length > 0 ? 'No records match your search or filter.' : empty}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
+  );
+}
+
+function BulkStatusSelect({ options, busy, onPick }: { options: string[]; busy: boolean; onPick: (status: string) => void }) {
+  return (
+    <select
+      className="rounded-md border border-bdr bg-card px-2 py-1.5 text-xs font-bold text-mid disabled:opacity-50"
+      value=""
+      disabled={busy}
+      aria-label="Set status for selected rows"
+      onChange={(event) => { if (event.target.value) onPick(event.target.value); }}
+    >
+      <option value="">Set status…</option>
+      {options.map((option) => <option key={option} value={option}>{option.charAt(0).toUpperCase() + option.slice(1)}</option>)}
+    </select>
   );
 }
 
@@ -203,6 +289,44 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
       setActionMessage(message);
     }
   }, []);
+
+  const runBulkRows = useCallback(async (rows: Array<Record<string, unknown>>, action: (row: Record<string, unknown>) => Promise<unknown>, done: string) => {
+    try {
+      reportBulk(notify, await runBulk(rows, action), done);
+    } finally {
+      await loadOverview();
+    }
+  }, [notify, loadOverview]);
+
+  const bulkActions = useCallback(({ rows, busy, run }: BulkControls): ReactNode => {
+    const count = rows.length;
+    const withToken = (action: (token: string, row: Record<string, unknown>) => Promise<unknown>) => async (row: Record<string, unknown>) => action(await getAdminToken(), row);
+    if (activeTab === 'jobs') {
+      return (
+        <>
+          <BulkStatusSelect options={['active', 'draft', 'closed']} busy={busy} onPick={(status) => {
+            if (window.confirm(`Set ${count} job ${count === 1 ? 'post' : 'posts'} to ${status}?`)) run(withToken((token, row) => updateAdminJob(token, { job_id: String(row.id), posting_status: status })), 'Updated');
+          }} />
+          <button className={bulkDangerButtonClass} type="button" disabled={busy} onClick={() => {
+            if (window.confirm(`Permanently delete ${count} job ${count === 1 ? 'post' : 'posts'}?`)) run(withToken((token, row) => deleteAdminJob(token, String(row.id))), 'Deleted');
+          }}>Delete</button>
+        </>
+      );
+    }
+    if (activeTab === 'applications') {
+      return (
+        <>
+          <BulkStatusSelect options={['pending', 'shortlisted', 'interviewing', 'hired', 'rejected', 'withdrawn']} busy={busy} onPick={(status) => {
+            if (window.confirm(`Set ${count} ${count === 1 ? 'application' : 'applications'} to ${status}?`)) run(withToken((token, row) => updateAdminApplication(token, { application_id: String(row.id), status })), 'Updated');
+          }} />
+          <button className={bulkDangerButtonClass} type="button" disabled={busy} onClick={() => {
+            if (window.confirm(`Reset ${count} ${count === 1 ? 'application' : 'applications'} to Pending and permanently remove their message requests, threads, and messages?`)) run(withToken((token, row) => resetAdminApplication(token, String(row.id))), 'Reverted');
+          }}>Revert</button>
+        </>
+      );
+    }
+    return null;
+  }, [activeTab, getAdminToken]);
 
   const tableTab: TableTab | null = activeTab === 'jobs' || activeTab === 'applications' || activeTab === 'messages' || activeTab === 'evidence' ? activeTab : null;
   const currentRows = tableTab ? overview?.recent[tableTab === 'jobs' ? 'job_posts' : tableTab] || [] : [];
@@ -333,20 +457,15 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
           )}
         </div>
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`rounded-lg border px-3 py-2 text-sm font-bold ${activeTab === tab.id ? 'border-rust bg-rust text-white' : 'border-bdr bg-card text-mid hover:border-rust hover:text-rust'}`}
-              type="button"
-              onClick={() => { if (tab.id === 'resumes') setResumeSearch(''); setActiveTab(tab.id); }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <Tabs<AdminTab>
+          label="Admin sections"
+          idPrefix="admin"
+          items={tabs}
+          value={activeTab}
+          onChange={(tab) => { if (tab === 'resumes') setResumeSearch(''); setActiveTab(tab); }}
+        />
 
-        <div className="rounded-lg border border-bdr bg-card">
+        <div id="admin-panel" role="tabpanel" aria-labelledby={`admin-tab-${activeTab}`} className="rounded-lg border border-bdr bg-card">
           <div className="flex items-center justify-between px-4 py-3">
             <h2 className="text-base font-extrabold">{tabs.find((tab) => tab.id === activeTab)?.label}</h2>
             {tableTab && <span className="text-xs font-semibold text-soft">{currentRows.length} records</span>}
@@ -359,7 +478,20 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
           {activeTab === 'deletion' && <AdminDeletionRequestsPanel getToken={getAdminToken} notify={notify} />}
           {activeTab === 'match-quality' && <AdminMatchQualityPanel getToken={getAdminToken} notify={notify} />}
           {activeTab === 'learning' && <AdminLearningPanel getToken={getAdminToken} />}
-          {tableTab && <AdminTable rows={currentRows} columns={columns} empty={`No ${tableTab} records found.`} />}
+          {tableTab && (
+            <AdminTable
+              key={tableTab}
+              rows={currentRows}
+              columns={columns}
+              empty={`No ${tableTab} records found.`}
+              filterKey={tableConfig[tableTab].filterKey}
+              filterLabel={tableConfig[tableTab].filterLabel}
+              searchPlaceholder={tableConfig[tableTab].search}
+              exportName={tableTab}
+              bulkActions={bulkActions}
+              onBulk={runBulkRows}
+            />
+          )}
         </div>
       </section>
     </main>

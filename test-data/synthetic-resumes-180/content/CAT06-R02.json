@@ -1,0 +1,49 @@
+{
+  "candidate_id": "CAT06-R02",
+  "full_name": "Neil Maglasang",
+  "location": "Lapu-Lapu City, Cebu",
+  "email": "neil.maglasang@example.net",
+  "phone": "+63 953 129 6526",
+  "headline": "Junior Project Coordinator",
+  "summary": "Business administration graduate starting out in project coordination. During my OJT at an events and BPO support company I tracked tasks on Trello, set up meetings and wrote the weekly status notes for the project lead. I am organised, follow up without being asked twice, and communicate clearly.",
+  "experience": [
+    {
+      "title": "Project Support Intern",
+      "employer": "Mactan Harbor Events and Outsourcing Inc.",
+      "location": "Lapu-Lapu City, Cebu",
+      "start": "2026-01",
+      "end": "2026-05",
+      "type": "internship",
+      "paragraph": "Assigned to the team preparing a 600-guest corporate conference at a Mactan resort.",
+      "bullets": [
+        "Kept the task board in Trello up to date and chased owners of late items before each weekly meeting.",
+        "Scheduled supplier and client calls and kept the shared meeting calendar.",
+        "Wrote short weekly status notes and the action list after each meeting."
+      ]
+    }
+  ],
+  "skills": [
+    "Project coordination",
+    "Trello",
+    "Calendar and meeting scheduling",
+    "Status reports and minutes",
+    "Microsoft Office",
+    "English and Cebuano"
+  ],
+  "projects": [
+    {
+      "name": "Student organisation job fair",
+      "context": "university project",
+      "description": "Coordinated a job fair of 25 employers for 900 students: exhibitor list, schedules, volunteers and follow-up survey."
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Operations Management",
+      "school": "Mactan Island College of Business",
+      "location": "Lapu-Lapu City, Cebu",
+      "start": "2022",
+      "end": "2026"
+    }
+  ]
+}

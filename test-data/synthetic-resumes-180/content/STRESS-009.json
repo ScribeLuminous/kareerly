@@ -1,0 +1,77 @@
+{
+  "candidate_id": "STRESS-009",
+  "full_name": "Benjie Ramada",
+  "location": "Siquijor, Siquijor",
+  "email": "benjie.ramada@example.net",
+  "phone": "+63 977 758 5683",
+  "headline": "IT Security and Data Privacy Associate",
+  "skill_groups": [
+    {
+      "label": "Security",
+      "items": [
+        "cybersecurity awareness programs",
+        "information security",
+        "security policy implementation",
+        "ICT security standards (ISO/IEC 27001)",
+        "system security: access reviews and patching"
+      ]
+    },
+    {
+      "label": "Privacy and compliance",
+      "items": [
+        "regulatory compliance",
+        "Data Privacy Act compliance",
+        "ICT and privacy legislation",
+        "privacy notices, agreements and legal documentation"
+      ]
+    }
+  ],
+  "summary": "IT security and data privacy associate with five years at a cooperative bank and an insurance agency in Negros and Siquijor. I run security awareness and access reviews, apply security policies and standards, and handle Data Privacy Act compliance, from privacy notices to breach procedures. My work sits between IT and legal.",
+  "experience": [
+    {
+      "title": "IT Security and Data Privacy Associate",
+      "employer": "Siquijor Island Mutual Insurance Agency",
+      "location": "Siquijor, Siquijor",
+      "start": "2023-06",
+      "end": "Present",
+      "bullets": [
+        "Run quarterly access reviews and check that security patches are applied on all systems.",
+        "Apply the company's security policies and track gaps against ISO/IEC 27001 controls.",
+        "Maintain the privacy management program, privacy notices and data-sharing agreements.",
+        "Train staff yearly on phishing, passwords and handling personal data."
+      ]
+    },
+    {
+      "title": "IT Support and Security Assistant",
+      "employer": "Dumaguete Cooperative Rural Bank",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2021-06",
+      "end": "2023-05",
+      "bullets": [
+        "Supported users and set up accounts and permissions following security policies.",
+        "Helped prepare the bank's data privacy registration and breach procedures."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology",
+      "school": "Negros Oriental College of Engineering",
+      "location": "Dumaguete City, Negros Oriental",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Data Protection Officer",
+      "issuer": "professional training course",
+      "date": "2023-10"
+    },
+    {
+      "name": "ISO/IEC 27001 Foundation",
+      "issuer": "accredited training provider",
+      "date": "2024-03"
+    }
+  ]
+}

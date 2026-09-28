@@ -1,0 +1,68 @@
+{
+  "candidate_id": "CAT22-R01",
+  "full_name": "Danica Valdez",
+  "location": "Balanga City, Bataan",
+  "email": "danica.valdez@example.com",
+  "phone": "+63 935 870 4832",
+  "headline": "Agricultural Field Technician",
+  "summary": "Agriculture graduate with a year as a field technician for a vegetable and rice seed company in Bataan. I run demonstration plots, scout for pests and diseases, advise farmers on harvesting and conservation practices, and help set up composting from crop residues. I want to specialise in integrated crop management.",
+  "projects": [
+    {
+      "name": "Tomato demonstration farm",
+      "context": "field project",
+      "bullets": [
+        "Set up a half-hectare tomato demo farm with trellising, drip lines and mulching.",
+        "Yields were about 30% above the farmers' usual plots and were shown at two field days."
+      ]
+    },
+    {
+      "name": "Rice straw composting",
+      "context": "undergraduate thesis",
+      "description": "Compared three ways of composting rice straw instead of burning it, and measured the effect on the next crop's soil organic matter."
+    }
+  ],
+  "skills": [
+    "Crop production (rice and vegetables)",
+    "Horticulture: seedling production, trellising, pruning",
+    "Integrated pest management and field scouting",
+    "Harvest timing and methods",
+    "Conservation agriculture: mulching, minimum tillage",
+    "Farm waste composting",
+    "Farmer training and business communication"
+  ],
+  "experience": [
+    {
+      "title": "Agricultural Field Technician",
+      "employer": "Bataan Agri-Seeds and Services Inc.",
+      "location": "Balanga City, Bataan",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Manage six demonstration plots of hybrid rice and vegetables across Bataan.",
+        "Scout fields weekly and advise farmers on pest and disease control.",
+        "Train farmer groups on harvest timing, drying and handling to reduce losses.",
+        "Keep plot records and write monthly performance reports for the sales team."
+      ]
+    },
+    {
+      "title": "Farm Practicum Student",
+      "employer": "Central Luzon Organic Demonstration Farm",
+      "location": "Tarlac City, Tarlac",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Assisted in seedling production, transplanting and composting on an organic vegetable farm."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Agriculture, major in Agronomy",
+      "school": "Bataan Peninsula College of Agriculture",
+      "location": "Balanga City, Bataan",
+      "start": "2021",
+      "end": "2025"
+    }
+  ]
+}

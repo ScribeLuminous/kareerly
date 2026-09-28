@@ -1,0 +1,77 @@
+{
+  "candidate_id": "CAT01-R03",
+  "full_name": "Trisha Tuazon",
+  "location": "Marikina City, Metro Manila",
+  "email": "trisha.tuazon@example.org",
+  "phone": "+63 956 711 7787",
+  "headline": "Full Stack Developer (React, Node.js)",
+  "summary": "Full stack developer with four years of experience shipping web applications for logistics and online-retail clients. I build React front ends and Node.js services on MySQL, and I write automated checks as part of every feature rather than after it. I work comfortably in two-week sprints and like untangling production bugs.",
+  "skill_groups": [
+    {
+      "label": "Front end",
+      "items": [
+        "JavaScript (ES2022)",
+        "React.js",
+        "HTML5 and CSS3",
+        "accessible, responsive UI"
+      ]
+    },
+    {
+      "label": "Back end",
+      "items": [
+        "Node.js with Express",
+        "REST API design",
+        "MySQL",
+        "SQL query tuning and indexing"
+      ]
+    },
+    {
+      "label": "Practice",
+      "items": [
+        "Git (GitHub flow)",
+        "automated testing with Jest and Cypress",
+        "Scrum sprints",
+        "Chrome DevTools and Node inspector"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "title": "Full Stack Developer",
+      "employer": "Tanglaw Software Labs",
+      "location": "Pasig City, Metro Manila",
+      "start": "2023-03",
+      "end": "Present",
+      "bullets": [
+        "Led the build of a shipment-tracking dashboard in React and Node.js for a trucking client that handles about 300 bookings a day.",
+        "Reworked MySQL indexes on the booking tables; the slowest dispatch report went from 40 seconds to under 3.",
+        "Introduced Cypress end-to-end suites for checkout and booking flows, roughly halving bugs reported after each release.",
+        "Tracked down a memory leak in the Node.js API with heap snapshots in Chrome DevTools."
+      ]
+    },
+    {
+      "title": "Junior Web Developer",
+      "employer": "Kalye Commerce Inc.",
+      "location": "Quezon City, Metro Manila",
+      "start": "2022-04",
+      "end": "2023-02",
+      "bullets": [
+        "Built product listing, cart and voucher screens in React for an online grocery serving Metro Manila.",
+        "Wrote SQL reports that showed the merchandising team which items were abandoned in carts."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Computer Science",
+      "school": "Eastside Institute of Computing",
+      "location": "Marikina City, Metro Manila",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino"
+  ]
+}

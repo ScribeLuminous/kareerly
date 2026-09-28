@@ -1,0 +1,64 @@
+{
+  "candidate_id": "CAT20-R06",
+  "full_name": "John Paul Lansangan",
+  "location": "Dasmariñas City, Cavite",
+  "email": "john.lansangan@example.net",
+  "phone": "+63 920 585 6658",
+  "headline": "Inventory Controller",
+  "skill_groups": [
+    {
+      "label": "Inventory",
+      "items": [
+        "inventory management",
+        "warehouse inventory records",
+        "cycle counts and reconciliation",
+        "data verification"
+      ]
+    },
+    {
+      "label": "Admin",
+      "items": [
+        "document management",
+        "office administration",
+        "clerical work",
+        "Microsoft Office and Excel"
+      ]
+    }
+  ],
+  "summary": "Former administrative assistant who moved into inventory control at a hardware and home-improvement retailer in Cavite. Three years handling the office's records and paperwork gave me a strong eye for detail; for the past year I have kept store and warehouse inventory records accurate and reconciled counts with the system.",
+  "experience": [
+    {
+      "title": "Inventory Controller",
+      "employer": "Dasmariñas Home Improvement Center",
+      "location": "Dasmariñas City, Cavite",
+      "start": "2025-06",
+      "end": "Present",
+      "bullets": [
+        "Keep inventory records for about 8,000 items across the store and back room.",
+        "Run cycle counts and reconcile differences with receiving and sales records.",
+        "Verify supplier delivery receipts against purchase orders before posting."
+      ]
+    },
+    {
+      "title": "Administrative Assistant",
+      "employer": "Dasmariñas Home Improvement Center",
+      "location": "Dasmariñas City, Cavite",
+      "start": "2022-06",
+      "end": "2025-05",
+      "bullets": [
+        "Handled filing, correspondence and office supplies for the store manager.",
+        "Prepared reports and memos in Word and Excel.",
+        "Organised the store's permits, contracts and supplier files."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Office Administration",
+      "school": "Cavite Southern University",
+      "location": "Dasmariñas City, Cavite",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

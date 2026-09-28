@@ -1,0 +1,75 @@
+{
+  "candidate_id": "CAT11-R07",
+  "full_name": "Dennis Tayaban",
+  "location": "Cabarroguis, Quirino",
+  "email": "dennis.tayaban@example.org",
+  "phone": "+63 926 216 3736",
+  "headline": "Multimedia Artist",
+  "summary": "Multimedia artist with three years making social media graphics and short videos for a regional food brand and its partners. I design posts in Canva, edit reels, plan content calendars and run the brand's pages and Facebook ads. I care about keeping everything we post on brand.",
+  "experience": [
+    {
+      "title": "Multimedia Artist",
+      "employer": "Quirino Valley Food Products",
+      "location": "Cabarroguis, Quirino",
+      "start": "2023-09",
+      "end": "Present",
+      "paragraph": "The company's only in-house creative, handling everything the brand posts online.",
+      "bullets": [
+        "Design around 30 social media posts a month in Canva, following the brand's colours and fonts.",
+        "Shoot and edit short reels of recipes and product launches in CapCut and Premiere Pro.",
+        "Plan the monthly content calendar and run Facebook ad campaigns with the sales manager.",
+        "Keep the brand guide current and share templates with resellers."
+      ]
+    },
+    {
+      "title": "Social Media Assistant",
+      "employer": "Santiago City Events and Promotions",
+      "location": "Santiago City, Isabela",
+      "start": "2023-01",
+      "end": "2023-08",
+      "bullets": [
+        "Made event announcement graphics and posted photo albums after each event.",
+        "Replied to page messages and booking enquiries."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Design",
+      "items": [
+        "graphic design in Canva",
+        "brand guidelines"
+      ]
+    },
+    {
+      "label": "Video",
+      "items": [
+        "video editing for reels (CapCut, Premiere Pro)"
+      ]
+    },
+    {
+      "label": "Social media",
+      "items": [
+        "content planning",
+        "social media management",
+        "social media marketing",
+        "Facebook Ads"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "business communication"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Information Technology, major in Multimedia",
+      "school": "Quirino Highlands College",
+      "location": "Cabarroguis, Quirino",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

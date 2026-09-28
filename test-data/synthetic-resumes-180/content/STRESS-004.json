@@ -1,0 +1,53 @@
+{
+  "candidate_id": "STRESS-004",
+  "full_name": "Kristine Morales",
+  "location": "Cauayan City, Isabela",
+  "email": "kristine.morales@example.net",
+  "phone": "+63 917 166 6625",
+  "headline": "Office Coordinator and Project Support",
+  "experience": [
+    {
+      "title": "Office Coordinator and Project Support",
+      "employer": "Cauayan Agri-Machinery Distributors",
+      "location": "Cauayan City, Isabela",
+      "start": "2023-01",
+      "end": "Present",
+      "bullets": [
+        "Run the office: visitors, supplies, filing and the managers' calendars.",
+        "Coordinate the company's branch-expansion and dealer-training projects in Asana.",
+        "Track tasks and deadlines for smaller projects on Trello and send weekly updates.",
+        "Keep contracts, permits and project files organised in Google Drive."
+      ]
+    },
+    {
+      "title": "Administrative Assistant",
+      "employer": "Isabela Rice Farmers Credit Cooperative",
+      "location": "Ilagan City, Isabela",
+      "start": "2022-06",
+      "end": "2022-12",
+      "bullets": [
+        "Handled the office mail, filing and meeting schedules.",
+        "Prepared letters and reports in Google Docs and Sheets."
+      ]
+    }
+  ],
+  "summary": "Office coordinator with four years running administration and supporting projects at an agricultural machinery distributor. I keep the office, calendars and documents organised, and I coordinate projects like branch openings and dealer trainings in Asana and Trello. I work mostly in Google Workspace.",
+  "skills": [
+    "Office administration",
+    "Document management",
+    "Calendar management",
+    "Google Workspace",
+    "Project coordination",
+    "Asana",
+    "Trello"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Office Administration",
+      "school": "Isabela Valley State College",
+      "location": "Ilagan City, Isabela",
+      "start": "2018",
+      "end": "2022"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "candidate_id": "CAT18-R05",
+  "full_name": "Noel Dagondon",
+  "location": "Ipil, Zamboanga Sibugay",
+  "email": "noel.dagondon@example.com",
+  "phone": "+63 953 613 8852",
+  "experience": [
+    {
+      "title": "Front Office Manager",
+      "employer": "Sibugay Bay Beach Resort",
+      "location": "Ipil, Zamboanga Sibugay",
+      "start": "2020-05",
+      "end": "Present",
+      "bullets": [
+        "Lead a front office, reservations and concierge team of 14 in a 90-room resort.",
+        "Manage rates and availability on the booking engine and online travel platforms, lifting occupancy from 58% to 74%.",
+        "Plan staff schedules around peak seasons and train new hires on service standards.",
+        "Handle escalated guest complaints and follow up after departure.",
+        "Coordinate weddings and conferences with the events and food teams."
+      ]
+    },
+    {
+      "title": "Front Office Supervisor",
+      "employer": "Zamboanga Pearl Hotel",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2015-08",
+      "end": "2020-04",
+      "bullets": [
+        "Supervised front desk shifts and handled arrivals and departures for tour groups.",
+        "Planned tours and transfers for guests with local operators."
+      ]
+    }
+  ],
+  "headline": "Resort Front Office Manager",
+  "summary": "Front office manager with eleven years in hotels and resorts in Zamboanga. I run front desk, reservations and concierge teams, manage rates and online channels, and make sure arrivals and departures go smoothly even at full occupancy. I train staff, handle difficult guests personally and coordinate events and tours.",
+  "skills": [
+    "Front office operations",
+    "Guest relations",
+    "Reservation and revenue management",
+    "Arrivals and departures",
+    "Time management in peak seasons",
+    "Online booking platforms",
+    "Tours and transfers",
+    "Event coordination",
+    "Staff management and training",
+    "Complaint resolution",
+    "Business communication"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Hotel and Restaurant Management",
+      "school": "Zamboanga Bayside College",
+      "location": "Zamboanga City, Zamboanga del Sur",
+      "start": "2011",
+      "end": "2015"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Front Office Services NC II",
+      "issuer": "TESDA",
+      "date": "2015-05"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Chavacano",
+    "Cebuano"
+  ]
+}

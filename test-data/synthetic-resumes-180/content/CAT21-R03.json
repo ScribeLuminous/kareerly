@@ -1,0 +1,63 @@
+{
+  "candidate_id": "CAT21-R03",
+  "full_name": "Carmina Domingo",
+  "location": "Catarman, Northern Samar",
+  "email": "carmina.domingo@example.net",
+  "phone": "+63 918 245 2008",
+  "headline": "Quality Inspector",
+  "summary": "Quality inspector with five years in a coconut and food manufacturing plant in Northern Samar. I inspect products on the line and in the lab, measure and test against specifications, monitor production, and keep our ISO 9001 records complete. I stop product that does not meet standard and trace the cause with production.",
+  "experience": [
+    {
+      "title": "Quality Inspector",
+      "employer": "Northern Samar Coconut Industries Corp.",
+      "location": "Catarman, Northern Samar",
+      "start": "2023-02",
+      "end": "Present",
+      "paragraph": "Inspect desiccated coconut and coconut milk products for a plant exporting to Japan and Korea.",
+      "bullets": [
+        "Check product on the line every hour for moisture, colour and foreign matter.",
+        "Measure and test samples with moisture analysers, scales and calipers against specifications.",
+        "Hold nonconforming lots and investigate causes with the production supervisor.",
+        "Maintain inspection records for ISO 9001 and customer audits."
+      ]
+    },
+    {
+      "title": "Quality Control Assistant",
+      "employer": "Calbayog Food Processing Inc.",
+      "location": "Calbayog City, Samar",
+      "start": "2021-03",
+      "end": "2023-01",
+      "paragraph": "Worked on a line producing canned sardines.",
+      "bullets": [
+        "Took samples from the line and recorded seam and weight checks.",
+        "Monitored line speed and output and reported problems to the shift leader."
+      ]
+    }
+  ],
+  "skills": [
+    "Quality inspection",
+    "Checking product quality on the production line",
+    "Quality control and nonconformance",
+    "Measurement and testing instruments",
+    "Production monitoring",
+    "ISO 9001 quality management systems",
+    "Workplace safety",
+    "Microsoft Excel"
+  ],
+  "education": [
+    {
+      "credential": "Diploma in Food Processing Technology",
+      "school": "Samar Northern Polytechnic Institute",
+      "location": "Catarman, Northern Samar",
+      "start": "2019",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Food Processing NC II",
+      "issuer": "TESDA",
+      "date": "2020-12"
+    }
+  ]
+}

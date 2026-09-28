@@ -1,0 +1,59 @@
+{
+  "candidate_id": "CAT14-R04",
+  "full_name": "Benjie Tolentino",
+  "location": "Alaminos City, Pangasinan",
+  "email": "benjie.tolentino@example.com",
+  "phone": "+63 919 991 6924",
+  "headline": "Pharmacy Assistant",
+  "experience": [
+    {
+      "title": "Pharmacy Assistant",
+      "employer": "Hundred Islands Drugstore",
+      "location": "Alaminos City, Pangasinan",
+      "start": "2023-06",
+      "end": "Present",
+      "bullets": [
+        "Fill about 200 prescriptions a day under the pharmacist's supervision.",
+        "Read prescriptions, check doses and generic names, and flag unclear ones to the pharmacist.",
+        "Receive deliveries, rotate stock by expiry date and run monthly counts.",
+        "Prepare senior citizen and PWD discount billing and daily sales reports.",
+        "Explain to customers how and when to take their medicines, as instructed by the pharmacist."
+      ]
+    },
+    {
+      "title": "Sales Clerk",
+      "employer": "Alaminos Health and Wellness Store",
+      "location": "Alaminos City, Pangasinan",
+      "start": "2023-01",
+      "end": "2023-05",
+      "bullets": [
+        "Assisted customers with vitamins and over-the-counter products.",
+        "Restocked shelves and checked expiry dates."
+      ]
+    }
+  ],
+  "summary": "Pharmacy assistant with three years at a community drugstore in Pangasinan. I fill prescriptions under the pharmacist's supervision, read and check prescriptions, look after inventory, and help customers understand their medicines. I am accurate and customer-friendly.",
+  "skills": [
+    "Pharmacy support and dispensing under supervision",
+    "Reading and checking prescriptions",
+    "Medical and drug terminology",
+    "Discount billing and invoicing",
+    "Customer service",
+    "Inventory management and expiry control"
+  ],
+  "education": [
+    {
+      "credential": "Pharmacy Services NC III",
+      "school": "Pangasinan Western Technical School",
+      "location": "Alaminos City, Pangasinan",
+      "start": "2021-06",
+      "end": "2022-12"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Pangasinan",
+    "Ilocano"
+  ]
+}

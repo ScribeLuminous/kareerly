@@ -1,0 +1,56 @@
+{
+  "candidate_id": "STRESS-012",
+  "full_name": "Jennifer Castro",
+  "location": "Baguio City, Benguet",
+  "email": "jennifer.castro@example.net",
+  "phone": "+63 981 549 4465",
+  "headline": "Supply Chain and Production Planning Officer",
+  "summary": "Supply chain and production planning officer with six years at a vegetable-processing company in Baguio. I plan supply from farms to the plant, manage inventory and warehouse stock, plan transport routes from the highlands, and work with production on schedules and quality. I sit between the supply chain and manufacturing teams.",
+  "experience": [
+    {
+      "title": "Supply Chain and Production Planning Officer",
+      "employer": "Cordillera Fresh Vegetable Processing Corp.",
+      "location": "Baguio City, Benguet",
+      "start": "2022-06",
+      "end": "Present",
+      "paragraph": "Plan supply, stock and production for a plant making frozen and pickled vegetables.",
+      "bullets": [
+        "Plan weekly raw material supply from 300 contract farmers in Benguet.",
+        "Manage stock in the cold store and dry warehouse and keep inventory accuracy above 98%.",
+        "Plan truck routes from farm collection points down to the plant and to Manila customers.",
+        "Monitor daily production against plan and check quality results with the QA team."
+      ]
+    },
+    {
+      "title": "Inventory Planner",
+      "employer": "La Trinidad Highland Produce Cooperative",
+      "location": "La Trinidad, Benguet",
+      "start": "2020-06",
+      "end": "2022-05",
+      "paragraph": "Planned produce collection and storage for a farmers' cooperative.",
+      "bullets": [
+        "Kept stock records of vegetables in cold storage and planned releases to buyers.",
+        "Planned collection routes around the trading post schedule."
+      ]
+    }
+  ],
+  "skills": [
+    "Supply chain management",
+    "Inventory management",
+    "Warehouse inventory control",
+    "Route planning",
+    "Production monitoring and planning",
+    "Plant production tracking",
+    "Quality inspection coordination",
+    "Microsoft Excel"
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Industrial Engineering",
+      "school": "Cordillera College of Engineering",
+      "location": "Baguio City, Benguet",
+      "start": "2016",
+      "end": "2020"
+    }
+  ]
+}

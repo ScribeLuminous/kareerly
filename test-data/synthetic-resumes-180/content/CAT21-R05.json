@@ -1,0 +1,69 @@
+{
+  "candidate_id": "CAT21-R05",
+  "full_name": "Kenneth Cabardo",
+  "location": "Passi City, Iloilo",
+  "email": "kenneth.cabardo@example.org",
+  "phone": "+63 927 911 8121",
+  "headline": "Production Supervisor",
+  "summary": "Production supervisor with twelve years in sugar and food manufacturing in Iloilo. I run a plant of 150 workers across three shifts, set up new lines and products, tune automated process controls and machine speeds, and keep quality and safety under control. I work closely with supply chain and inventory teams to keep lines running.",
+  "highlights": [
+    "Raised line efficiency from 71% to 86% on the main packing line in two years.",
+    "Commissioned a new juice line and brought two new products to full production in four months.",
+    "Achieved 1.5 million work hours without a lost-time injury."
+  ],
+  "skills": [
+    "Production monitoring and planning",
+    "Plant production monitoring",
+    "Production line development and commissioning",
+    "New product introduction",
+    "Automated process control (PLC/SCADA)",
+    "Machine speed and line balancing",
+    "Quality inspection",
+    "Machine operation",
+    "Workplace safety",
+    "ISO 9001 quality management systems",
+    "Team leadership",
+    "Inventory and supply chain coordination"
+  ],
+  "experience": [
+    {
+      "title": "Production Supervisor",
+      "employer": "Passi Valley Sugar and Food Products Corp.",
+      "location": "Passi City, Iloilo",
+      "start": "2019-02",
+      "end": "Present",
+      "bullets": [
+        "Supervise 150 operators and 6 shift leaders across sugar packing and juice lines.",
+        "Set line speeds and control settings to match product specs and demand.",
+        "Lead daily production meetings on output, quality, safety and downtime."
+      ]
+    },
+    {
+      "title": "Production Shift Leader",
+      "employer": "Iloilo Food Manufacturing Inc.",
+      "location": "Iloilo City, Iloilo",
+      "start": "2014-06",
+      "end": "2019-01",
+      "bullets": [
+        "Led a shift of 40 on snack production and packing lines.",
+        "Coordinated raw material supply with the warehouse to avoid stoppages."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Chemical Engineering",
+      "school": "Panay Institute of Technology",
+      "location": "Iloilo City, Iloilo",
+      "start": "2009",
+      "end": "2014"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Lean Six Sigma Green Belt",
+      "issuer": "professional training course",
+      "date": "2020-08"
+    }
+  ]
+}

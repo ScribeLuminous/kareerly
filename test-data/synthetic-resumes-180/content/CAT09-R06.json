@@ -1,0 +1,78 @@
+{
+  "candidate_id": "CAT09-R06",
+  "full_name": "Christian Maravilla",
+  "location": "Masbate City, Masbate",
+  "email": "christian.maravilla@example.com",
+  "phone": "+63 989 902 1722",
+  "headline": "Healthcare Customer Service Representative",
+  "summary": "Registered nurse and former clinic assistant now working in healthcare customer service. After two years coordinating patients in a Masbate clinic, I joined a US healthcare account where I help patients by phone and email with appointments, prescriptions and insurance questions. My clinical background helps me understand callers quickly.",
+  "projects": [
+    {
+      "name": "Clinic patient reminder system",
+      "context": "clinic project",
+      "description": "Set up text and call reminders for follow-up appointments at the clinic, which cut missed visits by about a third."
+    },
+    {
+      "name": "Medical terms quick guide",
+      "context": "account project",
+      "bullets": [
+        "Wrote a two-page guide to common medical terms and abbreviations for new agents.",
+        "Now part of the account's onboarding materials."
+      ]
+    }
+  ],
+  "skills": [
+    "Customer service for patients",
+    "Phone support",
+    "Email support",
+    "Customer relationship management software",
+    "Medical terminology",
+    "Clinical documentation",
+    "Patient coordination and scheduling",
+    "Clear spoken and written English"
+  ],
+  "experience": [
+    {
+      "title": "Healthcare Customer Service Representative",
+      "employer": "Bicol Medical Support Services Inc.",
+      "location": "Legazpi City, Albay",
+      "start": "2025-02",
+      "end": "Present",
+      "bullets": [
+        "Help US patients by phone and email with appointment scheduling, prescription refills and coverage questions.",
+        "Document each contact accurately in the provider's customer relationship management software.",
+        "Recognise urgent symptoms in calls and route them to the nurse line right away."
+      ]
+    },
+    {
+      "title": "Clinic Assistant",
+      "employer": "Masbate Family Health Clinic",
+      "location": "Masbate City, Masbate",
+      "start": "2023-01",
+      "end": "2025-01",
+      "bullets": [
+        "Took patient histories and vital signs and prepared charts for the physicians.",
+        "Scheduled patients and coordinated referrals to the provincial hospital."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Nursing",
+      "school": "Masbate Island College of Health Sciences",
+      "location": "Masbate City, Masbate",
+      "start": "2018",
+      "end": "2022",
+      "notes": [
+        "Registered Nurse, Philippine Nurse Licensure Examination, 2022"
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Registered Nurse",
+      "issuer": "Professional Regulation Commission",
+      "date": "2022-12"
+    }
+  ]
+}

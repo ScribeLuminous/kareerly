@@ -1,0 +1,70 @@
+{
+  "candidate_id": "CAT15-R06",
+  "full_name": "Rowena Bernardo",
+  "location": "Cauayan City, Isabela",
+  "email": "rowena.bernardo@example.com",
+  "phone": "+63 929 260 9016",
+  "headline": "Caregiver",
+  "summary": "Former hotel housekeeping attendant now working as a caregiver for older adults in Isabela. Four years in housekeeping taught me to keep rooms spotless and to treat every guest with warmth; I trained in caregiving and have looked after elderly clients for the past year. I am trained in Basic Life Support.",
+  "certifications": [
+    {
+      "name": "Caregiving NC II",
+      "issuer": "TESDA",
+      "date": "2025-05"
+    },
+    {
+      "name": "Basic Life Support and First Aid",
+      "issuer": "accredited training provider",
+      "date": "2025-06"
+    },
+    {
+      "name": "Housekeeping NC II",
+      "issuer": "TESDA",
+      "date": "2020-09"
+    }
+  ],
+  "skills": [
+    "Caregiving",
+    "Elderly care and companionship",
+    "Basic Life Support and first aid",
+    "Promoting healthy routines: meals, walking, rest",
+    "Housekeeping and room care",
+    "Laundry and linen care",
+    "Warm, respectful guest and client relations",
+    "Clear spoken English"
+  ],
+  "experience": [
+    {
+      "title": "Caregiver",
+      "employer": "Cauayan Elder Companion Services",
+      "location": "Cauayan City, Isabela",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Care for an elderly couple at home: bathing, dressing, meals, walks and companionship.",
+        "Keep their home and laundry clean and help them keep a daily routine."
+      ]
+    },
+    {
+      "title": "Housekeeping Attendant",
+      "employer": "Isabela Grand Plaza Hotel",
+      "location": "Cauayan City, Isabela",
+      "start": "2021-05",
+      "end": "2025-06",
+      "bullets": [
+        "Cleaned and prepared 14 to 16 rooms a shift to the hotel's inspection standard.",
+        "Handled linen and laundry for guest rooms and the function hall.",
+        "Answered guest requests politely and passed complaints to the supervisor."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, TVL Track – Home Economics strand",
+      "school": "Cauayan Riverside Integrated School",
+      "location": "Cauayan City, Isabela",
+      "start": "2018",
+      "end": "2020"
+    }
+  ]
+}

@@ -20,6 +20,10 @@ on:
         description: Fetch and report only (write nothing)
         type: boolean
         default: true
+      export_csv:
+        description: Attach a CSV of every listing Jooble returned, and what happened to it
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,4 +53,13 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           BUDGET: ${{ inputs.request_budget }}
           DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
-        run: python -m backend.scripts.import_jooble_jobs --request-budget "$BUDGET" $DRY_RUN
+          CSV: ${{ inputs.export_csv && '--csv jooble_listings.csv' || '' }}
+        run: python -m backend.scripts.import_jooble_jobs --request-budget "$BUDGET" $DRY_RUN $CSV
+      - name: Upload listings CSV
+        if: ${{ inputs.export_csv }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: jooble-listings
+          path: jooble_listings.csv
+          if-no-files-found: warn
+          retention-days: 14

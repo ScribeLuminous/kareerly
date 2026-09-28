@@ -1,0 +1,78 @@
+{
+  "candidate_id": "CAT11-R01",
+  "full_name": "Alvin Valdez",
+  "location": "Bayugan City, Agusan del Sur",
+  "email": "alvin.valdez@example.net",
+  "phone": "+63 981 252 6597",
+  "headline": "Junior Graphic Designer",
+  "education": [
+    {
+      "credential": "Bachelor of Multimedia Arts",
+      "school": "Agusan Southern College of Arts and Technology",
+      "location": "Bayugan City, Agusan del Sur",
+      "start": "2021",
+      "end": "2025",
+      "notes": [
+        "Thesis exhibit: a visual identity for the Bayugan farmers' market",
+        "Best in Print Design award, 2025"
+      ]
+    }
+  ],
+  "summary": "Junior graphic designer with a year at a print and branding studio. I design logos, packaging, layouts and social media graphics in Photoshop, Illustrator and InDesign, and I enjoy working out the idea behind a design before opening the software. I want to grow into brand identity work.",
+  "projects": [
+    {
+      "name": "Bayugan farmers' market identity",
+      "context": "thesis",
+      "bullets": [
+        "Designed a logo, colour palette, stall signage and paper bags for a weekend market.",
+        "The market adopted the stall signs and bags after the exhibit."
+      ]
+    },
+    {
+      "name": "Cacao chocolate packaging",
+      "context": "client project",
+      "description": "Packaging for a small tablea and chocolate brand: box, wrapper and labels, printed in a first run of 5,000."
+    },
+    {
+      "name": "Parish fiesta souvenir program",
+      "context": "volunteer",
+      "description": "A 24-page souvenir program laid out in InDesign, with photos and sponsor ads."
+    }
+  ],
+  "skills": [
+    "Graphic design",
+    "Logo, packaging and print layouts",
+    "Adobe Photoshop",
+    "Adobe Illustrator",
+    "Adobe InDesign",
+    "Canva for quick social posts",
+    "Concept development and mood boards",
+    "Presenting designs to clients"
+  ],
+  "experience": [
+    {
+      "title": "Junior Graphic Designer",
+      "employer": "Agusan Print and Brand Studio",
+      "location": "Butuan City, Agusan del Norte",
+      "start": "2025-07",
+      "end": "Present",
+      "bullets": [
+        "Design logos, labels, tarpaulins and menus for about 20 small businesses a month.",
+        "Prepare print-ready files and check colours and bleed with the press operator.",
+        "Sketch two or three concepts for each brief before moving to the computer.",
+        "Present designs to clients and explain the reasoning behind each option."
+      ]
+    },
+    {
+      "title": "Design Intern",
+      "employer": "Bayugan Community Media Center",
+      "location": "Bayugan City, Agusan del Sur",
+      "start": "2025-01",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Designed posters and social media cards for city health and tourism campaigns."
+      ]
+    }
+  ]
+}

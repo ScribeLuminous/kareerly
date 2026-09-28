@@ -1,0 +1,54 @@
+{
+  "candidate_id": "CAT05-R02",
+  "full_name": "Leonardo Galang",
+  "location": "Isulan, Sultan Kudarat",
+  "email": "leonardo.galang@example.com",
+  "phone": "+63 919 937 3718",
+  "headline": "Data Encoder",
+  "skills": [
+    "Data encoding (about 60 words per minute)",
+    "Microsoft Excel",
+    "Checking entries against source documents",
+    "Photocopier, scanner and printer operation",
+    "Office software basics",
+    "English and Filipino"
+  ],
+  "summary": "Senior high school graduate from the ABM strand looking for a data encoder post. During work immersion I encoded and double-checked supplier records at a rice mill and kept the office scanner and printer working. I type fast and accurately and do not mind repetitive work.",
+  "experience": [
+    {
+      "title": "Work Immersion Student",
+      "employer": "Isulan Golden Grains Rice Mill",
+      "location": "Isulan, Sultan Kudarat",
+      "start": "2025-02",
+      "end": "2025-04",
+      "type": "internship",
+      "bullets": [
+        "Encoded daily palay purchase slips into an Excel sheet and compared each total with the weighbridge record.",
+        "Scanned and printed supplier documents for the accounting staff."
+      ]
+    },
+    {
+      "title": "Encoder",
+      "employer": "Kudarat Printing and Internet Services",
+      "location": "Isulan, Sultan Kudarat",
+      "start": "2026-03",
+      "end": "Present",
+      "type": "part-time",
+      "bullets": [
+        "Type up handwritten documents, forms and school requirements for walk-in customers."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Senior High School, Accountancy, Business and Management (ABM) strand",
+      "school": "Isulan Heights National High School",
+      "location": "Isulan, Sultan Kudarat",
+      "start": "2023",
+      "end": "2025",
+      "notes": [
+        "With honors"
+      ]
+    }
+  ]
+}

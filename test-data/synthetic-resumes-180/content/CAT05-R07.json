@@ -1,0 +1,61 @@
+{
+  "candidate_id": "CAT05-R07",
+  "full_name": "Mark Anthony Lapitan",
+  "location": "Naval, Biliran",
+  "email": "mark.lapitan@example.net",
+  "phone": "+63 945 223 3389",
+  "headline": "Receptionist and Admin Clerk",
+  "summary": "Receptionist and admin clerk with three years at a busy medical and dental clinic. I welcome patients, answer phones, book appointments and calm unhappy callers, while handling the clerical side of the office. I enjoy people-facing work and keep the front desk running smoothly.",
+  "skills": [
+    "Reception and office administration",
+    "Appointment scheduling",
+    "Clerical duties",
+    "Microsoft Office",
+    "Customer service",
+    "Talking with patients and families",
+    "Complaint handling",
+    "Phone support",
+    "Spoken English, Filipino and Waray"
+  ],
+  "experience": [
+    {
+      "title": "Receptionist and Admin Clerk",
+      "employer": "Biliran Family Medical and Dental Clinic",
+      "location": "Naval, Biliran",
+      "start": "2023-07",
+      "end": "Present",
+      "bullets": [
+        "Greet about 80 patients a day, register them and direct them to the right doctor or dentist.",
+        "Answer the clinic phone line and book, confirm and move appointments for four practitioners.",
+        "Handle complaints about waiting times calmly and pass recurring issues to the clinic manager.",
+        "Prepare receipts, photocopies and simple letters for patients' insurance and school requirements."
+      ]
+    },
+    {
+      "title": "Sales and Customer Service Assistant",
+      "employer": "Naval Appliance Center",
+      "location": "Naval, Biliran",
+      "start": "2022-09",
+      "end": "2023-06",
+      "bullets": [
+        "Assisted walk-in customers and answered phone enquiries about prices and deliveries.",
+        "Logged customer complaints about deliveries and followed them up with the warehouse."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Science in Office Administration",
+      "school": "Biliran Island Polytechnic College",
+      "location": "Naval, Biliran",
+      "start": "2018",
+      "end": "2022"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Waray",
+    "Cebuano"
+  ]
+}

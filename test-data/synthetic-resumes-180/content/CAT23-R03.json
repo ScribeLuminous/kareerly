@@ -1,0 +1,77 @@
+{
+  "candidate_id": "CAT23-R03",
+  "full_name": "Theresa Esguerra",
+  "location": "Borongan City, Eastern Samar",
+  "email": "theresa.esguerra@example.net",
+  "phone": "+63 916 617 3360",
+  "headline": "Administrative Officer",
+  "skill_groups": [
+    {
+      "label": "Public administration",
+      "items": [
+        "government service support",
+        "government policy implementation",
+        "policy support and briefs",
+        "regulatory compliance with civil service and audit rules"
+      ]
+    },
+    {
+      "label": "Office",
+      "items": [
+        "public records management",
+        "document management",
+        "calendar management for executives",
+        "support to managers and executives"
+      ]
+    },
+    {
+      "label": "Communication",
+      "items": [
+        "business writing and correspondence"
+      ]
+    }
+  ],
+  "summary": "Administrative officer with five years in a regional development authority in Eastern Samar. I run the executive office's administration, implement new policies and programs, keep public records compliant with civil service and audit rules, and support the general manager in daily decisions.",
+  "experience": [
+    {
+      "title": "Administrative Officer IV",
+      "employer": "Eastern Samar Pacific Coast Development Authority",
+      "location": "Borongan City, Eastern Samar",
+      "start": "2023-01",
+      "end": "Present",
+      "bullets": [
+        "Run the office of the general manager: calendar, correspondence, board papers and follow-ups.",
+        "Roll out new policies and office procedures to 60 employees and track compliance.",
+        "Keep records and archives in line with records-retention and audit requirements.",
+        "Prepare briefing notes and policy options for management and the board."
+      ]
+    },
+    {
+      "title": "Administrative Officer II",
+      "employer": "Eastern Samar Pacific Coast Development Authority",
+      "location": "Borongan City, Eastern Samar",
+      "start": "2021-06",
+      "end": "2022-12",
+      "bullets": [
+        "Processed travel, leave and procurement documents for the operations division.",
+        "Maintained the incoming and outgoing communications log."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Bachelor of Public Administration",
+      "school": "Borongan Pacific College",
+      "location": "Borongan City, Eastern Samar",
+      "start": "2017",
+      "end": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Civil Service Professional Eligibility",
+      "issuer": "Civil Service Commission",
+      "date": "2021-08"
+    }
+  ]
+}

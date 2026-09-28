@@ -1,0 +1,92 @@
+{
+  "candidate_id": "CAT08-R05",
+  "full_name": "Cristina Uy",
+  "location": "Catbalogan City, Samar",
+  "email": "cristina.uy@example.org",
+  "phone": "+63 918 818 6750",
+  "headline": "Brand and Marketing Manager",
+  "summary": "Brand and marketing manager with twelve years in consumer goods and telecom distribution across the Visayas. I set brand strategy and annual marketing budgets, lead research into what customers want, and manage agencies, media plans and public relations. My teams have launched products that became category leaders in Eastern Visayas.",
+  "experience": [
+    {
+      "title": "Brand and Marketing Manager",
+      "employer": "Samar Coconut Food Products Corp.",
+      "location": "Catbalogan City, Samar",
+      "start": "2020-02",
+      "end": "Present",
+      "paragraph": "Lead a team of six responsible for three food brands sold in 4,000 stores across Eastern Visayas and Mindanao.",
+      "bullets": [
+        "Built and defend the annual marketing budget of ₱45 million, with objectives set for each brand and quarter.",
+        "Commissioned consumer research that led to a smaller pack size, now 30% of volume.",
+        "Plan media across radio, outdoor, social and in-store, and negotiate rates with agencies and stations.",
+        "Handle press relations and statements, including during a 2023 product recall that the brand came through with its market share intact."
+      ]
+    },
+    {
+      "title": "Senior Brand Officer",
+      "employer": "Leyte Telecom Distributors Inc.",
+      "location": "Tacloban City, Leyte",
+      "start": "2014-06",
+      "end": "2020-01",
+      "paragraph": "Managed prepaid load and SIM brands for a distributor serving 12,000 retailers.",
+      "bullets": [
+        "Planned trade and consumer campaigns and measured their effect on sales by province.",
+        "Wrote the quarterly market research report on competitors and retailer sentiment."
+      ]
+    }
+  ],
+  "skill_groups": [
+    {
+      "label": "Brand and strategy",
+      "items": [
+        "brand marketing",
+        "marketing management",
+        "marketing mix planning",
+        "annual marketing budgets",
+        "measurable marketing objectives"
+      ]
+    },
+    {
+      "label": "Campaigns and media",
+      "items": [
+        "campaign planning",
+        "media planning and buying",
+        "public relations and crisis communication"
+      ]
+    },
+    {
+      "label": "Insight",
+      "items": [
+        "market research and research reports",
+        "marketing analytics"
+      ]
+    },
+    {
+      "label": "Leadership",
+      "items": [
+        "team management",
+        "agency negotiation"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "credential": "Master in Business Administration",
+      "school": "Eastern Visayas Graduate School of Business",
+      "location": "Tacloban City, Leyte",
+      "start": "2016",
+      "end": "2019"
+    },
+    {
+      "credential": "Bachelor of Science in Business Administration, major in Marketing",
+      "school": "Samar Island College",
+      "location": "Catbalogan City, Samar",
+      "start": "2010",
+      "end": "2014"
+    }
+  ],
+  "languages": [
+    "English",
+    "Filipino",
+    "Waray"
+  ]
+}
