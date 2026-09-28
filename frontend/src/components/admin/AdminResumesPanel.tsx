@@ -1,13 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { deleteAdminResume, fetchAdminResume, fetchAdminResumes } from '../../lib/api';
 import type { AdminResumeDetail, AdminResumeRow } from '../../lib/api';
-import { buttonClass, dangerButtonClass, dateText, fileSize } from './adminShared';
-import { PanelMessage, Pager, SearchBox } from './adminUi';
+import { bulkDangerButtonClass, buttonClass, dangerButtonClass, dateText, fileSize, reportBulk, runBulk, selectCellClass } from './adminShared';
+import { AdminSearch, AdminToolbar, BulkBar, FilterSelect, PanelMessage, Pager, SelectBox } from './adminUi';
+import { useDebouncedValue, useRowSelection } from './adminHooks';
 import type { AdminPanelProps } from './adminShared';
+
+type FileFilter = 'all' | 'file' | 'text';
+const fileOptions: Array<{ value: FileFilter; label: string }> = [
+  { value: 'all', label: 'All resumes' },
+  { value: 'file', label: 'Original file stored' },
+  { value: 'text', label: 'Parsed text only' },
+];
 
 export default function AdminResumesPanel({ getToken, notify, initialSearch = '' }: AdminPanelProps & { initialSearch?: string }) {
   const [query, setQuery] = useState(initialSearch);
-  const [search, setSearch] = useState(initialSearch);
+  const search = useDebouncedValue(query.trim());
+  const [fileFilter, setFileFilter] = useState<FileFilter>('all');
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<{ resumes: AdminResumeRow[]; has_more: boolean; limit: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,6 +40,19 @@ export default function AdminResumesPanel({ getToken, notify, initialSearch = ''
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  // A new search term starts again from the first page.
+  const [lastSearch, setLastSearch] = useState(search);
+  if (lastSearch !== search) {
+    setLastSearch(search);
+    setOffset(0);
+  }
+
+  const resumes = useMemo(() => (data?.resumes || []).filter((resume) => (
+    fileFilter === 'all' || (fileFilter === 'file' ? resume.has_file : !resume.has_file)
+  )), [data, fileFilter]);
+  const resumeIds = useMemo(() => resumes.map((resume) => resume.id), [resumes]);
+  const selection = useRowSelection(resumeIds);
 
   const view = async (resume: AdminResumeRow) => {
     setBusyId(resume.id);
@@ -58,18 +81,40 @@ export default function AdminResumesPanel({ getToken, notify, initialSearch = ''
     }
   };
 
-  const resumes = data?.resumes || [];
+  const bulkDelete = async () => {
+    const count = selection.selected.length;
+    if (!window.confirm(`Permanently delete ${count} selected ${count === 1 ? 'resume' : 'resumes'}? The files and their parsed text will be removed.`)) return;
+    setBulkBusy(true);
+    try {
+      const token = await getToken();
+      reportBulk(notify, await runBulk(selection.selected, (id) => deleteAdminResume(token, id)), 'Deleted');
+      if (viewing && selection.selected.includes(viewing.id)) setViewing(null);
+      selection.clear();
+      await load();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Unable to delete the selected resumes.', 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bdr px-4 py-3">
-        <p className="text-sm text-soft-text">Uploaded candidate resumes, newest first.</p>
-        <SearchBox value={query} onChange={setQuery} onSubmit={() => { setSearch(query.trim()); setOffset(0); }} placeholder="Search candidate name or email" />
-      </div>
-      {loading && !data ? <PanelMessage>Loading resumes...</PanelMessage> : resumes.length === 0 ? <PanelMessage>No resumes found.</PanelMessage> : (
+      <AdminToolbar aside={<AdminSearch value={query} onChange={setQuery} placeholder="Search candidate name or email" />}>
+        <FilterSelect label="Show" value={fileFilter} options={fileOptions} onChange={setFileFilter} />
+        <p className="text-xs text-soft-text">Newest first.</p>
+      </AdminToolbar>
+      <BulkBar count={selection.selected.length} onClear={selection.clear} busy={bulkBusy}>
+        <button className={bulkDangerButtonClass} type="button" disabled={bulkBusy} onClick={() => void bulkDelete()}>Delete</button>
+      </BulkBar>
+      {loading && !data ? <PanelMessage>Loading resumes...</PanelMessage> : resumes.length === 0 ? <PanelMessage>No {search || fileFilter !== 'all' ? 'matching ' : ''}resumes found.</PanelMessage> : (
         <div className="overflow-x-auto border-t border-bdr">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-bg text-xs uppercase text-soft-text">
               <tr>
+                <th className={selectCellClass}>
+                  <SelectBox label="Select all resumes on this page" checked={selection.allSelected} indeterminate={selection.someSelected} onChange={selection.toggleAll} />
+                </th>
                 <th className="px-4 py-3 font-extrabold">Candidate</th>
                 <th className="px-4 py-3 font-extrabold">File</th>
                 <th className="px-4 py-3 font-extrabold">Size</th>
@@ -79,7 +124,10 @@ export default function AdminResumesPanel({ getToken, notify, initialSearch = ''
             </thead>
             <tbody className="divide-y divide-bdr">
               {resumes.map((resume) => (
-                <tr key={resume.id} className="bg-card align-top">
+                <tr key={resume.id} className={`align-top ${selection.isSelected(resume.id) ? 'bg-rust-l/50' : 'bg-card'}`}>
+                  <td className={selectCellClass}>
+                    <SelectBox label={`Select ${resume.original_filename || 'resume'}`} checked={selection.isSelected(resume.id)} onChange={() => selection.toggle(resume.id)} />
+                  </td>
                   <td className="px-4 py-3">
                     <div className="font-bold text-dark">{resume.owner?.name || 'Unknown user'}</div>
                     <div className="text-xs text-soft-text">{resume.owner?.email}</div>
