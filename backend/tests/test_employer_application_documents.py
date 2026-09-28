@@ -88,6 +88,8 @@ class JobDetailHeaderFieldsTests(unittest.TestCase):
             if path.startswith("/rest/v1/employer_job_posts?"):
                 return [row]
             if path == "/rest/v1/rpc/get_job_applicant_counts":
+                # The count function is not executable with the anon key.
+                self.assertTrue(service_role)
                 return [{"job_id": "EMP-1", "applicant_count": 12}]
             return None
 
