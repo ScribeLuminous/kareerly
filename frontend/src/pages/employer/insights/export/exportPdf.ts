@@ -1,7 +1,7 @@
 import type { jsPDF as JsPdfDocument } from 'jspdf';
 import { pdfSafeText } from '../../../../lib/reportPdf';
 import { INSIGHTS_DISCLAIMER, type JobInsight, type Kpis, type SkillGap } from '../insightsModel';
-import { GOOD_MATCH_PERCENT, MATCH_LEVELS } from '../matchTiers';
+import { STRONG_MATCH_PERCENT } from '../matchTiers';
 import { insightsFileName } from './exportCsv';
 
 /** Everything the PDF prints. Aggregate figures only, so no applicant can appear in it. */
@@ -24,13 +24,10 @@ const SOFT = [95, 86, 79] as const;
 const RULE = [200, 192, 184] as const;
 
 const COLUMNS = [
-  { key: 'job', label: 'Job', x: 0, width: 62, align: 'left' },
-  { key: 'status', label: 'Status', x: 62, width: 20, align: 'left' },
-  { key: 'applicants', label: 'Applicants', x: 82, width: 22, align: 'right' },
-  { key: 'avg', label: 'Avg match', x: 104, width: 24, align: 'right' },
-  { key: 'level', label: 'Level', x: 128, width: 22, align: 'left' },
-  { key: 'strong', label: 'Strong', x: 150, width: 14, align: 'right' },
-  { key: 'advanced', label: 'Int./hired', x: 164, width: 16, align: 'right' },
+  { key: 'job', label: 'Job', x: 0, width: 96, align: 'left' },
+  { key: 'status', label: 'Status', x: 96, width: 22, align: 'left' },
+  { key: 'applicants', label: 'Applicants', x: 118, width: 24, align: 'right' },
+  { key: 'strong', label: 'Strong matches', x: 142, width: 38, align: 'right' },
 ] as const;
 
 export function buildInsightsPdf(JsPdf: JsPdfConstructor, content: InsightsReportContent): JsPdfDocument {
@@ -81,30 +78,17 @@ export function buildInsightsPdf(JsPdf: JsPdfConstructor, content: InsightsRepor
   write('Kareerly Insights Report', { size: 18, bold: true, gap: 1 });
   if (content.employerName) write(content.employerName, { size: 11, gap: 1 });
   write(`Generated ${content.generatedAt.toLocaleString()}  |  ${content.filterLabel}`, { size: 9, tone: SOFT, gap: 1 });
-  write(`Match level: ${MATCH_LEVELS.filter((item) => item.level !== 'none').map((item) => `${item.label} ${item.range}`).join(', ')}. Strong means ${GOOD_MATCH_PERCENT}% or more of a job's required skills.`, { size: 9, tone: SOFT });
 
   heading('Summary');
   const { kpis } = content;
-  const summary: Array<[string, string]> = [
-    ['Total applicants', `${kpis.applicants} across ${kpis.jobs} job${kpis.jobs === 1 ? '' : 's'}`],
-    ['Average match', kpis.avgMatch === null ? 'No skill evidence yet' : `${kpis.avgMatch}%`],
-    ['Strong matches', String(kpis.strong)],
-    ['Interviewing or hired', String(kpis.advanced)],
-  ];
-  summary.forEach(([label, value]) => {
-    ensureSpace(6);
-    y += lineHeight(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    color(SOFT);
-    doc.text(label, PAGE.margin, y);
-    doc.setFont('helvetica', 'bold');
-    color(INK);
-    doc.text(pdfSafeText(value), PAGE.margin + 52, y);
-    y += 2;
-  });
+  const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+  write(`${kpis.strong} of ${plural(kpis.applicants, 'applicant')} match ${STRONG_MATCH_PERCENT}% or more of the skills asked for.`, { size: 12, bold: true, gap: 1 });
+  write(
+    [`${plural(kpis.applicants, 'applicant')} across ${plural(kpis.jobs, 'job')}`, `${kpis.advanced} interviewing or hired`, kpis.applicants > kpis.scored ? `${kpis.applicants - kpis.scored} without skill data yet` : ''].filter(Boolean).join('  |  '),
+    { size: 9, tone: SOFT },
+  );
 
-  heading('Match by job');
+  heading('Jobs');
   if (content.jobs.length === 0) write('No applicants in this report.', { tone: SOFT });
   else {
     const header = () => {
@@ -130,19 +114,16 @@ export function buildInsightsPdf(JsPdf: JsPdfConstructor, content: InsightsRepor
       titleLines.forEach((line, index) => doc.text(line, PAGE.margin, baseline + index * lineHeight(9)));
       cell(job.isOpen ? 'Open' : 'Closed', COLUMNS[1], baseline);
       cell(String(job.applicants), COLUMNS[2], baseline);
-      cell(job.avgMatch === null ? '-' : `${job.avgMatch}%`, COLUMNS[3], baseline);
-      cell(MATCH_LEVELS.find((item) => item.level === job.level)?.label || '', COLUMNS[4], baseline);
-      cell(String(job.strong), COLUMNS[5], baseline);
-      cell(String(job.advanced), COLUMNS[6], baseline);
+      cell(job.scored === 0 ? 'No skill data' : `${job.strong} of ${job.applicants}`, COLUMNS[3], baseline);
       y += rowHeight;
     });
   }
 
-  heading('Skills applicants most often lack');
+  heading('Skills most often missing');
   if (content.gaps.length === 0) write('No missing required skills recorded.', { tone: SOFT });
   content.gaps.forEach((gap) => {
     ensureSpace(10);
-    write(`${gap.skill}: ${gap.missing} of ${gap.assessed} applicant${gap.assessed === 1 ? '' : 's'} (${gap.share}%)${gap.smallSample ? ` - small sample (${gap.assessed} applicant${gap.assessed === 1 ? '' : 's'})` : ''}`, { size: 10, gap: 1 });
+    write(`${gap.skill}: ${gap.missing} of ${gap.assessed} applicant${gap.assessed === 1 ? '' : 's'}`, { size: 10, gap: 1 });
   });
   write('A common gap may mean the skill is scarce, or that it could be trained on the job.', { size: 9, tone: SOFT });
 
