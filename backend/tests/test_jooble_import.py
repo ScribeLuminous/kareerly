@@ -107,6 +107,47 @@ class ListingTests(unittest.TestCase):
         self.assertIsNone(row["category_code"])
 
 
+class ResolveTests(unittest.TestCase):
+    class Resp:
+        def __init__(self, url, body=""):
+            self._url, self._body = url, body.encode()
+
+        def geturl(self):
+            return self._url
+
+        def read(self, n=-1):
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def test_redirect_that_leaves_jooble_is_the_answer(self):
+        opener = lambda req, timeout: self.Resp("https://bossjob.ph/job/1")
+        self.assertEqual(jooble.resolve_original_url("https://ph.jooble.org/away/x", "bossjob.ph", opener=opener),
+                         "https://bossjob.ph/job/1")
+
+    def test_interstitial_button_is_found(self):
+        page = '<a href="/signup">Sign up</a><a href="https://ph.jooble.org/x">a</a><a href="https://www.bossjob.ph/job/9?a=1&amp;b=2">Go to bossjob.ph</a>'
+        opener = lambda req, timeout: self.Resp("https://ph.jooble.org/desc/9", page)
+        self.assertEqual(jooble.resolve_original_url("https://ph.jooble.org/desc/9", "BossJob.ph", opener=opener),
+                         "https://www.bossjob.ph/job/9?a=1&b=2")
+
+    def test_never_returns_a_jooble_link(self):
+        opener = lambda req, timeout: self.Resp("https://ph.jooble.org/desc/9", '<a href="/signup">x</a>')
+        self.assertEqual(jooble.resolve_original_url("https://ph.jooble.org/desc/9", "bossjob.ph", opener=opener), "")
+
+    def test_collect_uses_resolved_link_and_skips_unresolved(self):
+        client = FakeClient({("data analyst", 1): [listing("101"), listing("202", title="Data Analyst", company="Other Co")]})
+        resolve = lambda link, origin: "https://jobstreet.com.ph/j/1" if link.endswith("/101") else ""
+        result = jooble.collect(client, [{"keywords": "data analyst", "category_code": "K02"}], "Philippines",
+                                pages=1, per_page=50, max_age_days=30, now=NOW, resolve=resolve)
+        self.assertEqual([r["source_url"] for r in result["rows"]], ["https://jobstreet.com.ph/j/1"])
+        self.assertEqual(result["skipped"], {"original site link not found": 1})
+
+
 class CollectTests(unittest.TestCase):
     def test_dedup_age_limit_and_budget(self):
         old = listing("300", title="Data Analyst II", updated="2026-06-01T00:00:00.0000000")
