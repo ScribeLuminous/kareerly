@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCompass, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, EmptyState, FilterChoice, FilterPanel, SearchField, SkeletonRows } from '../../components/ui';
@@ -20,13 +19,10 @@ type KareersPageProps = {
   onSave: (jobId: string) => void;
   onApply: (job: DashboardJob) => void;
   onOpenJob: (job: DashboardJob) => void;
-  isDesktop: boolean;
-  selectedJobId: string | null;
-  renderDetail: (job: DashboardJob) => ReactNode;
   onAnalyzeJob: () => void;
 };
 
-export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, getApplicationStatus, onSave, onApply, onOpenJob, isDesktop, selectedJobId, renderDetail, onAnalyzeJob }: KareersPageProps) {
+export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, getApplicationStatus, onSave, onApply, onOpenJob, onAnalyzeJob }: KareersPageProps) {
   const [searchValue, setSearchValue] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
@@ -85,11 +81,6 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
   const visibleCount = paging.key === listKey ? paging.count : PAGE_SIZE;
 
   const visible = filteredKareers.slice(0, visibleCount);
-  const selected = visible.find((job) => job.id === selectedJobId) || null;
-  const selectedIsVisible = Boolean(selected);
-  useEffect(() => {
-    if (isDesktop && !selectedIsVisible && visible.length > 0) onOpenJob(visible[0]);
-  }, [isDesktop, selectedIsVisible, visible, onOpenJob]);
 
   return (
     <div className="k-page">
@@ -172,7 +163,7 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
           />
         )
       ) : (
-        <div className={isDesktop ? 'k-split' : undefined}>
+        <div>
           <div>
             <p className="k-meta mb-2" aria-live="polite">{filteredKareers.length} job{filteredKareers.length === 1 ? '' : 's'}</p>
             <h2 className="sr-only">Jobs</h2>
@@ -183,7 +174,6 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
                   job={job}
                   applicationStatus={getApplicationStatus(job)}
                   isSaved={savedJobs.has(job.id)}
-                  selected={isDesktop && selected?.id === job.id}
                   onOpen={() => onOpenJob(job)}
                   onApply={() => onApply(job)}
                   onSave={() => onSave(job.id)}
@@ -196,7 +186,6 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
               </button>
             )}
           </div>
-          {isDesktop && selected && renderDetail(selected)}
         </div>
       )}
     </div>

@@ -14,7 +14,7 @@ FIT_NOW = "Fit-Now"
 ASPIRATION = "Aspiration"
 JOB_SOURCES = {"internal", "employer"}
 VOTES = {"good": 1, "bad": -1}
-HISTORY_ROWS_SEARCHED = 5
+HISTORY_ROWS_SEARCHED = 30
 # PostgREST JSON-path select: only the match lists and metadata, never the resume.
 HISTORY_SELECT = (
     "id,created_at,"
@@ -92,3 +92,12 @@ def find_match_context(history_rows: Iterable[Dict[str, Any]], job_id: str, job_
                 if str(item.get("job_id") or "").strip() == job_id and _item_source(item) == job_source:
                     return context_from_item(item, category, position, history)
     return None
+
+
+def fallback_match_context(category: Optional[str], score: Any) -> Optional[Dict[str, Any]]:
+    """Minimal context for a job that is not in the recent saved runs (older run, application, Kareers)."""
+    label = {"fit-now": FIT_NOW, "fit_now": FIT_NOW, "aspiration": ASPIRATION}.get(str(category or "").strip().lower().replace(" ", "-"))
+    if label is None:
+        return None
+    value = _unit(score)
+    return {"match_category": label, "match_score": value}
