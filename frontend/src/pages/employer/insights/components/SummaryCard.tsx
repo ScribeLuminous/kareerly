@@ -1,37 +1,30 @@
 import { STRONG_MATCH_PERCENT } from '../matchTiers';
 import type { Kpis } from '../insightsModel';
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-
-/** The one thing to take in first: how many applicants match well, with the rest as fine print. */
-export function SummaryCard({ kpis }: { kpis: Kpis }) {
-  const share = kpis.applicants > 0 ? Math.round((100 * kpis.strong) / kpis.applicants) : 0;
-  const withoutData = kpis.applicants - kpis.scored;
-  const details = [
-    `${plural(kpis.applicants, 'applicant')} across ${plural(kpis.jobs, 'job')}`,
-    `${kpis.advanced} interviewing or hired`,
-    withoutData > 0 ? `${withoutData} without skill data yet` : '',
-  ].filter(Boolean);
+function Stat({ label, value, note }: { label: string; value: number; note: string }) {
   return (
-    <section className="k-card p-5" aria-labelledby="insights-summary">
+    <div className="px-4 py-4 sm:px-6">
+      <dt className="k-meta">{label}</dt>
+      <dd className="k-num mt-1 text-[32px] font-bold leading-9 text-dark sm:text-[36px] sm:leading-10">{value}</dd>
+      <dd className="k-meta mt-0.5">{note}</dd>
+    </div>
+  );
+}
+
+/** Three numbers and nothing else. */
+export function SummaryCard({ kpis }: { kpis: Kpis }) {
+  const withoutData = kpis.applicants - kpis.scored;
+  return (
+    <section aria-labelledby="insights-summary">
       <h2 id="insights-summary" className="sr-only">Summary</h2>
-      <p className="k-num text-[40px] font-bold leading-[44px] text-dark">
-        {kpis.strong}<span className="ml-2 text-[20px] font-semibold text-mid">of {kpis.applicants}</span>
-      </p>
-      <p className="k-secondary mt-1">
-        applicants match {STRONG_MATCH_PERCENT}% or more of the skills you asked for
-      </p>
-      <span
-        className="k-meter mt-3"
-        role="meter"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={share}
-        aria-label={`${kpis.strong} of ${plural(kpis.applicants, 'applicant')} are a strong match`}
-      >
-        <span style={{ width: `${share}%` }} />
-      </span>
-      <p className="k-meta mt-3">{details.join(' · ')}</p>
+      <dl className="k-card grid grid-cols-3 divide-x divide-bdr p-0">
+        <Stat label="Applicants" value={kpis.applicants} note={`${kpis.jobs} job${kpis.jobs === 1 ? '' : 's'}`} />
+        <Stat label="Strong matches" value={kpis.strong} note={`${STRONG_MATCH_PERCENT}%+ of skills`} />
+        <Stat label="Interviewing or hired" value={kpis.advanced} note="in progress" />
+      </dl>
+      {withoutData > 0 && (
+        <p className="k-meta mt-2">{withoutData} applicant{withoutData === 1 ? ' has' : 's have'} no skill data yet, so can't be scored.</p>
+      )}
     </section>
   );
 }
