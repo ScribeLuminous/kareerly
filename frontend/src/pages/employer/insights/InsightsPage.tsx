@@ -79,15 +79,6 @@ export function InsightsPage({ applications, jobs, employerName, isLoading, load
     }
   };
 
-  const downloadJob = (job: JobInsight) => {
-    try {
-      downloadInsightsCsv([job], new Date(), job.title);
-      onToast('Report downloaded', 'success');
-    } catch {
-      onToast("Couldn't prepare the report.", 'warn', { label: 'Retry', onClick: () => downloadJob(job) });
-    }
-  };
-
   return (
     <div className="k-page pb-10">
       <PageHeader
@@ -146,13 +137,13 @@ export function InsightsPage({ applications, jobs, employerName, isLoading, load
 
               <section aria-labelledby="insights-jobs">
                 <SectionHead id="insights-jobs" title="Jobs" count={visible.length} />
-                <JobMatchList jobs={visible} onViewApplicants={onViewApplicants} onDownloadJob={downloadJob} />
+                <JobMatchList jobs={visible} onViewApplicants={onViewApplicants} />
               </section>
 
               {gaps.length > 0 && (
                 <section aria-labelledby="insights-gaps">
                   <SectionHead id="insights-gaps" title="Skills most often missing" />
-                  <p className="k-meta -mt-1 mb-3">Required skills that applicants don't show yet. A common gap may mean the skill is scarce, or could be trained on the job.</p>
+                  <p className="k-meta -mt-1 mb-3">Applicants missing each required skill, out of those who could be scored.</p>
                   <SkillGapList gaps={gaps} />
                 </section>
               )}
