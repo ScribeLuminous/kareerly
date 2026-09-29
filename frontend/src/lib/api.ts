@@ -87,10 +87,10 @@ export async function loadMatchFeedback(): Promise<MatchFeedbackRow[]> {
   return Array.isArray(payload?.feedback) ? payload.feedback : [];
 }
 
-export async function saveMatchFeedback(input: { jobId: string; jobSource: MatchFeedbackSource; vote: MatchVote }): Promise<MatchFeedbackRow> {
+export async function saveMatchFeedback(input: { jobId: string; jobSource: MatchFeedbackSource; vote: MatchVote; matchCategory?: string; matchScore?: number }): Promise<MatchFeedbackRow> {
   const payload = await authenticatedMessageRequest(MATCH_FEEDBACK_PATH, {
     method: 'PUT',
-    body: JSON.stringify({ job_id: input.jobId, job_source: input.jobSource, vote: input.vote }),
+    body: JSON.stringify({ job_id: input.jobId, job_source: input.jobSource, vote: input.vote, match_category: input.matchCategory, match_score: input.matchScore }),
   }, 'Unable to save your rating.');
   return payload.feedback;
 }

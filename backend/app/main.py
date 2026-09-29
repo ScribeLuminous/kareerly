@@ -155,6 +155,9 @@ class MatchFeedbackRequest(BaseModel):
     job_id: str
     job_source: str = "internal"
     vote: str
+    # What the candidate was shown; only used when the job is no longer in a recent saved run.
+    match_category: Optional[str] = None
+    match_score: Optional[float] = None
 
 
 class LearningRunRequest(BaseModel):
@@ -2790,6 +2793,10 @@ def save_match_feedback(payload: MatchFeedbackRequest, authorization: Annotated[
     })
     history = _supabase_request(f"/rest/v1/match_history?{history_query}", token=token)
     context = find_match_context(history if isinstance(history, list) else [], job_id, job_source)
+    if context is None:
+        # The job may come from an older run, a saved job or an application. Rate it with what the
+        # candidate saw, so long as it is a real job and the category is one we recognise.
+        context = fallback_match_context(payload.match_category, payload.match_score)
     if context is None:
         raise HTTPException(
             status_code=409,
