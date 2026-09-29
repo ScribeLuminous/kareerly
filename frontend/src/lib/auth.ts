@@ -189,6 +189,35 @@ export async function signInWithEmail(email: string, password: string, expectedR
   return user;
 }
 
+export function isEmailRateLimitError(error: unknown): boolean {
+  const record = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+  const text = `${error instanceof Error ? error.message : ''} ${record.message ?? ''} ${record.code ?? ''}`.toLowerCase();
+  return record.code === 'over_email_send_rate_limit' || text.includes('email rate limit') || text.includes('rate limit exceeded') || Number(record.status) === 429;
+}
+
+export function isEmailNotConfirmedError(error: unknown): boolean {
+  const record = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+  return record.code === 'email_not_confirmed' || (error instanceof Error && /email not confirmed/i.test(error.message));
+}
+
+/** Sign-up / reset errors. Unlike sign-in, a 400 here is not "wrong password". */
+export function getFriendlySignUpErrorMessage(error: unknown, fallback: string): string {
+  if (isEmailRateLimitError(error)) return getFriendlyAuthErrorMessage(error);
+  const message = error instanceof Error ? error.message : '';
+  if (/already registered|already exists/i.test(message)) return message;
+  if (/network|failed to fetch|load failed/i.test(message)) return getFriendlyAuthErrorMessage(error);
+  return message || fallback;
+}
+
+export async function resendConfirmationEmail(email: string) {
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  if (error) throw error;
+}
+
 export function getFriendlyAuthErrorMessage(error: unknown): string {
   const record = error && typeof error === 'object' ? error as Record<string, unknown> : {};
   const message = [
@@ -212,6 +241,10 @@ export function getFriendlyAuthErrorMessage(error: unknown): string {
     lowerMessage === 'load failed'
   ) {
     return 'Unable to reach the sign-in service. Please check your connection and try again. If this continues, contact support.';
+  }
+
+  if (isEmailRateLimitError(error)) {
+    return 'We have sent too many emails recently. Please wait a few minutes (or up to an hour) and try again. If you already signed up, check your inbox and spam folder for the confirmation link.';
   }
 
   if (lowerMessage.includes('email not confirmed')) {
@@ -253,12 +286,17 @@ export async function signUpCandidate(input: {
         last_name: input.lastName,
         birthday: input.birthday,
       },
+      emailRedirectTo: window.location.origin,
     },
   });
 
   if (error) throw error;
   const userId = data.user?.id;
   if (!userId) throw new Error('Supabase did not return a user for this signup.');
+  // With email confirmation on, Supabase hides duplicates by returning a fake user with no identities.
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    throw new Error('This email is already registered. Log in instead, or reset your password if you forgot it.');
+  }
 
   const profile = await getProfileForUserId(userId).catch(() => null);
   return profile || {
@@ -290,12 +328,17 @@ export async function signUpEmployer(input: {
         company_size: input.companySize,
         industry: input.industry,
       },
+      emailRedirectTo: window.location.origin,
     },
   });
 
   if (error) throw error;
   const userId = data.user?.id;
   if (!userId) throw new Error('Supabase did not return a user for this signup.');
+  // With email confirmation on, Supabase hides duplicates by returning a fake user with no identities.
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    throw new Error('This email is already registered. Log in instead, or reset your password if you forgot it.');
+  }
 
   const profile = await getProfileForUserId(userId).catch(() => null);
   return profile || {

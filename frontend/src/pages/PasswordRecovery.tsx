@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { Banner } from '../components/ui';
-import { requestPasswordReset } from '../lib/auth';
+import { getFriendlySignUpErrorMessage, requestPasswordReset } from '../lib/auth';
 
 type PasswordRecoveryProps = {
   onBackToLogin: () => void;
@@ -37,7 +37,7 @@ export default function PasswordRecovery({ onBackToLogin, onHome }: PasswordReco
       await requestPasswordReset(normalizedEmail);
       setIsSent(true);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unable to send reset link.');
+      setError(getFriendlySignUpErrorMessage(error, 'Unable to send reset link.'));
     } finally {
       setIsSubmitting(false);
     }

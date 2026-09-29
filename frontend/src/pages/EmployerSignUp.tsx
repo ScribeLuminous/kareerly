@@ -1,7 +1,7 @@
 import AuthShell, { PasswordInput, PasswordRules } from '../components/AuthShell';
 import { useState } from 'react';
 import { Banner, FormField } from '../components/ui';
-import { signUpEmployer } from '../lib/auth';
+import { getFriendlySignUpErrorMessage, signUpEmployer } from '../lib/auth';
 import type { KareerlyUser } from '../lib/auth';
 import { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from '../lib/employerOptions';
 import { STRONG_PASSWORD_PATTERN } from '../lib/passwordRules';
@@ -35,7 +35,7 @@ export default function EmployerSignUp({ onAuthenticated, onSignIn, onHome }: Em
       const user = await signUpEmployer({ company, companySize, industry, firstName, lastName, email, password });
       onAuthenticated({ ...user, company: user.company || company });
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unable to create employer account.');
+      setError(getFriendlySignUpErrorMessage(error, 'Unable to create employer account.'));
     } finally {
       setIsSubmitting(false);
     }
