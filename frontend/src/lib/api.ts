@@ -633,7 +633,7 @@ export const fetchSkillCandidates = (token: string, status: 'pending' | 'approve
 export const reviewSkillCandidate = (token: string, id: string, input: SkillReviewInput) =>
   adminRequest<{ status: string; skill_id?: string; kind?: string }>(token, `/api/admin/skill-candidates/${encodeURIComponent(id)}/review`, 'POST', input);
 
-export const updateAdminUser = (token: string, input: { user_id: string; email?: string; password?: string }) => adminMutation(token, '/api/admin/users', 'PATCH', input);
+export const updateAdminUser = (token: string, input: { user_id: string; email?: string; password?: string; first_name?: string; last_name?: string; role?: 'candidate' | 'employer' | 'admin' }) => adminMutation(token, '/api/admin/users', 'PATCH', input);
 export const updateAdminJob = (token: string, input: { job_id: string; job_title?: string; company_name?: string; posting_status?: string; psoc_unit_code?: string }) => adminMutation(token, '/api/admin/jobs', 'PATCH', input);
 export const deleteAdminJob = (token: string, jobId: string) => adminMutation(token, `/api/admin/jobs/${encodeURIComponent(jobId)}`, 'DELETE');
 export const updateAdminApplication = (token: string, input: { application_id: string; status: string }) => adminMutation(token, '/api/admin/applications', 'PATCH', input);

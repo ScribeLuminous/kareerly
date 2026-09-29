@@ -185,6 +185,9 @@ class AdminUserUpdateRequest(BaseModel):
     user_id: str
     email: Optional[str] = None
     password: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    role: Optional[str] = None
 
 
 class AdminJobUpdateRequest(BaseModel):
@@ -1424,22 +1427,48 @@ def admin_reset_application(payload: AdminResetApplicationRequest, authorization
 
 @app.patch("/api/admin/users")
 def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
-    _require_admin_user(authorization)
-    body: dict[str, str] = {}
+    admin_id = _require_admin_user(authorization)
+    user_id = payload.user_id
+    quoted = urllib.parse.quote(user_id, safe="")
+    body: dict = {}
+    profile_body: dict[str, str] = {}
+    metadata_changes: dict[str, str] = {}
     if payload.email is not None:
         email = payload.email.strip().lower()
         if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
             raise HTTPException(status_code=400, detail="Enter a valid email address.")
         body["email"] = email
+        profile_body["email"] = email
     if payload.password is not None:
         if len(payload.password) < 8:
             raise HTTPException(status_code=400, detail="Password must contain at least 8 characters.")
         body["password"] = payload.password
-    if not body:
+    for field in ("first_name", "last_name"):
+        value = getattr(payload, field)
+        if value is not None:
+            value = value.strip()
+            if field == "first_name" and not value:
+                raise HTTPException(status_code=400, detail="First name is required.")
+            profile_body[field] = value
+            metadata_changes[field] = value
+    if payload.role is not None:
+        if payload.role not in {"candidate", "employer", "admin"}:
+            raise HTTPException(status_code=400, detail="Role must be candidate, employer or admin.")
+        if user_id == admin_id:
+            raise HTTPException(status_code=400, detail="You cannot change your own role.")
+        profile_body["role"] = payload.role
+        metadata_changes["role"] = payload.role
+    if not body and not profile_body:
         raise HTTPException(status_code=400, detail="No user changes were provided.")
-    updated = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(payload.user_id, safe='')}", method="PUT", service_role=True, body=body)
-    if "email" in body:
-        _supabase_request(f"/rest/v1/profiles?id=eq.{urllib.parse.quote(payload.user_id, safe='')}", method="PATCH", service_role=True, body={"email": body["email"]})
+    if not _rest_rows("profiles", {"id": f"eq.{user_id}", "select": "id", "limit": "1"}):
+        raise HTTPException(status_code=404, detail="User was not found.")
+    if metadata_changes:
+        auth_user = _supabase_request(f"/auth/v1/admin/users/{quoted}", service_role=True)
+        existing = auth_user.get("user_metadata") if isinstance(auth_user, dict) else None
+        body["user_metadata"] = {**(existing if isinstance(existing, dict) else {}), **metadata_changes}
+    updated = _supabase_request(f"/auth/v1/admin/users/{quoted}", method="PUT", service_role=True, body=body) if body else None
+    if profile_body:
+        _supabase_request(f"/rest/v1/profiles?id=eq.{quoted}", method="PATCH", service_role=True, body={**profile_body, "updated_at": _safe_timestamp()})
     return {"user": updated}
 
 
