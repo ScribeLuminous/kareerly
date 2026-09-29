@@ -1,7 +1,7 @@
 import AuthShell, { PasswordInput } from '../components/AuthShell';
 import { useState } from 'react';
 import { Banner } from '../components/ui';
-import { getFriendlyAuthErrorMessage, signInWithEmail } from '../lib/auth';
+import { getFriendlyAuthErrorMessage, isEmailNotConfirmedError, resendConfirmationEmail, signInWithEmail } from '../lib/auth';
 import type { KareerlyUser } from '../lib/auth';
 
 type SignInProps = {
@@ -43,6 +43,8 @@ const COPY = {
 export default function SignIn({ expectedRole = 'candidate', onAuthenticated, onCreateAccount, onSwitchRole, onResetPassword, onHome }: SignInProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
   const copy = COPY[expectedRole];
   const emailInputId = `${expectedRole}-login-email`;
   const passwordInputId = `${expectedRole}-login-password`;
@@ -54,6 +56,8 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
     const password = String(form.get('password') || '');
 
     setError(null);
+    setUnconfirmedEmail(null);
+    setResendStatus(null);
     setIsSubmitting(true);
 
     try {
@@ -61,6 +65,7 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
       onAuthenticated(user);
     } catch (error) {
       console.warn('Sign-in failed:', error);
+      if (isEmailNotConfirmedError(error)) setUnconfirmedEmail(email);
       const message = getFriendlyAuthErrorMessage(error);
       setError(message.startsWith('Invalid email or password') ? `That email and password don't match a${expectedRole === 'admin' ? 'n admin' : expectedRole === 'employer' ? 'n employer' : ' candidate'} account. Check them or reset your password.` : message);
     } finally {
@@ -85,6 +90,26 @@ export default function SignIn({ expectedRole = 'candidate', onAuthenticated, on
     >
       <form onSubmit={handleSubmit}>
         {error && <div role="alert"><Banner tone="error" className="mb-4">{error}</Banner></div>}
+        {unconfirmedEmail && (
+          <p className="k-secondary mb-4">
+            {resendStatus || (
+              <button
+                className="k-link"
+                type="button"
+                onClick={async () => {
+                  try {
+                    await resendConfirmationEmail(unconfirmedEmail);
+                    setResendStatus(`Confirmation email sent to ${unconfirmedEmail}. Check your inbox and spam folder.`);
+                  } catch (resendError) {
+                    setResendStatus(getFriendlyAuthErrorMessage(resendError));
+                  }
+                }}
+              >
+                Resend confirmation email
+              </button>
+            )}
+          </p>
+        )}
 
         <div className="k-field">
           <label className="k-label block" htmlFor={emailInputId}>Email</label>

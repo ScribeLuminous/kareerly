@@ -1,7 +1,7 @@
 import AuthShell, { PasswordInput, PasswordRules } from '../components/AuthShell';
 import { useState } from 'react';
 import { Banner, FormField } from '../components/ui';
-import { signUpCandidate } from '../lib/auth';
+import { getFriendlySignUpErrorMessage, signUpCandidate } from '../lib/auth';
 import type { KareerlyUser } from '../lib/auth';
 import { STRONG_PASSWORD_PATTERN } from '../lib/passwordRules';
 
@@ -32,7 +32,7 @@ export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProp
       const user = await signUpCandidate({ firstName, lastName, email, password, birthday });
       onAuthenticated(user);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unable to create account.');
+      setError(getFriendlySignUpErrorMessage(error, 'Unable to create account.'));
     } finally {
       setIsSubmitting(false);
     }
