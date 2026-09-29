@@ -5,12 +5,11 @@ import { EmptyState, InfoTip, PageHeader, SectionHead, Segmented, SkeletonRows, 
 import type { CandidateApplication, EmployerJob } from '../model';
 import { DownloadMenu, type ReportKind, type ReportScope } from './components/DownloadMenu';
 import { JobMatchList } from './components/JobMatchList';
-import { KpiStrip } from './components/KpiStrip';
 import { SkillGapList } from './components/SkillGapList';
-import { TierLegend } from './components/TierLegend';
+import { SummaryCard } from './components/SummaryCard';
 import { downloadInsightsCsv } from './export/exportCsv';
 import { buildJobInsights, buildKpis, INSIGHTS_DISCLAIMER, filterJobs, parseStatusFilter, sortJobs, topMissingSkills, type JobInsight, type StatusFilter } from './insightsModel';
-import { GOOD_MATCH_PERCENT, TOP_MATCH_PERCENT } from './matchTiers';
+import { STRONG_MATCH_PERCENT } from './matchTiers';
 
 type InsightsPageProps = {
   applications: CandidateApplication[];
@@ -98,7 +97,7 @@ export function InsightsPage({ applications, jobs, employerName, isLoading, load
         <p className="k-secondary mt-1 flex items-center gap-1">
           How well your applicants match the skills your jobs require.
           <InfoTip label="How insights are worked out" align="right">
-            Match is the share of a job's required skills found in an application: Top {TOP_MATCH_PERCENT}% or more, Good {GOOD_MATCH_PERCENT}–{TOP_MATCH_PERCENT - 1}%, Partial under {GOOD_MATCH_PERCENT}%. Applicants with no skill evidence have no match figure. Withdrawn applications are left out.
+            A strong match has {STRONG_MATCH_PERCENT}% or more of the skills a job requires. Applicants who haven't shared skill data can't be scored, and withdrawn applications are left out.
           </InfoTip>
         </p>
       </PageHeader>
@@ -143,21 +142,17 @@ export function InsightsPage({ applications, jobs, employerName, isLoading, load
             />
           ) : (
             <>
-              <KpiStrip kpis={kpis} />
+              <SummaryCard kpis={kpis} />
 
               <section aria-labelledby="insights-jobs">
-                <SectionHead id="insights-jobs" title="Match by job" count={visible.length} />
-                <div className="mb-3 space-y-2">
-                  <p className="k-meta">Open jobs first, then most strong matches. Select a job for details.</p>
-                  <TierLegend />
-                </div>
+                <SectionHead id="insights-jobs" title="Jobs" count={visible.length} />
                 <JobMatchList jobs={visible} onViewApplicants={onViewApplicants} onDownloadJob={downloadJob} />
               </section>
 
               {gaps.length > 0 && (
                 <section aria-labelledby="insights-gaps">
-                  <SectionHead id="insights-gaps" title="Skills applicants most often lack" />
-                  <p className="k-meta -mt-1 mb-3">A common gap may mean the skill is scarce, or that it could be trained on the job.</p>
+                  <SectionHead id="insights-gaps" title="Skills most often missing" />
+                  <p className="k-meta -mt-1 mb-3">Required skills that applicants don't show yet. A common gap may mean the skill is scarce, or could be trained on the job.</p>
                   <SkillGapList gaps={gaps} />
                 </section>
               )}

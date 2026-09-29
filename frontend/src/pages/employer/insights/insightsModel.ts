@@ -132,7 +132,7 @@ export type SkillGap = SkillStat & {
   jobTitles: string[];
 };
 
-/** Skills applicants most often lack across the jobs, by share of applicants missing them. */
+/** Skills applicants lack across the jobs, most applicants first. */
 export function topMissingSkills(jobs: JobInsight[], limit = Infinity): SkillGap[] {
   const merged = new Map<string, SkillStat & { jobTitles: Set<string> }>();
   jobs.forEach((job) => {
@@ -160,6 +160,6 @@ export function topMissingSkills(jobs: JobInsight[], limit = Infinity): SkillGap
         jobTitles: Array.from(entry.jobTitles).sort(),
       };
     })
-    .sort((a, b) => b.share - a.share || b.missing - a.missing || a.skill.localeCompare(b.skill))
+    .sort((a, b) => b.missing - a.missing || b.share - a.share || a.skill.localeCompare(b.skill))
     .slice(0, limit);
 }
