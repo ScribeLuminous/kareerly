@@ -7,11 +7,7 @@ export const INSIGHTS_CSV_COLUMNS = [
   'job_title',
   'status',
   'applicants',
-  'avg_match_percent',
-  'top_count',
-  'good_count',
-  'partial_count',
-  'no_evidence_count',
+  'strong_matches',
   'interviewing_or_hired',
   'top_missing_skills',
 ] as const;
@@ -23,12 +19,7 @@ export function insightsCsv(jobs: JobInsight[]): string {
     job.title,
     job.isOpen ? 'Open' : 'Closed',
     job.applicants,
-    // Empty, not 0, when nobody has skill evidence yet.
-    job.avgMatch ?? '',
-    job.counts.top,
-    job.counts.good,
-    job.counts.partial,
-    job.counts.none,
+    job.strong,
     job.advanced,
     missingSkills(job).slice(0, TOP_MISSING_IN_CSV).map((stat) => stat.skill).join('; '),
   ]);

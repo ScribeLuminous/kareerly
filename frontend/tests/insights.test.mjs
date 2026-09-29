@@ -135,12 +135,12 @@ test('a sample is small below five applicants', () => {
   assert.equal(model.isSmallSample(5), false);
 });
 
-test('CSV carries one aggregate row per job, with a blank average when there is no evidence', () => {
+test('CSV carries one aggregate row per job, matching the page', () => {
   const text = csv.insightsCsv(model.sortJobs(insights));
   const lines = text.trim().split('\r\n');
-  assert.equal(lines[0], 'job_title,status,applicants,avg_match_percent,top_count,good_count,partial_count,no_evidence_count,interviewing_or_hired,top_missing_skills');
-  assert.equal(lines[1], 'Analyst,Open,3,67,1,1,1,0,1,BI; Excel; Python');
-  assert.equal(lines[2], 'Coordinator,Open,1,,0,0,0,1,0,');
+  assert.equal(lines[0], 'job_title,status,applicants,strong_matches,interviewing_or_hired,top_missing_skills');
+  assert.equal(lines[1], 'Analyst,Open,3,2,1,BI; Excel; Python');
+  assert.equal(lines[2], 'Coordinator,Open,1,0,0,');
   assert.equal(lines.length, 4);
 });
 
@@ -177,7 +177,9 @@ test('the PDF prints aggregates and the disclaimer on every page, and no applica
   assert.ok(doc.getNumberOfPages() > 1);
   assert.ok(text.includes('Kareerly Insights Report'));
   assert.ok(text.includes('Acme Corp'));
-  assert.ok(text.includes('Skills applicants most often lack'));
+  assert.ok(text.includes('Skills most often missing'));
+  assert.ok(text.includes('match 75% or more of the skills asked for'));
+  for (const gone of ['Top', 'Partial', 'Avg match']) assert.equal(text.includes(gone), false, gone);
   assert.equal((text.match(/decision-support information/g) || []).length, doc.getNumberOfPages());
   assert.equal(text.includes('Person'), false);
   assert.equal(text.includes('KR-'), false);
