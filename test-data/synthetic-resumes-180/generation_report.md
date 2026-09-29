@@ -198,8 +198,8 @@ Each PDF was passed as bytes, with the neutral file name `resume.pdf`, to `resum
 | Measure | Result |
 |---|---|
 | Text extracted | 180/180 |
-| Name detected exactly | 169/180 |
-| Experience detected | 159/180 |
+| Name detected exactly | 180/180 |
+| Experience detected | 180/180 |
 | Education detected | 174/180 |
 | Certifications detected where present | 97/97 |
 | Certifications reported where none listed | 14 |
@@ -209,7 +209,7 @@ Each PDF was passed as bytes, with the neutral file name `resume.pdf`, to `resum
 | Resumes where an intentionally missing skill was extracted | 0 |
 | All extracted skills canonical (normalization_success) | 180/180 |
 
-Failure classes: normalization_low_recall 56, resume_structure_or_section_detection 27.
+Failure classes: normalization_low_recall 63.
 
 Held-skill recall by category (median):
 
@@ -283,14 +283,14 @@ None.
 
 **Findings**
 
-1. **Filipino names with "ñ" are mangled (parser issue).** `resume_analyzer.normalize_person_name` splits names on non-ASCII letters: "Randy Omaña" → "Randy Oma A", "Mylene Ybañez" → "Mylene Yba Ez", "Patrick Cañete" → "Patrick Ca Ete". For "Mark Anthony Dela Peña" (CAT23-R07) the mangled name fails the plausibility check and the parser returns the location line "Alaminos City Pangasinan" as the name. All 11 name failures are this one cause; the PDFs extract "ñ" correctly (checked with pypdf and pdfplumber).
-2. **"Work History" and "Career History" are not recognised as experience headings (parser issue).** All 27 resumes without a detected experience section use one of these two headings (certification_focus: 16 of 19, mixed_paragraph: 11 of 18). `SECTION_HEADINGS` has "experience", "work experience", "professional experience" and "employment history" but not these common variants. Skills are still extracted from those sections.
+1. **Filipino names with "ñ" were mangled (parser issue, fixed after the first run).** `resume_analyzer.normalize_person_name` split names on non-ASCII letters: "Randy Omaña" → "Randy Oma A", "Mylene Ybañez" → "Mylene Yba Ez", "Patrick Cañete" → "Patrick Ca Ete". For "Mark Anthony Dela Peña" (CAT23-R07) the mangled name failed the plausibility check and the parser returned the location line "Alaminos City Pangasinan" as the name. All 11 name failures (169/180 detected) had this one cause; the PDFs extract "ñ" correctly. Names are now read with Unicode letters and composed to NFC first (a PDF may store "ñ" as "n" plus a combining tilde); **180/180 names are detected in the rerun.**
+2. **"Work History" and "Career History" were not recognised as experience headings (parser issue, fixed after the first run).** All 27 resumes without a detected experience section used one of these two headings (certification_focus: 16 of 19, mixed_paragraph: 11 of 18); `SECTION_HEADINGS` had "experience", "work experience", "professional experience" and "employment history" but not these variants. Skills were still extracted, but from the wrong section. Both headings are now section headings and experience keywords; **the experience section is detected in 180/180 resumes in the rerun** (153/180 before), and the extracted skills of every resume are unchanged.
 3. **A short second page is treated as a scanned page (parser issue).** CAT04-R01 and CAT14-R01 are text PDFs whose second page holds only a few lines; the parser reports "This resume looks scanned (image-only), but text recognition (OCR) is not available" (`ocr_status: unavailable`). A real user would see a misleading warning.
 4. **Certification indicators without a certifications section.** 14 resumes with no certifications listed still report certification indicators, triggered by credentials inside education entries ("Caregiving NC II", "Registered Civil Engineer") or phrases such as "licensure". This is arguably correct for TESDA NC holders and is noted, not counted as a failure.
 5. **Skill extraction is precision-first.** No intentionally missing skill was extracted from any resume, and every extracted skill is a canonical ID. Median recall of the skills in each candidate's spec is 0.56. The misses are mostly soft and generic skills (Business Communication 69 resumes, English Communication 44, Manage staff 22) and naturally worded skills with no verified alias ("PowerShell scripting", "firewall policies", "HR processes"). This is a normalization coverage gap rather than a resume-structure problem; the resumes deliberately use natural wording (Section 2).
 6. **Canonical labels that contain other labels or aliases (normalization issue).** Found while authoring and fixed in the specs, not in the taxonomy: "Use customer relationship management software" contains "Customer relationship management"; Production Monitoring's alias is the label "Monitor the production line"; Electrical Installation's alias is the label "Install electrical and electronic equipment"; Tourism Assistance's alias is the label "Provide tourism related information"; "surveying" (Surveying Support) matches inside "quantity surveying". A candidate cannot show one of these without appearing to hold the other.
 
-Failure classes in `parsing_results.csv`: `resume_structure_or_section_detection` means the experience or education section was not detected (finding 2, a parser vocabulary issue here, not a resume defect); `normalization_low_recall` means fewer than half the spec skills were extracted (finding 5).
+Failure classes in `parsing_results.csv`: `resume_structure_or_section_detection` means the experience or education section was not detected (27 resumes on the first run, all from finding 2, a parser vocabulary issue and not a resume defect; none after the fix). Seven resumes that this class had masked now appear under `normalization_low_recall`; their recall did not change; `normalization_low_recall` means fewer than half the spec skills were extracted (finding 5).
 
 ## Matching smoke-test summary
 
@@ -315,7 +315,7 @@ Catalog: `backend/data/reference_jobs.csv` (460 jobs), the matcher's fallback wh
 | partial_entry | 24 | 8 | 0.0 | 23.0 | 18 |
 | strong_mid | 24 | 16 | 3.0 | 33.0 | 24 |
 | partial_mid | 24 | 16 | 1.0 | 27.0 | 18 |
-| advanced | 24 | 16 | 1.0 | 25.0 | 22 |
+| advanced | 24 | 16 | 1.0 | 25.5 | 22 |
 | career_transition | 24 | 19 | 2.0 | 32.0 | 9 |
 | mixed_boundary | 24 | 21 | 1.5 | 36.5 | 10 |
 | cross_category_stress | 12 | 11 | 2.5 | 35.5 | 5 |
@@ -330,9 +330,9 @@ Catalog: `backend/data/reference_jobs.csv` (460 jobs), the matcher's fallback wh
 | K04 | 23 | 6 | 1 | 30 | 6 | 6 |
 | K05 | 17 | 5 | 1 | 22 | 5 | 7 |
 | K06 | 15 | 1 | 0 | 20 | 5 | 7 |
-| K07 | 19 | 6 | 2 | 24 | 4 | 7 |
+| K07 | 19 | 6 | 2 | 25 | 4 | 7 |
 | K08 | 22 | 3 | 0 | 31 | 4 | 6 |
-| K09 | 18 | 4 | 1 | 39 | 4 | 5 |
+| K09 | 18 | 4 | 1 | 37 | 4 | 5 |
 | K10 | 14 | 4 | 1 | 33 | 5 | 7 |
 | K11 | 25 | 7 | 1 | 21 | 6 | 7 |
 | K12 | 24 | 5 | 1 | 24 | 6 | 7 |
@@ -345,7 +345,7 @@ Catalog: `backend/data/reference_jobs.csv` (460 jobs), the matcher's fallback wh
 | K19 | 19 | 5 | 2 | 26 | 5 | 7 |
 | K20 | 20 | 6 | 1 | 38 | 5 | 6 |
 | K21 | 18 | 5 | 2 | 38 | 6 | 7 |
-| K22 | 26 | 5 | 2 | 23 | 7 | 7 |
+| K22 | 26 | 5 | 2 | 28 | 7 | 7 |
 | K23 | 18 | 5 | 3 | 46 | 5 | 7 |
 | K24 | 19 | 6 | 1 | 31 | 6 | 7 |
 
@@ -374,7 +374,9 @@ Catalog: `backend/data/reference_jobs.csv` (460 jobs), the matcher's fallback wh
 
 **Findings**
 
-1. **Fit-Now mostly lands in the right category.** Of 349 Fit-Now matches for controlled resumes, 268 are in the target category, 79 in a neighbouring category and only 2 outside both (CAT02-R06 into Education, which is its teacher background; CAT05-R04 into Sales, which is its purchasing duties). The top recommendation is in the target category for 125 of 168 controlled resumes, and the target category is in the top 5 for 155.
+Matching was rerun after the parser fixes (names with "ñ", "Work History" / "Career History"); the section split changes the evidence windows the model reads, so 38 of the 360 rows differ in some detail, but only two changed their Fit-Now count or top match (CAT21-R06 gained one Fit-Now match; CAT15-R06 changed its top title from Caregiver to Caregiving Assistant). The figures below are from the rerun.
+
+1. **Fit-Now mostly lands in the right category.** Of 350 Fit-Now matches for controlled resumes, 269 are in the target category, 79 in a neighbouring category and only 2 outside both (CAT02-R06 into Education, which is its teacher background; CAT05-R04 into Sales, which is its purchasing duties). The top recommendation is in the target category for 125 of 168 controlled resumes, and the target category is in the top 5 for 155.
 2. **Profiles behave as designed, with one exception.** Strong-entry resumes get the most dependable results (22 of 24 with a Fit-Now match; the top match is in the target category for all 24). Partial-entry resumes mostly get Aspiration only (16 of 24 have no Fit-Now), which is the intended skill-gap case. Career-transition and mixed-boundary resumes produce the most out-of-category Fit-Now matches (32 and 33), as designed. **The exception is `advanced`:** 8 of 24 have no Fit-Now match and their top matches are mostly Junior, Entry or Mid-level roles (Accounting Manager → Junior Accountant; Care Home Supervisor, RN → Medication Aide; Site Foreman → Carpenter).
 3. **Catalog seniority gap (catalog coverage issue).** `reference_jobs.csv` has 11 Senior roles out of 460 (168 Entry, 123 Junior, 139 Mid, 19 Entry-to-Mid). Senior and managerial candidates have almost nothing at their level to match, so the matcher recommends junior versions of their job. This is a coverage limit of the catalog, not of the matcher.
 4. **Regional coverage gap (catalog coverage issue).** No catalog job is located in Region I, II, IV-B, VIII, IX, XII or BARMM, and only one each in Region V and Caraga. With the region filter on, candidates there see only the 63 remote jobs; 82 jobs whose location names no region ("Philippines") are excluded by design. Resumes with at least one Fit-Now fall from 129 to 37 with the filter, and 22 resumes get no recommendation at all. NCR (210 located jobs) and CALABARZON (68) dominate.
@@ -391,7 +393,7 @@ Categories with the weakest results (fewest resumes with a Fit-Now match, no fil
 
 | ID | Primary → secondary | Fit-Now | Aspiration | Top match | Top-5 categories |
 |---|---|---|---|---|---|
-| STRESS-001 | K11 → Software and Web Development | 1 | 24 | Junior Figma Designer (K11, Fit-Now, score 0.6418, coverage 1.0) | K11|K11|K01|K11|K01 |
+| STRESS-001 | K11 → Software and Web Development | 1 | 24 | Junior Figma Designer (K11, Fit-Now, score 0.6799, coverage 1.0) | K11|K11|K11|K01|K11 |
 | STRESS-002 | K09 → Sales and Purchasing | 5 | 30 | Inside Sales Representative (K07, Fit-Now, score 0.8438, coverage 1.0) | K07|K07|K09|K07|K09 |
 | STRESS-003 | K08 → Data, Analytics, and Artificial Intelligence | 5 | 43 | Marketing Data Analyst (K02, Fit-Now, score 0.9007, coverage 1.0) | K02|K02|K08|K02|K02 |
 | STRESS-004 | K05 → Human Resources and Project Management | 1 | 37 | Project Coordinator (K06, Fit-Now, score 0.6045, coverage 1.0) | K06|K05|K05|K06|K05 |
@@ -401,7 +403,7 @@ Categories with the weakest results (fewest resumes with a Fit-Now match, no fil
 | STRESS-008 | K10 → Marketing and Public Relations|Design, Media, and Performing Arts | 2 | 32 | Digital Marketing Assistant (K08, Fit-Now, score 0.859, coverage 1.0) | K08|K08|K10|K10|K10 |
 | STRESS-009 | K03 → Legal, Security, and Protective Services | 0 | 34 | Data Privacy and Compliance Associate (K24, Aspiration, score 0.6014, coverage 0.6667) | K24|K24|K24|K05|K24 |
 | STRESS-010 | K16 → Human Resources and Project Management|Construction and Skilled Trades | 3 | 41 | Construction Site Assistant (K16, Fit-Now, score 0.7924, coverage 1.0) | K16|K16|K06|K16|K17 |
-| STRESS-011 | K18 → Sales and Purchasing | 2 | 39 | Events Sales Executive (K18, Fit-Now, score 0.8946, coverage 1.0) | K18|K07|K07|K18|K07 |
+| STRESS-011 | K18 → Sales and Purchasing | 2 | 38 | Events Sales Executive (K18, Fit-Now, score 0.8794, coverage 1.0) | K18|K07|K07|K18|K07 |
 | STRESS-012 | K20 → Manufacturing and Quality Operations | 1 | 37 | Production Planner (K21, Fit-Now, score 0.8502, coverage 1.0) | K21|K20|K21|K21|K20 |
 
 **Per case** (no location filter)
@@ -423,12 +425,12 @@ Categories with the weakest results (fewest resumes with a Fit-Now match, no fil
 
 ## Issues found, not fixed in this task
 
+Two parser issues found by the first run (names with "ñ", and the "Work History" / "Career History" headings) were fixed afterwards and are listed under "Changes made outside the dataset folder".
+
 These are documented, not changed, as the task requires for the model, thresholds, normalization, catalog and parser behaviour.
 
 | Area | Issue | Where |
 |---|---|---|
-| Parser | Names with "ñ" split into fragments; one name replaced by the location line | `backend/app/services/resume_analyzer.py` `normalize_person_name` |
-| Parser | "Work History" and "Career History" not recognised as experience headings | `resume_analyzer.py` `SECTION_HEADINGS` |
 | Parser | Text PDF with a short last page reported as scanned, with an OCR warning | `backend/app/services/resume_parser.py` scanned-page heuristic |
 | Normalization | Five label/alias overlaps (see Resume parsing QA, finding 6) | `backend/data/skill_aliases.csv`, `skills_reference.csv` |
 | Normalization | Stated skills not mapped: "information security", "purchase orders"/"purchasing", "financial statements", "Accounting", "civil engineering" in running text; "Packaging" extracted from "packaging contracts" | skill extractor / `skill_aliases.csv` |
@@ -439,6 +441,7 @@ These are documented, not changed, as the task requires for the model, threshold
 ## Changes made outside the dataset folder
 
 - `backend/app/services/ph_regions.py`: Sulu and Jolo no longer map to BARMM (Supreme Court, 2024) and name no region rather than a guessed one; "Isabela City" and "Isabela City, Basilan" resolve to Region IX. A test was added in `backend/tests/test_region_preference.py`; the file's 21 tests pass. This was requested at Gate 1.
+- `backend/app/services/resume_analyzer.py`: names are read with Unicode letters (NFC-normalised, so "Omaña", "Peña", "Cañete" survive), and "Work History" and "Career History" are section headings and experience keywords. Tests are in `backend/tests/test_resume_names_and_headings.py`. `parsing_results.csv` and this report were regenerated after the change: names detected 169 → 180, experience section detected 153 → 180, section-structure failures 27 → 0, extracted skills unchanged.
 - Nothing else outside `test-data/synthetic-resumes-180/` was changed.
 
 ## Research and data integrity
