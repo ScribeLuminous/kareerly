@@ -68,7 +68,7 @@ export default function Landing({ onHome, onCandidateStart, onEmployerStart, onL
                 ))}
               </span>
               <span
-                className={`k-btn mt-auto border bg-transparent ${role.primary ? 'border-rust text-rust group-hover:bg-rust' : 'border-forest text-forest group-hover:bg-forest'} group-hover:text-white`}
+                className={`k-btn mt-auto border bg-card transition-none ${role.primary ? 'border-rust text-rust group-hover:bg-rust' : 'border-forest text-forest group-hover:bg-forest'} group-hover:text-white`}
               >
                 {role.cta}<FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
               </span>
