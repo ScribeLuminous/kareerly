@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBookmark, faBriefcase, faMagnifyingGlassChart, faXmark } from '@fortawesome/free-solid-svg-icons';
 import RegionFilterNotice from '../../components/RegionFilterNotice';
@@ -26,9 +25,6 @@ type MatchesPageProps = {
   onApply: (job: DashboardJob) => void;
   onOpenJob: (job: DashboardJob) => void;
   /** Desktop split view: the job shown beside the list, and its panel. */
-  isDesktop: boolean;
-  selectedJobId: string | null;
-  renderDetail: (job: DashboardJob) => ReactNode;
   onAnalyze: () => void;
   isLoading: boolean;
   hasResume: boolean;
@@ -61,9 +57,6 @@ export function JobMatchesPage({
   onSave,
   onApply,
   onOpenJob,
-  isDesktop,
-  selectedJobId,
-  renderDetail,
   onAnalyze,
   isLoading,
   hasResume,
@@ -119,14 +112,6 @@ export function JobMatchesPage({
   const limit = view === 'saved' || showAll || isFiltered ? filtered.length : TOP_MATCHES_PER_CATEGORY;
   const visible = filtered.slice(0, limit);
   const hiddenCount = filtered.length - visible.length;
-  const selected = visible.find((job) => job.id === selectedJobId) || null;
-
-  // Keep the desktop detail panel pointed at a job that is in the list. The
-  // parent records the selection synchronously, so this runs once per change.
-  const selectedIsVisible = Boolean(selected);
-  useEffect(() => {
-    if (isDesktop && !selectedIsVisible && visible.length > 0) onOpenJob(visible[0]);
-  }, [isDesktop, selectedIsVisible, visible, onOpenJob]);
 
   const noMatchesYet = fitNowJobs.length === 0 && aspirationJobs.length === 0;
 
@@ -219,7 +204,7 @@ export function JobMatchesPage({
           />
         )
       ) : (
-        <div className={isDesktop ? 'k-split' : undefined}>
+        <div>
           <div>
             <h2 className="sr-only">{view === 'fit-now' ? 'Fit Now matches' : view === 'aspiration' ? 'Aspiration matches' : 'Saved jobs'}</h2>
             <div className="k-job-grid">
@@ -229,7 +214,6 @@ export function JobMatchesPage({
                   job={job}
                   applicationStatus={getApplicationStatus(job)}
                   isSaved={savedJobs.has(job.id)}
-                  selected={isDesktop && selected?.id === job.id}
                   onOpen={() => onOpenJob(job)}
                   onApply={() => onApply(job)}
                   onSave={() => onSave(job.id)}
@@ -242,7 +226,6 @@ export function JobMatchesPage({
               </button>
             )}
           </div>
-          {isDesktop && selected && renderDetail(selected)}
         </div>
       )}
     </div>

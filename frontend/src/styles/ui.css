@@ -1713,17 +1713,23 @@ a.k-row:hover {
   gap: 10px;
 }
 
+/* One job per row; from tablet up the row lays its parts out across the width. */
 @media (min-width: 768px) {
-  .k-job-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+  .k-job-grid .k-job-card {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 84px auto;
+    align-items: center;
+    column-gap: 20px;
   }
-}
 
-@media (min-width: 1024px) {
-  .k-split .k-job-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .k-job-grid .k-job-top {
+    display: contents;
   }
+
+  .k-job-grid .k-job-top > div:first-child { grid-column: 1; grid-row: 1; }
+  .k-job-grid .k-job-card > .k-secondary { grid-column: 2; grid-row: 1; margin: 0; }
+  .k-job-grid .k-job-score { grid-column: 3; grid-row: 1; align-items: center; }
+  .k-job-grid .k-job-card-actions { grid-column: 4; grid-row: 1; margin-top: 0; justify-content: flex-end; }
 }
 
 .k-job-card {

@@ -584,7 +584,11 @@ export function withMatchVote(current: Record<string, MatchVote>, key: string, v
 
 export function persistMatchVote(job: DashboardJob, vote: MatchVote | null): Promise<unknown> {
   return vote
-    ? saveMatchFeedback({ jobId: job.id, jobSource: job.jobSource, vote })
+    ? saveMatchFeedback({
+      jobId: job.id, jobSource: job.jobSource, vote,
+      matchCategory: job.matchCategory,
+      matchScore: job.hasMatchScore ? Math.max(0, Math.min(1, job.matchScore / 100)) : undefined,
+    })
     : removeMatchFeedback({ jobId: job.id, jobSource: job.jobSource });
 }
 
