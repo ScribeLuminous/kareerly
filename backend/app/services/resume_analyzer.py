@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from typing import Dict, List
 
 from .skill_extractor import MAX_CONFIRMED_SKILLS, SkillExtractor
@@ -69,6 +70,7 @@ SECTION_HEADINGS = [
     r"work experiences?",
     r"professional experiences?",
     r"employment history",
+    r"(?:work|career) history",
     r"internship",
     r"projects?",
 ]
@@ -98,11 +100,17 @@ NAME_BLOCKLIST_TERMS = {
 }
 
 
+# A letter in any script ("ñ" in Omaña, Peña, Cañete). \w without digits and underscore.
+NAME_LETTER = r"[^\W\d_]"
+
+
 def normalize_person_name(name: str) -> str:
     if not name:
         return ""
 
-    compact = re.sub(r"[^A-Za-z\s\-']", " ", name)
+    # PDFs often carry "ñ" as "n" plus a combining tilde; compose it first.
+    name = unicodedata.normalize("NFC", name)
+    compact = re.sub(r"[\d_]|[^\w\s\-']", " ", name)
     compact = re.sub(r"\s+", " ", compact).strip()
     if not compact:
         return ""
@@ -118,7 +126,7 @@ def decode_letter_spaced_line(line: str) -> str:
     if not line:
         return ""
 
-    word_tokens = re.findall(r"[A-Za-z]+", line)
+    word_tokens = re.findall(NAME_LETTER + "+", line)
     if not word_tokens:
         return ""
 
@@ -132,7 +140,7 @@ def decode_letter_spaced_line(line: str) -> str:
 
     decoded_words = []
     for group in groups:
-        compact_word = re.sub(r"[^A-Za-z]", "", group)
+        compact_word = re.sub(r"[\W\d_]", "", group)
         if compact_word:
             decoded_words.append(compact_word)
 
@@ -152,14 +160,14 @@ def is_plausible_person_name(value: str) -> bool:
 
     normalized_words = []
     for word in words:
-        if not re.fullmatch(r"[A-Za-z][A-Za-z\-']*[A-Za-z]|[A-Za-z]", word):
+        if not re.fullmatch(rf"{NAME_LETTER}(?:[\-'\w]*{NAME_LETTER})?", word) or re.search(r"[\d_]", word):
             return False
         normalized_words.append(word.lower())
 
     if any(word in NAME_BLOCKLIST_TERMS for word in normalized_words):
         return False
 
-    alpha_chars = re.sub(r"[^A-Za-z]", "", value)
+    alpha_chars = re.sub(r"[\W\d_]", "", value)
     if len(alpha_chars) < 4:
         return False
 
@@ -419,6 +427,8 @@ def extract_experience_indicators(resume_text: str) -> List[str]:
 
     keywords = [
         "experience",
+        "work history",
+        "career history",
         "worked",
         "employed",
         "internship",
@@ -539,6 +549,8 @@ def analyze_resume_bytes(file_bytes: bytes, filename: str, skill_extractor: Skil
                 "work experience",
                 "professional experience",
                 "employment history",
+                "work history",
+                "career history",
                 "internship",
                 "projects",
                 "part time work experience",
