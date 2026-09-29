@@ -19,7 +19,6 @@ import { Banner, ConfirmDialog, DESKTOP_QUERY, Modal, ToastRegion, useMediaQuery
 import { CandidateShell } from './candidate/Shell';
 import { PAGE_PATHS, pageFromPath } from './candidate/routes';
 import { HomePage, type NextStep, type ProfileTask } from './candidate/HomePage';
-import { JobDetailPanel } from './candidate/JobDetailModal';
 import { JobMatchesPage } from './candidate/MatchesPage';
 import { SkillGapsPage } from './candidate/SkillGapsPage';
 import { ApplicationsPage } from './candidate/ApplicationsPage';
@@ -1018,10 +1017,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       console.warn('Unable to refresh job details from Supabase:', error);
     }
   }, []);
-  const hasSplitView = isDesktop && (activePage === 'jobmatches' || activePage === 'kareers');
   const openJobDetails = useCallback((job: DashboardJob) => {
-    void selectJob(job, !hasSplitView);
-  }, [hasSplitView, selectJob]);
+    void selectJob(job, true);
+  }, [selectJob]);
 
   const toggleSaved = async (jobId: string) => {
     const alreadySaved = savedJobs.has(jobId);
@@ -1802,24 +1800,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setFocusedApplicationId(application.id);
     setActivePage('applications');
   };
-  const renderDetailPanel = (job: DashboardJob) => {
-    const current = selectedJob && selectedJob.id === job.id ? selectedJob : job;
-    return (
-      <JobDetailPanel
-        key={`${current.jobSource}-${current.id}`}
-        job={current}
-        application={activeApplicationFor(current)}
-        courses={courses}
-        isSaved={savedJobs.has(current.id)}
-        onApply={() => requestApply(current)}
-        onWithdraw={withdrawFromDetail}
-        onSave={() => void toggleSaved(current.id)}
-        onOpenLearning={hasLearningFor(current) ? () => openLearning({ jobId: current.id }) : undefined}
-        onViewApplication={viewApplicationFromDetail}
-        feedback={{ vote: matchFeedback[feedbackKeyFor(current)] ?? null, status: matchFeedbackStatus[feedbackKeyFor(current)] ?? { state: 'idle' }, onVote: (vote) => submitMatchFeedback(current, vote) }}
-      />
-    );
-  };
   const pendingMessageCount = eligibleMessageApps.filter((app) => app.messageRequestState === 'pending').length;
   const hasBanners = Boolean((savedResumeFreshness?.stale && !resumeModalOpen) || inlineNotice || state.error);
 
@@ -1900,9 +1880,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onSave={(jobId) => void toggleSaved(jobId)}
           onApply={requestApply}
           onOpenJob={openJobDetails}
-          isDesktop={isDesktop}
-          selectedJobId={selectedJob?.id ?? null}
-          renderDetail={renderDetailPanel}
           onAnalyze={() => setActivePage('external-job')}
           isLoading={state.isLoading}
           hasResume={hasResume}
@@ -2037,9 +2014,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onSave={(jobId) => void toggleSaved(jobId)}
           onApply={requestApply}
           onOpenJob={openJobDetails}
-          isDesktop={isDesktop}
-          selectedJobId={selectedJob?.id ?? null}
-          renderDetail={renderDetailPanel}
           onAnalyzeJob={() => setActivePage('external-job')}
         />
       )}
