@@ -30,6 +30,7 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
   const [employmentFilter, setEmploymentFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [alignFilter, setAlignFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -42,6 +43,7 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
       if (employmentFilter && !(job.employmentType || '').toLowerCase().includes(employmentFilter.toLowerCase())) return false;
       if (locationFilter && !(job.location || '').toLowerCase().includes(locationFilter.toLowerCase())) return false;
       if (alignFilter && job.matchCategory !== alignFilter) return false;
+      if (sourceFilter && job.sourceType !== sourceFilter) return false;
       if (!query) return true;
       return `${job.title} ${job.company} ${job.category || ''} ${job.subCategory || ''} ${job.location} ${job.setup} ${job.description || ''} ${job.requiredSkills.join(' ')} ${job.preferredSkills.join(' ')}`
         .toLowerCase()
@@ -54,7 +56,7 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
       const rightDate = new Date(right.createdAt || 0).getTime();
       return sortOrder === 'oldest' ? leftDate - rightDate : rightDate - leftDate;
     });
-  }, [alignFilter, categoryFilter, employmentFilter, kareers, levelFilter, locationFilter, searchValue, setupFilter, sortOrder]);
+  }, [alignFilter, categoryFilter, employmentFilter, kareers, levelFilter, locationFilter, searchValue, setupFilter, sortOrder, sourceFilter]);
 
   const categories = useMemo(() => Array.from(new Set(kareers.map((job) => job.category).filter(Boolean) as string[])).filter((value) => !/not specified/i.test(value)).sort(), [kareers]);
   const locations = useMemo(() => Array.from(new Set(kareers.map((job) => job.location).filter(Boolean))).filter((value) => !/not specified/i.test(value)).sort(), [kareers]);
@@ -65,6 +67,7 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
     setupFilter ? { label: setupFilter, clear: () => setSetupFilter('') } : null,
     locationFilter ? { label: locationFilter, clear: () => setLocationFilter('') } : null,
     alignFilter ? { label: alignFilter === 'fit-now' ? 'Fit Now' : 'Aspiration', clear: () => setAlignFilter('') } : null,
+    sourceFilter ? { label: sourceFilter === 'internal' ? 'Internal site' : 'External site', clear: () => setSourceFilter('') } : null,
   ].filter((filter): filter is { label: string; clear: () => void } => Boolean(filter));
   const clearFilters = () => {
     setCategoryFilter('');
@@ -73,10 +76,11 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
     setSetupFilter('');
     setLocationFilter('');
     setAlignFilter('');
+    setSourceFilter('');
   };
 
   // Paging restarts whenever the search, filters or sort change.
-  const listKey = JSON.stringify([alignFilter, categoryFilter, employmentFilter, levelFilter, locationFilter, searchValue, setupFilter, sortOrder]);
+  const listKey = JSON.stringify([alignFilter, categoryFilter, employmentFilter, levelFilter, locationFilter, searchValue, setupFilter, sortOrder, sourceFilter]);
   const [paging, setPaging] = useState({ key: listKey, count: PAGE_SIZE });
   const visibleCount = paging.key === listKey ? paging.count : PAGE_SIZE;
 
@@ -102,6 +106,8 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
               options={[{ value: '', label: 'Any' }, ...['Full Time', 'Part Time', 'Contract', 'Internship', 'Freelance'].map((value) => ({ value, label: value }))]} />
             <FilterChoice legend="Your match" name="kareer-align" value={alignFilter} onChange={setAlignFilter}
               options={[{ value: '', label: 'Any' }, { value: 'fit-now', label: 'Fit Now' }, { value: 'aspiration', label: 'Aspiration' }]} />
+            <FilterChoice legend="Job source" name="kareer-source" value={sourceFilter} onChange={setSourceFilter}
+              options={[{ value: '', label: 'Any' }, { value: 'internal', label: 'Internal site' }, { value: 'external', label: 'External site' }]} />
             <div className="k-filter-group">
               <label className="k-field block">
                 <span className="k-label">Category</span>
