@@ -135,6 +135,25 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse([call for call in store.calls if call[0] != "GET"])
 
+    def test_admin_can_edit_name_email_and_role(self):
+        store = FakeStore()
+        response = self.call(store, "PATCH", "/api/admin/users", headers=AUTH, json={
+            "user_id": CANDIDATE, "first_name": " Carla ", "last_name": "Cruz", "email": "Carla@Example.com", "role": "employer"})
+        self.assertEqual(response.status_code, 200, response.text)
+        auth_body = next(body for method, path, body in store.calls if method == "PUT" and path.startswith("/auth/v1/admin/users"))
+        self.assertEqual(auth_body["email"], "carla@example.com")
+        self.assertEqual(auth_body["user_metadata"], {"first_name": "Carla", "last_name": "Cruz", "role": "employer"})
+        profile_body = next(body for method, path, body in store.calls if method == "PATCH" and path.startswith("/rest/v1/profiles"))
+        self.assertEqual({k: profile_body[k] for k in ("first_name", "last_name", "email", "role")},
+                         {"first_name": "Carla", "last_name": "Cruz", "email": "carla@example.com", "role": "employer"})
+
+    def test_admin_cannot_change_own_role_or_use_invalid_values(self):
+        store = FakeStore()
+        for payload in ({"user_id": ADMIN, "role": "candidate"}, {"user_id": CANDIDATE, "role": "owner"},
+                        {"user_id": CANDIDATE, "first_name": "  "}, {"user_id": CANDIDATE, "email": "nope"}, {"user_id": CANDIDATE}):
+            self.assertEqual(self.call(store, "PATCH", "/api/admin/users", headers=AUTH, json=payload).status_code, 400, payload)
+        self.assertEqual([call for call in store.calls if call[0] in {"PUT", "PATCH"}], [])
+
     def test_delete_user_removes_resume_files_then_auth_user(self):
         store = FakeStore()
         response = self.call(store, "DELETE", f"/api/admin/users/{CANDIDATE}", headers=AUTH)

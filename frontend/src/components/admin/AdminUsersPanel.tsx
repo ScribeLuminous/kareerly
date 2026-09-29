@@ -5,6 +5,8 @@ import { bulkButtonClass, bulkDangerButtonClass, buttonClass, dangerButtonClass,
 import { AdminSearch, AdminToolbar, BulkBar, FilterSelect, FilterTabs, PanelMessage, Pager, Pill, SelectBox } from './adminUi';
 import { useDebouncedValue, useRowSelection } from './adminHooks';
 import type { AdminPanelProps } from './adminShared';
+import AdminUserEditDialog from './AdminUserEditDialog';
+import type { UserEditChanges } from './AdminUserEditDialog';
 
 type Role = 'candidate' | 'employer' | 'admin';
 type StatusFilter = 'all' | 'active' | 'suspended' | 'deletion';
@@ -23,7 +25,8 @@ function matchesStatus(user: AdminUserRow, status: StatusFilter): boolean {
   return true;
 }
 
-export default function AdminUsersPanel({ getToken, notify, onViewResumes }: AdminPanelProps & { onViewResumes: (email: string) => void }) {
+export default function AdminUsersPanel({ getToken, notify, onViewResumes, currentUserId }: AdminPanelProps & { onViewResumes: (email: string) => void; currentUserId?: string }) {
+  const [editing, setEditing] = useState<AdminUserRow | null>(null);
   const [role, setRole] = useState<Role>('candidate');
   const [query, setQuery] = useState('');
   const search = useDebouncedValue(query.trim());
@@ -64,14 +67,16 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
   const selection = useRowSelection(selectableIds);
   const selectable = role !== 'admin';
 
-  const act = async (userId: string, action: (token: string) => Promise<unknown>, success: string) => {
+  const act = async (userId: string, action: (token: string) => Promise<unknown>, success: string): Promise<boolean> => {
     setBusyId(userId);
     try {
       await action(await getToken());
       notify(success, 'success');
       await load();
+      return true;
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Unable to update the user.', 'error');
+      return false;
     } finally {
       setBusyId(null);
     }
@@ -105,9 +110,8 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
     if (typed === 'DELETE') void bulk((token, user) => deleteAdminUser(token, user.id), 'Deleted');
   };
 
-  const editEmail = (user: AdminUserRow) => {
-    const email = window.prompt('New email address', user.email);
-    if (email && email !== user.email) void act(user.id, (token) => updateAdminUser(token, { user_id: user.id, email }), 'Email updated.');
+  const saveProfile = async (user: AdminUserRow, changes: UserEditChanges) => {
+    if (await act(user.id, (token) => updateAdminUser(token, { user_id: user.id, ...changes }), 'User updated.')) setEditing(null);
   };
   const resetPassword = (user: AdminUserRow) => {
     const password = window.prompt(`New password for ${user.email} (minimum 8 characters)`);
@@ -127,6 +131,22 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
     if (typed === 'DELETE') void act(user.id, (token) => deleteAdminUser(token, user.id), 'Account deleted.');
   };
 
+  const manageButtons = (user: AdminUserRow, extra: string) => {
+    const disabled = busyId === user.id;
+    return (
+      <>
+        <button className={`${buttonClass} ${extra}`} type="button" disabled={disabled} onClick={() => setEditing(user)}>Edit</button>
+        <button className={`${buttonClass} ${extra}`} type="button" disabled={disabled} onClick={() => resetPassword(user)}>Password</button>
+        {user.role !== 'admin' && (
+          <>
+            <button className={`${buttonClass} ${extra}`} type="button" disabled={disabled} onClick={() => toggleSuspend(user)}>{user.suspended ? 'Reactivate' : 'Suspend'}</button>
+            <button className={`${dangerButtonClass} ${extra}`} type="button" disabled={disabled} onClick={() => remove(user)}>Delete</button>
+          </>
+        )}
+      </>
+    );
+  };
+
   const filtered = status !== 'all' || Boolean(search);
   return (
     <div>
@@ -142,7 +162,39 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
         </BulkBar>
       )}
       {loading && !data ? <PanelMessage>Loading users...</PanelMessage> : users.length === 0 ? <PanelMessage>No {filtered ? 'matching ' : ''}{roleLabels[role].toLowerCase()} found.</PanelMessage> : (
-        <div className="overflow-x-auto border-t border-bdr">
+        <>
+        <ul className="divide-y divide-bdr border-t border-bdr md:hidden">
+          {users.map((user) => (
+            <li key={user.id} className={`px-4 py-4 ${selection.isSelected(user.id) ? 'bg-rust-l/50' : 'bg-card'}`}>
+              <div className="flex items-start gap-3">
+                {selectable && user.role !== 'admin' && (
+                  <div className="pt-1">
+                    <SelectBox label={`Select ${user.email}`} checked={selection.isSelected(user.id)} onChange={() => selection.toggle(user.id)} />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-dark">{`${user.first_name} ${user.last_name}`.trim() || '-'}</div>
+                  <div className="break-all text-xs text-soft-text">{user.email}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1">
+                    {user.suspended ? <Pill tone="bad">Suspended</Pill> : <Pill tone="good">Active</Pill>}
+                    {user.deletion_requested && <Pill tone="warn">Deletion requested</Pill>}
+                    <Pill>{roleLabels[user.role].replace(/s$/, '')}</Pill>
+                  </div>
+                  <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-mid">
+                    <dt className="font-bold text-soft-text">{role === 'employer' ? 'Company' : 'Resumes'}</dt>
+                    <dd>{role === 'employer' ? user.company_name || '-' : role === 'candidate' ? (
+                      user.resume_count ? <button className="font-bold text-rust hover:underline" type="button" onClick={() => onViewResumes(user.email)}>{user.resume_count} on file</button> : 'None'
+                    ) : 'Administrator'}</dd>
+                    <dt className="font-bold text-soft-text">Joined</dt>
+                    <dd>{dateText(user.created_at)}</dd>
+                  </dl>
+                  <div className="mt-3 grid grid-cols-2 gap-2">{manageButtons(user, 'min-h-10 justify-center')}</div>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-x-auto border-t border-bdr md:block">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-bg text-xs uppercase text-soft-text">
               <tr>
@@ -183,15 +235,7 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-mid">{dateText(user.created_at)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      <button className={buttonClass} type="button" disabled={busyId === user.id} onClick={() => editEmail(user)}>Email</button>
-                      <button className={buttonClass} type="button" disabled={busyId === user.id} onClick={() => resetPassword(user)}>Password</button>
-                      {user.role !== 'admin' && (
-                        <>
-                          <button className={buttonClass} type="button" disabled={busyId === user.id} onClick={() => toggleSuspend(user)}>{user.suspended ? 'Reactivate' : 'Suspend'}</button>
-                          <button className={dangerButtonClass} type="button" disabled={busyId === user.id} onClick={() => remove(user)}>Delete</button>
-                        </>
-                      )}
+                    <div className="flex flex-wrap gap-1">{manageButtons(user, '')}
                     </div>
                   </td>
                 </tr>
@@ -199,7 +243,9 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes }: Adm
             </tbody>
           </table>
         </div>
+        </>
       )}
+      {editing && <AdminUserEditDialog user={editing} isSelf={editing.id === currentUserId} busy={busyId === editing.id} onSave={(changes) => void saveProfile(editing, changes)} onClose={() => setEditing(null)} />}
       {data && <Pager offset={offset} limit={data.limit} hasMore={data.has_more} onPage={setOffset} />}
     </div>
   );
