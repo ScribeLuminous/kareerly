@@ -123,6 +123,9 @@ test('skill gaps rank by share, mark small samples and reserve the alert for lar
   // Even at 100% a small sample never alerts.
   assert.equal(gaps.find((gap) => gap.share === 100 && gap.smallSample).alert, false);
   assert.equal(gaps.some((gap) => gap.skill === 'Go'), false);
+  // Most applicants first, so a 3-of-5 gap outranks a 1-of-1.
+  assert.deepEqual(gaps.map((gap) => gap.missing), [...gaps.map((gap) => gap.missing)].sort((a, b) => b - a));
+  assert.equal(gaps[0].skill, 'Rust');
   assert.equal(model.topMissingSkills(set, 2).length, 2);
   assert.deepEqual(rust.jobTitles, ['Engineer']);
 });
