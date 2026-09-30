@@ -407,11 +407,11 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
   return (
     <main className="min-h-screen bg-bg text-dark">
       <header className="border-b border-bdr bg-card">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
           <button type="button" onClick={onHome} className="flex items-center">
             <Logo size="header" />
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden text-right sm:block">
               <div className="text-sm font-extrabold">{admin?.name || 'Admin'}</div>
               <div className="text-xs text-soft">{admin?.email}</div>
@@ -426,9 +426,9 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-5 py-6">
+      <section className="mx-auto max-w-7xl px-4 py-5 sm:px-5 sm:py-6">
         <div className="mb-5">
-          <h1 className="font-display text-3xl font-extrabold">Admin Panel</h1>
+          <h1 className="font-display text-2xl font-extrabold sm:text-3xl">Admin Panel</h1>
           <p className="mt-1 text-sm text-soft">Manage accounts and resumes, review reports and deletion requests, and track match quality.</p>
         </div>
 
@@ -443,15 +443,15 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
           </div>
         )}
 
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+        <div className="mb-6 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-7">
           {metricCards.map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-bdr bg-card px-4 py-3">
+            <div key={label} className="rounded-lg border border-bdr bg-card px-3 py-2.5 sm:px-4 sm:py-3">
               <div className="text-xs font-bold uppercase text-soft">{label}</div>
               <div className="mt-1 text-2xl font-extrabold text-dark">{value}</div>
             </div>
           ))}
           {loading && !overview && (
-            <div className="rounded-lg border border-bdr bg-card px-4 py-6 text-sm font-semibold text-soft sm:col-span-2 lg:col-span-7">
+            <div className="rounded-lg border border-bdr bg-card px-4 py-6 text-sm font-semibold text-soft col-span-2 md:col-span-4 lg:col-span-7">
               Loading admin data...
             </div>
           )}
@@ -471,7 +471,7 @@ export default function AdminDashboard({ admin, onHome, onLogout }: AdminDashboa
             {tableTab && <span className="text-xs font-semibold text-soft">{currentRows.length} records</span>}
           </div>
           {activeTab === 'users' && (
-            <AdminUsersPanel getToken={getAdminToken} notify={notify} onViewResumes={(email) => { setResumeSearch(email); setActiveTab('resumes'); }} />
+            <AdminUsersPanel getToken={getAdminToken} notify={notify} currentUserId={admin?.id} onViewResumes={(email) => { setResumeSearch(email); setActiveTab('resumes'); }} />
           )}
           {activeTab === 'resumes' && <AdminResumesPanel key={resumeSearch} getToken={getAdminToken} notify={notify} initialSearch={resumeSearch} />}
           {activeTab === 'reports' && <AdminReportsPanel getToken={getAdminToken} notify={notify} />}
