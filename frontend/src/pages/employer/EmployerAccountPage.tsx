@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FormField, PageHeader } from '../../components/ui';
-import { ProvinceSelect } from '../../components/ProvinceSelect';
+import { RegionProvinceFields } from '../../components/ProvinceSelect';
 import { industryPsocGroups } from '../../lib/employerOptions';
 import { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from './model';
 
@@ -84,11 +84,9 @@ export function EmployerAccountPage({ profile, password, isSaving, onProfileChan
                 {withSaved(EMPLOYER_INDUSTRIES, profile.industry).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </FormField>
-            <FormField label="City or municipality">
+            <RegionProvinceFields value={profile.province} onChange={(province) => onProfileChange({ ...profile, province })} />
+            <FormField label="City or municipality" help="New job posts start at this location.">
               <input className="k-input" value={profile.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="address-level2" />
-            </FormField>
-            <FormField label="Province">
-              <ProvinceSelect value={profile.province} onChange={(province) => onProfileChange({ ...profile, province })} />
             </FormField>
             <FormField label="Company size">
               <select className="k-select" value={profile.size} onChange={set('size')}>
