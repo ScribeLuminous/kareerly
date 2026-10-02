@@ -12,11 +12,13 @@ function provinceGroupLabel(province: string): string {
  * short. Only the province is stored; the region follows from it. A saved
  * province outside the list stays selectable.
  */
-export function RegionProvinceFields({ value, onChange, required = false, regionHelp }: {
+export function RegionProvinceFields({ value, onChange, required = false, regionHelp, t = (text) => text }: {
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
   regionHelp?: string;
+  /** Translates the field's own words. */
+  t?: (text: string) => string;
 }) {
   // The region picked before a province is chosen; once there is a province, it decides the region.
   const [pickedRegion, setPickedRegion] = useState('');
@@ -35,13 +37,13 @@ export function RegionProvinceFields({ value, onChange, required = false, region
 
   return (
     <>
-      <FormField label={`Region${mark}`} help={regionHelp}>
+      <FormField label={`${t('Region')}${mark}`} help={regionHelp}>
         <select className="k-select" value={region} onChange={(event) => pickRegion(event.target.value)} required={required}>
-          <option value="">Select a region</option>
+          <option value="">{t('Select a region')}</option>
           {PH_PROVINCE_GROUPS.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
         </select>
       </FormField>
-      <FormField label={`Province${mark}`}>
+      <FormField label={`${t('Province')}${mark}`}>
         <select
           className="k-select"
           value={value}
@@ -54,7 +56,7 @@ export function RegionProvinceFields({ value, onChange, required = false, region
           required={required}
           autoComplete="address-level1"
         >
-          <option value="">{group || unlisted ? 'Select a province' : 'Choose a region first'}</option>
+          <option value="">{t(group || unlisted ? 'Select a province' : 'Choose a region first')}</option>
           {unlisted && <option value={value}>{value}</option>}
           {group?.provinces.map((province) => <option key={province} value={province}>{province}</option>)}
         </select>
