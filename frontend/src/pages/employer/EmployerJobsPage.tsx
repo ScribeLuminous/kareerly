@@ -13,7 +13,8 @@ import {
   faUsers,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
-import { ConfirmDialog, EmptyState, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
+import { Banner, ConfirmDialog, EmptyState, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
+import { draftSavedLabel } from './jobDraft';
 import { formatJobDescription } from '../../lib/jobDescription';
 import { AssessmentSummary } from './AssessmentCriteriaEditor';
 import { ChooseTemplatesModal, JobsSectionTabs, type JobsSection } from './AssessmentTemplatesPage';
@@ -57,6 +58,9 @@ type EmployerJobsPageProps = JobHandlers & {
   onOpenJob: (jobId: string) => void;
   onBackToList: () => void;
   onPostJob: () => void;
+  /** An unsaved new posting kept on this device, if any. */
+  newJobDraft: { title: string; savedAt: string } | null;
+  onDiscardNewJobDraft: () => void;
 };
 
 type StatusFilter = 'all' | JobStatus;
@@ -314,6 +318,8 @@ export function EmployerJobsPage({
   onOpenJob,
   onBackToList,
   onPostJob,
+  newJobDraft,
+  onDiscardNewJobDraft,
   onEdit,
   onEditRubric,
   onViewApplicants,
@@ -325,6 +331,7 @@ export function EmployerJobsPage({
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [choosingTemplate, setChoosingTemplate] = useState(false);
+  const [confirmDiscardDraft, setConfirmDiscardDraft] = useState(false);
 
   const counts = useMemo(() => {
     const result: Record<StatusFilter, number> = { all: 0, open: 0, draft: 0, closed: 0, archived: 0 };
@@ -440,14 +447,29 @@ export function EmployerJobsPage({
     <div className="k-page">
       <PageHeader
         title="Jobs"
-        actions={(
+        actions={!isLoading && jobs.length > 0 ? (
           <button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>
             <FontAwesomeIcon icon={faPlus} aria-hidden="true" />Post a job
           </button>
-        )}
+        ) : undefined}
       />
 
       <JobsSectionTabs section="postings" templateCount={templates.length} onChange={onSection} />
+
+      {newJobDraft && (
+        <Banner
+          tone="info"
+          className="mb-4"
+          actions={(
+            <>
+              <button className="k-btn k-btn-primary k-btn-sm" type="button" onClick={onPostJob}>Continue editing</button>
+              <button className="k-btn k-btn-ghost k-btn-sm" type="button" onClick={() => setConfirmDiscardDraft(true)}>Discard</button>
+            </>
+          )}
+        >
+          You have an unposted job{newJobDraft.title ? <>, <strong>{newJobDraft.title}</strong>,</> : ''} kept on this device{newJobDraft.savedAt ? ` (last edited ${draftSavedLabel(newJobDraft.savedAt)})` : ''}.
+        </Banner>
+      )}
 
       {isLoading ? (
         <SkeletonRows count={4} label="Loading jobs" />
@@ -456,7 +478,7 @@ export function EmployerJobsPage({
           icon={faBriefcase}
           title="No jobs yet"
           text="Post a job to start receiving matched applicants."
-          actions={<button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>Post a job</button>}
+          actions={<button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>{newJobDraft ? 'Continue your draft' : 'Post a job'}</button>}
         />
       ) : (
         <>
@@ -529,6 +551,16 @@ export function EmployerJobsPage({
         </>
       )}
       {confirm}
+      {confirmDiscardDraft && (
+        <ConfirmDialog
+          title="Discard this draft?"
+          message="Everything you entered for this job is cleared. This can't be undone."
+          confirmLabel="Discard draft"
+          danger
+          onCancel={() => setConfirmDiscardDraft(false)}
+          onConfirm={() => { setConfirmDiscardDraft(false); onDiscardNewJobDraft(); }}
+        />
+      )}
       {choosingTemplate && (
         <ChooseTemplatesModal
           templates={templates}
