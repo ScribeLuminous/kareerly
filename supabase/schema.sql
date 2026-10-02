@@ -198,6 +198,7 @@ create table if not exists public.employer_job_posts (
 
 alter table public.employer_job_posts add column if not exists application_deadline date;
 alter table public.employer_job_posts add column if not exists responsibilities text;
+alter table public.internal_jobs add column if not exists responsibilities text;
 
 create index if not exists internal_jobs_active_created_idx
   on public.internal_jobs (posting_status, created_at desc);

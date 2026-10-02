@@ -153,6 +153,24 @@ class DiscoveryRunAndReviewTests(unittest.TestCase):
         sd.run_discovery(self.client)
         self.assertEqual(self.candidate("canva")["status"], "rejected")
 
+    def test_scan_survives_unmigrated_responsibilities_column(self):
+        # Production error before 20261005090000_internal_jobs_responsibilities.sql.
+        select = self.client.select
+
+        def select_without_column(table, params):
+            if table == "internal_jobs" and "responsibilities" in params.get("select", ""):
+                raise SupabaseError('GET /rest/v1/internal_jobs failed (400): {"code":"42703","message":'
+                                    '"column internal_jobs.responsibilities does not exist"}', 400)
+            return select(table, params)
+
+        self.client.select = select_without_column
+        refs = {m.source_ref for m in sd.collect_mentions(self.client)}
+        self.assertEqual({"internal_jobs:J0", "internal_jobs:J1", "internal_jobs:J2"}, {r for r in refs if r.startswith("internal_jobs:")})
+
+        self.client.select = lambda table, params: (_ for _ in ()).throw(SupabaseError("boom", 500))
+        with self.assertRaises(SupabaseError):
+            sd.collect_mentions(self.client)
+
     def test_dry_run_writes_nothing(self):
         result = sd.run_discovery(self.client, dry_run=True)
         self.assertEqual(self.client.rows("skill_candidates"), [])
