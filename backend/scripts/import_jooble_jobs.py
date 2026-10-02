@@ -18,7 +18,11 @@ lead to the original listing rather than a complete requirement list:
 * The category is the search's category only when the listing reads like that
   career area; otherwise it is left blank rather than guessed.
 * Work setup, level and a monthly PHP salary are filled only when stated.
-* Rows are ``source_platform = 'Jooble'`` with the Jooble link as
+* Jooble's ``link`` is a redirect that ends on a Jooble page asking for an
+  account, so each listing is resolved to its page on the original job site
+  (e.g. bossjob.ph) and that is stored as ``source_url``. A listing whose
+  original link cannot be found is skipped, never sent to Jooble.
+* Rows are ``source_platform = 'Jooble'`` with the original-site link as
   ``source_url``, so candidates see "Visit job site" instead of Apply, and
   ``is_synthetic_seed = false``. The research corpus already excludes Jooble
   origin (``pipeline/source_policy.py``), and skill discovery skips these rows.
@@ -40,6 +44,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional
 from urllib.error import HTTPError, URLError
+from urllib.parse import unquote, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
@@ -208,6 +213,62 @@ class JoobleClient:
 
 
 # ---------------------------------------------------------------------------
+# Original job site
+# ---------------------------------------------------------------------------
+
+JOOBLE_HOST = re.compile(r"(?:^|\.)jooble\.[a-z.]+$", re.IGNORECASE)
+HREF = re.compile(r"""(?:href|content)\s*=\s*["']([^"']+)["']|(?:location(?:\.href)?\s*=|window\.open\()\s*["']([^"']+)["']""", re.I)
+MAX_PAGE_BYTES = 400_000
+
+
+def is_jooble_url(url: str) -> bool:
+    return bool(JOOBLE_HOST.search(urlparse(url).hostname or ""))
+
+
+def _board_key(origin: str) -> str:
+    """"BossJob.ph" / "https://www.bossjob.ph" -> "bossjob"; used to recognise the origin board's own link."""
+    host = urlparse(origin if "//" in origin else f"//{origin}").hostname or origin
+    host = re.sub(r"^www\.", "", host.lower())
+    return re.sub(r"[^a-z0-9]+", "", host.split(".")[0])
+
+
+def _original_from_page(page: str, base: str, origin: str) -> str:
+    """The outbound link on Jooble's interstitial page that leads off Jooble (the "Go to bossjob.ph" button)."""
+    candidates = []
+    for match in HREF.finditer(page):
+        raw = html.unescape(match.group(1) or match.group(2) or "")
+        # Meta refresh: "0;url=https://..."
+        raw = re.sub(r"^\s*\d+\s*;\s*url=", "", raw, flags=re.I)
+        url = urljoin(base, raw)
+        if url.startswith("https://") and not is_jooble_url(url):
+            candidates.append(url)
+    key = _board_key(origin)
+    for url in candidates:
+        if key and key in re.sub(r"[^a-z0-9]+", "", (urlparse(url).hostname or "").lower()):
+            return url
+    return ""
+
+
+def resolve_original_url(link: str, origin: str, *, opener: Callable[..., Any] = urlopen) -> str:
+    """The listing's own page on the site it was posted on, or "" when it cannot be found.
+
+    Jooble's ``link`` is a redirect through Jooble (sometimes an account-wall page). Follow it; when it lands off
+    Jooble that is the answer, otherwise look for the outbound button on the page it lands on. Only ever returns
+    an https URL that is not Jooble's, so a candidate is never sent back to Jooble.
+    """
+    request = Request(link, headers={"User-Agent": "Mozilla/5.0 (compatible; KareerlyBot/1.0)"})
+    try:
+        with opener(request, timeout=20) as response:
+            final = getattr(response, "geturl", lambda: link)() or link
+            if final.startswith("https://") and not is_jooble_url(final):
+                return final
+            page = response.read(MAX_PAGE_BYTES).decode("utf-8", errors="replace")
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+        return ""
+    return _original_from_page(unquote(page) if "%3A%2F%2F" in page else page, final, origin)
+
+
+# ---------------------------------------------------------------------------
 # Listing -> internal_jobs row
 # ---------------------------------------------------------------------------
 
@@ -316,7 +377,8 @@ def _fingerprint(row: Dict[str, Any]) -> str:
 
 
 def collect(client: JoobleClient, queries: Iterable[Dict[str, Any]], location: str, *, pages: int, per_page: int,
-            max_age_days: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+            max_age_days: int, now: Optional[datetime] = None,
+            resolve: Optional[Callable[[str, str], str]] = None) -> Dict[str, Any]:
     now = now or datetime.now(timezone.utc)
     today = now.date().isoformat()
     oldest = now - timedelta(days=max_age_days)
@@ -356,6 +418,13 @@ def collect(client: JoobleClient, queries: Iterable[Dict[str, Any]], location: s
                 if row["job_id"] in rows or fingerprint in fingerprints:
                     skip("duplicate")
                     continue
+                if resolve is not None:
+                    # Candidates must land on the real job site, not Jooble's sign-up wall.
+                    original = resolve(row["source_url"], clean(listing.get("source")))
+                    if not original:
+                        skip("original site link not found")
+                        continue
+                    row["source_url"] = original
                 rows[row["job_id"]] = row
                 fingerprints.add(fingerprint)
                 listings_log[-1]["row"] = row
@@ -447,6 +516,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--max-age-days", type=int, default=30, help="skip listings Jooble dates older than this")
     parser.add_argument("--expire-after-days", type=int, default=21,
                         help="set imported listings not seen again for this long to expired")
+    parser.add_argument("--keep-jooble-links", action="store_true",
+                        help="keep Jooble's own link instead of resolving the original job site (not recommended)")
     parser.add_argument("--sample", type=int, default=5, help="rows to print in the report")
     parser.add_argument("--csv", type=Path, help="also write every listing Jooble returned, and its outcome, to this CSV")
     args = parser.parse_args(argv)
@@ -470,7 +541,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.max_queries > 0:
         queries = queries[:args.max_queries]
     result = collect(client, queries, location, pages=max(1, args.pages), per_page=max(1, args.per_page),
-                     max_age_days=args.max_age_days)
+                     max_age_days=args.max_age_days,
+                     resolve=None if args.keep_jooble_links else resolve_original_url)
     rows = result.pop("rows")
     listings = result.pop("listings")
     report: Dict[str, Any] = {**result, "importable": len(rows), "dry_run": args.dry_run,
