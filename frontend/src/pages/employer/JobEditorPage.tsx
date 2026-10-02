@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCircleCheck, faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, ConfirmDialog, FormField, PageHeader } from '../../components/ui';
-import { ProvinceSelect } from '../../components/ProvinceSelect';
+import { RegionProvinceFields } from '../../components/ProvinceSelect';
 import { addSkills, clearJobDraft, draftSavedLabel, hasJobDraftContent, jobDraftSignature, jobToDraft, readJobDraft, useStoredJobDraft, writeJobDraft, type JobEditorDraft } from './jobDraft';
 import {
   EMPLOYMENT_TYPES,
@@ -262,14 +262,17 @@ export function JobEditorPage({ job, draftKey, backLabel, onBack, onSave, onConf
                 {withSaved(WORK_SETUPS, form.workSetup).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </FormField>
-            <FormField label="City or municipality *">
-              <input className="k-input" value={form.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="off" required />
-            </FormField>
-            <FormField label="Province *" help="Places the job in its region for candidates' location filters.">
-              <ProvinceSelect value={form.province} onChange={(province) => onUpdateForm('province', province)} required />
-            </FormField>
             <FormField label="Application deadline *">
               <input className="k-input" type="date" value={form.deadline} onChange={set('deadline')} required />
+            </FormField>
+            <RegionProvinceFields
+              value={form.province}
+              onChange={(province) => onUpdateForm('province', province)}
+              required
+              regionHelp="Places the job in its region for candidates' location filters."
+            />
+            <FormField label="City or municipality *">
+              <input className="k-input" value={form.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="off" required />
             </FormField>
           </div>
         </section>
