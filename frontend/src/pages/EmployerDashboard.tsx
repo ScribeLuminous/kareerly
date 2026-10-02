@@ -156,6 +156,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     contactNumber: '',
   });
   const [isSavingAccount, setIsSavingAccount] = useState(false);
+  // New postings start at the company's location, so the editor waits for the profile.
+  const [accountLoaded, setAccountLoaded] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const toastTimerRef = useRef<number | null>(null);
 
@@ -228,6 +230,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         if (saved.company_name) setCompanyName(saved.company_name);
       } catch (error) {
         if (isMounted) showToast(error instanceof Error ? error.message : 'Unable to load account settings.', 'warn');
+      } finally {
+        if (isMounted) setAccountLoaded(true);
       }
     };
     void loadSettings();
@@ -1235,9 +1239,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       )}
 
       {activePage === 'jobs' && jobEditorId !== null && (
-        jobEditorId && !editorJob ? (
+        (jobEditorId && !editorJob) || (!jobEditorId && !accountLoaded) ? (
           <div className="k-page k-page-narrow">
-            {isLoadingJobs ? <SkeletonRows count={4} label="Loading job" /> : (
+            {isLoadingJobs || !jobEditorId ? <SkeletonRows count={4} label="Loading job" /> : (
               <EmptyState
                 icon={faBriefcase}
                 title="Job not found"
@@ -1251,6 +1255,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
             key={jobDraftKey(employer.id || '', jobEditorId)}
             job={editorJob}
             draftKey={jobDraftKey(employer.id || '', jobEditorId)}
+            companyLocation={{ city: accountProfile.city, province: accountProfile.province }}
             backLabel={editorJob ? editorJob.title : 'All jobs'}
             onBack={leaveJobEditor}
             onSave={saveJobForm}

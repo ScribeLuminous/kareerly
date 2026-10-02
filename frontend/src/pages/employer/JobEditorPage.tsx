@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCircleCheck, faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, ConfirmDialog, FormField, PageHeader } from '../../components/ui';
 import { RegionProvinceFields } from '../../components/ProvinceSelect';
-import { addSkills, clearJobDraft, draftSavedLabel, hasJobDraftContent, jobDraftSignature, jobToDraft, readJobDraft, useStoredJobDraft, writeJobDraft, type JobEditorDraft } from './jobDraft';
+import { addSkills, clearJobDraft, draftSavedLabel, hasJobDraftContent, jobDraftSignature, jobToDraft, readJobDraft, useStoredJobDraft, writeJobDraft, type JobEditorDraft, type JobLocation } from './jobDraft';
 import {
   EMPLOYMENT_TYPES,
   EXPERIENCE_LEVELS,
@@ -23,6 +23,8 @@ type JobEditorPageProps = {
   job: EmployerJob | null;
   /** Where unsaved work for this job is kept on this device. */
   draftKey: string;
+  /** The company's location from its profile; a new posting starts there. */
+  companyLocation: JobLocation;
   /** Where Back goes, e.g. "All jobs" or the job's title. */
   backLabel: string;
   onBack: () => void;
@@ -32,8 +34,8 @@ type JobEditorPageProps = {
 };
 
 /** Where the editor opens: changes kept from an earlier visit, else the saved job. */
-function openingDraft(job: EmployerJob | null, draftKey: string) {
-  const source = jobToDraft(job);
+function openingDraft(job: EmployerJob | null, draftKey: string, companyLocation: JobLocation) {
+  const source = jobToDraft(job, companyLocation);
   const baseline = jobDraftSignature(source);
   const stored = readJobDraft(draftKey, source.form);
   const restore = stored && jobDraftSignature(stored) !== baseline && (job || hasJobDraftContent(stored)) ? stored : null;
@@ -107,9 +109,9 @@ function SkillEditor({ kind, label, help, placeholder, skills, input, onInput, o
  * Posting or editing a job, as its own page. Changes are kept on this device
  * as they are typed, so leaving the page or the tab never loses them.
  */
-export function JobEditorPage({ job, draftKey, backLabel, onBack, onSave, onConfigureAssessment }: JobEditorPageProps) {
+export function JobEditorPage({ job, draftKey, companyLocation, backLabel, onBack, onSave, onConfigureAssessment }: JobEditorPageProps) {
   const editing = Boolean(job);
-  const [opening] = useState(() => openingDraft(job, draftKey));
+  const [opening] = useState(() => openingDraft(job, draftKey, companyLocation));
   const [form, setForm] = useState<JobFormState>(opening.draft.form);
   const [requiredSkills, setRequiredSkills] = useState(opening.draft.requiredSkills);
   const [niceSkills, setNiceSkills] = useState(opening.draft.niceSkills);
@@ -254,8 +256,17 @@ export function JobEditorPage({ job, draftKey, backLabel, onBack, onSave, onConf
         </section>
 
         <section className="k-section" aria-labelledby="job-where">
-          <h2 id="job-where" className="k-section-title mb-3">Where and when</h2>
+          <h2 id="job-where" className="k-section-title mb-1">Where and when</h2>
+          <p className="k-meta mb-3">
+            {!editing && (companyLocation.city || companyLocation.province)
+              ? "The location starts from your company profile. Change it if this job is somewhere else."
+              : 'The region places the job in candidates\' location filters.'}
+          </p>
           <div className="k-form-grid">
+            <RegionProvinceFields value={form.province} onChange={(province) => onUpdateForm('province', province)} required />
+            <FormField label="City or municipality *">
+              <input className="k-input" value={form.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="off" required />
+            </FormField>
             <FormField label="Work setup *">
               <select className="k-select" value={form.workSetup} onChange={set('workSetup')} required>
                 <option value="">Select a setup</option>
@@ -264,15 +275,6 @@ export function JobEditorPage({ job, draftKey, backLabel, onBack, onSave, onConf
             </FormField>
             <FormField label="Application deadline *">
               <input className="k-input" type="date" value={form.deadline} onChange={set('deadline')} required />
-            </FormField>
-            <RegionProvinceFields
-              value={form.province}
-              onChange={(province) => onUpdateForm('province', province)}
-              required
-              regionHelp="Places the job in its region for candidates' location filters."
-            />
-            <FormField label="City or municipality *">
-              <input className="k-input" value={form.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="off" required />
             </FormField>
           </div>
         </section>

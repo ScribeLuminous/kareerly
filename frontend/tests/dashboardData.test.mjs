@@ -440,6 +440,12 @@ test('job drafts keep only real work and read back safely', () => {
   assert.equal(employerPage.hasJobDraftContent({ ...blank, form: { ...blank.form, title: 'Data Analyst' } }), true);
   assert.equal(employerPage.hasJobDraftContent({ ...blank, requiredSkillInput: 'SQL' }), true);
 
+  const placed = employerPage.jobToDraft(null, { city: ' Lucena City ', province: 'Quezon' });
+  assert.equal(placed.form.city, 'Lucena City');
+  assert.equal(placed.form.province, 'Quezon');
+  assert.equal(placed.form.title, '');
+  assert.equal(employerPage.jobToDraft({ ...placed.form, id: 'EMP-1', responsibilities: [], requiredSkills: [], niceToHaveSkills: [], salaryRange: '', city: 'Makati City', province: 'Metro Manila' }, { city: 'Lucena City', province: 'Quezon' }).form.city, 'Makati City');
+
   assert.equal(employerPage.jobDraftKey('user-1'), 'kareerly:employer-job-draft:user-1:new');
   assert.equal(employerPage.jobDraftKey('user-1', 'EMP-1'), 'kareerly:employer-job-draft:user-1:EMP-1');
 
