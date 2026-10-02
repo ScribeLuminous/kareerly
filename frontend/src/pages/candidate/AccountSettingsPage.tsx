@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEllipsisVertical, faEye, faFileLines, faTrash, faUpload } from '@fortawesome/free-solid-svg-icons';
 import { Banner, EmptyState, Menu } from '../../components/ui';
+import { RegionProvinceFields } from '../../components/ProvinceSelect';
 import type { EvidenceUploadRecord } from '../../lib/evidence';
+import { joinLocation, splitLocation } from '../../lib/phProvinces';
 import { FormField, PageHeader } from './common';
 import { cleanSkillDisplayName, formatDateLabel, tr } from './model';
 
@@ -16,6 +18,34 @@ type ProfileForm = {
   schoolUniversity: string;
   yearGraduated: string;
 };
+
+/**
+ * Region, province, then city, saved together as one "City, Province"
+ * location so the region can be read back from it.
+ */
+function LocationFields({ location, onChange, t }: { location: string; onChange: (location: string) => void; t: (text: string) => string }) {
+  const { city, province } = splitLocation(location);
+  // The city as typed, so spaces at the end survive until the field is left.
+  const [typedCity, setTypedCity] = useState<string | null>(null);
+  return (
+    <>
+      <RegionProvinceFields value={province} onChange={(next) => onChange(joinLocation(typedCity ?? city, next))} t={t} />
+      <FormField label={t('City or municipality')}>
+        <input
+          className="k-input"
+          autoComplete="address-level2"
+          value={typedCity ?? city}
+          onChange={(event) => {
+            setTypedCity(event.target.value);
+            onChange(joinLocation(event.target.value, province));
+          }}
+          onBlur={() => setTypedCity(null)}
+          placeholder="e.g. Quezon City"
+        />
+      </FormField>
+    </>
+  );
+}
 
 type AccountSettingsPageProps = {
   user: { name: string; email: string; publicId: string };
@@ -118,11 +148,9 @@ export function AccountSettingsPage({
             <FormField label={t('Contact Number')}>
               <input className="k-input" type="tel" inputMode="tel" autoComplete="tel" value={profile.contactNumber} onChange={set('contactNumber')} placeholder="09XX XXX XXXX" />
             </FormField>
+            <LocationFields location={profile.location} onChange={(location) => onProfileChange({ ...profile, location })} t={t} />
             <FormField label={t('Birthday')}>
               <input className="k-input" type="date" autoComplete="bday" value={profile.birthday} onChange={set('birthday')} />
-            </FormField>
-            <FormField label={t('Location / Region')}>
-              <input className="k-input" autoComplete="address-level2" value={profile.location} onChange={set('location')} placeholder="e.g. Quezon City" />
             </FormField>
             <FormField label={t('Address')} className="k-span-2">
               <input className="k-input" autoComplete="street-address" value={profile.address} onChange={set('address')} />
