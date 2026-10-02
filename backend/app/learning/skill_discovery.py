@@ -355,7 +355,17 @@ def collect_mentions(client: SupabaseRest) -> List[Mention]:
             # Jooble listings are snippets (scripts/import_jooble_jobs.py): too
             # little text to propose new skills from.
             params["or"] = "(source_platform.is.null,source_platform.neq.Jooble)"
-        for job in client.select_all(table, params, limit=10_000):
+        try:
+            jobs = client.select_all(table, params, limit=10_000)
+        except SupabaseError as exc:
+            # The nullable column can lag behind its migration
+            # (20261005090000_internal_jobs_responsibilities.sql); scan the
+            # descriptions alone rather than fail the whole run.
+            if exc.status != 400 or "responsibilities" not in str(exc):
+                raise
+            columns = ",".join(c for c in JOB_COLUMNS.split(",") if c != "responsibilities")
+            jobs = client.select_all(table, {**params, "select": columns}, limit=10_000)
+        for job in jobs:
             mentions.extend(mentions_from_job({**job, "_table": table}))
     for row in client.select_all("user_skills", {"select": "user_id,skill_id,skill_name", "skill_id": "is.null"}, limit=20_000):
         mentions.extend(mentions_from_profile_skill(row))
