@@ -2018,6 +2018,33 @@ details.k-detail-section[open] > summary {
   backdrop-filter: none;
 }
 
+/* The job editor's save bar: what's kept on this device, then the actions. */
+.k-editor-bar {
+  flex-wrap: wrap;
+}
+
+.k-editor-bar-error {
+  flex-basis: 100%;
+}
+
+.k-editor-bar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+@media (max-width: 639px) {
+  .k-editor-bar-status {
+    flex-basis: 100%;
+  }
+
+  .k-editor-bar > .k-btn {
+    flex: 1 1 0;
+  }
+}
+
 /* Job actions in a dialog footer sit side by side, even on phones. */
 .k-modal-footer .k-detail-actions .k-btn {
   width: auto;

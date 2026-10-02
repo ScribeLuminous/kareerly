@@ -1,7 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
-import { Banner, FormField, Modal } from '../../components/ui';
+import { faArrowLeft, faCircleCheck, faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { Banner, ConfirmDialog, FormField, PageHeader } from '../../components/ui';
 import { ProvinceSelect } from '../../components/ProvinceSelect';
+import { addSkills, clearJobDraft, draftSavedLabel, hasJobDraftContent, jobDraftSignature, jobToDraft, readJobDraft, useStoredJobDraft, writeJobDraft, type JobEditorDraft } from './jobDraft';
 import {
   EMPLOYMENT_TYPES,
   EXPERIENCE_LEVELS,
@@ -9,30 +11,34 @@ import {
   jobSubcategoryMap,
   MIN_EMPLOYER_SALARY,
   WORK_SETUPS,
+  type EmployerJob,
   type JobFormState,
   type JobStatus,
 } from './model';
 
 type SkillKind = 'required' | 'nice';
 
-type JobEditorModalProps = {
-  editing: boolean;
-  form: JobFormState;
-  error: string;
-  requiredSkills: string[];
-  niceSkills: string[];
-  requiredSkillInput: string;
-  niceSkillInput: string;
-  saving: boolean;
-  onUpdateForm: <K extends keyof JobFormState>(field: K, value: JobFormState[K]) => void;
-  onSkillInput: (kind: SkillKind, value: string) => void;
-  onAddSkill: (kind: SkillKind) => void;
-  onRemoveSkill: (kind: SkillKind, skill: string) => void;
-  onCancel: () => void;
-  onSaveDraft: () => void;
-  onPost: () => void;
+type JobEditorPageProps = {
+  /** The job being edited, or null for a new posting. */
+  job: EmployerJob | null;
+  /** Where unsaved work for this job is kept on this device. */
+  draftKey: string;
+  /** Where Back goes, e.g. "All jobs" or the job's title. */
+  backLabel: string;
+  onBack: () => void;
+  /** Saves to the job; resolves with what blocked it, or null once saved. */
+  onSave: (mode: 'draft' | 'post', draft: JobEditorDraft) => Promise<string | null>;
   onConfigureAssessment: () => void;
 };
+
+/** Where the editor opens: changes kept from an earlier visit, else the saved job. */
+function openingDraft(job: EmployerJob | null, draftKey: string) {
+  const source = jobToDraft(job);
+  const baseline = jobDraftSignature(source);
+  const stored = readJobDraft(draftKey, source.form);
+  const restore = stored && jobDraftSignature(stored) !== baseline && (job || hasJobDraftContent(stored)) ? stored : null;
+  return { draft: restore || source, baseline, restoredAt: restore?.savedAt || '' };
+}
 
 const blockNonDigits = (event: React.KeyboardEvent<HTMLInputElement>) => {
   if (['e', 'E', '+', '-', '.'].includes(event.key)) event.preventDefault();
@@ -93,24 +99,87 @@ function SkillEditor({ kind, label, help, placeholder, skills, input, onInput, o
   );
 }
 
-export function JobEditorModal({
-  editing,
-  form,
-  error,
-  requiredSkills,
-  niceSkills,
-  requiredSkillInput,
-  niceSkillInput,
-  saving,
-  onUpdateForm,
-  onSkillInput,
-  onAddSkill,
-  onRemoveSkill,
-  onCancel,
-  onSaveDraft,
-  onPost,
-  onConfigureAssessment,
-}: JobEditorModalProps) {
+/**
+ * Posting or editing a job, as its own page. Changes are kept on this device
+ * as they are typed, so leaving the page never loses them.
+ */
+/**
+ * Posting or editing a job, as its own page. Changes are kept on this device
+ * as they are typed, so leaving the page or the tab never loses them.
+ */
+export function JobEditorPage({ job, draftKey, backLabel, onBack, onSave, onConfigureAssessment }: JobEditorPageProps) {
+  const editing = Boolean(job);
+  const [opening] = useState(() => openingDraft(job, draftKey));
+  const [form, setForm] = useState<JobFormState>(opening.draft.form);
+  const [requiredSkills, setRequiredSkills] = useState(opening.draft.requiredSkills);
+  const [niceSkills, setNiceSkills] = useState(opening.draft.niceSkills);
+  const [requiredSkillInput, setRequiredSkillInput] = useState(opening.draft.requiredSkillInput);
+  const [niceSkillInput, setNiceSkillInput] = useState(opening.draft.niceSkillInput);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  // Once saved to the job, nothing more is kept on this device.
+  const [saved, setSaved] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [restoreDismissed, setRestoreDismissed] = useState(false);
+  const localSavedAt = useStoredJobDraft(draftKey)?.savedAt || '';
+  const restoredAt = opening.restoredAt;
+  // What is already kept, so reopening a draft doesn't count as editing it.
+  const keptSignature = useRef(restoredAt ? jobDraftSignature(opening.draft) : '');
+
+  // Keep the work on this device as it changes; nothing is kept once it matches the saved job again.
+  useEffect(() => {
+    if (saving || saved) return;
+    const draft: JobEditorDraft = { form, requiredSkills, niceSkills, requiredSkillInput, niceSkillInput };
+    const signature = jobDraftSignature(draft);
+    if (signature === keptSignature.current) return;
+    keptSignature.current = signature;
+    if (signature === opening.baseline || (!editing && !hasJobDraftContent(draft))) clearJobDraft(draftKey);
+    else writeJobDraft(draftKey, draft);
+  }, [draftKey, editing, opening.baseline, saving, saved, form, requiredSkills, niceSkills, requiredSkillInput, niceSkillInput]);
+
+  const onUpdateForm = <K extends keyof JobFormState>(field: K, value: JobFormState[K]) => {
+    setForm((current) => (field === 'category' ? { ...current, category: String(value), subcategory: '' } : { ...current, [field]: value }));
+  };
+  const setSkillInput = (kind: SkillKind, value: string) => (kind === 'required' ? setRequiredSkillInput(value) : setNiceSkillInput(value));
+  const addSkill = (kind: SkillKind) => {
+    const input = kind === 'required' ? requiredSkillInput : niceSkillInput;
+    if (!input.trim()) return;
+    const next = addSkills(kind === 'required' ? requiredSkills : niceSkills, input);
+    if (!next) {
+      setError(kind === 'required' ? 'That required skill is already added.' : 'That nice-to-have skill is already added.');
+      return;
+    }
+    setError('');
+    if (kind === 'required') {
+      setRequiredSkills(next);
+      setRequiredSkillInput('');
+    } else {
+      setNiceSkills(next);
+      setNiceSkillInput('');
+    }
+  };
+  const removeSkill = (kind: SkillKind, value: string) => {
+    if (kind === 'required') setRequiredSkills((current) => current.filter((skill) => skill !== value));
+    else setNiceSkills((current) => current.filter((skill) => skill !== value));
+  };
+  const save = async (mode: 'draft' | 'post') => {
+    setSaving(true);
+    try {
+      const problem = await onSave(mode, { form, requiredSkills, niceSkills, requiredSkillInput, niceSkillInput });
+      setError(problem || '');
+      if (!problem) {
+        setSaved(true);
+        clearJobDraft(draftKey);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+  const discard = () => {
+    clearJobDraft(draftKey);
+    onBack();
+  };
+
   const subcategories = form.category ? jobSubcategoryMap[form.category] || [] : [];
   const [salaryMinimum = '', salaryMaximum = ''] = form.salaryRange.split('-');
   const updateSalary = (field: 'minimum' | 'maximum', value: string) => {
@@ -119,36 +188,40 @@ export function JobEditorModal({
   };
   const set = (field: keyof JobFormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => onUpdateForm(field, event.target.value as never);
 
+  const savedLabel = localSavedAt ? draftSavedLabel(localSavedAt) : '';
+  const restoredLabel = restoredAt ? draftSavedLabel(restoredAt) : '';
+  const discardLabel = editing ? 'Discard changes' : 'Discard draft';
+
   return (
-    <Modal
-      title={editing ? 'Edit job' : 'Post a job'}
-      subtitle="Required fields are marked *"
-      onClose={onCancel}
-      size="lg"
-      fullOnMobile
-      closeLabel="Cancel"
-      footer={(
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:justify-end">
-          <button className="k-btn k-btn-ghost hidden sm:inline-flex" type="button" onClick={onCancel} disabled={saving}>Cancel</button>
-          <button className="k-btn k-btn-secondary" type="button" onClick={onSaveDraft} disabled={saving}>Save draft</button>
-          <button className="k-btn k-btn-primary" type="submit" form="job-editor-form" disabled={saving}>
-            {saving ? 'Saving…' : editing && form.status === 'closed' ? 'Save' : 'Post job'}
-          </button>
-        </div>
+    <div className="k-page k-page-narrow">
+      <button className="k-btn k-btn-ghost k-btn-sm -ml-2 mb-3" type="button" onClick={onBack}>
+        <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />{backLabel}
+      </button>
+      <PageHeader title={editing ? 'Edit job' : 'Post a job'}>
+        <p className="k-secondary mt-1">Required fields are marked *. Your changes are kept on this device until you save or post, so you can leave and come back.</p>
+      </PageHeader>
+
+      {restoredAt && !restoreDismissed && (
+        <Banner
+          tone="info"
+          className="mb-4"
+          onDismiss={() => setRestoreDismissed(true)}
+          actions={<button className="k-btn k-btn-ghost k-btn-sm" type="button" onClick={() => setConfirmDiscard(true)}>{discardLabel}</button>}
+        >
+          {editing ? 'Picked up your unsaved changes' : 'Picked up your unsaved draft'}{restoredLabel ? ` from ${restoredLabel}` : ''}. They aren't saved to the job until you choose Save draft or Post job.
+        </Banner>
       )}
-    >
+
       <form
         id="job-editor-form"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          onPost();
+          void save('post');
         }}
       >
-        {error && <Banner tone="error" className="mb-4">{error}</Banner>}
-
         <section className="k-section" aria-labelledby="job-basics">
-          <h3 id="job-basics" className="k-section-title mb-3">Basics</h3>
+          <h2 id="job-basics" className="k-section-title mb-3">Basics</h2>
           <div className="k-form-grid">
             <FormField label="Job title *" className="k-span-2">
               <input className="k-input" value={form.title} onChange={set('title')} placeholder="e.g. Data Analyst" required />
@@ -181,7 +254,7 @@ export function JobEditorModal({
         </section>
 
         <section className="k-section" aria-labelledby="job-where">
-          <h3 id="job-where" className="k-section-title mb-3">Where and when</h3>
+          <h2 id="job-where" className="k-section-title mb-3">Where and when</h2>
           <div className="k-form-grid">
             <FormField label="Work setup *">
               <select className="k-select" value={form.workSetup} onChange={set('workSetup')} required>
@@ -202,7 +275,7 @@ export function JobEditorModal({
         </section>
 
         <section className="k-section" aria-labelledby="job-pay">
-          <h3 id="job-pay" className="k-section-title mb-3">Monthly salary *</h3>
+          <h2 id="job-pay" className="k-section-title mb-3">Monthly salary *</h2>
           <div className="k-form-grid">
             <FormField label="Minimum (₱)">
               <input
@@ -237,7 +310,7 @@ export function JobEditorModal({
         </section>
 
         <section className="k-section" aria-labelledby="job-description">
-          <h3 id="job-description" className="k-section-title mb-3">Description</h3>
+          <h2 id="job-description" className="k-section-title mb-3">Description</h2>
           <FormField label="About the role *" help="A short overview of the role and why it matters.">
             <textarea className="k-textarea min-h-[112px]" value={form.description} onChange={set('description')} required />
           </FormField>
@@ -253,7 +326,7 @@ export function JobEditorModal({
         </section>
 
         <section className="k-section" aria-labelledby="job-skills">
-          <h3 id="job-skills" className="k-section-title mb-1">Skills</h3>
+          <h2 id="job-skills" className="k-section-title mb-1">Skills</h2>
           <p className="k-meta mb-3">Matching uses these to score applicants.</p>
           <SkillEditor
             kind="required"
@@ -262,9 +335,9 @@ export function JobEditorModal({
             placeholder="e.g. SQL, Excel"
             skills={requiredSkills}
             input={requiredSkillInput}
-            onInput={onSkillInput}
-            onAdd={onAddSkill}
-            onRemove={onRemoveSkill}
+            onInput={setSkillInput}
+            onAdd={addSkill}
+            onRemove={removeSkill}
           />
           <div className="mt-4">
             <SkillEditor
@@ -274,22 +347,22 @@ export function JobEditorModal({
               placeholder="e.g. Power BI"
               skills={niceSkills}
               input={niceSkillInput}
-              onInput={onSkillInput}
-              onAdd={onAddSkill}
-              onRemove={onRemoveSkill}
+              onInput={setSkillInput}
+              onAdd={addSkill}
+              onRemove={removeSkill}
             />
           </div>
         </section>
 
         {editing && <section className="k-section" aria-labelledby="job-assessment">
-          <h3 id="job-assessment" className="k-section-title">Candidate Assessment</h3>
+          <h2 id="job-assessment" className="k-section-title">Candidate Assessment</h2>
           <p className="k-secondary mt-1">Set questions candidates answer and the scorecard criteria employers use to review them.</p>
           <button className="k-btn k-btn-secondary mt-3" type="button" onClick={onConfigureAssessment}>Configure Assessment</button>
         </section>}
 
         {editing && (
           <section className="k-section" aria-labelledby="job-status">
-            <h3 id="job-status" className="k-section-title mb-3">Status</h3>
+            <h2 id="job-status" className="k-section-title mb-3">Status</h2>
             <FormField label="Posting status" help="Save draft always keeps it hidden from candidates.">
               <select className="k-select" value={form.status} onChange={(event) => onUpdateForm('status', event.target.value as JobStatus)}>
                 <option value="open">Open</option>
@@ -300,6 +373,33 @@ export function JobEditorModal({
           </section>
         )}
       </form>
-    </Modal>
+
+      <div className="k-savebar k-editor-bar" role="group" aria-label="Save this job">
+        {error && <Banner tone="error" className="k-editor-bar-error">{error}</Banner>}
+        <span className="k-meta k-editor-bar-status" aria-live="polite">
+          {savedLabel ? (
+            <><FontAwesomeIcon icon={faCircleCheck} aria-hidden="true" className="text-green" />{editing ? 'Changes' : 'Draft'} kept on this device · {savedLabel}</>
+          ) : editing ? 'No unsaved changes' : 'Nothing entered yet'}
+        </span>
+        {localSavedAt && (
+          <button className="k-btn k-btn-ghost" type="button" onClick={() => setConfirmDiscard(true)} disabled={saving}>{discardLabel}</button>
+        )}
+        <button className="k-btn k-btn-secondary" type="button" onClick={() => void save('draft')} disabled={saving}>Save draft</button>
+        <button className="k-btn k-btn-primary" type="submit" form="job-editor-form" disabled={saving}>
+          {saving ? 'Saving…' : editing && form.status === 'closed' ? 'Save' : 'Post job'}
+        </button>
+      </div>
+
+      {confirmDiscard && (
+        <ConfirmDialog
+          title={editing ? 'Discard your changes?' : 'Discard this draft?'}
+          message={editing ? 'The job goes back to how it was last saved.' : "Everything you entered for this job is cleared. This can't be undone."}
+          confirmLabel={discardLabel}
+          danger
+          onCancel={() => setConfirmDiscard(false)}
+          onConfirm={() => { setConfirmDiscard(false); discard(); }}
+        />
+      )}
+    </div>
   );
 }

@@ -360,11 +360,11 @@ export function AssessmentTemplatesPage(props: AssessmentTemplatesPageProps) {
     <div className="k-page">
       <PageHeader
         title="Jobs"
-        actions={(
-          <button className="k-btn k-btn-primary" type="button" onClick={() => onOpen('new')} disabled={status === 'unavailable'}>
+        actions={status === 'ready' && templates.length > 0 ? (
+          <button className="k-btn k-btn-primary" type="button" onClick={() => onOpen('new')}>
             <FontAwesomeIcon icon={faPlus} aria-hidden="true" />New template
           </button>
-        )}
+        ) : undefined}
       />
       <JobsSectionTabs section="templates" templateCount={templates.length} onChange={onSection} />
       <p className="k-secondary mb-4">Save a Candidate Assessment once and reuse it across job listings. Select several to use them together or tidy up.</p>

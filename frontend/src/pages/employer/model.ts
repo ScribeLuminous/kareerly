@@ -3,7 +3,7 @@ import { splitJobContent } from '../../lib/jobDescription';
 import { splitLocation } from '../../lib/phProvinces';
 
 export type { EmployerPage } from './routes';
-export { EMPLOYER_PAGE_PATHS, employerJobIdFromPath, employerJobPath, employerPageFromPath, employerTemplateIdFromPath, employerTemplatePath, isEmployerWorkspacePath } from './routes';
+export { EMPLOYER_PAGE_PATHS, employerJobEditorIdFromPath, employerJobEditorPath, employerJobIdFromPath, employerJobPath, employerPageFromPath, employerTemplateIdFromPath, employerTemplatePath, isEmployerWorkspacePath } from './routes';
 export { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from '../../lib/employerOptions';
 
 export type JobStatus = 'open' | 'draft' | 'closed' | 'archived';
@@ -16,7 +16,6 @@ export type ToastType = '' | 'success' | 'warn' | 'danger';
 
 export type ReviewAction = 'shortlisted' | 'interviewing' | 'hired' | 'rejected';
 
-export type JobsPanelMode = 'detail' | 'edit' | 'new';
 
 export type EmployerJob = {
   id: string;
