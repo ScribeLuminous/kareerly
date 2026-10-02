@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { faBriefcase, faBuilding, faChartColumn, faComments, faHouse, faLayerGroup, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
-import { AppShell, ConfirmDialog, DESKTOP_QUERY, FormField, ToastRegion, useMediaQuery, type NextStep, type ToastState } from '../components/ui';
+import { AppShell, ConfirmDialog, DESKTOP_QUERY, EmptyState, FormField, SkeletonRows, ToastRegion, useMediaQuery, type NextStep, type ToastState } from '../components/ui';
 import { loadApplicationMessages, loadEmployerAccountSettings, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { normalizeEmployerIndustry } from '../lib/employerOptions';
@@ -19,16 +19,18 @@ import { EmployerHomePage } from './employer/EmployerHomePage';
 import { InsightsPage } from './employer/insights/InsightsPage';
 import { EmployerJobsPage, type JobBulkAction } from './employer/EmployerJobsPage';
 import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
-import { JobEditorModal } from './employer/JobEditorModal';
+import { JobEditorPage } from './employer/JobEditorPage';
+import { clearJobDraft, hasJobDraftContent, jobDraftKey, useStoredJobDraft, validateJobDraft, type JobEditorDraft } from './employer/jobDraft';
 import {
   daysUntil,
   EMPLOYER_PAGE_PATHS,
+  employerJobEditorIdFromPath,
+  employerJobEditorPath,
   employerJobIdFromPath,
   employerJobPath,
   employerPageFromPath,
   employerTemplateIdFromPath,
   employerTemplatePath,
-  emptyJobForm,
   getCategoryCode,
   getInitials,
   getSalaryAmounts,
@@ -36,14 +38,12 @@ import {
   initialJobs,
   initialNotifications,
   JOB_POSTING_STATUS,
-  MIN_EMPLOYER_SALARY,
   REJECTION_REASONS,
   statusActionLabel,
   statusActionMessage,
   toCandidateApplication,
   toEmployerJob,
   toMessageEntry,
-  toSalaryInputValue,
   todayIso,
   type ApplicationMessageRow,
   type CandidateApplication,
@@ -52,10 +52,8 @@ import {
   type EmployerJobPostRow,
   type EmployerPage,
   type JobApplicationRow,
-  type JobFormState,
   type JobStats,
   type JobStatus,
-  type JobsPanelMode,
   type MessageEntry,
   type NotificationItem,
   type ReviewAction,
@@ -109,23 +107,21 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [applicationsLoadStatus, setApplicationsLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [currentDate, setCurrentDate] = useState(todayIso);
   const [employerProfileId, setEmployerProfileId] = useState('');
-  const [isSavingJob, setIsSavingJob] = useState(false);
   const [applications, setApplications] = useState<CandidateApplication[]>(initialApplications);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
   const [toast, setToast] = useState<ToastState>(null);
-  const [selectedJobId, setSelectedJobId] = useState<string>(initialJobs[0]?.id || '');
   const detailJobId = employerJobIdFromPath(location.pathname);
   // null outside the templates section, '' on its list, else a template id or 'new'.
   const templateRouteId = employerTemplateIdFromPath(location.pathname);
   const [templates, setTemplates] = useState<AssessmentTemplate[]>([]);
   const [templatesStatus, setTemplatesStatus] = useState<'loading' | 'ready' | 'error' | 'unavailable'>('loading');
-  const [jobsPanelMode, setJobsPanelMode] = useState<JobsPanelMode>('detail');
-  const [jobForm, setJobForm] = useState<JobFormState>(emptyJobForm);
-  const [jobFormError, setJobFormError] = useState('');
-  const [requiredSkillsDraft, setRequiredSkillsDraft] = useState<string[]>([]);
-  const [niceSkillsDraft, setNiceSkillsDraft] = useState<string[]>([]);
-  const [requiredSkillInput, setRequiredSkillInput] = useState('');
-  const [niceSkillInput, setNiceSkillInput] = useState('');
+  // null outside the job editor, '' for a new posting, else the job being edited.
+  const jobEditorId = employerJobEditorIdFromPath(location.pathname);
+  const editorJob = jobEditorId ? jobs.find((job) => job.id === jobEditorId) || null : null;
+  // An unposted new job kept on this device, so the Jobs page can offer to continue it.
+  const newJobDraftKey = jobDraftKey(employer.id || '');
+  const storedNewJobDraft = useStoredJobDraft(newJobDraftKey);
+  const newJobDraft = storedNewJobDraft && hasJobDraftContent(storedNewJobDraft) ? { title: storedNewJobDraft.form.title.trim(), savedAt: storedNewJobDraft.savedAt } : null;
   const [rawCandidateFilters, setCandidateFilters] = useState<CandidateFilters>(DEFAULT_CANDIDATE_FILTERS);
   const [rubrics, setRubrics] = useState<Rubric[]>([]);
   const [evaluationUnavailable, setEvaluationUnavailable] = useState(false);
@@ -373,6 +369,11 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     return () => { isMounted = false; };
   }, [employerProfileId]);
 
+  // Templates load once the employer profile is known; an account without one has none.
+  const effectiveTemplatesStatus = templatesStatus === 'loading' && !employerProfileId && jobsLoadStatus !== 'loading'
+    ? (jobsLoadStatus === 'error' ? 'error' : 'ready')
+    : templatesStatus;
+
   const rubricVersions = useMemo(() => new Map(Array.from(rubricsByJob.entries()).map(([jobId, list]) => [jobId, list[0].version])), [rubricsByJob]);
 
   // The Candidates page always shows one job; start with the one with the most waiting applicants.
@@ -565,138 +566,26 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
   };
 
-  const startNewJobForm = () => {
-    setJobsPanelMode('new');
-    setJobForm(emptyJobForm);
-    setJobFormError('');
-    setRequiredSkillsDraft([]);
-    setNiceSkillsDraft([]);
-    setRequiredSkillInput('');
-    setNiceSkillInput('');
-  };
-
   const startEditJobForm = (job: EmployerJob) => {
-    setSelectedJobId(job.id);
-    setJobsPanelMode('edit');
-    setJobFormError('');
-    setJobForm({
-      title: job.title,
-      category: job.category,
-      subcategory: job.subcategory,
-      experienceLevel: job.experienceLevel,
-      description: job.description,
-      responsibilities: job.responsibilities.join('\n'),
-      workSetup: job.workSetup,
-      employmentType: job.employmentType,
-      city: job.city,
-      province: job.province,
-      salaryRange: toSalaryInputValue(job.salaryRange),
-      deadline: job.deadline,
-      status: job.status,
-    });
-    setRequiredSkillsDraft(job.requiredSkills);
-    setNiceSkillsDraft(job.niceToHaveSkills);
-    setRequiredSkillInput('');
-    setNiceSkillInput('');
+    navigate(employerJobEditorPath(job.id));
+    window.scrollTo({ top: 0 });
   };
 
-  const cancelJobPanel = () => {
-    setJobsPanelMode('detail');
-    setJobFormError('');
+  const leaveJobEditor = () => {
+    navigate(jobEditorId ? employerJobPath(jobEditorId) : EMPLOYER_PAGE_PATHS.jobs);
+    window.scrollTo({ top: 0 });
   };
 
-  const updateJobForm = <K extends keyof JobFormState>(field: K, value: JobFormState[K]) => {
-    if (field === 'category') {
-      setJobForm((current) => ({ ...current, category: String(value), subcategory: '' }));
-      return;
-    }
-    setJobForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const setSkillInput = (kind: 'required' | 'nice', value: string) => {
-    if (kind === 'required') setRequiredSkillInput(value);
-    else setNiceSkillInput(value);
-  };
-
-  const addSkillDraft = (kind: 'required' | 'nice') => {
-    const raw = kind === 'required' ? requiredSkillInput : niceSkillInput;
-    const values = raw
-      .split(',')
-      .map((skill) => skill.trim())
-      .filter(Boolean);
-    if (values.length === 0) return;
-
-    const uniqueValues = values.filter((skill, index, list) => {
-      const normalized = skill.toLowerCase();
-      return list.findIndex((item) => item.toLowerCase() === normalized) === index;
-    });
-
-    if (kind === 'required') {
-      const existing = new Set(requiredSkillsDraft.map((skill) => skill.toLowerCase()));
-      const nextSkills = uniqueValues.filter((skill) => !existing.has(skill.toLowerCase()));
-      if (nextSkills.length === 0) {
-        setJobFormError('That required skill is already added.');
-        return;
-      }
-      setRequiredSkillsDraft((current) => [...current, ...nextSkills]);
-      setRequiredSkillInput('');
-      return;
-    }
-
-    const existing = new Set(niceSkillsDraft.map((skill) => skill.toLowerCase()));
-    const nextSkills = uniqueValues.filter((skill) => !existing.has(skill.toLowerCase()));
-    if (nextSkills.length === 0) {
-      setJobFormError('That nice-to-have skill is already added.');
-      return;
-    }
-    setNiceSkillsDraft((current) => [...current, ...nextSkills]);
-    setNiceSkillInput('');
-  };
-
-  const removeSkillDraft = (kind: 'required' | 'nice', value: string) => {
-    if (kind === 'required') {
-      setRequiredSkillsDraft((current) => current.filter((skill) => skill !== value));
-      return;
-    }
-    setNiceSkillsDraft((current) => current.filter((skill) => skill !== value));
-  };
-
-  const validateJobForm = (): string | null => {
-    if (!jobForm.title.trim()) return 'Add a job title.';
-    if (!jobForm.category.trim()) return 'Choose a category.';
-    if (!jobForm.subcategory.trim()) return 'Choose a sub-category.';
-    if (!jobForm.experienceLevel.trim()) return 'Choose an experience level.';
-    if (!jobForm.workSetup.trim()) return 'Choose a work setup.';
-    if (!jobForm.city.trim()) return 'Add the city or municipality.';
-    if (!jobForm.province.trim()) return 'Choose a province.';
-    if (!jobForm.deadline.trim()) return 'Set an application deadline.';
-    if (!jobForm.salaryRange.trim()) return 'Add a salary range.';
-    const { minimum: minimumSalary, maximum: maximumSalary } = getSalaryAmounts(jobForm.salaryRange);
-    if (!minimumSalary || !maximumSalary) return 'Enter both a minimum and a maximum salary.';
-    if (minimumSalary < MIN_EMPLOYER_SALARY) return `The minimum salary must be at least ₱${MIN_EMPLOYER_SALARY.toLocaleString('en-PH')}.`;
-    if (maximumSalary < minimumSalary) return 'The maximum salary must be at least the minimum.';
-    if (!jobForm.description.trim()) return 'Add a short description of the role.';
-    if (!jobForm.responsibilities.trim()) return 'Add at least one responsibility.';
-    if (requiredSkillsDraft.length === 0) return 'Add at least one required skill.';
-    return null;
-  };
-
-  const saveJobForm = async (mode: 'draft' | 'post') => {
-    const error = validateJobForm();
-    if (error) {
-      setJobFormError(error);
-      return;
-    }
-    if (!employerProfileId) {
-      setJobFormError('Your employer profile is still loading. Try again in a moment.');
-      return;
-    }
-    setJobFormError('');
-    setIsSavingJob(true);
+  /** Saves the editor's job; resolves with what blocked it, or null once saved. */
+  const saveJobForm = async (mode: 'draft' | 'post', draft: JobEditorDraft): Promise<string | null> => {
+    const error = validateJobDraft(draft);
+    if (error) return error;
+    if (!employerProfileId) return 'Your employer profile is still loading. Try again in a moment.';
+    const { form: jobForm, requiredSkills: requiredSkillsDraft, niceSkills: niceSkillsDraft } = draft;
     const status: JobStatus = mode === 'draft' ? 'draft' : jobForm.status === 'closed' ? 'closed' : 'open';
     const location = joinLocation(jobForm.city, jobForm.province);
     const { minimum: salaryMinPhp, maximum: salaryMaxPhp } = getSalaryAmounts(jobForm.salaryRange);
-    const currentJob = jobsPanelMode === 'edit' && selectedJobId ? jobs.find((job) => job.id === selectedJobId) || null : null;
+    const currentJob = editorJob;
     const jobId = currentJob?.id || `EMP-${Date.now()}`;
     const postingStatus = status === 'open' ? 'active' : status;
     const payload = {
@@ -757,17 +646,15 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
     if (saveError) {
       console.warn('Unable to save job post:', saveError);
-      setJobFormError("The job couldn't be saved. Please try again.");
-      setIsSavingJob(false);
-      return;
+      return "The job couldn't be saved. Please try again.";
     }
 
     const savedJob = toEmployerJob(savedPost as EmployerJobPostRow);
 
-    if (jobsPanelMode === 'edit' && selectedJobId) {
+    if (currentJob) {
       setJobs((current) =>
         current.map((job) =>
-          job.id === selectedJobId
+          job.id === currentJob.id
             ? {
                 ...savedJob,
                 deadline: jobForm.deadline,
@@ -776,16 +663,16 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         ),
       );
       showToast(mode === 'draft' ? 'Draft saved.' : 'Job updated.', 'success');
+      navigate(employerJobPath(currentJob.id), { replace: true });
     } else {
       const newJob: EmployerJob = { ...savedJob, deadline: jobForm.deadline };
       setJobs((current) => [newJob, ...current]);
-      setSelectedJobId(newJob.id);
       showToast(mode === 'draft' ? 'Saved as a draft.' : 'Job posted.', 'success');
-      goPage('jobs');
+      navigate(employerJobPath(newJob.id), { replace: true });
       if (newJob.databaseId) setRubricEditor({ jobId: newJob.id, inUse: false });
     }
-    setIsSavingJob(false);
-    setJobsPanelMode('detail');
+    window.scrollTo({ top: 0 });
+    return null;
   };
 
   const bulkJobAction = async (action: JobBulkAction, jobIds: string[]) => {
@@ -1160,13 +1047,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   };
 
   const openJob = (jobId: string) => {
-    setSelectedJobId(jobId);
     navigate(employerJobPath(jobId));
     window.scrollTo({ top: 0 });
   };
 
   const postJob = () => {
-    startNewJobForm();
+    navigate(employerJobEditorPath());
+    window.scrollTo({ top: 0 });
   };
 
   const viewApplicants = (jobId: string) => {
@@ -1332,7 +1219,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       {activePage === 'jobs' && templateRouteId !== null && (
         <AssessmentTemplatesPage
           templates={templates}
-          status={templatesStatus}
+          status={effectiveTemplatesStatus}
           jobs={jobs}
           latestRubrics={latestRubrics}
           usage={templateUsage}
@@ -1347,7 +1234,32 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         />
       )}
 
-      {activePage === 'jobs' && templateRouteId === null && (
+      {activePage === 'jobs' && jobEditorId !== null && (
+        jobEditorId && !editorJob ? (
+          <div className="k-page k-page-narrow">
+            {isLoadingJobs ? <SkeletonRows count={4} label="Loading job" /> : (
+              <EmptyState
+                icon={faBriefcase}
+                title="Job not found"
+                text="It may have been deleted."
+                actions={<button className="k-btn k-btn-secondary" type="button" onClick={() => goPage('jobs')}>All jobs</button>}
+              />
+            )}
+          </div>
+        ) : (
+          <JobEditorPage
+            key={jobDraftKey(employer.id || '', jobEditorId)}
+            job={editorJob}
+            draftKey={jobDraftKey(employer.id || '', jobEditorId)}
+            backLabel={editorJob ? editorJob.title : 'All jobs'}
+            onBack={leaveJobEditor}
+            onSave={saveJobForm}
+            onConfigureAssessment={() => { if (editorJob) { leaveJobEditor(); void openRubricEditor(editorJob.id); } }}
+          />
+        )
+      )}
+
+      {activePage === 'jobs' && templateRouteId === null && jobEditorId === null && (
         <EmployerJobsPage
           jobs={jobs}
           jobStats={jobStats}
@@ -1361,6 +1273,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onOpenJob={openJob}
           onBackToList={() => goPage('jobs')}
           onPostJob={postJob}
+          newJobDraft={newJobDraft}
+          onDiscardNewJobDraft={() => clearJobDraft(newJobDraftKey)}
           onEdit={startEditJobForm}
           onEditRubric={(jobId) => void openRubricEditor(jobId)}
           onViewApplicants={viewApplicants}
@@ -1428,27 +1342,6 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onPasswordChange={setPasswordForm}
           onUpdatePassword={() => void updatePassword()}
           onRequestDelete={() => setDeleteProfileModalOpen(true)}
-        />
-      )}
-
-      {(jobsPanelMode === 'new' || jobsPanelMode === 'edit') && (
-        <JobEditorModal
-          editing={jobsPanelMode === 'edit'}
-          form={jobForm}
-          error={jobFormError}
-          requiredSkills={requiredSkillsDraft}
-          niceSkills={niceSkillsDraft}
-          requiredSkillInput={requiredSkillInput}
-          niceSkillInput={niceSkillInput}
-          saving={isSavingJob}
-          onUpdateForm={updateJobForm}
-          onSkillInput={setSkillInput}
-          onAddSkill={addSkillDraft}
-          onRemoveSkill={removeSkillDraft}
-          onCancel={cancelJobPanel}
-          onSaveDraft={() => void saveJobForm('draft')}
-          onPost={() => void saveJobForm('post')}
-          onConfigureAssessment={() => { if (selectedJobId) { setJobsPanelMode('detail'); void openRubricEditor(selectedJobId); } }}
         />
       )}
 

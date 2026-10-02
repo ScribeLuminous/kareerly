@@ -92,6 +92,7 @@ const page = await loadPage([
 const { renderToStaticMarkup } = require('react-dom/server');
 const employerPage = await loadPage([
   '../src/pages/employer/model.ts',
+  '../src/pages/employer/jobDraft.ts',
   '../src/pages/employer/insights/matchTiers.ts',
   '../src/pages/employer/evaluation.ts',
   '../src/pages/employer/EvaluationPanels.tsx',
@@ -414,4 +415,54 @@ test('the assessment summary lists each question and what is still missing', () 
   assert.deepEqual(summary.rows[1].issues, ['Needs a name', 'Needs a question']);
   assert.equal(summary.rows[0].share, 50);
   assert.ok(summary.problem);
+});
+
+test('the job editor is its own page under Jobs, apart from job pages and templates', async () => {
+  const routes = await loadUtility('../src/pages/employer/routes.ts');
+  assert.equal(routes.employerJobEditorPath(), '/employer/jobs/new');
+  assert.equal(routes.employerJobEditorPath('EMP-1'), '/employer/jobs/EMP-1/edit');
+  assert.equal(routes.employerJobEditorIdFromPath('/employer/jobs/new'), '');
+  assert.equal(routes.employerJobEditorIdFromPath('/employer/jobs/EMP-1/edit/'), 'EMP-1');
+  assert.equal(routes.employerJobEditorIdFromPath('/employer/jobs/EMP-1'), null);
+  assert.equal(routes.employerJobEditorIdFromPath('/employer/jobs/assessments/edit'), null);
+  assert.equal(routes.employerJobIdFromPath('/employer/jobs/new'), '');
+  assert.equal(routes.employerJobIdFromPath('/employer/jobs/EMP-1'), 'EMP-1');
+  assert.equal(routes.employerPageFromPath('/employer/jobs/new'), 'jobs');
+  assert.equal(routes.employerPageFromPath('/employer/jobs/EMP-1/edit'), 'jobs');
+  assert.ok(routes.isEmployerWorkspacePath('/employer/jobs/new'));
+  assert.ok(routes.isEmployerWorkspacePath('/employer/jobs/EMP-1/edit'));
+});
+
+test('job drafts keep only real work and read back safely', () => {
+  const blank = employerPage.jobToDraft(null);
+  assert.equal(employerPage.hasJobDraftContent(blank), false);
+  assert.equal(employerPage.hasJobDraftContent({ ...blank, form: { ...blank.form, salaryRange: '-' } }), false);
+  assert.equal(employerPage.hasJobDraftContent({ ...blank, form: { ...blank.form, title: 'Data Analyst' } }), true);
+  assert.equal(employerPage.hasJobDraftContent({ ...blank, requiredSkillInput: 'SQL' }), true);
+
+  assert.equal(employerPage.jobDraftKey('user-1'), 'kareerly:employer-job-draft:user-1:new');
+  assert.equal(employerPage.jobDraftKey('user-1', 'EMP-1'), 'kareerly:employer-job-draft:user-1:EMP-1');
+
+  const stored = JSON.stringify({ form: { title: 'Data Analyst', city: 42 }, requiredSkills: ['SQL', 7], savedAt: '2026-10-01T00:00:00Z' });
+  const parsed = employerPage.parseJobDraft(stored, blank.form);
+  assert.equal(parsed.form.title, 'Data Analyst');
+  assert.equal(parsed.form.city, '');
+  assert.equal(parsed.form.status, 'draft');
+  assert.deepEqual(parsed.requiredSkills, ['SQL']);
+  assert.equal(parsed.niceSkillInput, '');
+  assert.equal(parsed.savedAt, '2026-10-01T00:00:00Z');
+  assert.equal(employerPage.parseJobDraft('not json', blank.form), null);
+  assert.equal(employerPage.parseJobDraft('null', blank.form), null);
+  assert.equal(employerPage.parseJobDraft(null, blank.form), null);
+  assert.equal(employerPage.jobDraftSignature(parsed), employerPage.jobDraftSignature({ ...parsed, savedAt: 'later' }));
+
+  assert.deepEqual(employerPage.addSkills(['SQL'], 'excel, sql, Excel, Power BI'), ['SQL', 'excel', 'Power BI']);
+  assert.equal(employerPage.addSkills(['SQL'], 'sql'), null);
+
+  assert.equal(employerPage.validateJobDraft(blank), 'Add a job title.');
+  const now = Date.parse('2026-10-02T12:00:00Z');
+  assert.equal(employerPage.draftSavedLabel('2026-10-02T11:59:30Z', now), 'just now');
+  assert.equal(employerPage.draftSavedLabel('2026-10-02T11:55:00Z', now), '5 minutes ago');
+  assert.equal(employerPage.draftSavedLabel('2026-10-02T10:00:00Z', now), '2 hours ago');
+  assert.equal(employerPage.draftSavedLabel('nope', now), '');
 });
