@@ -18,6 +18,14 @@ export type EmployerAccountForm = {
   contactNumber: string;
 };
 
+/** A Philippine mobile number is 11 digits (09XX XXX XXXX). */
+const CONTACT_NUMBER_DIGITS = 11;
+
+/** Digits only, cut to the 11 a contact number can have. */
+function contactNumberInput(value: string): string {
+  return value.replace(/\D/g, '').slice(0, CONTACT_NUMBER_DIGITS);
+}
+
 type PasswordForm = { current: string; next: string; confirm: string };
 
 type EmployerAccountPageProps = {
@@ -109,8 +117,16 @@ export function EmployerAccountPage({ profile, password, isSaving, onProfileChan
             <FormField label="Email">
               <input className="k-input" type="email" inputMode="email" value={profile.contactEmail} onChange={set('contactEmail')} autoComplete="email" />
             </FormField>
-            <FormField label="Contact number">
-              <input className="k-input" type="tel" inputMode="tel" value={profile.contactNumber} onChange={set('contactNumber')} placeholder="09XX XXX XXXX" autoComplete="tel" />
+            <FormField label="Contact number" help={`Up to ${CONTACT_NUMBER_DIGITS} digits, e.g. 09123456789.`}>
+              <input
+                className="k-input"
+                type="tel"
+                inputMode="numeric"
+                value={profile.contactNumber}
+                onChange={(event) => onProfileChange({ ...profile, contactNumber: contactNumberInput(event.target.value) })}
+                placeholder="09123456789"
+                autoComplete="tel-national"
+              />
             </FormField>
           </div>
           <div className="mt-5">
