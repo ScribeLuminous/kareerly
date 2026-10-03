@@ -472,3 +472,10 @@ test('job drafts keep only real work and read back safely', () => {
   assert.equal(employerPage.draftSavedLabel('2026-10-02T10:00:00Z', now), '2 hours ago');
   assert.equal(employerPage.draftSavedLabel('nope', now), '');
 });
+
+test('contact numbers keep digits only, up to 11', async () => {
+  const { contactNumberInput } = await loadUtility('../src/lib/contactNumber.ts');
+  assert.equal(contactNumberInput('0912-345-6789'), '09123456789');
+  assert.equal(contactNumberInput('0912 345 678912345'), '09123456789');
+  assert.equal(contactNumberInput('abc'), '');
+});

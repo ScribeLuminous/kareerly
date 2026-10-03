@@ -49,6 +49,7 @@ export const FILIPINO_UI: Record<string, string> = {
   'Candidate ID': 'ID ng Kandidato', 'Not available': 'Hindi available', 'Contact Number': 'Numero ng Telepono',
   Birthday: 'Kaarawan', Address: 'Address', 'Location / Region': 'Lokasyon / Rehiyon',
   Region: 'Rehiyon', Province: 'Lalawigan', 'City or municipality': 'Lungsod o munisipalidad',
+  'Up to 11 digits, e.g. 09123456789.': 'Hanggang 11 numero, hal. 09123456789.',
   'Select a region': 'Pumili ng rehiyon', 'Select a province': 'Pumili ng lalawigan', 'Choose a region first': 'Pumili muna ng rehiyon',
   'Enter contact number': 'Ilagay ang numero ng telepono', 'Enter your address': 'Ilagay ang iyong address',
   'Enter your region': 'Ilagay ang iyong rehiyon', 'Save Details': 'I-save ang mga Detalye', Saving: 'Sine-save',
