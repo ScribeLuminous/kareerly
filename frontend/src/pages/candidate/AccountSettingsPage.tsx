@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEllipsisVertical, faEye, faFileLines, faTrash, faUpload } from '@fortawesome/free-solid-svg-icons';
 import { Banner, EmptyState, Menu } from '../../components/ui';
 import { RegionProvinceFields } from '../../components/ProvinceSelect';
+import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
 import type { EvidenceUploadRecord } from '../../lib/evidence';
 import { joinLocation, splitLocation } from '../../lib/phProvinces';
 import { FormField, PageHeader } from './common';
@@ -145,8 +146,16 @@ export function AccountSettingsPage({
             <FormField label={t('Email Address')}>
               <input className="k-input" type="email" inputMode="email" autoComplete="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} />
             </FormField>
-            <FormField label={t('Contact Number')}>
-              <input className="k-input" type="tel" inputMode="tel" autoComplete="tel" value={profile.contactNumber} onChange={set('contactNumber')} placeholder="09XX XXX XXXX" />
+            <FormField label={t('Contact Number')} help={t(`Up to ${CONTACT_NUMBER_DIGITS} digits, e.g. 09123456789.`)}>
+              <input
+                className="k-input"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                value={profile.contactNumber}
+                onChange={(event) => onProfileChange({ ...profile, contactNumber: contactNumberInput(event.target.value) })}
+                placeholder="09123456789"
+              />
             </FormField>
             <LocationFields location={profile.location} onChange={(location) => onProfileChange({ ...profile, location })} t={t} />
             <FormField label={t('Birthday')}>

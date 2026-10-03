@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FormField, PageHeader } from '../../components/ui';
 import { RegionProvinceFields } from '../../components/ProvinceSelect';
+import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
 import { industryPsocGroups } from '../../lib/employerOptions';
 import { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from './model';
 
@@ -17,14 +18,6 @@ export type EmployerAccountForm = {
   contactEmail: string;
   contactNumber: string;
 };
-
-/** A Philippine mobile number is 11 digits (09XX XXX XXXX). */
-const CONTACT_NUMBER_DIGITS = 11;
-
-/** Digits only, cut to the 11 a contact number can have. */
-function contactNumberInput(value: string): string {
-  return value.replace(/\D/g, '').slice(0, CONTACT_NUMBER_DIGITS);
-}
 
 type PasswordForm = { current: string; next: string; confirm: string };
 
