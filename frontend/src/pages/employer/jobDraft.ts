@@ -23,9 +23,22 @@ export function jobDraftKey(employerId: string, jobId = ''): string {
   return `${KEY_PREFIX}:${employerId || 'anonymous'}:${jobId || 'new'}`;
 }
 
-/** The editor's starting point: the saved job, or a blank posting. */
-export function jobToDraft(job: EmployerJob | null): JobEditorDraft {
-  if (!job) return { form: emptyJobForm, requiredSkills: [], niceSkills: [], requiredSkillInput: '', niceSkillInput: '' };
+export type JobLocation = { city: string; province: string };
+
+/**
+ * The editor's starting point: the saved job, or a blank posting placed where
+ * the company is (from its profile) until the employer changes it.
+ */
+export function jobToDraft(job: EmployerJob | null, companyLocation: JobLocation = { city: '', province: '' }): JobEditorDraft {
+  if (!job) {
+    return {
+      form: { ...emptyJobForm, city: companyLocation.city.trim(), province: companyLocation.province.trim() },
+      requiredSkills: [],
+      niceSkills: [],
+      requiredSkillInput: '',
+      niceSkillInput: '',
+    };
+  }
   return {
     form: {
       title: job.title,
