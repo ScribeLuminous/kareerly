@@ -1,7 +1,7 @@
 // Must match BACKEND_VERSION in backend/app/main.py (tests/backendVersion.test.mjs
 // checks this). The website is deployed on every merge; the backend is not, so a
 // mismatch means the backend still runs older matching code.
-export const EXPECTED_BACKEND_VERSION = '2026.09.26-career-areas';
+export const EXPECTED_BACKEND_VERSION = '2026.10.14-job-level-lock';
 
 export type BackendVersionCheck =
   | { status: 'current' }
