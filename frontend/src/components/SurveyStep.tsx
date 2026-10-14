@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   faCirclePlus,
   faXmark,
@@ -6,11 +7,12 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useOnboarding } from '../hooks/useOnboarding';
 import type { SelectedSkill, SurveyAnswers } from '../types';
-import { CONFIRMED_SKILL_LIMIT, loadCandidateAccountSettings, removedSkillIds, runJobMatches, searchSkills } from '../lib/api';
+import { CONFIRMED_SKILL_LIMIT, loadCandidateAccountSettings, loadCareerAreaSkills, removedSkillIds, runJobMatches, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser, updateCandidateProfile } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
 import { careerAreaSkillExamples, confirmedSkillsInCareerArea, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
-import { careerAreaPreferenceOptions, jobLevelOptions, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
+import type { CareerAreaSkillMap } from '../lib/careerAreas';
+import { careerAreaPreferenceOptions, jobLevelOptions, jobLevelState, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
 import { extractionWarnings } from '../lib/resumeFreshness';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
 import LocationPreferenceQuestion from './LocationPreferenceQuestion';
@@ -74,6 +76,18 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
   // undefined while loading, null when there is none.
   const [loadedProfileLocation, setLoadedProfileLocation] = useState<string | null | undefined>(undefined);
   const profileLocation = isLoggedIn ? loadedProfileLocation : null;
+  // The skill-to-area mapping behind the area cards and the job-level lock; null until loaded.
+  const [careerAreaSkills, setCareerAreaSkills] = useState<CareerAreaSkillMap | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    loadCareerAreaSkills()
+      .then((areas) => { if (active) setCareerAreaSkills(areas); })
+      .catch((error) => console.warn('Unable to load career area skills:', error));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -100,6 +114,13 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
   const selectedSkillIds = selectedSkills.map((skill) => skill.skill_id).filter((skillId): skillId is string => Boolean(skillId));
   const extractedSkillIds = (state.resumeAnalysis?.normalized_for_matching?.skill_ids || []).slice(0, CONFIRMED_SKILL_LIMIT);
   const canContinueToPreferences = Boolean(state.resumeAnalysis && (isLoggedIn ? selectedSkills.length > 0 : extractedSkillIds.length > 0));
+  const confirmedSkillIds = isLoggedIn ? selectedSkillIds : extractedSkillIds;
+  // No confirmed skills in the chosen area: entry-level only (the backend enforces the same rule).
+  const jobLevel = jobLevelState(answers.industry, answers.role, confirmedSkillIds, careerAreaSkills);
+  if (jobLevel.role !== answers.role) {
+    // Re-checked on every render, so a new area, changed skills or a late mapping all reset the level.
+    setAnswers((prev) => ({ ...prev, role: jobLevel.role }));
+  }
 
   const selectedSkillIdSet = useMemo(() => new Set(selectedSkills.map((skill) => skill.skill_id).filter(Boolean)), [selectedSkills]);
   const selectedSkillNameSet = useMemo(() => new Set(selectedSkills.map((skill) => skill.skill_name.trim().toLowerCase()).filter(Boolean)), [selectedSkills]);
@@ -421,7 +442,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                     }}
                     disabled={isSkillLimitReached}
                     placeholder="Search ESCO skills, e.g., Python, React, AWS"
-                    className="w-full rounded-lg border border-bdr bg-white px-3 py-2.5 text-sm text-mid outline-none transition-colors placeholder:text-soft-text focus:border-rust disabled:cursor-not-allowed disabled:bg-bg disabled:text-soft-text"
+                    className="w-full rounded-lg border border-bdr bg-white px-3 py-2.5 text-base text-mid outline-none transition-colors sm:text-sm placeholder:text-soft-text focus:border-rust disabled:cursor-not-allowed disabled:bg-bg disabled:text-soft-text"
                   />
 
                   {(isSearchingSkills || hasSearchedSkills || skillSearchResults.length > 0) && skillQuery.trim().length >= 2 && !isSkillLimitReached && (
@@ -552,7 +573,8 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
         <CareerAreaQuestion
           value={answers.industry}
           onChange={(value) => handleChange('industry', value)}
-          confirmedSkillIds={isLoggedIn ? selectedSkillIds : extractedSkillIds}
+          confirmedSkillIds={confirmedSkillIds}
+          careerAreaSkills={careerAreaSkills || {}}
         />
         <Question
           label="What job level are you targeting?"
@@ -560,6 +582,30 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           value={answers.role}
           onChange={(value) => handleChange('role', value)}
           options={jobLevelOptions}
+          disabledValues={jobLevel.disabledValues}
+          note={jobLevel.locked ? (
+            <div className="k-banner k-banner-warn mb-3" role="status" data-testid="job-level-lock-note">
+              <div className="k-banner-body">
+                {/* One paragraph: from 640px up the banner body lays its children out as a row. */}
+                <p>
+                  Locked to entry-level because you have no confirmed skills in {getCareerAreaLabel(answers.industry)} yet.{' '}
+                  <button
+                    type="button"
+                    // Padding widens the tap target to 44px; the negative margin keeps the line height.
+                    className="k-link -my-3 py-3"
+                    onClick={() => {
+                      // Kept in context so the other Step 3 answers are still there on return.
+                      setSurveyAnswers(answers);
+                      goToStep(2);
+                    }}
+                  >
+                    Add skills in Step 2
+                  </button>{' '}
+                  to unlock other levels.
+                </p>
+              </div>
+            </div>
+          ) : null}
         />
         <Question
           label="What's your work setup preference?"
@@ -614,29 +660,42 @@ type QuestionProps = {
   value: string;
   options: Array<{ value: string; label: string }>;
   onChange: (value: string) => void;
+  /** Options shown but not selectable. */
+  disabledValues?: string[];
+  /** Shown directly under the question. */
+  note?: ReactNode;
 };
 
-function Question({ label, name, value, options, onChange }: QuestionProps) {
+function Question({ label, name, value, options, onChange, disabledValues = [], note = null }: QuestionProps) {
   return (
     <div className="rounded-xl border border-bdr bg-card p-5 transition-all hover:border-rust-m">
       <label className="mb-3.5 block text-sm font-semibold text-dark">{label}</label>
+      {note}
       <div className="space-y-2.5">
-        {options.map((option) => (
-          <label
-            key={option.value}
-            className="flex cursor-pointer items-center gap-3 rounded-lg border border-bdr bg-white p-3 transition-all hover:border-rust hover:bg-rust-l"
-          >
-            <input
-              type="radio"
-              name={name}
-              value={option.value}
-              checked={value === option.value}
-              onChange={(event) => onChange(event.target.value)}
-              className="cursor-pointer accent-rust"
-            />
-            <span className="text-sm font-medium text-mid">{option.label}</span>
-          </label>
-        ))}
+        {options.map((option) => {
+          const disabled = disabledValues.includes(option.value);
+          return (
+            <label
+              key={option.value}
+              aria-disabled={disabled || undefined}
+              className={`flex min-h-[44px] items-center gap-3 rounded-lg border border-bdr bg-white p-3 transition-all ${
+                disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-rust hover:bg-rust-l'
+              }`}
+            >
+              <input
+                type="radio"
+                name={name}
+                value={option.value}
+                checked={value === option.value}
+                onChange={(event) => onChange(event.target.value)}
+                disabled={disabled}
+                aria-disabled={disabled || undefined}
+                className={`shrink-0 accent-rust ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+              />
+              <span className="min-w-0 text-sm font-medium text-mid [overflow-wrap:anywhere]">{option.label}</span>
+            </label>
+          );
+        })}
       </div>
     </div>
   );
@@ -646,11 +705,12 @@ type CareerAreaQuestionProps = {
   value: string;
   onChange: (value: string) => void;
   confirmedSkillIds: string[];
+  careerAreaSkills: CareerAreaSkillMap;
 };
 
 // Examples help a candidate choose an area. Matching still uses only the
 // skills confirmed in Step 2: an area's skills are never added to them.
-function CareerAreaQuestion({ value, onChange, confirmedSkillIds }: CareerAreaQuestionProps) {
+function CareerAreaQuestion({ value, onChange, confirmedSkillIds, careerAreaSkills }: CareerAreaQuestionProps) {
   const legacyValue = isLegacyCareerArea(value) ? normalizeCareerAreaValue(value) : '';
   return (
     <div className="rounded-xl border border-bdr bg-card p-5 transition-all hover:border-rust-m">
@@ -667,7 +727,14 @@ function CareerAreaQuestion({ value, onChange, confirmedSkillIds }: CareerAreaQu
       {/* Two columns from the sm breakpoint up; one column on phones so labels stay readable. */}
       <div data-testid="career-area-grid" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {legacyValue && (
-          <CareerAreaChoice value={legacyValue} label={`${getCareerAreaLabel(legacyValue)} (saved choice)`} checked onChange={onChange} className="sm:col-span-2" />
+          <CareerAreaChoice
+            value={legacyValue}
+            label={`${getCareerAreaLabel(legacyValue)} (saved choice)`}
+            checked
+            onChange={onChange}
+            yourSkills={confirmedSkillsInCareerArea(legacyValue, confirmedSkillIds, careerAreaSkills)}
+            className="sm:col-span-2"
+          />
         )}
         {careerAreaPreferenceOptions.map((option) => (
           <CareerAreaChoice
@@ -676,8 +743,8 @@ function CareerAreaQuestion({ value, onChange, confirmedSkillIds }: CareerAreaQu
             label={option.label}
             checked={value === option.value}
             onChange={onChange}
-            examples={careerAreaSkillExamples(option.value)}
-            yourSkills={confirmedSkillsInCareerArea(option.value, confirmedSkillIds)}
+            examples={careerAreaSkillExamples(option.value, careerAreaSkills)}
+            yourSkills={confirmedSkillsInCareerArea(option.value, confirmedSkillIds, careerAreaSkills)}
           />
         ))}
       </div>
@@ -697,17 +764,17 @@ type CareerAreaChoiceProps = {
 
 function CareerAreaChoice({ value, label, checked, onChange, examples = [], yourSkills = [], className = '' }: CareerAreaChoiceProps) {
   return (
-    <label className={`flex h-full cursor-pointer items-start gap-3 rounded-lg border border-bdr bg-white p-3 transition-all hover:border-rust hover:bg-rust-l ${className}`}>
+    <label className={`flex h-full min-h-[44px] cursor-pointer items-start gap-3 rounded-lg border border-bdr bg-white p-3 transition-all hover:border-rust hover:bg-rust-l ${className}`}>
       <input
         type="radio"
         name="industry"
         value={value}
         checked={checked}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 cursor-pointer accent-rust"
+        className="mt-1 shrink-0 cursor-pointer accent-rust"
       />
-      <span className="min-w-0">
-        <span className="block break-words text-sm font-medium text-mid">{label}</span>
+      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+        <span className="block text-sm font-medium text-mid">{label}</span>
         {examples.length > 0 && (
           <span className="mt-0.5 block text-xs text-soft-text">e.g. {examples.join(', ')}</span>
         )}

@@ -1,4 +1,5 @@
-import { careerAreaOptions, getCareerAreaLabel } from './careerAreas';
+import { ENTRY_JOB_LEVEL, careerAreaOptions, getCareerAreaLabel, isJobLevelLocked } from './careerAreas';
+import type { CareerAreaSkillMap } from './careerAreas';
 import { describeLocationPreference } from './regionPreference';
 import type { SurveyAnswers } from '../types';
 
@@ -10,6 +11,34 @@ export const jobLevelOptions: PreferenceOption[] = [
   { value: 'senior', label: 'Senior (5+ years experience)' },
   { value: 'unsure', label: "I'm not sure" },
 ];
+
+export type JobLevelState = {
+  /** True when the chosen area has none of the confirmed skills. */
+  locked: boolean;
+  /** The job level to keep selected. */
+  role: string;
+  /** Job levels shown but not selectable. */
+  disabledValues: string[];
+};
+
+/**
+ * The Step 3 job level for an area: locked to entry-level while the area has
+ * no confirmed skills. Unlocking keeps whatever is selected (entry-level after
+ * a lock) and re-enables every level.
+ */
+export function jobLevelState(
+  industry: string,
+  role: string,
+  confirmedSkillIds: Array<string | null | undefined>,
+  mapping: CareerAreaSkillMap | null,
+): JobLevelState {
+  const locked = isJobLevelLocked(industry, confirmedSkillIds, mapping);
+  return {
+    locked,
+    role: locked ? ENTRY_JOB_LEVEL : role,
+    disabledValues: locked ? jobLevelOptions.map((option) => option.value).filter((value) => value !== ENTRY_JOB_LEVEL) : [],
+  };
+}
 
 export const workSetupOptions: PreferenceOption[] = [
   { value: 'remote', label: '100% Work from Home' },
