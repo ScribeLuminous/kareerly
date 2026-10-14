@@ -209,6 +209,9 @@ export function getFriendlySignUpErrorMessage(error: unknown, fallback: string):
   return message || fallback;
 }
 
+/** A new account, and whether it still waits on the confirmation link Supabase emailed. */
+export type SignUpResult = { user: KareerlyUser; needsEmailConfirmation: boolean };
+
 export async function resendConfirmationEmail(email: string) {
   const { error } = await supabase.auth.resend({
     type: 'signup',
@@ -248,7 +251,7 @@ export function getFriendlyAuthErrorMessage(error: unknown): string {
   }
 
   if (lowerMessage.includes('email not confirmed')) {
-    return 'Please confirm your email address before logging in.';
+    return 'Please confirm your email address before logging in. Open the confirmation link we emailed you when you signed up, then log in again.';
   }
 
   if (lowerMessage.includes('invalid login credentials') || lowerMessage === 'unable to log in.' || status === 400) {
@@ -268,7 +271,7 @@ export async function signUpCandidate(input: {
   email: string;
   password: string;
   birthday: string;
-}): Promise<KareerlyUser> {
+}): Promise<SignUpResult> {
   const birthDate = new Date(input.birthday);
   const today = new Date();
   const ageMs = today.getTime() - birthDate.getTime();
@@ -298,12 +301,17 @@ export async function signUpCandidate(input: {
     throw new Error('This email is already registered. Log in instead, or reset your password if you forgot it.');
   }
 
-  const profile = await getProfileForUserId(userId).catch(() => null);
-  return profile || {
-    id: userId,
-    email: input.email,
-    name: getFullName(input.firstName, input.lastName, input.email),
-    role: 'candidate',
+  // No session means the account stays locked until the emailed link is opened.
+  const needsEmailConfirmation = !data.session;
+  const profile = needsEmailConfirmation ? null : await getProfileForUserId(userId).catch(() => null);
+  return {
+    needsEmailConfirmation,
+    user: profile || {
+      id: userId,
+      email: input.email,
+      name: getFullName(input.firstName, input.lastName, input.email),
+      role: 'candidate',
+    },
   };
 }
 
@@ -315,7 +323,7 @@ export async function signUpEmployer(input: {
   lastName: string;
   email: string;
   password: string;
-}): Promise<KareerlyUser> {
+}): Promise<SignUpResult> {
   const { data, error } = await supabase.auth.signUp({
     email: input.email,
     password: input.password,
@@ -340,13 +348,17 @@ export async function signUpEmployer(input: {
     throw new Error('This email is already registered. Log in instead, or reset your password if you forgot it.');
   }
 
-  const profile = await getProfileForUserId(userId).catch(() => null);
-  return profile || {
-    id: userId,
-    email: input.email,
-    name: getFullName(input.firstName, input.lastName, input.email),
-    role: 'employer',
-    company: input.company,
+  const needsEmailConfirmation = !data.session;
+  const profile = needsEmailConfirmation ? null : await getProfileForUserId(userId).catch(() => null);
+  return {
+    needsEmailConfirmation,
+    user: profile || {
+      id: userId,
+      email: input.email,
+      name: getFullName(input.firstName, input.lastName, input.email),
+      role: 'employer',
+      company: input.company,
+    },
   };
 }
 

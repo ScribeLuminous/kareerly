@@ -4,7 +4,10 @@ import test from 'node:test';
 import ts from 'typescript';
 
 const source = readFileSync(new URL('../src/lib/auth.ts', import.meta.url), 'utf8')
-  .replace("import { supabase } from './supabase';", `const supabase = { auth: { signInWithPassword: async () => { throw new TypeError('Failed to fetch'); } } };`);
+  .replace("import { supabase } from './supabase';", `const supabase = { auth: {
+    signInWithPassword: async () => { throw new TypeError('Failed to fetch'); },
+    signUp: async () => globalThis.signUpResponse,
+  } };`);
 const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } });
 const auth = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
@@ -20,4 +23,18 @@ test('network failures are distinguished from rejected credentials', () => {
 test('a rejected auth request resets the verification state', async () => {
   await assert.rejects(auth.signInWithEmail('test@example.com', 'unused', 'candidate'), /Failed to fetch/);
   assert.equal(auth.getAuthStatus(), 'signed_out');
+});
+
+test('sign-up without a session asks the new user to confirm their email first', async () => {
+  globalThis.window = { location: { origin: 'https://kareerly.test' } };
+  const user = { id: 'user-1', identities: [{ id: 'identity-1' }] };
+  const input = { company: 'Acme', companySize: '1-10', industry: 'Tech', firstName: 'Ana', lastName: 'Cruz', email: 'ana@example.com', password: 'unused' };
+
+  globalThis.signUpResponse = { data: { user, session: null }, error: null };
+  const pending = await auth.signUpEmployer(input);
+  assert.equal(pending.needsEmailConfirmation, true);
+  assert.equal(pending.user.email, 'ana@example.com');
+
+  globalThis.signUpResponse = { data: { user, session: { user } }, error: null };
+  assert.equal((await auth.signUpEmployer(input)).needsEmailConfirmation, false);
 });
