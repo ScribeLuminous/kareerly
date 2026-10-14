@@ -1,5 +1,5 @@
-import { ENTRY_JOB_LEVEL, careerAreaOptions, getCareerAreaLabel, isJobLevelLocked } from './careerAreas';
-import type { CareerAreaSkillMap } from './careerAreas';
+import { careerAreaOptions, confirmedSkillsInCareerArea, getCareerAreaLabel, maxJobLevel } from './careerAreas';
+import type { CappedJobLevel, CareerAreaRules, JobLevelThresholds } from './careerAreas';
 import { describeLocationPreference } from './regionPreference';
 import type { SurveyAnswers } from '../types';
 
@@ -12,9 +12,14 @@ export const jobLevelOptions: PreferenceOption[] = [
   { value: 'unsure', label: "I'm not sure" },
 ];
 
+// Job levels from lowest to highest; "I'm not sure" is outside the order and never locked.
+const JOB_LEVEL_ORDER = ['entry', 'mid', 'senior'];
+
 export type JobLevelState = {
-  /** True when the chosen area has none of the confirmed skills. */
-  locked: boolean;
+  /** The highest open level, or null when every level is open. */
+  maxLevel: CappedJobLevel | null;
+  /** Confirmed skills in the chosen area. */
+  confirmedCount: number;
   /** The job level to keep selected. */
   role: string;
   /** Job levels shown but not selectable. */
@@ -22,22 +27,59 @@ export type JobLevelState = {
 };
 
 /**
- * The Step 3 job level for an area: locked to entry-level while the area has
- * no confirmed skills. Unlocking keeps whatever is selected (entry-level after
- * a lock) and re-enables every level.
+ * The Step 3 job level for an area, capped by the confirmed skills in it (see
+ * maxJobLevel). A locked selection falls to the highest open level; with only
+ * entry-level open, entry-level is selected unless "I'm not sure" is.
+ * Unlocking keeps whatever is selected and re-enables the levels.
  */
 export function jobLevelState(
   industry: string,
   role: string,
   confirmedSkillIds: Array<string | null | undefined>,
-  mapping: CareerAreaSkillMap | null,
+  rules: CareerAreaRules | null,
 ): JobLevelState {
-  const locked = isJobLevelLocked(industry, confirmedSkillIds, mapping);
+  const maxLevel = maxJobLevel(industry, confirmedSkillIds, rules);
+  const confirmedCount = rules ? confirmedSkillsInCareerArea(industry, confirmedSkillIds, rules.areas).length : 0;
+  if (!maxLevel) return { maxLevel, confirmedCount, role, disabledValues: [] };
+  const disabledValues = JOB_LEVEL_ORDER.slice(JOB_LEVEL_ORDER.indexOf(maxLevel) + 1);
+  const pickEntry = maxLevel === 'entry' && !role;
   return {
-    locked,
-    role: locked ? ENTRY_JOB_LEVEL : role,
-    disabledValues: locked ? jobLevelOptions.map((option) => option.value).filter((value) => value !== ENTRY_JOB_LEVEL) : [],
+    maxLevel,
+    confirmedCount,
+    role: disabledValues.includes(role) || pickEntry ? maxLevel : role,
+    disabledValues,
   };
+}
+
+function skills(count: number): string {
+  return `${count} confirmed skill${count === 1 ? '' : 's'}`;
+}
+
+/**
+ * The Step 3 note for a capped job level, split around the "Add skills in
+ * Step 2" link: `${lead} Add skills in Step 2 ${tail}`. Null when every level is open.
+ */
+export function jobLevelLockNote(
+  state: JobLevelState,
+  areaLabel: string,
+  thresholds: JobLevelThresholds,
+): { lead: string; tail: string } | null {
+  if (state.maxLevel === 'entry') {
+    const reason = state.confirmedCount === 0
+      ? `no confirmed skills in ${areaLabel} yet`
+      : `only ${skills(state.confirmedCount)} in ${areaLabel}`;
+    return {
+      lead: `Locked to entry-level because you have ${reason}.`,
+      tail: `to unlock other levels: mid-level needs ${thresholds.mid}, senior needs ${thresholds.senior}.`,
+    };
+  }
+  if (state.maxLevel === 'mid') {
+    return {
+      lead: `Senior is locked because you have ${skills(state.confirmedCount)} in ${areaLabel}.`,
+      tail: `to unlock it: senior needs ${thresholds.senior}.`,
+    };
+  }
+  return null;
 }
 
 export const workSetupOptions: PreferenceOption[] = [

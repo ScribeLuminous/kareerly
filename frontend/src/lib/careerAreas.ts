@@ -5,7 +5,7 @@ export type CareerAreaSkill = { id: string; name: string };
  * belong to several areas. The one definition is
  * backend/data/career_area_skills.json, served by GET /api/career-areas, so
  * the "Your confirmed skills here" labels, the job-level lock and the
- * backend's own lock all read the same mapping. These only help a candidate
+ * backend's own lock all read the same mapping (with the level thresholds). These only help a candidate
  * choose: selecting an area never adds them to the candidate's skills.
  */
 export type CareerAreaSkillMap = Record<string, CareerAreaSkill[]>;
@@ -123,20 +123,30 @@ export function confirmedSkillsInCareerArea(
   return [...new Set(areaSkills(value, mapping).filter((skill) => held.has(skill.id)).map((skill) => skill.name))];
 }
 
-export const ENTRY_JOB_LEVEL = 'entry';
+/** Confirmed skills in the chosen area needed to open mid-level and senior. */
+export type JobLevelThresholds = { mid: number; senior: number };
+
+/** What GET /api/career-areas serves: the area skills and the job-level thresholds. */
+export type CareerAreaRules = { areas: CareerAreaSkillMap; levelThresholds: JobLevelThresholds };
+
+export type CappedJobLevel = 'entry' | 'mid';
 
 /**
- * True when Step 3 must lock the job level to entry-level: an area is chosen
- * and none of the confirmed skills belongs to it. Uses the same mapping as
- * the "Your confirmed skills here" labels, and the backend applies the same
- * rule. Without the mapping (not loaded yet, or unavailable) nothing is locked
- * here; the backend still enforces the rule.
+ * The highest job level Step 3 may offer for an area, or null when every level
+ * is open: fewer than levelThresholds.mid confirmed skills in the area opens
+ * entry-level only, fewer than levelThresholds.senior opens up to mid-level.
+ * "I'm not sure" is never locked. Counts the same skills as the "Your
+ * confirmed skills here" labels, and the backend applies the same rule.
+ * Without the rules (not loaded yet, or unavailable) nothing is locked here;
+ * the backend still enforces them.
  */
-export function isJobLevelLocked(
+export function maxJobLevel(
   value: string,
   confirmedSkillIds: Array<string | null | undefined>,
-  mapping: CareerAreaSkillMap | null,
-): boolean {
-  if (!mapping || !value.trim() || areaSkills(value, mapping).length === 0) return false;
-  return confirmedSkillsInCareerArea(value, confirmedSkillIds, mapping).length === 0;
+  rules: CareerAreaRules | null,
+): CappedJobLevel | null {
+  if (!rules || !value.trim() || areaSkills(value, rules.areas).length === 0) return null;
+  const count = confirmedSkillsInCareerArea(value, confirmedSkillIds, rules.areas).length;
+  if (count >= rules.levelThresholds.senior) return null;
+  return count >= rules.levelThresholds.mid ? 'mid' : 'entry';
 }

@@ -15,7 +15,9 @@ const surveySource = readFileSync(new URL('../src/components/SurveyStep.tsx', im
 const backendSource = readFileSync(new URL('../../backend/app/services/matching_service.py', import.meta.url), 'utf8');
 const apiSource = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
 // The one skill-to-area mapping; Step 3 receives it from GET /api/career-areas.
-const mapping = JSON.parse(readFileSync(new URL('../../backend/data/career_area_skills.json', import.meta.url), 'utf8')).areas;
+const served = JSON.parse(readFileSync(new URL('../../backend/data/career_area_skills.json', import.meta.url), 'utf8'));
+const mapping = served.areas;
+const rules = { areas: mapping, levelThresholds: served.level_thresholds };
 
 // skill_id -> skill_name from the canonical taxonomy the backend matches on.
 function taxonomyLabels() {
@@ -92,34 +94,35 @@ test('only skills the candidate confirmed are shown as theirs', () => {
 
 test('the mapping comes from the backend, which uses the same file for its lock', () => {
   assert.match(apiSource, /\/api\/career-areas/);
+  assert.match(apiSource, /level_thresholds/);
+  assert.deepEqual(served.level_thresholds, { mid: 2, senior: 3 });
   assert.match(backendSource, /career_area_skills\.json/);
   assert.doesNotMatch(readFileSync(new URL('../src/lib/careerAreas.ts', import.meta.url), 'utf8'), /id: 'SK\d+'/,
     'skills are not repeated in the frontend');
 });
 
-test('an area with zero confirmed skills locks the job level to entry-level', () => {
-  const confirmed = ['SK029']; // Customer Service: in no engineering area.
-  assert.equal(areas.isJobLevelLocked('engineering-architecture', confirmed, mapping), true);
-  assert.equal(areas.isJobLevelLocked('Engineering & Architecture', confirmed, mapping), true);
-  assert.equal(areas.isJobLevelLocked('engineering-architecture', [], mapping), true);
+test('the confirmed skills in an area cap the job level: 0-1 entry, 2 mid, 3+ every level', () => {
+  const cap = (area, ids) => areas.maxJobLevel(area, ids, rules);
+  // Engineering & Architecture: AutoCAD, Technical Drafting, Engineering Measurement.
+  assert.equal(cap('engineering-architecture', []), 'entry');
+  assert.equal(cap('engineering-architecture', ['SK029']), 'entry', 'Customer Service is not in this area');
+  assert.equal(cap('Engineering & Architecture', ['SK680']), 'entry');
+  assert.equal(cap('engineering-architecture', ['SK680', 'sk067']), 'mid');
+  assert.equal(cap('engineering-architecture', ['SK680', 'SK067', 'SK069']), null);
 });
 
-test('an area with one confirmed skill does not lock the job level', () => {
-  assert.equal(areas.isJobLevelLocked('engineering-architecture', ['SK680'], mapping), false);
-  assert.equal(areas.isJobLevelLocked('sales-marketing-customer-service', ['sk029'], mapping), false);
+test('no area, an unknown area or missing rules never lock', () => {
+  assert.equal(areas.maxJobLevel('', ['SK029'], rules), null);
+  assert.equal(areas.maxJobLevel('unknown-area', ['SK029'], rules), null);
+  assert.equal(areas.maxJobLevel('engineering-architecture', ['SK029'], null), null);
 });
 
-test('no area, an unknown area or a missing mapping never locks', () => {
-  assert.equal(areas.isJobLevelLocked('', ['SK029'], mapping), false);
-  assert.equal(areas.isJobLevelLocked('unknown-area', ['SK029'], mapping), false);
-  assert.equal(areas.isJobLevelLocked('engineering-architecture', ['SK029'], null), false);
-});
-
-test('the lock and the "Your confirmed skills here" label always agree', () => {
-  const confirmed = ['SK029', 'SK680', 'SK045'];
+test('the lock counts the same skills the "Your confirmed skills here" label shows', () => {
+  const confirmed = ['SK029', 'SK680', 'SK045', 'SK046', 'SK639', 'SK640'];
   for (const option of areas.careerAreaOptions) {
-    const shown = areas.confirmedSkillsInCareerArea(option.value, confirmed, mapping);
-    assert.equal(areas.isJobLevelLocked(option.value, confirmed, mapping), shown.length === 0, option.value);
+    const shown = areas.confirmedSkillsInCareerArea(option.value, confirmed, mapping).length;
+    const expected = shown >= rules.levelThresholds.senior ? null : shown >= rules.levelThresholds.mid ? 'mid' : 'entry';
+    assert.equal(areas.maxJobLevel(option.value, confirmed, rules), expected, option.value);
   }
 });
 

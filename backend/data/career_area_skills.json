@@ -1,5 +1,6 @@
 {
-  "_comment": "Canonical skills (skills_reference.csv) common in each Step 3 career area, most recognisable first. A skill may belong to several areas. The one definition behind the Step 3 \"Your confirmed skills here\" labels and the job-level lock; the frontend reads it from GET /api/career-areas.",
+  "_comment": "Canonical skills (skills_reference.csv) common in each Step 3 career area, most recognisable first. A skill may belong to several areas. The one definition behind the Step 3 \"Your confirmed skills here\" labels and the job-level lock; the frontend reads it from GET /api/career-areas. level_thresholds: confirmed skills in the chosen area needed to open mid-level and senior; below mid only entry-level is open. \"I'm not sure\" is always open.",
+  "level_thresholds": {"mid": 2, "senior": 3},
   "areas": {
     "technology-data": [
       {"id": "SK003", "name": "Web Development"},
