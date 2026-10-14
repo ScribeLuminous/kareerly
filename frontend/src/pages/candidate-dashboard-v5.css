@@ -634,3 +634,112 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ---------- Skills page: gaps grouped by skill ---------- */
+
+.k-gap-controls {
+  display: grid;
+  gap: 12px;
+  margin: 4px 0 16px;
+}
+
+@media (min-width: 640px) {
+  .k-gap-controls {
+    grid-template-columns: auto minmax(0, 320px);
+    align-items: end;
+  }
+}
+
+/* The selected skill is tinted only; no left accent bar. */
+.k-gap-row[aria-current='true'] {
+  box-shadow: none;
+}
+
+.k-gap-row .k-row-end {
+  align-self: center;
+}
+
+/* Three bars: how many jobs closing the gap helps (skill_gap_config IMPACT_LEVELS). */
+.k-impact {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.k-impact-bar {
+  width: 4px;
+  border-radius: 1px;
+  background: var(--bdr);
+}
+
+.k-impact-bar:nth-child(1) { height: 6px; }
+.k-impact-bar:nth-child(2) { height: 10px; }
+.k-impact-bar:nth-child(3) { height: 14px; }
+
+.k-impact-bar-on {
+  background: var(--rust);
+}
+
+.k-show-more {
+  margin-top: 6px;
+  margin-left: -12px;
+}
+
+.k-completed-toggle svg {
+  transition: transform 0.15s;
+}
+
+/* "+N": other jobs that need the same skill. */
+.k-gap-plus {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--rust-l);
+  color: var(--dark);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.k-no-course-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  border-top: 1px solid var(--bdr);
+}
+
+.k-no-course-row:first-child {
+  border-top: 0;
+}
+
+.k-glance {
+  display: grid;
+  gap: 12px;
+}
+
+/* Touch targets on phones and tablets are at least 44px tall. */
+@media (max-width: 1023px) {
+  .k-skills-page .k-btn,
+  .k-skills-page .k-btn-sm,
+  .k-skills-page .k-chip,
+  .k-skills-page .k-seg-btn,
+  .k-skills-page .k-link,
+  .k-resume-card .k-chip,
+  .k-tap {
+    min-height: 44px;
+  }
+
+  .k-skills-page .k-infotip-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .k-skills-page .k-link {
+    white-space: normal;
+  }
+}
