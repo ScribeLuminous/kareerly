@@ -58,4 +58,12 @@ psql_sec -f "$here/security_hardening_setup.sql"
 psql_sec -f "$here/../migrations/20261004090000_security_hardening.sql"
 psql_sec -f "$here/../migrations/20261004090000_security_hardening.sql"
 psql_sec -f "$here/security_hardening_tests.sql"
+psql_run -c "create database resume_summary_feedback"
+psql_rsf() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d resume_summary_feedback -v ON_ERROR_STOP=1 -q "$@"; }
+psql_rsf -f "$here/supabase_stub.sql"
+psql_rsf -c "create table public.resumes (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade)"
+# Applied twice: the migration must be safe to re-run.
+psql_rsf -f "$here/../migrations/20261013090000_resume_summary_feedback.sql"
+psql_rsf -f "$here/../migrations/20261013090000_resume_summary_feedback.sql"
+psql_rsf -f "$here/resume_summary_feedback_rls.sql"
 echo "All RLS and evaluation checks passed."

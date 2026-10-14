@@ -129,7 +129,8 @@ export function orderByBackendRank(jobs: DashboardJob[]): DashboardJob[] {
 
 export type DashboardGap = {
   skill: string;
-  severity: SeverityLevel;
+  /** Only set by the older report gap list; the Skills page uses tiers (skillGaps.ts). */
+  severity?: SeverityLevel;
   affectedCount: number | null;
   affectedPercent?: number;
   priorityScore?: number;

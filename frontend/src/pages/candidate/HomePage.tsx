@@ -1,22 +1,21 @@
+import type { ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
 import { NextStepCard, SkeletonRows, type NextStep } from '../../components/ui';
 import { JobCard } from './JobCard';
 import { PageHeader, SectionHead, StatusBadge } from './common';
 import {
-  cleanSkillDisplayName,
   formatDateLabel,
-  formatGapMissingCount,
   knownValue,
-  severityBadgeClass,
   type ApplicationStatus,
   type DashboardApplication,
-  type DashboardGap,
   type DashboardJob,
 } from './model';
 
 export type { NextStep } from '../../components/ui';
 export type ProfileTask = { label: string; done: boolean; onAction: () => void };
+/** An open skill gap as the Skills page ranks it. */
+export type HomeGap = { key: string; name: string; detail: string; tierLabel: string };
 
 type HomePageProps = {
   isLoading: boolean;
@@ -27,8 +26,10 @@ type HomePageProps = {
   getApplicationStatus: (job: DashboardJob) => ApplicationStatus | null;
   onOpenJob: (job: DashboardJob) => void;
   onOpenMatches: () => void;
-  topGaps: DashboardGap[];
+  topGaps: HomeGap[];
   gapCount: number;
+  /** The "Your resume at a glance" card. */
+  resumeSummary?: ReactNode;
   onOpenSkills: () => void;
   recentApplications: DashboardApplication[];
   applicationLoadStatus: 'loading' | 'ready' | 'error';
@@ -54,6 +55,7 @@ export function HomePage({
   onOpenMatches,
   topGaps,
   gapCount,
+  resumeSummary,
   onOpenSkills,
   recentApplications,
   applicationLoadStatus,
@@ -99,18 +101,19 @@ export function HomePage({
         </div>
 
         <div className="min-w-0 space-y-7 lg:col-span-4 lg:space-y-8">
+          {resumeSummary}
           {topGaps.length > 0 && (
             <section aria-labelledby="home-skills">
               <SectionHead id="home-skills" title="Skills to build" count={gapCount} action={seeAll('See all', onOpenSkills)} />
               <ul className="k-list">
                 {topGaps.map((gap) => (
-                  <li key={gap.skill}>
+                  <li key={gap.key}>
                     <button className="k-row" type="button" onClick={onOpenSkills}>
                       <span className="k-row-main">
-                        <span className="k-label block">{cleanSkillDisplayName(gap.skill)}</span>
-                        <span className="k-meta mt-0.5 block">{formatGapMissingCount(gap)}</span>
+                        <span className="k-label block">{gap.name}</span>
+                        <span className="k-meta mt-0.5 block">{gap.detail}</span>
                       </span>
-                      <span className={severityBadgeClass(gap.severity)}>{gap.severity}</span>
+                      <span className="k-badge shrink-0">{gap.tierLabel}</span>
                     </button>
                   </li>
                 ))}

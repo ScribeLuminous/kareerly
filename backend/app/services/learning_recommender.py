@@ -4,7 +4,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Optional
 from datetime import date
-from urllib.parse import urlsplit
+from urllib.parse import quote_plus, urlsplit
 import os
 import re
 import threading
@@ -17,6 +17,8 @@ from typing import Callable
 
 from .supabase_learning_resources import load_learning_resources_dataframe
 from .skill_variants import remove_excluded_aliases
+from .resource_links import WEB_SEARCH_TEMPLATE
+from .skill_gap_config import COURSES_PER_SKILL_MAX, TIER_LABELS, assign_tier, skill_sort_key
 from . import skill_resolver
 
 
@@ -228,18 +230,12 @@ def prioritize_skill_gaps(
     skills_df.columns = [column.strip() for column in skills_df.columns]
     skills_lookup = _skills_lookup_by_id(skills_df)
 
-    total_top_matches = max(len(match_results), 1)
-    preference_skill = str((preferences or {}).get("skill_to_develop", "")).strip().lower()
-    preference_industry = str((preferences or {}).get("industry", "")).strip().lower()
-
     aggregate: dict[str, dict[str, Any]] = {}
 
     for result in match_results:
         missing_ids = [skill_id.strip().upper() for skill_id in result.get("missing_skill_ids", []) if skill_id]
         must_have_ids = {skill_id.strip().upper() for skill_id in split_ids(result.get("must_have_skill_ids", "")) if skill_id}
         job_title = str(result.get("job_title", "")).strip()
-        job_category = str(result.get("job_category", "")).strip().lower()
-        job_subcategory = str(result.get("job_subcategory", "")).strip().lower()
 
         for skill_id in missing_ids:
             bucket = aggregate.setdefault(
@@ -247,48 +243,29 @@ def prioritize_skill_gaps(
                 {
                     "skill_id": skill_id,
                     "frequency_count": 0,
+                    "best_match_pct": 0.0,
                     "affected_jobs": [],
                     "requirement_importance": "unknown",
-                    "requirement_importance_score": 0.4,
-                    "preference_relevance_score": 0.5,
                 },
             )
             bucket["frequency_count"] += 1
+            bucket["best_match_pct"] = max(bucket["best_match_pct"], safe_float(result.get("match_percentage"), 0.0))
             if job_title and job_title not in bucket["affected_jobs"]:
                 bucket["affected_jobs"].append(job_title)
 
             if skill_id in must_have_ids:
                 bucket["requirement_importance"] = "must-have"
-                bucket["requirement_importance_score"] = 1.0
             elif bucket["requirement_importance"] != "must-have":
                 bucket["requirement_importance"] = "preferred"
-                bucket["requirement_importance_score"] = max(bucket["requirement_importance_score"], 0.6)
-
-            skill_meta = skills_lookup.get(skill_id, {})
-            skill_text = " ".join(
-                [
-                    str(skill_meta.get("skill_name", "")),
-                    str(skill_meta.get("skill_category", "")),
-                    str(skill_meta.get("skill_subcategory", "")),
-                    job_category,
-                    job_subcategory,
-                ]
-            ).lower()
-            if (preference_skill and preference_skill in skill_text) or (preference_industry and preference_industry in skill_text):
-                bucket["preference_relevance_score"] = 1.0
 
     gaps: list[dict[str, Any]] = []
 
     for skill_id, bucket in aggregate.items():
         skill = skills_lookup.get(skill_id, {})
         frequency_count = int(bucket["frequency_count"])
-        frequency_score = frequency_count / total_top_matches
-        if frequency_count >= 3:
-            gap_severity_score = 1.0
-        elif frequency_count == 2:
-            gap_severity_score = 0.7
-        else:
-            gap_severity_score = 0.4
+        # Every gap here is a missing required skill, so the shared tier rule
+        # (skill_gap_config) reads it as required by frequency_count jobs.
+        tier = assign_tier(frequency_count, 0)
 
         gap_payload = {
             "skill_id": skill_id,
@@ -302,10 +279,6 @@ def prioritize_skill_gaps(
             "affected_jobs": bucket["affected_jobs"],
             "affected_job_count": len(bucket["affected_jobs"]),
             "requirement_importance": bucket["requirement_importance"],
-            "requirement_importance_score": round(float(bucket["requirement_importance_score"]), 4),
-            "frequency_score": round(frequency_score, 4),
-            "gap_severity_score": round(gap_severity_score, 4),
-            "preference_relevance_score": round(float(bucket["preference_relevance_score"]), 4),
         }
 
         top_resources = recommend_learning_resources_for_gap(
@@ -315,35 +288,20 @@ def prioritize_skill_gaps(
             preferences=preferences,
             max_recommendations=3,
         )
-        learning_resource_availability_score = 1.0 if top_resources else 0.0
-
-        priority_score = (
-            0.35 * frequency_score
-            + 0.25 * float(bucket["requirement_importance_score"])
-            + 0.20 * gap_severity_score
-            + 0.10 * float(bucket["preference_relevance_score"])
-            + 0.10 * learning_resource_availability_score
-        )
-
-        if priority_score >= 0.75 or frequency_count >= 3:
-            severity = "Critical"
-        elif (0.50 <= priority_score < 0.75) or frequency_count == 2:
-            severity = "High"
-        else:
-            severity = "Moderate"
 
         gap_payload.update(
             {
-                "severity": severity,
-                "priority_score": round(priority_score, 4),
+                "tier": tier,
+                "severity": TIER_LABELS[tier],
+                "best_match_pct": bucket["best_match_pct"],
                 "learning_resource_available": bool(top_resources),
-                "learning_resource_availability_score": learning_resource_availability_score,
                 "recommended_learning_resources": top_resources,
             }
         )
         gaps.append(gap_payload)
 
-    return sorted(gaps, key=lambda item: (item.get("priority_score", 0.0), item.get("missing_count", 0)), reverse=True)[:max_gaps]
+    gaps.sort(key=lambda item: skill_sort_key(item["tier"], item["missing_count"], item["best_match_pct"], str(item["skill_name"])))
+    return gaps[:max_gaps]
 
 
 def affordability_score(cost_type: Any) -> float:
@@ -775,16 +733,15 @@ def recommend_learning_resources_for_matches(
     gaps: dict[str, dict[str, Any]] = {}
 
     def add_gap(key: str, skill_id: str, skill_name: str, match: dict[str, Any], requirement: str, removed: bool) -> None:
-        gap = gaps.setdefault(key, {"skill_id": skill_id, "skill_name": skill_name, "jobs": [], "must_have": False})
+        gap = gaps.setdefault(key, {"skill_id": skill_id, "skill_name": skill_name, "jobs": []})
         job_id = _clean_text(match.get("job_id", ""))
         entry = next((job for job in gap["jobs"] if job["job_id"] == job_id), None)
         if entry is None:
             gap["jobs"].append({"job_id": job_id, "job_title": _clean_text(match.get("job_title", "")),
-                                "requirement": requirement, "removed": removed})
+                                "requirement": requirement, "removed": removed,
+                                "match_pct": safe_float(match.get("match_percentage"), 0.0)})
         elif requirement == ESSENTIAL:
             entry["requirement"] = ESSENTIAL
-        if skill_name in (match.get("missing_must_have_skills") or []):
-            gap["must_have"] = True
 
     for match in matches:
         removed_names = {_normalize_skill_text(item.get("skill")) for item in match.get("missing_skill_status", []) or []
@@ -815,8 +772,10 @@ def recommend_learning_resources_for_matches(
                         match, ESSENTIAL, normalized in removed_names)
 
     def gap_order(gap: dict[str, Any]) -> tuple:
+        # The Skills page's tiers and order (skill_gap_config).
         essential = sum(job["requirement"] == ESSENTIAL for job in gap["jobs"])
-        return (essential == 0, not gap["must_have"], -essential, -len(gap["jobs"]), gap["skill_name"].lower())
+        tier = assign_tier(essential, len(gap["jobs"]) - essential)
+        return skill_sort_key(tier, len(gap["jobs"]), max(job["match_pct"] for job in gap["jobs"]), gap["skill_name"])
 
     ordered_gaps = sorted(gaps.values(), key=gap_order)
     prepared = _prepare_resources(learning_df, skill_evidence, canonical_id)
@@ -853,3 +812,42 @@ def recommend_learning_resources_for_matches(
     for item in ordered:
         item.pop("_rank", None)
     return ordered
+
+
+def recommend_learning_resources_by_skill(
+    skills: list[dict],
+    learning_df: Optional[pd.DataFrame] = None,
+    max_per_skill: int = COURSES_PER_SKILL_MAX,
+    skill_evidence: Optional[SkillEvidence] = None,
+    canonical_id: Optional[Callable[[str], str]] = None,
+) -> dict[str, dict[str, Any]]:
+    """Courses keyed by skill, for skills already grouped by skill_gap_aggregation.
+
+    Each entry says how many in-scope matches the skill helps and which jobs
+    require it or list it as nice to have. The same evidence rules as
+    ``recommend_learning_resources_for_matches`` decide whether a resource
+    teaches a skill; a skill with no such resource gets an empty list.
+    """
+    if learning_df is None:
+        learning_df = load_learning_resources()
+    prepared = _prepare_resources(learning_df, skill_evidence, canonical_id)
+    by_skill: dict[str, dict[str, Any]] = {}
+    for skill in skills:
+        name = skill["skill_name"]
+        jobs = skill.get("jobs", [])
+        required_by = list(dict.fromkeys(job["title"] for job in jobs if job["requirement"] == "required" and job["title"]))
+        nice_for = list(dict.fromkeys(job["title"] for job in jobs if job["requirement"] != "required" and job["title"]))
+        courses = _recommend_for_gap({"skill_id": skill.get("taxonomy_skill_id", ""), "skill_name": name}, prepared,
+                                     max_recommendations=max_per_skill)
+        helps = len(jobs)
+        for course in courses:
+            course["why_recommended"] = (f"Helps {helps} of your matches: "
+                                         f"{RELEVANCE_PHRASES[course['relevance_method']].format(skill=name)}.")
+        by_skill[skill["skill_id"]] = {
+            "skill_id": skill["skill_id"], "taxonomy_skill_id": skill.get("taxonomy_skill_id", ""),
+            "skill_name": name, "helps_matches": helps,
+            "required_by": required_by, "nice_for": nice_for, "courses": courses,
+            # A general web search, labelled as one, for a skill with no listed course.
+            "search_url": WEB_SEARCH_TEMPLATE.format(query=quote_plus(f"{name} course")),
+        }
+    return by_skill

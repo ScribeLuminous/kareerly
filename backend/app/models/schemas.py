@@ -68,3 +68,35 @@ class ExternalJobAnalysisRequest(BaseModel):
 
 class ExternalJobSaveRequest(BaseModel):
     analysis: dict
+
+
+class GapJob(BaseModel):
+    """One match as the Skills page sends it: identity, score and the missing skills matching reported."""
+    job_id: str = Field(min_length=1, max_length=200)
+    job_source: Literal["internal", "employer"] = "internal"
+    title: str = Field(default="", max_length=300)
+    company: str = Field(default="", max_length=300)
+    match_pct: float = Field(default=0.0, ge=0, le=100)
+    match_type: Literal["fit_now", "aspiration"]
+    missing_required: List[str] = Field(default_factory=list, max_length=200)
+    missing_nice: List[str] = Field(default_factory=list, max_length=200)
+
+
+class JobRef(BaseModel):
+    job_id: str = Field(min_length=1, max_length=200)
+    job_source: Literal["internal", "employer"] = "internal"
+
+
+class SkillGapsRequest(BaseModel):
+    matches: List[GapJob] = Field(default_factory=list, max_length=1000)
+    saved_jobs: List[JobRef] = Field(default_factory=list, max_length=1000)
+    applied_jobs: List[JobRef] = Field(default_factory=list, max_length=1000)
+
+
+class ResumeSummaryRequest(BaseModel):
+    resume_text: str = Field(min_length=1, max_length=200_000)
+    # Resume skill names, best first (the extractor's priority order).
+    skills: List[str] = Field(default_factory=list, max_length=500)
+    role_level: str = Field(default="", max_length=100)
+    fit_now_titles: List[str] = Field(default_factory=list, max_length=200)
+    aspiration_titles: List[str] = Field(default_factory=list, max_length=500)
