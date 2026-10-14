@@ -88,7 +88,7 @@ export default function LocationPreferenceQuestion({
     <label className="mt-3 block">
       <span className="mb-1 block text-xs font-semibold text-dark">{label}</span>
       <select
-        className="w-full rounded-lg border border-bdr bg-white px-3 py-2 text-sm text-mid outline-none focus:border-rust"
+        className="min-h-[44px] w-full rounded-lg border border-bdr bg-white px-3 py-2 text-base text-mid outline-none focus:border-rust sm:text-sm"
         value={currentRegion}
         onChange={(event) => onChange({ locationScope: currentScope, region: event.target.value })}
       >

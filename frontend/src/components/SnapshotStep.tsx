@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { cleanSkillLabel, toDisplayLabels, toSkillLabels } from '../lib/skillLabels';
 import { answersFromPreferencesUsed, summarizePreferences } from '../lib/preferenceOptions';
+import { getCareerAreaLabel } from '../lib/careerAreas';
 import type { PreferenceSummaryItem } from '../lib/preferenceOptions';
 import { downloadCareerReportPdf } from '../lib/reportPdf';
 import type { CareerReportContent, ReportMatchEntry } from '../lib/reportPdf';
@@ -149,14 +150,14 @@ function describeMatch(
 function MatchRow({ description }: { description: MatchDescription }) {
   const toneClass = { matched: 'text-green', missing: 'text-soft-text', note: 'text-soft-text' };
   return (
-    <div className="rounded-lg bg-bg px-4 py-3">
+    <div className="rounded-lg bg-bg px-4 py-3 [overflow-wrap:anywhere]">
       <div className="flex items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="font-semibold text-dark">{description.title}</div>
           <div className="text-xs text-soft-text">{description.location}</div>
         </div>
         <div
-          className={`rounded-md px-3 py-1 text-xs font-extrabold ${
+          className={`shrink-0 rounded-md px-3 py-1 text-xs font-extrabold ${
             description.matchPercent === null ? 'bg-bdr text-soft-text' : 'bg-rust text-white'
           }`}
         >
@@ -194,10 +195,10 @@ function SkillGapRow({ gap }: { gap: PrioritizedSkillGap }) {
   const gapText = skillGapText(gap);
 
   return (
-    <div className="rounded-lg bg-bg px-4 py-3 text-sm">
+    <div className="rounded-lg bg-bg px-4 py-3 text-sm [overflow-wrap:anywhere]">
       <div className="flex items-center justify-between gap-3">
-        <span className="font-semibold text-dark">{cleanSkillLabel(gap.skill_name)}</span>
-        <span className="text-xs text-soft-text">{gap.severity || 'To work on'}</span>
+        <span className="min-w-0 font-semibold text-dark">{cleanSkillLabel(gap.skill_name)}</span>
+        <span className="shrink-0 text-xs text-soft-text">{gap.severity || 'To work on'}</span>
       </div>
       <div className="mt-1 text-xs text-soft-text">{gapText}</div>
     </div>
@@ -206,10 +207,11 @@ function SkillGapRow({ gap }: { gap: PrioritizedSkillGap }) {
 
 function LearningRow({ recommendation }: { recommendation: LearningRecommendation }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg bg-bg px-4 py-3">
-      <div className="min-w-0">
-        <div className="truncate font-semibold text-dark">{recommendation.title || 'Untitled course or certification'}</div>
-        <div className="truncate text-xs text-soft-text">{recommendation.provider || 'Provider not listed'}</div>
+    <div className="flex items-start justify-between gap-3 rounded-lg bg-bg px-4 py-3">
+      {/* Full title and provider: long words and URLs wrap instead of being cut off. */}
+      <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+        <div className="font-semibold text-dark">{recommendation.title || 'Untitled course or certification'}</div>
+        <div className="text-xs text-soft-text">{recommendation.provider || 'Provider not listed'}</div>
       </div>
       <div
         className={`flex-shrink-0 rounded-lg px-3 py-1 text-xs font-bold ${
@@ -330,6 +332,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
   const closestDescriptions = closestMatches.map((match) => ({ key: `${match.job_id}-closest`, ...describeMatch(match, 'closest', skillNameLookup) }));
   const aspirationDescriptions = aspirationMatches.map((match) => ({ key: `${match.job_id}-asp`, ...describeMatch(match, 'aspiration', skillNameLookup) }));
   const noFitNowText = emptyFitNowText(matchResults, closestMatches.length);
+  const jobLevelLock = matchResults.job_level_lock;
   const summaryCards = [
     {
       label: 'Fit-Now Matches',
@@ -457,6 +460,14 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
         </p>
         <p className="k-meta mt-1">{summaryCards[0].detail}</p>
       </div>
+      {jobLevelLock?.applied && (
+        <div className="k-banner k-banner-warn" role="status" data-testid="job-level-lock-report">
+          <p className="k-banner-body">
+            Results are limited to entry-level roles because you have no confirmed skills in{' '}
+            {jobLevelLock.career_area_label || getCareerAreaLabel(jobLevelLock.career_area)} yet.
+          </p>
+        </div>
+      )}
       {saveReportCallout}
       <PreferenceSummary items={preferenceItems} />
 
