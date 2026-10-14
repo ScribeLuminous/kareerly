@@ -29,7 +29,7 @@ from docx.shared import Inches, Pt
 from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError
 
-from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, RunMatchesRequest
+from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, ResumeSummaryRequest, RunMatchesRequest, SkillGapsRequest
 from .services.admin_stats import summarize_match_feedback
 from .services.job_matcher import list_available_jobs
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
@@ -37,7 +37,10 @@ from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.skill_variants import load_skill_variants
 from .services.ph_regions import region_name, region_options, resolve_single_region, regions_in_location
-from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, current_skill_extractor, learning_by_skill_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services import skill_gap_config
+from .services.resume_summary import build_resume_summary
+from .services.skill_gap_aggregation import build_gap_report
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
 from .services import psoc_reference
@@ -951,11 +954,14 @@ def _sync_match_results_to_supabase(
             if isinstance(existing, list) and existing and isinstance(existing[0], dict) and existing[0].get("id"):
                 progress_id = str(existing[0]["id"])
                 progress_query = urllib.parse.urlencode({"id": f"eq.{progress_id}"})
+                # A new upload refreshes the skill's details only; the candidate's
+                # own progress (status, percent, chosen course) is never reset.
                 _supabase_request(
                     f"/rest/v1/candidate_skill_progress?{progress_query}",
                     method="PATCH",
                     token=access_token,
-                    body=payload,
+                    body={key: value for key, value in payload.items()
+                          if key not in {"status", "progress_percent", "selected_resource_id"}},
                 )
             else:
                 _supabase_request(
@@ -2314,6 +2320,69 @@ async def run_matches_form(payload: str = Form(...)) -> dict:
     except (json.JSONDecodeError, ValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Invalid matching request payload.") from exc
     return await run_matches(request)
+
+
+def _form_model(model: type[BaseModel], payload: str, label: str):
+    """Parse a JSON form field (a CORS simple request, as run-form explains) into ``model``."""
+    try:
+        values = json.loads(payload)
+        if not isinstance(values, dict):
+            raise ValueError(f"{label} must be an object.")
+        return model.model_validate(values) if hasattr(model, "model_validate") else model.parse_obj(values)
+    except (json.JSONDecodeError, ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid {label}.") from exc
+
+
+def _dump(model: BaseModel) -> dict:
+    return model.model_dump() if hasattr(model, "model_dump") else model.dict()
+
+
+@app.post("/api/skills/gaps")
+async def skill_gaps(
+    payload: str = Form(...),
+    group_by: str = skill_gap_config.GROUP_BY_SKILL,
+    scope: str = skill_gap_config.SCOPE_DEFAULT,
+    include_courses: bool = False,
+) -> dict:
+    """The Skills page's gaps, regrouped by skill or by job, for one scope.
+
+    The browser sends its matches' missing skills as matching returned them;
+    nothing is re-scored. ``scope``: default (Fit-Now plus saved and applied
+    jobs), fit_now, saved (saved and applied jobs) or all. Saved or applied
+    jobs that are not among the matches are left out and counted. Tiers,
+    order and display limits are in services/skill_gap_config.py.
+    """
+    if group_by not in skill_gap_config.GROUP_BY_IDS:
+        raise HTTPException(status_code=422, detail=f"group_by must be one of {', '.join(skill_gap_config.GROUP_BY_IDS)}.")
+    if scope not in skill_gap_config.SCOPE_IDS:
+        raise HTTPException(status_code=422, detail=f"scope must be one of {', '.join(skill_gap_config.SCOPE_IDS)}.")
+    request = _form_model(SkillGapsRequest, payload, "skill gaps request")
+
+    def build() -> dict:
+        report = build_gap_report(
+            [_dump(job) for job in request.matches], scope=scope, group_by=group_by,
+            saved=[(job.job_source, job.job_id) for job in request.saved_jobs],
+            applied=[(job.job_source, job.job_id) for job in request.applied_jobs],
+        )
+        if include_courses and group_by == skill_gap_config.GROUP_BY_SKILL:
+            report["courses_by_skill"] = learning_by_skill_for(report["skills"])
+        return report
+
+    try:
+        return await run_in_threadpool(build)
+    except Exception as exc:
+        logger.exception("Skill gap grouping failed")
+        raise HTTPException(status_code=500, detail="Skill gaps could not be grouped right now.") from exc
+
+
+@app.post("/api/resume/summary")
+async def resume_summary(payload: str = Form(...)) -> dict:
+    """'Your resume at a glance', filled in from fixed templates (services/resume_summary.py)."""
+    request = _form_model(ResumeSummaryRequest, payload, "resume summary request")
+    return build_resume_summary(
+        resume_text=request.resume_text, skills=request.skills, role_level=request.role_level,
+        fit_now_titles=request.fit_now_titles, aspiration_titles=request.aspiration_titles,
+    )
 
 
 def _load_external_job_candidate(user_id: str) -> tuple[str, list[dict], dict, dict]:

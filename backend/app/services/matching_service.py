@@ -17,6 +17,7 @@ import pandas as pd
 
 from .learning_recommender import (
     get_learning_resources_source,
+    recommend_learning_resources_by_skill,
     recommend_learning_resources_for_matches,
     load_learning_resources as load_reviewed_learning_resources,
     resource_is_reviewed,
@@ -48,7 +49,7 @@ from .skill_variants import (
 )
 from .supabase_jobs import load_internal_jobs_dataframe
 from .ph_regions import RegionPreference, region_preference, regions_in_location
-from . import skill_resolver, taxonomy_additions
+from . import skill_gap_config as gap_config, skill_resolver, taxonomy_additions
 from ..learning.ranking_model import BASELINE_VERSION, active_ranker, rank_category
 
 # ============================================================
@@ -1477,6 +1478,14 @@ def learning_recommendations_for(matches: List[Dict[str, Any]], preferences: Opt
         resolve_skill_id=learning_skill_id, canonical_id=lambda skill_id: equivalents.get(skill_id, skill_id))
 
 
+def learning_by_skill_for(skills: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Courses keyed by skill for aggregated gaps, resolved exactly as the matches were."""
+    equivalents = skill_id_equivalents()
+    return recommend_learning_resources_by_skill(
+        skills, skill_evidence=resource_skill_evidence,
+        canonical_id=lambda skill_id: equivalents.get(skill_id, skill_id))
+
+
 def compute_learning_readiness(missing_skills: List[str], available_skill_ids: Optional[set] = None) -> float:
     if not missing_skills:
         return 0.0
@@ -2293,12 +2302,15 @@ def prioritize_skill_gaps(
     matches: List[Dict[str, Any]],
     limit: Optional[int] = MAX_PRIORITIZED_GAPS,
 ) -> List[Dict[str, Any]]:
-    """Missing skills of the given (returned) matches, essential gaps first.
+    """Missing skills of the given (returned) matches, in the Skills page's tiers and order.
 
-    A gap is essential when at least one of the jobs requires it (required or
-    must-have) and optional when the jobs only prefer it. Within each group,
-    must-have gaps and then the most common gaps come first. Each gap lists
-    the jobs it affects. ``limit=None`` returns every gap.
+    Gaps are grouped by canonical skill ID, so two spellings of one skill are
+    one gap. A gap is essential when at least one of the jobs requires it
+    (required or must-have) and optional when the jobs only prefer it. The
+    tier and order follow skill_gap_config: required by 2+ jobs, then required
+    by 1 or nice to have for 2+, then nice to have for 1; within a tier, the
+    most jobs first, then the highest match %. Each gap lists the jobs it
+    affects. ``limit=None`` returns every gap.
     """
     labels, _ = canonical_skill_lookup()
     gap_counts: Dict[str, Dict[str, Any]] = {}
@@ -2310,15 +2322,22 @@ def prioritize_skill_gaps(
         must_have = set(match.get("missing_must_have_skills", []) or [])
         removed = {item.get("skill") for item in match.get("missing_skill_status", []) or []
                    if item.get("status") == MISSING_REMOVED}
+        counted = set()
         for gap_type, skills in ((GAP_ESSENTIAL, essential), (GAP_OPTIONAL, optional)):
             for skill in skills:
-                item = gap_counts.setdefault(skill, {
-                    "skill": skill, "essential": 0, "optional": 0, "must_have": 0, "removed": False,
+                key = _skill_key(skill)
+                if key in counted:
+                    continue
+                counted.add(key)
+                item = gap_counts.setdefault(key, {
+                    "skill": display_skill_name(key, labels, skill), "essential": 0, "optional": 0,
+                    "must_have": 0, "removed": False, "best_match_pct": 0.0,
                     "appears_in_fit_now": 0, "appears_in_aspiration": 0, "affected_jobs": [],
                 })
                 item[gap_type] += 1
                 item["must_have"] += int(skill in must_have)
                 item["removed"] = item["removed"] or skill in removed
+                item["best_match_pct"] = max(item["best_match_pct"], float(match.get("match_percentage") or 0.0))
                 if match_type == FIT_NOW:
                     item["appears_in_fit_now"] += 1
                 else:
@@ -2329,18 +2348,10 @@ def prioritize_skill_gaps(
                 })
 
     gap_list = []
-    for item in gap_counts.values():
+    for key, item in gap_counts.items():
         frequency = len(item["affected_jobs"])
         gap_type = GAP_ESSENTIAL if item["essential"] else GAP_OPTIONAL
-        if gap_type == GAP_OPTIONAL:
-            priority = "Moderate"
-        elif item["must_have"] or item["essential"] >= 3:
-            priority = "Critical"
-        elif item["essential"] == 2:
-            priority = "High Priority"
-        else:
-            priority = "Moderate"
-        key = _skill_key(item["skill"])
+        tier = gap_config.assign_tier(item["essential"], item["optional"])
         gap_list.append({
             "skill_name": item["skill"],
             "skill": item["skill"],
@@ -2350,9 +2361,12 @@ def prioritize_skill_gaps(
             "is_must_have": bool(item["must_have"]),
             # "not_found_in_resume" does not mean the candidate lacks the skill.
             "evidence_status": MISSING_REMOVED if item["removed"] else MISSING_NOT_FOUND,
-            "severity": priority,
+            "tier": tier,
+            # The tier's label, where older clients read a priority.
+            "severity": gap_config.TIER_LABELS[tier],
+            "priority": gap_config.TIER_LABELS[tier],
             "frequency": frequency,
-            "priority": priority,
+            "best_match_pct": round(item["best_match_pct"], 2),
             "essential_job_count": item["essential"],
             "optional_job_count": item["optional"],
             "appears_in_top_matches": frequency,
@@ -2370,13 +2384,8 @@ def prioritize_skill_gaps(
             "affected_job_details": item["affected_jobs"],
         })
 
-    gap_list.sort(key=lambda gap: (
-        gap["gap_type"] != GAP_ESSENTIAL,
-        not gap["is_must_have"],
-        -gap["essential_job_count"],
-        -gap["frequency"],
-        gap["skill_name"].lower(),
-    ))
+    gap_list.sort(key=lambda gap: gap_config.skill_sort_key(
+        gap["tier"], gap["frequency"], gap["best_match_pct"], gap["skill_name"]))
     return gap_list if limit is None else gap_list[:limit]
 
 

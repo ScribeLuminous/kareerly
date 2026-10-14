@@ -1,25 +1,21 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCheck, faCircleCheck, faGraduationCap, faUpload } from '@fortawesome/free-solid-svg-icons';
-import { EmptyState, InfoTip } from '../../components/ui';
-import { SkillsHeader, type SkillsTab } from './SkillGapsPage';
+import { Banner, EmptyState, InfoTip, SkeletonRows } from '../../components/ui';
+import { SkillsHeader, type GapLoadStatus, type SkillsTab } from './SkillGapsPage';
 import {
-  cleanSkillDisplayName,
   EMPLOYER_CHECK_REMINDER,
-  getCourseSkillLabels,
-  getLearningForJob,
-  isClaimedSkill,
   knownValue,
   learningResourceUrl,
+  mapRunLearningRecommendation,
   normalizeSkill,
-  orderByBackendRank,
-  severityBadgeClass,
   type ClaimedSkill,
   type CourseCompletion,
   type DashboardCourse,
-  type DashboardGap,
-  type DashboardJob,
+  type SkillProgressRecord,
 } from './model';
+import { gapProgress, gapRecordKey, openAndCompleted, titleList } from './skillGaps';
+import type { GapSkill, SkillGapReport } from '../../types';
 
 export type CourseCompletionActions = {
   courseCompletions: Record<string, CourseCompletion>;
@@ -29,143 +25,215 @@ export type CourseCompletionActions = {
 };
 
 type LearningPageProps = CourseCompletionActions & {
-  courses: DashboardCourse[];
-  jobs: DashboardJob[];
-  gaps: DashboardGap[];
+  /** The same skill-grouped gaps as the Gaps tab, with courses keyed by skill. */
+  report: SkillGapReport | null;
+  status: GapLoadStatus;
+  error?: string;
+  onRetry: () => void;
   /** Skills the candidate says they already have; no courses are suggested for them. */
   claimedSkills: Record<string, ClaimedSkill>;
-  /** Pre-selects a skill (from a gap) or a job (from a job's detail). */
+  skillProgressRecords: Record<string, SkillProgressRecord>;
+  /** Pre-selects a skill (from a gap or a job's detail). */
   focusSkill?: string;
-  focusJobId?: string;
+  hasMatches: boolean;
   onTab: (tab: SkillsTab) => void;
   onOpenJobMatches: () => void;
 };
 
-export function UpskillingPage({ courses, jobs, gaps, claimedSkills, focusSkill, focusJobId, courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence, onTab, onOpenJobMatches }: LearningPageProps) {
-  // Every match is listed, grouped by type, so each Fit-Now match can be focused.
-  const jobGroups = [
-    { label: 'Fit-Now matches', items: orderByBackendRank(jobs.filter((job) => job.matchCategory === 'fit-now')) },
-    { label: 'Closest matches', items: jobs.filter((job) => job.matchCategory === 'aspiration' && job.closestMatch) },
-    { label: 'Aspiration matches', items: orderByBackendRank(jobs.filter((job) => job.matchCategory === 'aspiration' && !job.closestMatch)) },
-  ].filter((group) => group.items.length > 0);
-  const firstJobWithSkill = focusSkill
-    ? jobs.find((job) => [...job.missingSkills, ...(job.missingPreferredSkills || [])].some((skill) => normalizeSkill(skill) === normalizeSkill(focusSkill)))
-    : undefined;
-  const firstJobWithGaps = jobGroups.flatMap((group) => group.items).find((job) => job.missingSkills.length > 0 || (job.missingPreferredSkills || []).length > 0);
-  const initialJobId = focusJobId || firstJobWithSkill?.id || firstJobWithGaps?.id || jobGroups[0]?.items[0]?.id || '';
-  const [selectedJobId, setSelectedJobId] = useState(initialJobId);
-  const [selectedSkill, setSelectedSkill] = useState(focusSkill ? cleanSkillDisplayName(focusSkill) : 'all');
+type SkillGroup = { skill: GapSkill; key: string; courses: DashboardCourse[]; searchUrl?: string; helps: number; requiredBy: string[]; niceFor: string[] };
 
-  const selectedJob = jobs.find((job) => job.id === selectedJobId) || jobGroups[0]?.items[0];
-  const jobCourses = selectedJob ? getLearningForJob(selectedJob, courses) : [];
-  // Required gaps first, then nice-to-have gaps (the Skill Gaps page lists both).
-  const jobSkills = Array.from(new Set([...(selectedJob?.missingSkills || []), ...(selectedJob?.missingPreferredSkills || [])].map(cleanSkillDisplayName).filter(Boolean)));
-  const claimedHere = jobSkills.filter((skill) => isClaimedSkill(claimedSkills, { skill }));
-  const skills = jobSkills.filter((skill) => !claimedHere.includes(skill));
-  const gapFor = (skill: string) => gaps.find((gap) => normalizeSkill(gap.skill) === normalizeSkill(skill));
-  const skillIsListed = selectedSkill === 'all' || skills.some((skill) => normalizeSkill(skill) === normalizeSkill(selectedSkill));
-  const activeSkill = skillIsListed ? selectedSkill : 'all';
-  const groups = skills
-    .filter((skill) => activeSkill === 'all' || normalizeSkill(skill) === normalizeSkill(activeSkill))
-    .map((skill) => ({
-      skill,
-      gap: gapFor(skill),
-      resources: jobCourses.filter((course) => getCourseSkillLabels(course).some((mapped) => normalizeSkill(mapped) === normalizeSkill(skill))),
-    }));
-  const otherCourses = jobCourses.length === 0 ? courses.filter((course) => course.reviewed).slice(0, 6) : [];
+function helpsLine(group: SkillGroup): string {
+  const parts = [`Helps ${group.helps} match${group.helps === 1 ? '' : 'es'}`];
+  if (group.requiredBy.length) parts.push(`Required by ${titleList(group.requiredBy)}`);
+  else if (group.niceFor.length) parts.push(`Nice to have for ${titleList(group.niceFor)}`);
+  return parts.join(' · ');
+}
+
+export function UpskillingPage({
+  report, status, error, onRetry, claimedSkills, skillProgressRecords, focusSkill, hasMatches,
+  courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence, onTab, onOpenJobMatches,
+}: LearningPageProps) {
+  // null until the candidate picks a chip: the focused skill (from a gap or job) is shown first.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const actions: CourseCompletionActions = { courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence };
+  const visibleCourses = report?.rules.display.courses_per_skill_visible ?? 3;
+  const visibleSkills = report?.rules.display.learning_skills_visible ?? 5;
+  const [allSkillsShown, setAllSkillsShown] = useState(false);
+  const [allNoCourseShown, setAllNoCourseShown] = useState(false);
+
+  // Open skills only, in the Gaps tab's tier order; completed and owned skills get no courses.
+  const { open } = openAndCompleted(report, claimedSkills, skillProgressRecords);
+  const groups: SkillGroup[] = open.map((skill) => {
+    const entry = report?.courses_by_skill?.[skill.skill_id];
+    return {
+      skill,
+      key: gapRecordKey(skill),
+      courses: (entry?.courses || []).map(mapRunLearningRecommendation).filter((course) => course.reviewed),
+      searchUrl: entry?.search_url,
+      helps: entry?.helps_matches ?? skill.jobs_needing,
+      requiredBy: entry?.required_by || [],
+      niceFor: entry?.nice_for || [],
+    };
+  });
+  const withCourses = groups.filter((group) => group.courses.length > 0);
+  const withoutCourses = groups.filter((group) => group.courses.length === 0);
+  const focusKey = focusSkill ? withCourses.find((group) => normalizeSkill(group.skill.skill_name) === normalizeSkill(focusSkill))?.key : undefined;
+  const activeKey = selectedKey ?? focusKey ?? 'all';
+  const filtered = activeKey === 'all' ? withCourses : withCourses.filter((group) => group.key === activeKey);
+  const shown = allSkillsShown ? filtered : filtered.slice(0, visibleSkills);
+  const hiddenSkills = filtered.length - Math.min(filtered.length, visibleSkills);
+
+  // Courses for skills the candidate set to In progress.
+  const continuing = groups.flatMap((group) => {
+    const record = skillProgressRecords[group.key];
+    if (gapProgress(record?.status) !== 'in_progress') return [];
+    const course = group.courses.find((item) => item.id === record?.selectedResourceId) || group.courses[0];
+    return course && !courseCompletions[course.id] ? [{ group, course }] : [];
+  });
+
+  const selectChip = (key: string) => setSelectedKey(key);
+
+  const body = () => {
+    if (!hasMatches) {
+      return (
+        <EmptyState
+          icon={faGraduationCap}
+          title="No learning suggestions yet"
+          text="Suggestions follow the skills your job matches need."
+          actions={<button className="k-btn k-btn-primary" type="button" onClick={onOpenJobMatches}>Go to Matches</button>}
+        />
+      );
+    }
+    if (status === 'error') {
+      return (
+        <Banner tone="error" actions={<button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={onRetry}>Try again</button>}>
+          {error || 'Your learning suggestions could not be loaded.'}
+        </Banner>
+      );
+    }
+    if (!report) return <SkeletonRows count={4} label="Loading learning suggestions" />;
+    if (groups.length === 0) {
+      return <EmptyState title="Nothing to learn right now" text='Your open skill gaps are all completed. Change "Gaps from" on the Gaps tab to see more jobs.' />;
+    }
+    return (
+      <>
+        <p className="k-secondary mb-4">Courses for your open skill gaps, starting with the skills that help the most jobs.</p>
+        {withCourses.length > 1 && (
+          <div className="k-chip-scroller mb-5" role="group" aria-label="Filter by skill">
+            <button className="k-chip" type="button" aria-pressed={activeKey === 'all'} onClick={() => selectChip('all')}>All skills</button>
+            {(allSkillsShown ? withCourses : withCourses.slice(0, visibleSkills)).map((group) => (
+              <button key={group.key} className="k-chip" type="button" aria-pressed={activeKey === group.key} onClick={() => selectChip(group.key)}>
+                {group.skill.skill_name}
+              </button>
+            ))}
+            {withCourses.length > visibleSkills && (
+              <button className="k-chip" type="button" aria-expanded={allSkillsShown} aria-controls="learn-skill-groups" onClick={() => setAllSkillsShown((current) => !current)}>
+                {allSkillsShown ? 'Fewer skills' : `+${withCourses.length - visibleSkills} more`}
+              </button>
+            )}
+          </div>
+        )}
+
+        {continuing.length > 0 && activeKey === 'all' && (
+          <section className="mb-7" aria-labelledby="learn-continue">
+            <h2 id="learn-continue" className="k-section-title mb-3">Continue learning</h2>
+            <ul className="k-list">
+              {continuing.map(({ group, course }) => (
+                <CourseRow key={`continue-${course.id}`} course={course} note={`For ${group.skill.skill_name}`} {...actions} />
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <div id="learn-skill-groups" className="space-y-7">
+          {shown.map((group) => {
+            const id = `learn-${group.key.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+            const isOpen = Boolean(expanded[group.key]);
+            const extra = group.courses.length - visibleCourses;
+            return (
+              <section key={group.key} aria-labelledby={`${id}-title`}>
+                <h2 id={`${id}-title`} className="k-section-title">{group.skill.skill_name}</h2>
+                <p className="k-meta mb-3 mt-0.5">{helpsLine(group)}</p>
+                <ul id={`${id}-list`} className="k-list">
+                  {(isOpen ? group.courses : group.courses.slice(0, visibleCourses)).map((course) => (
+                    <CourseRow key={course.id} course={course} {...actions} />
+                  ))}
+                </ul>
+                {extra > 0 && (
+                  <button
+                    className="k-btn k-btn-ghost k-show-more"
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={`${id}-list`}
+                    onClick={() => setExpanded((current) => ({ ...current, [group.key]: !isOpen }))}
+                  >
+                    {isOpen ? 'Show fewer courses' : `Show ${extra} more course${extra === 1 ? '' : 's'}`}
+                  </button>
+                )}
+              </section>
+            );
+          })}
+        </div>
+        {hiddenSkills > 0 && (
+          <button
+            className="k-btn k-btn-secondary mt-5"
+            type="button"
+            aria-expanded={allSkillsShown}
+            aria-controls="learn-skill-groups"
+            onClick={() => setAllSkillsShown((current) => !current)}
+          >
+            {allSkillsShown ? 'Show fewer skills' : `Show ${hiddenSkills} more skill${hiddenSkills === 1 ? '' : 's'}`}
+          </button>
+        )}
+
+        {withoutCourses.length > 0 && activeKey === 'all' && (
+          <section className="k-card mt-7" aria-labelledby="learn-no-course">
+            <h2 id="learn-no-course" className="k-label">No course yet for {withoutCourses.length} skill{withoutCourses.length === 1 ? '' : 's'}</h2>
+            <p className="k-meta mt-1">Kareerly has no reviewed course for these yet. A web search can help you find one.</p>
+            <ul id="learn-no-course-list" className="mt-2">
+              {(allNoCourseShown ? withoutCourses : withoutCourses.slice(0, visibleSkills)).map((group) => (
+                <li key={group.key} className="k-no-course-row">
+                  <span className="min-w-0">
+                    <span className="k-label block">{group.skill.skill_name}</span>
+                    <span className="k-meta block truncate">{helpsLine(group)}</span>
+                  </span>
+                  {group.searchUrl && (
+                    <a className="k-btn k-btn-ghost k-btn-sm shrink-0" href={group.searchUrl} target="_blank" rel="noopener noreferrer" aria-label={`Search the web for ${group.skill.skill_name} courses (opens in a new tab)`}>
+                      Search<FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" />
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {withoutCourses.length > visibleSkills && (
+              <button
+                className="k-btn k-btn-ghost k-show-more"
+                type="button"
+                aria-expanded={allNoCourseShown}
+                aria-controls="learn-no-course-list"
+                onClick={() => setAllNoCourseShown((current) => !current)}
+              >
+                {allNoCourseShown ? 'Show fewer' : `Show ${withoutCourses.length - visibleSkills} more`}
+              </button>
+            )}
+          </section>
+        )}
+      </>
+    );
+  };
 
   return (
-    <div className="k-page">
-      <SkillsHeader tab="learning" onTab={onTab} gapCount={gaps.length} />
+    <div className="k-page k-skills-page">
+      <SkillsHeader tab="learning" onTab={onTab} gapCount={report ? open.length : undefined} />
       <div id="skills-panel" role="tabpanel" aria-labelledby="skills-tab-learning">
-        {jobs.length === 0 ? (
-          <EmptyState
-            icon={faGraduationCap}
-            title="No learning suggestions yet"
-            text="Suggestions follow the skills your job matches need."
-            actions={<button className="k-btn k-btn-primary" type="button" onClick={onOpenJobMatches}>Go to Matches</button>}
-          />
-        ) : (
-          <>
-            <label className="k-field block max-w-xl">
-              <span className="k-label">For job</span>
-              <select
-                className="k-select mt-1.5"
-                value={selectedJob?.id || ''}
-                onChange={(event) => { setSelectedJobId(event.target.value); setSelectedSkill('all'); }}
-              >
-                {jobGroups.map((group) => (
-                  <optgroup key={group.label} label={`${group.label} (${group.items.length})`}>
-                    {group.items.map((job) => (
-                      <option key={job.id} value={job.id}>
-                        {job.title}{knownValue(job.company) ? ` — ${job.company}` : ''}{job.hasMatchScore ? ` · ${job.matchScore}%` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-
-            {claimedHere.length > 0 && (
-              <p className="k-meta mt-3">
-                Not shown because you already have {claimedHere.length === 1 ? 'it' : 'them'}: {claimedHere.join(', ')}. Undo this on the Gaps tab.
-              </p>
-            )}
-            {skills.length === 0 ? (
-              <EmptyState className="mt-4" title="Nothing to learn for this job" text={claimedHere.length > 0 ? 'You have every skill this job asks for. Pick another job.' : 'It has no missing skills for your profile. Pick another job.'} />
-            ) : (
-              <>
-                <div className="k-chip-scroller mb-5 mt-4" role="group" aria-label="Filter by skill">
-                  <button className="k-chip" type="button" aria-pressed={activeSkill === 'all'} onClick={() => setSelectedSkill('all')}>All skills</button>
-                  {skills.map((skill) => {
-                    const gap = gapFor(skill);
-                    return (
-                      <button key={skill} className="k-chip" type="button" aria-pressed={normalizeSkill(activeSkill) === normalizeSkill(skill)} onClick={() => setSelectedSkill(skill)}>
-                        {skill}
-                        {gap && <span className="k-chip-count">· {gap.severity}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {jobCourses.length === 0 ? (
-                  <>
-                    <EmptyState title="No resources for this job yet" text={otherCourses.length > 0 ? 'Here are resources for your other skill gaps.' : 'Check again after the learning catalog updates.'} />
-                    {otherCourses.length > 0 && (
-                      <section className="k-section" aria-labelledby="other-learning">
-                        <h2 id="other-learning" className="k-section-title mb-3">For your other matches</h2>
-                        <ul className="k-list">{otherCourses.map((course) => <CourseRow key={course.id} course={course} {...actions} />)}</ul>
-                      </section>
-                    )}
-                  </>
-                ) : (
-                  <div className="space-y-6">
-                    {groups.map(({ skill, gap, resources }) => (
-                      <section key={skill} aria-labelledby={`learn-${normalizeSkill(skill).replace(/[^a-z0-9]+/g, '-')}`}>
-                        <div className="k-section-head">
-                          <h2 id={`learn-${normalizeSkill(skill).replace(/[^a-z0-9]+/g, '-')}`} className="k-section-title">{skill}</h2>
-                          {gap && <span className={severityBadgeClass(gap.severity)}>{gap.severity}</span>}
-                        </div>
-                        {resources.length > 0 ? (
-                          <ul className="k-list">{resources.map((course) => <CourseRow key={course.id} course={course} note={selectedJob ? course.recommendationNoteByJob?.[selectedJob.id] : undefined} {...actions} />)}</ul>
-                        ) : (
-                          <p className="k-secondary">No resources listed for {skill} yet.</p>
-                        )}
-                      </section>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-            <p className="k-meta mt-6 flex items-center gap-1">
-              Resources open on the provider's website.
-              <InfoTip label="About learning resources">
-                Kareerly suggests resources for your skill gaps. Providers manage enrolment and certificates; Kareerly does not verify completion, and taking a course does not change your match scores. Adding proof is optional. {EMPLOYER_CHECK_REMINDER}
-              </InfoTip>
-            </p>
-          </>
-        )}
+        {body()}
+        <p className="k-meta mt-6 flex items-center gap-1">
+          Resources open on the provider's website.
+          <InfoTip label="About learning resources">
+            Kareerly suggests resources for your skill gaps. Providers manage enrolment and certificates; Kareerly does not verify completion, and taking a course does not change your match scores. Adding proof is optional. {EMPLOYER_CHECK_REMINDER}
+          </InfoTip>
+        </p>
       </div>
     </div>
   );

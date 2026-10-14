@@ -10,11 +10,12 @@ no model or LLM chooses a resource.
 | Step | Where | Notes |
 |---|---|---|
 | Candidate skills, job requirements, matched and missing skills | `matching_service.compute_skill_coverage` | See the skill-match review |
-| Skill gaps (dashboard) | `matching_service.prioritize_skill_gaps` | Missing skills of the returned Fit-Now and Aspiration jobs only; essential before nice-to-have |
+| Skill gaps (Skills page) | `POST /api/skills/gaps` → `skill_gap_aggregation.build_gap_report` | Every match's missing skills, regrouped by canonical skill for the chosen scope; tiers and order in `skill_gap_config.py` (see `docs/skill-gaps-by-skill.md`) |
+| Skill gaps (report) | `matching_service.prioritize_skill_gaps` | Missing skills of the returned Fit-Now and Aspiration jobs only, grouped by canonical skill, in the same tiers and order |
 | Gaps for learning | `learning_recommender.recommend_learning_resources_for_matches` | Every missing skill (required and nice-to-have) of the top 10 Fit-Now and top 10 Aspiration jobs, with the jobs that miss it |
 | Skill → resource | `learning_recommender._recommend_for_gap` | 1. taxonomy skill ID in the resource's mapping; 2. otherwise the gap's name in the resource's title or provider skill list |
 | Catalogue | Supabase `learning_resources`, else `backend/data/learning_resources.csv` | `resource_is_reviewed` (reviewer, evidence, date) or `resource_is_listable` (active, titled, provider link) |
-| Focus job | Frontend `LearningPage` → `getLearningForJob` | Filters the run's resources to the selected job's missing skill IDs and names; groups them per skill |
+| Learning tab | `learning_recommender.recommend_learning_resources_by_skill` (via `include_courses`) → Frontend `LearningPage` | Courses keyed by skill for the in-scope gaps, with how many matches each skill helps; the per-job dropdown was removed (2026-10-13) |
 | Limited report | `main._apply_report_access_control` | First N resources |
 | Pasted external job | `analyze_candidate_job_match` → same function | Gemma parses the posting and may word the match explanation; it never picks resources |
 
