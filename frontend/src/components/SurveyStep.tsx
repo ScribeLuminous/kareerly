@@ -7,12 +7,12 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useOnboarding } from '../hooks/useOnboarding';
 import type { SelectedSkill, SurveyAnswers } from '../types';
-import { CONFIRMED_SKILL_LIMIT, loadCandidateAccountSettings, loadCareerAreaSkills, removedSkillIds, runJobMatches, searchSkills } from '../lib/api';
+import { CONFIRMED_SKILL_LIMIT, loadCandidateAccountSettings, loadCareerAreaRules, removedSkillIds, runJobMatches, searchSkills } from '../lib/api';
 import { getCurrentKareerlyUser, updateCandidateProfile } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
 import { careerAreaSkillExamples, confirmedSkillsInCareerArea, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
-import type { CareerAreaSkillMap } from '../lib/careerAreas';
-import { careerAreaPreferenceOptions, jobLevelOptions, jobLevelState, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
+import type { CareerAreaRules, CareerAreaSkillMap } from '../lib/careerAreas';
+import { careerAreaPreferenceOptions, jobLevelLockNote, jobLevelOptions, jobLevelState, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
 import { extractionWarnings } from '../lib/resumeFreshness';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
 import LocationPreferenceQuestion from './LocationPreferenceQuestion';
@@ -76,13 +76,13 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
   // undefined while loading, null when there is none.
   const [loadedProfileLocation, setLoadedProfileLocation] = useState<string | null | undefined>(undefined);
   const profileLocation = isLoggedIn ? loadedProfileLocation : null;
-  // The skill-to-area mapping behind the area cards and the job-level lock; null until loaded.
-  const [careerAreaSkills, setCareerAreaSkills] = useState<CareerAreaSkillMap | null>(null);
+  // The skill-to-area mapping and level thresholds behind the area cards and the job-level lock; null until loaded.
+  const [careerAreaRules, setCareerAreaRules] = useState<CareerAreaRules | null>(null);
 
   useEffect(() => {
     let active = true;
-    loadCareerAreaSkills()
-      .then((areas) => { if (active) setCareerAreaSkills(areas); })
+    loadCareerAreaRules()
+      .then((rules) => { if (active) setCareerAreaRules(rules); })
       .catch((error) => console.warn('Unable to load career area skills:', error));
     return () => {
       active = false;
@@ -115,8 +115,11 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
   const extractedSkillIds = (state.resumeAnalysis?.normalized_for_matching?.skill_ids || []).slice(0, CONFIRMED_SKILL_LIMIT);
   const canContinueToPreferences = Boolean(state.resumeAnalysis && (isLoggedIn ? selectedSkills.length > 0 : extractedSkillIds.length > 0));
   const confirmedSkillIds = isLoggedIn ? selectedSkillIds : extractedSkillIds;
-  // No confirmed skills in the chosen area: entry-level only (the backend enforces the same rule).
-  const jobLevel = jobLevelState(answers.industry, answers.role, confirmedSkillIds, careerAreaSkills);
+  // Too few confirmed skills in the chosen area cap the job level (the backend enforces the same rule).
+  const jobLevel = jobLevelState(answers.industry, answers.role, confirmedSkillIds, careerAreaRules);
+  const jobLevelNote = careerAreaRules
+    ? jobLevelLockNote(jobLevel, getCareerAreaLabel(answers.industry), careerAreaRules.levelThresholds)
+    : null;
   if (jobLevel.role !== answers.role) {
     // Re-checked on every render, so a new area, changed skills or a late mapping all reset the level.
     setAnswers((prev) => ({ ...prev, role: jobLevel.role }));
@@ -574,7 +577,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           value={answers.industry}
           onChange={(value) => handleChange('industry', value)}
           confirmedSkillIds={confirmedSkillIds}
-          careerAreaSkills={careerAreaSkills || {}}
+          careerAreaSkills={careerAreaRules?.areas || {}}
         />
         <Question
           label="What job level are you targeting?"
@@ -583,12 +586,12 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           onChange={(value) => handleChange('role', value)}
           options={jobLevelOptions}
           disabledValues={jobLevel.disabledValues}
-          note={jobLevel.locked ? (
+          note={jobLevelNote ? (
             <div className="k-banner k-banner-warn mb-3" role="status" data-testid="job-level-lock-note">
               <div className="k-banner-body">
                 {/* One paragraph: from 640px up the banner body lays its children out as a row. */}
                 <p>
-                  Locked to entry-level because you have no confirmed skills in {getCareerAreaLabel(answers.industry)} yet.{' '}
+                  {jobLevelNote.lead}{' '}
                   <button
                     type="button"
                     // Padding widens the tap target to 44px; the negative margin keeps the line height.
@@ -601,7 +604,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
                   >
                     Add skills in Step 2
                   </button>{' '}
-                  to unlock other levels.
+                  {jobLevelNote.tail}
                 </p>
               </div>
             </div>

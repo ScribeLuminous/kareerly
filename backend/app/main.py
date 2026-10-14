@@ -37,7 +37,7 @@ from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.skill_variants import load_skill_variants
 from .services.ph_regions import region_name, region_options, resolve_single_region, regions_in_location
-from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, learning_by_skill_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, job_level_thresholds, learning_by_skill_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
 from .services.skill_gap_aggregation import build_gap_report
@@ -70,7 +70,7 @@ app = FastAPI(title="Kareerly ML Backend")
 # that results may be out of date when the running backend reports another
 # one or none. Change both together whenever matching, reports or learning
 # recommendations change in a way the website relies on; a test checks they match.
-BACKEND_VERSION = "2026.10.14-job-level-lock"
+BACKEND_VERSION = "2026.10.14-job-level-cap"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -1188,8 +1188,8 @@ def _search_form(value: str) -> str:
 
 @app.get("/api/career-areas")
 def get_career_areas() -> dict:
-    """Each Step 3 career area's skills, the mapping the job-level lock uses."""
-    return {"areas": career_area_skills()}
+    """Each Step 3 career area's skills and the job-level thresholds, as the job-level lock uses them."""
+    return {"areas": career_area_skills(), "level_thresholds": job_level_thresholds()}
 
 
 @app.get("/api/skills/search")
