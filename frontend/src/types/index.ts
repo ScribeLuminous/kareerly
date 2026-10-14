@@ -541,3 +541,112 @@ export interface OnboardingState {
   matchResults?: JobMatchRunResults;
   savedResumeId?: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Skill gaps grouped by skill (POST /api/skills/gaps); rules in
+// backend/app/services/skill_gap_config.py.
+// ---------------------------------------------------------------------------
+export type GapTier = 'close_first' | 'worth_next' | 'nice_extras';
+export type GapScope = 'default' | 'fit_now' | 'saved' | 'all';
+export type GapGroupBy = 'skill' | 'job';
+export type GapRequirement = 'required' | 'nice_to_have';
+export type GapMatchType = 'fit_now' | 'aspiration';
+
+export interface GapJobInput {
+  job_id: string;
+  job_source: 'internal' | 'employer';
+  title: string;
+  company: string;
+  match_pct: number;
+  match_type: GapMatchType;
+  missing_required: string[];
+  missing_nice: string[];
+}
+
+export interface GapSkillJob {
+  job_id: string;
+  job_source: 'internal' | 'employer';
+  title: string;
+  company: string;
+  match_pct: number;
+  requirement: GapRequirement;
+  match_type: GapMatchType;
+}
+
+export interface GapSkill {
+  /** Canonical key: a taxonomy ID (SK###) or CUSTOM:<name> for a skill with no taxonomy entry. */
+  skill_id: string;
+  taxonomy_skill_id: string;
+  skill_name: string;
+  tier: GapTier;
+  tier_label: string;
+  required_jobs: number;
+  nice_jobs: number;
+  jobs_needing: number;
+  best_match_pct: number;
+  impact_label: string;
+  impact_bars: number;
+  jobs: GapSkillJob[];
+}
+
+export interface GapJobCard {
+  job_id: string;
+  job_source: 'internal' | 'employer';
+  title: string;
+  company: string;
+  match_pct: number;
+  match_type: GapMatchType;
+  gaps: Array<{ skill_id: string; skill_name: string; requirement: GapRequirement; tier: GapTier; other_jobs: number }>;
+}
+
+export interface GapRules {
+  tiers: Array<{ id: GapTier; label: string; rule: string }>;
+  scopes: Array<{ id: GapScope; label: string }>;
+  sort_order: string[];
+  display: { tier_limits: Record<GapTier, number>; search_min_open_gaps: number; courses_per_skill_visible: number; learning_skills_visible: number };
+}
+
+export interface SkillCourses {
+  skill_id: string;
+  taxonomy_skill_id: string;
+  skill_name: string;
+  helps_matches: number;
+  required_by: string[];
+  nice_for: string[];
+  courses: LearningRecommendation[];
+  search_url: string;
+}
+
+export interface SkillGapReport {
+  scope: GapScope;
+  group_by: GapGroupBy;
+  rules: GapRules;
+  totals: {
+    in_scope_jobs: number;
+    jobs_with_gaps: number;
+    gap_free_jobs: number;
+    gap_free_fit_now_jobs: number;
+    open_skills: number;
+    by_tier: Record<GapTier, number>;
+    unmatched_saved_jobs: number;
+  };
+  scope_counts: Record<GapScope, number>;
+  all_skills: Array<{ skill_id: string; skill_name: string }>;
+  skills?: GapSkill[];
+  jobs?: GapJobCard[];
+  courses_by_skill?: Record<string, SkillCourses>;
+}
+
+export type ResumeFeedbackReason = 'missing_skills' | 'wrong_experience_level' | 'wrong_roles' | 'not_like_me' | 'something_else';
+
+export interface ResumeSummary {
+  summary_version: string;
+  resume_version: string;
+  sentences: string[];
+  summary: string;
+  top_skills: string[];
+  experience_level: { value: 'entry' | 'mid' | 'senior' | 'unset'; label: string; source: string };
+  best_fit_roles: string[];
+  roles_basis: 'fit_now' | 'aspiration' | 'none';
+  feedback_reasons: ResumeFeedbackReason[];
+}

@@ -1,4 +1,4 @@
-import type { JobMatchRunResults, MatchResultItem, PrioritizedSkillGap, ResumeAnalysisResult, ResumeAnalysisSkill, SelectedSkill, SurveyAnswers } from '../types';
+import type { GapGroupBy, GapJobInput, GapScope, JobMatchRunResults, MatchResultItem, PrioritizedSkillGap, ResumeAnalysisResult, ResumeAnalysisSkill, ResumeSummary, SelectedSkill, SkillGapReport, SurveyAnswers } from '../types';
 import { normalizeMatchItemPercentages, normalizeSkillGapPercentages, parseNumericValue } from './matchScoring';
 import { supabase } from './supabase';
 import type { MatchFeedbackRow, MatchFeedbackSource, MatchVote } from './matchFeedback';
@@ -1173,6 +1173,39 @@ export async function searchSkills(query: string, limit = 20): Promise<{ results
 
   const data = (await response.json()) as { results?: SkillSearchItem[] };
   return { results: Array.isArray(data.results) ? data.results : [] };
+}
+
+type JobRef = { job_id: string; job_source: 'internal' | 'employer' };
+
+// Both requests are multipart forms (CORS simple requests), like run-form.
+async function postFormPayload<T>(path: string, payload: unknown, fallbackError: string): Promise<T> {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+  const response = await fetchBackend(`${API_BASE_URL}${path}`, { method: 'POST', body: formData }, `${fallbackError} The request timed out.`);
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(getReadableMessage(body?.detail || body) || fallbackError);
+  return body as T;
+}
+
+/** The Skills page's gaps for one scope, grouped by skill or by job (rules: backend skill_gap_config.py). */
+export async function fetchSkillGaps(
+  input: { matches: GapJobInput[]; savedJobs: JobRef[]; appliedJobs: JobRef[] },
+  options: { groupBy: GapGroupBy; scope: GapScope; includeCourses?: boolean },
+): Promise<SkillGapReport> {
+  const query = new URLSearchParams({ group_by: options.groupBy, scope: options.scope, include_courses: String(Boolean(options.includeCourses)) });
+  return postFormPayload<SkillGapReport>(`/api/skills/gaps?${query.toString()}`,
+    { matches: input.matches, saved_jobs: input.savedJobs, applied_jobs: input.appliedJobs },
+    'Your skill gaps could not be loaded.');
+}
+
+/** "Your resume at a glance", filled in from fixed templates on the backend. */
+export async function fetchResumeSummary(input: {
+  resumeText: string; skills: string[]; roleLevel: string; fitNowTitles: string[]; aspirationTitles: string[];
+}): Promise<ResumeSummary> {
+  return postFormPayload<ResumeSummary>('/api/resume/summary', {
+    resume_text: input.resumeText, skills: input.skills, role_level: input.roleLevel,
+    fit_now_titles: input.fitNowTitles, aspiration_titles: input.aspirationTitles,
+  }, 'Your resume summary could not be loaded.');
 }
 
 export async function fetchAvailableJobs(limit = 5000): Promise<{ results: AvailableJobItem[] }> {

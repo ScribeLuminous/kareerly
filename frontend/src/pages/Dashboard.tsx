@@ -3,24 +3,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
+import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
 import { getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestMatchRun, loadLatestResume, saveMatchHistory, saveResumeAnalysis, type ExistingResumeFile, type SavedResumeRecord } from '../lib/userData';
 import { assessSavedResume, extractionWarnings, staleResumeMessage, type SavedResumeFreshness } from '../lib/resumeFreshness';
-import type { ParsedResume, SelectedSkill, SurveyAnswers } from '../types';
+import type { GapGroupBy, GapScope, ParsedResume, ResumeSummary, SelectedSkill, SkillGapReport, SurveyAnswers } from '../types';
 import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
-import { cleanSkillDisplayName, EMPLOYER_CHECK_REMINDER, isClaimedSkill, skillRecordKey, type ClaimedSkill, externalJobUrl, formatGapMissingCount, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, severityPriority, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
+import { classifySkillCategory, cleanSkillDisplayName, EMPLOYER_CHECK_REMINDER, skillRecordKey, type ClaimedSkill, externalJobUrl, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Banner, ConfirmDialog, DESKTOP_QUERY, Modal, ToastRegion, useMediaQuery, type ToastState } from '../components/ui';
 import { CandidateShell } from './candidate/Shell';
 import { PAGE_PATHS, pageFromPath } from './candidate/routes';
-import { HomePage, type NextStep, type ProfileTask } from './candidate/HomePage';
+import { HomePage, type HomeGap, type NextStep, type ProfileTask } from './candidate/HomePage';
 import { JobMatchesPage } from './candidate/MatchesPage';
-import { SkillGapsPage } from './candidate/SkillGapsPage';
+import { SkillGapsPage, type GapLoadStatus } from './candidate/SkillGapsPage';
+import { appliedJobRefs, gapJobInputs, gapRecordKey, openAndCompleted, requirementSummary, savedJobRefs, taxonomyIdOf } from './candidate/skillGaps';
+import { ResumeSummaryCard, type ResumeSummaryVote } from './candidate/ResumeSummaryCard';
 import { ApplicationsPage } from './candidate/ApplicationsPage';
 import { PreferencesPage } from './candidate/PreferencesPage';
 import { AccountSettingsPage } from './candidate/AccountSettingsPage';
@@ -85,7 +87,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [jobSearch, setJobSearch] = useState('');
   const [matchView, setMatchView] = useState<MatchView>('fit-now');
-  const [learningFocus, setLearningFocus] = useState<{ skill?: string; jobId?: string }>({});
+  const [learningFocus, setLearningFocus] = useState<{ skill?: string }>({});
   const [applyTarget, setApplyTarget] = useState<DashboardJob | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [savedJobs, setSavedJobs] = useState<Set<string>>(() => new Set());
@@ -171,7 +173,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [kareersError, setKareersError] = useState<string | null>(null);
   // Only explicit evidence uploads belong here; resume mentions are not uploaded or verified evidence.
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceUploadRecord[]>([]);
-  const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>({});
+  // Kept per user in the browser, like course completions, so Done and In
+  // progress (and the Completed section) survive a reload.
+  const skillProgressStorageKey = `kareerly.skillProgress.${currentUser.id || currentUser.email}`;
+  const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>(() => {
+    try {
+      const saved = window.localStorage.getItem(skillProgressStorageKey);
+      return saved ? JSON.parse(saved) as Record<string, SkillProgressRecord> : {};
+    } catch {
+      return {};
+    }
+  });
   const courseCompletionStorageKey = `kareerly.courseCompletions.${currentUser.id || currentUser.email}`;
   const [courseCompletions, setCourseCompletions] = useState<Record<string, CourseCompletion>>(() => {
     try {
@@ -256,6 +268,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       // Storage can be unavailable (private mode); completion still works for this session.
     }
   }, [courseCompletionStorageKey, courseCompletions]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(skillProgressStorageKey, JSON.stringify(skillProgressRecords));
+    } catch {
+      // Storage can be unavailable (private mode); progress still works for this session.
+    }
+  }, [skillProgressStorageKey, skillProgressRecords]);
 
   useEffect(() => {
     try {
@@ -583,19 +603,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const gaps = useMemo<DashboardGap[]>(() => {
     if (state.matchResults?.skill_gaps?.length) {
-      return state.matchResults.skill_gaps.map(mapRunGap).sort((a, b) => severityPriority(a.severity) - severityPriority(b.severity));
+      return state.matchResults.skill_gaps.map(mapRunGap);
     }
     if (state.matchResults?.prioritized_skill_gaps?.length) {
-      return state.matchResults.prioritized_skill_gaps.map(mapRunGap).sort((a, b) => severityPriority(a.severity) - severityPriority(b.severity));
+      return state.matchResults.prioritized_skill_gaps.map(mapRunGap);
     }
     if (state.results?.skillGaps?.length) {
-      return state.results.skillGaps.map((gap) => mapModelGap(gap, state.results?.jobMatches || [])).sort((a, b) => severityPriority(a.severity) - severityPriority(b.severity));
+      return state.results.skillGaps.map((gap) => mapModelGap(gap, state.results?.jobMatches || []));
     }
     return [];
   }, [state.matchResults?.skill_gaps, state.matchResults?.prioritized_skill_gaps, state.results?.jobMatches, state.results?.skillGaps]);
 
-  // Open gaps only: skills the candidate already has are no longer recommended.
-  const openGaps = useMemo(() => gaps.filter((gap) => !isClaimedSkill(claimedSkills, gap)), [claimedSkills, gaps]);
 
   const courses = useMemo<DashboardCourse[]>(() => {
     if (state.matchResults?.learning_recommendations?.length) {
@@ -604,33 +622,115 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     return (state.results?.courseRecommendations || []).map(mapCourse).filter((course) => course.reviewed);
   }, [state.matchResults?.learning_recommendations, state.results?.courseRecommendations]);
 
+  // Which matches the Skills page's gaps come from, and how they are grouped.
+  const gapScopeStorageKey = `kareerly.gapScope.${currentUser.id || currentUser.email}`;
+  const [gapScope, setGapScopeState] = useState<GapScope>(() => {
+    try {
+      const saved = window.localStorage.getItem(gapScopeStorageKey);
+      return saved === 'fit_now' || saved === 'saved' || saved === 'all' ? saved : 'default';
+    } catch {
+      return 'default';
+    }
+  });
+  const setGapScope = (scope: GapScope) => {
+    setGapScopeState(scope);
+    try {
+      window.localStorage.setItem(gapScopeStorageKey, scope);
+    } catch {
+      // Storage can be unavailable; the choice still applies for this session.
+    }
+  };
+  const [gapGroupBy, setGapGroupBy] = useState<GapGroupBy>('skill');
+  const [gapReload, setGapReload] = useState(0);
+  // Each response is kept with the request it answers, so loading is derived, not set.
+  type GapResult = { key: string; report: SkillGapReport | null; error: string };
+  const [gapResult, setGapResult] = useState<GapResult>({ key: '', report: null, error: '' });
+  const [jobGapResult, setJobGapResult] = useState<GapResult>({ key: '', report: null, error: '' });
+  // Every match with its missing skills, plus the saved and applied jobs; the
+  // backend regroups them by skill (skill_gap_config.py holds the rules).
+  const gapRequest = useMemo(() => ({
+    matches: gapJobInputs(jobs),
+    savedJobs: savedJobRefs(savedJobs, jobs),
+    appliedJobs: appliedJobRefs(applications),
+  }), [applications, jobs, savedJobs]);
+  const gapRequestKey = JSON.stringify(gapRequest);
+
+  const hasGapMatches = gapRequest.matches.length > 0;
+  const gapFetchKey = `${gapRequestKey}|${gapScope}|${gapReload}`;
+  const jobGapFetchKey = `${gapFetchKey}|job`;
   useEffect(() => {
-    if (gaps.length === 0) return;
+    if (!hasGapMatches) return undefined;
+    let cancelled = false;
+    fetchSkillGaps(gapRequest, { groupBy: 'skill', scope: gapScope, includeCourses: true }).then(
+      (report) => { if (!cancelled) setGapResult({ key: gapFetchKey, report, error: '' }); },
+      (error: unknown) => {
+        if (!cancelled) setGapResult((current) => ({ ...current, key: gapFetchKey, error: error instanceof Error ? error.message : 'Your skill gaps could not be loaded.' }));
+      },
+    );
+    return () => { cancelled = true; };
+    // gapFetchKey stands for gapRequest, the scope and a retry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gapFetchKey]);
+
+  useEffect(() => {
+    if (gapGroupBy !== 'job' || !hasGapMatches) return undefined;
+    let cancelled = false;
+    fetchSkillGaps(gapRequest, { groupBy: 'job', scope: gapScope }).then(
+      (report) => { if (!cancelled) setJobGapResult({ key: jobGapFetchKey, report, error: '' }); },
+      (error: unknown) => {
+        if (!cancelled) setJobGapResult({ key: jobGapFetchKey, report: null, error: error instanceof Error ? error.message : 'Your skill gaps could not be loaded.' });
+      },
+    );
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobGapFetchKey, gapGroupBy]);
+
+  // The last report stays on screen while a newer one loads (after a scope change or a claim).
+  const gapReport = hasGapMatches ? gapResult.report : null;
+  const jobGapReport = hasGapMatches && jobGapResult.key === jobGapFetchKey ? jobGapResult.report : null;
+  const gapError = gapResult.key === gapFetchKey ? gapResult.error : jobGapResult.key === jobGapFetchKey ? jobGapResult.error : '';
+  const gapStatus: GapLoadStatus = !hasGapMatches ? 'idle'
+    : gapError ? 'error'
+      : gapResult.key === gapFetchKey ? 'ready' : 'loading';
+
+  // Open and completed skills as every view shows them.
+  const { open: openGapSkills } = useMemo(
+    () => openAndCompleted(gapReport, claimedSkills, skillProgressRecords),
+    [claimedSkills, gapReport, skillProgressRecords],
+  );
+
+  // A progress record for every gap skill across all matches (not just the
+  // chosen scope). A record whose skill is no longer a gap anywhere is covered.
+  useEffect(() => {
+    if (!gapReport) return;
     setSkillProgressRecords((current) => {
       const next = { ...current };
       const activeKeys = new Set<string>();
 
-      gaps.forEach((gap) => {
-        const key = (gap.skillId || normalizeSkill(gap.skill)).toUpperCase();
+      gapReport.all_skills.forEach((skill) => {
+        const skillId = taxonomyIdOf(skill.skill_id);
+        const key = gapRecordKey({ taxonomy_skill_id: skillId, skill_name: skill.skill_name });
         activeKeys.add(key);
+        const category = classifySkillCategory(skill.skill_name);
+        const firstCourse = gapReport.courses_by_skill?.[skill.skill_id]?.courses?.[0]?.resource_id;
         if (!next[key]) {
           next[key] = {
-            skillId: gap.skillId,
-            skillName: gap.skill,
-            category: gap.category,
-            categoryName: gap.categoryName || gap.category,
+            skillId: skillId || undefined,
+            skillName: skill.skill_name,
+            category,
+            categoryName: category,
             status: 'missing',
             progressPercent: SKILL_PROGRESS_PERCENT.missing,
-            selectedResourceId: gap.topResources?.[0]?.id,
+            selectedResourceId: firstCourse,
           };
         } else {
           next[key] = {
             ...next[key],
-            skillId: gap.skillId || next[key].skillId,
-            skillName: gap.skill,
-            category: gap.category,
-            categoryName: gap.categoryName || gap.category,
-            selectedResourceId: next[key].selectedResourceId || gap.topResources?.[0]?.id,
+            skillId: skillId || next[key].skillId,
+            skillName: skill.skill_name,
+            // A skill that is a gap again starts over from Not started.
+            ...(next[key].status === 'covered' ? { status: 'missing' as const, progressPercent: SKILL_PROGRESS_PERCENT.missing } : {}),
+            selectedResourceId: next[key].selectedResourceId || firstCourse,
           };
         }
       });
@@ -647,7 +747,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       return next;
     });
-  }, [gaps]);
+  }, [gapReport]);
 
   const recentApplications = useMemo(
     () =>
@@ -658,7 +758,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     [applications],
   );
 
-  const topMissingSkills = useMemo(() => openGaps.slice(0, 3), [openGaps]);
+  const topMissingSkills = useMemo<HomeGap[]>(() => openGapSkills.slice(0, 3).map((skill) => ({
+    key: skill.skill_id, name: skill.skill_name, detail: requirementSummary(skill), tierLabel: skill.tier_label,
+  })), [openGapSkills]);
 
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.read_at).length, [notifications]);
   const loadNotifications = useCallback(async () => {
@@ -691,6 +793,93 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const fitNowJobs = useMemo(() => orderByBackendRank(jobs.filter((job) => job.matchCategory === 'fit-now')), [jobs]);
   const aspirationJobs = useMemo(() => orderByBackendRank(jobs.filter((job) => job.matchCategory === 'aspiration')), [jobs]);
+  // "Your resume at a glance": template sentences from the backend, never free text.
+  const [summaryResult, setSummaryResult] = useState<{ key: string; summary: ResumeSummary | null; failed: boolean }>({ key: '', summary: null, failed: false });
+  // The answer is kept with the resume version it is about.
+  const [summaryVote, setSummaryVote] = useState<{ version: string; vote: ResumeSummaryVote | null }>({ version: '', vote: null });
+  const [resumeSummarySaving, setResumeSummarySaving] = useState(false);
+  const summaryInput = useMemo(() => {
+    const resume = state.resume || state.resumeAnalysis?.parsedResume;
+    const resumeText = resume ? extractResumeText(resume) : '';
+    const analysisSkills = (state.resumeAnalysis?.candidate_profile?.skills || [])
+      .slice()
+      .sort((a, b) => (b.skill_priority_score ?? 0) - (a.skill_priority_score ?? 0))
+      .map((skill) => skill.skill_name);
+    return {
+      resumeText,
+      skills: analysisSkills.length ? analysisSkills : extractSkillsFromResume(state.resume),
+      roleLevel: surveyAnswers.role || '',
+      fitNowTitles: fitNowJobs.map((job) => job.title),
+      aspirationTitles: aspirationJobs.map((job) => job.title),
+    };
+  }, [aspirationJobs, fitNowJobs, state.resume, state.resumeAnalysis, surveyAnswers.role]);
+  const summaryInputKey = JSON.stringify(summaryInput);
+
+  useEffect(() => {
+    if (!summaryInput.resumeText) return undefined;
+    let cancelled = false;
+    fetchResumeSummary(summaryInput).then(
+      (summary) => { if (!cancelled) setSummaryResult({ key: summaryInputKey, summary, failed: false }); },
+      (error: unknown) => {
+        if (cancelled) return;
+        console.warn('Unable to load the resume summary:', error);
+        setSummaryResult({ key: summaryInputKey, summary: null, failed: true });
+      },
+    );
+    return () => { cancelled = true; };
+    // summaryInputKey stands for summaryInput.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaryInputKey]);
+  const resumeSummary = summaryInput.resumeText ? summaryResult.summary : null;
+  const resumeSummaryStatus = !summaryInput.resumeText ? 'idle'
+    : summaryResult.key !== summaryInputKey ? 'loading' : summaryResult.failed ? 'error' : 'ready';
+
+  // The saved answer for this resume version only; an answer about an older resume never applies.
+  const resumeVersion = resumeSummary?.resume_version || '';
+  useEffect(() => {
+    if (!currentUser.id || !resumeVersion) return undefined;
+    let cancelled = false;
+    void supabase
+      .from('resume_summary_feedback')
+      .select('rating, reasons, comment')
+      .eq('user_id', currentUser.id)
+      .eq('resume_version', resumeVersion)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn('Unable to load resume summary feedback:', error.message);
+          return;
+        }
+        setSummaryVote({ version: resumeVersion, vote: data ? { rating: data.rating, reasons: data.reasons || [], comment: data.comment || '' } : null });
+      });
+    return () => { cancelled = true; };
+  }, [currentUser.id, resumeVersion]);
+  const resumeSummaryVote = summaryVote.version === resumeVersion ? summaryVote.vote : null;
+
+  const saveResumeSummaryVote = async (vote: ResumeSummaryVote): Promise<boolean> => {
+    if (!currentUser.id || !resumeSummary) return false;
+    setResumeSummarySaving(true);
+    const resumeId = state.savedResumeId && /^[0-9a-f-]{36}$/i.test(state.savedResumeId) ? state.savedResumeId : null;
+    const { error } = await supabase.from('resume_summary_feedback').upsert({
+      user_id: currentUser.id,
+      resume_id: resumeId,
+      resume_version: resumeSummary.resume_version,
+      summary_version: resumeSummary.summary_version,
+      rating: vote.rating,
+      reasons: vote.rating === 'not_quite' ? vote.reasons : [],
+      comment: vote.rating === 'not_quite' && vote.comment ? vote.comment : null,
+    }, { onConflict: 'user_id,resume_version' });
+    setResumeSummarySaving(false);
+    if (error) {
+      console.warn('Unable to save resume summary feedback:', error.message);
+      showToast('Your feedback could not be saved. Please try again.', 'danger');
+      return false;
+    }
+    setSummaryVote({ version: resumeSummary.resume_version, vote });
+    return true;
+  };
+
   const kareersList = useMemo(() => {
     const map = new Map<string, DashboardJob>();
     const catalogJobs = availableJobs.map(mapAvailableJob);
@@ -1687,6 +1876,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const claimSkill = (gap: DashboardGap) => {
     const key = skillRecordKey(gap);
     const name = cleanSkillDisplayName(gap.skill);
+    // Added once: a second click (or a synonym already claimed) changes nothing.
+    if (claimedSkills[key] || state.isLoading) return;
     const alreadyListed = skillNames.some((skill) => normalizeSkill(skill) === normalizeSkill(gap.skill));
     if (!alreadyListed && skillNames.length >= CONFIRMED_SKILL_LIMIT) {
       showToast(`You can list up to ${CONFIRMED_SKILL_LIMIT} skills. Remove one in Preferences, then add ${name}.`, 'warn');
@@ -1758,13 +1949,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const hasProfileDetails = Boolean(profileForm.location || profileForm.highestEducationalAttainment || profileForm.degreeProgram || profileForm.schoolUniversity || profileForm.yearGraduated || educationIndicators.length || experienceIndicators.length);
   const applicationStatusFor = (job: DashboardJob) => getApplicationStatus(job.id, job.jobSource);
   const openLearning = (focus: { skill?: string; jobId?: string } = {}) => {
-    setLearningFocus(focus);
+    // From a job's detail, Learning opens on that job's first missing skill.
+    const job = focus.jobId ? jobs.find((item) => item.id === focus.jobId) : undefined;
+    setLearningFocus({ skill: focus.skill || job?.missingSkills[0] || job?.missingPreferredSkills?.[0] });
     setJobDetailOpen(false);
     setActivePage('upskilling');
   };
   const pendingMessageApp = eligibleMessageApps.find((app) => app.messageRequestState === 'pending');
   const nextFitNow = fitNowJobs.find((job) => job.sourceType === 'internal' && !getApplicationStatus(job.id, job.jobSource));
-  const firstGap = openGaps.find((gap) => gap.severity === 'Critical') || openGaps[0];
+  const firstGap = openGapSkills[0];
 
   // The Home page answers "what should I do now?": most useful action first.
   const nextSteps: NextStep[] = [
@@ -1777,7 +1970,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       actionLabel: 'View job',
       onAction: () => void selectJob(nextFitNow, true),
     }] : []),
-    ...(firstGap ? [{ id: 'learn', title: `Learn ${cleanSkillDisplayName(firstGap.skill)}`, detail: `${firstGap.severity} gap · ${formatGapMissingCount(firstGap)}`, actionLabel: 'See resources', onAction: () => openLearning({ skill: firstGap.skill }) }] : []),
+    ...(firstGap ? [{ id: 'learn', title: `Learn ${firstGap.skill_name}`, detail: `${firstGap.tier_label} · ${requirementSummary(firstGap)}`, actionLabel: 'See resources', onAction: () => openLearning({ skill: firstGap.skill_name }) }] : []),
     ...(hasResume && !matchesExist && !state.isLoading ? [{ id: 'refresh', title: 'Refresh your matches', detail: 'Check your preferences, then save to run matching again.', actionLabel: 'Open preferences', onAction: () => setActivePage('preferences') }] : []),
   ];
   const profileTasks: ProfileTask[] = [
@@ -1856,7 +2049,18 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onOpenJob={(job) => void selectJob(job, true)}
           onOpenMatches={() => setActivePage('jobmatches')}
           topGaps={topMissingSkills}
-          gapCount={openGaps.length}
+          gapCount={openGapSkills.length}
+          resumeSummary={(
+            <ResumeSummaryCard
+              key={resumeSummary?.resume_version || 'none'}
+              summary={resumeSummary}
+              status={resumeSummaryStatus}
+              vote={resumeSummaryVote}
+              saving={resumeSummarySaving}
+              onVote={saveResumeSummaryVote}
+              onFixSkills={() => setActivePage('preferences')}
+            />
+          )}
           onOpenSkills={() => setActivePage('skillgaps')}
           recentApplications={recentApplications}
           applicationLoadStatus={applicationLoadStatus}
@@ -1901,9 +2105,16 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       {activePage === 'skillgaps' && (
         <SkillGapsPage
-          gaps={openGaps}
-          jobs={jobs}
-          courses={courses}
+          report={gapReport}
+          jobReport={jobGapReport}
+          status={gapStatus}
+          error={gapError}
+          onRetry={() => setGapReload((count) => count + 1)}
+          scope={gapScope}
+          onScope={setGapScope}
+          groupBy={gapGroupBy}
+          onGroupBy={setGapGroupBy}
+          busy={state.isLoading}
           skillProgressRecords={skillProgressRecords}
           claimedSkills={claimedSkills}
           courseCompletions={courseCompletions}
@@ -1923,13 +2134,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       {activePage === 'upskilling' && (
         <UpskillingPage
-          key={`${learningFocus.skill || ''}|${learningFocus.jobId || ''}`}
-          courses={courses}
-          jobs={jobs}
-          gaps={openGaps}
+          key={learningFocus.skill || ''}
+          report={gapReport}
+          status={gapStatus}
+          error={gapError}
+          onRetry={() => setGapReload((count) => count + 1)}
+          hasMatches={matchesExist}
           claimedSkills={claimedSkills}
+          skillProgressRecords={skillProgressRecords}
           focusSkill={learningFocus.skill}
-          focusJobId={learningFocus.jobId}
           courseCompletions={courseCompletions}
           onMarkCourseTaken={markCourseTaken}
           onUnmarkCourseTaken={unmarkCourseTaken}
