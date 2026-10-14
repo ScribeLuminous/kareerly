@@ -495,6 +495,17 @@ export interface JobMatchRunResults {
   resume_text_preview?: string;
   /** The Step 3 preferences this report was generated with. */
   preferences_used?: Record<string, unknown>;
+  /** Set when the job level was locked to entry-level: no confirmed skills in the chosen career area. */
+  job_level_lock?: {
+    applied: boolean;
+    reason: 'no_confirmed_skills_in_career_area';
+    career_area: string;
+    career_area_label: string;
+    requested_level: string;
+    applied_level: 'entry';
+    overridden: boolean;
+    message: string;
+  } | null;
   model_used?: string;
   metadata?: {
     model_version?: string;

@@ -2,6 +2,7 @@ import type { GapGroupBy, GapJobInput, GapScope, JobMatchRunResults, MatchResult
 import { normalizeMatchItemPercentages, normalizeSkillGapPercentages, parseNumericValue } from './matchScoring';
 import { supabase } from './supabase';
 import type { MatchFeedbackRow, MatchFeedbackSource, MatchVote } from './matchFeedback';
+import type { CareerAreaSkillMap } from './careerAreas';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const REQUEST_TIMEOUT_MS = 90_000;
@@ -1146,6 +1147,28 @@ export async function resolveCurrentRegion(location: string): Promise<CurrentReg
   if (!response.ok) throw new Error('Unable to look up your region. Please choose a region.');
   const body = await response.json() as { current_region?: string; current_region_name?: string };
   return { currentRegion: String(body.current_region || ''), currentRegionName: String(body.current_region_name || '') };
+}
+
+let careerAreaSkillsRequest: Promise<CareerAreaSkillMap> | null = null;
+
+/**
+ * Each Step 3 career area's skills, from the backend's single definition
+ * (backend/data/career_area_skills.json). Fetched once per page load; a failed
+ * request is retried on the next call.
+ */
+export function loadCareerAreaSkills(): Promise<CareerAreaSkillMap> {
+  careerAreaSkillsRequest ??= fetchWithTimeout(`${API_BASE_URL}/api/career-areas`, { method: 'GET' }, 'Career areas timed out.')
+    .then(async (response) => {
+      if (!response.ok) throw new Error('Career areas could not be loaded.');
+      const data = (await response.json()) as { areas?: CareerAreaSkillMap };
+      if (!data.areas || typeof data.areas !== 'object') throw new Error('Career areas could not be loaded.');
+      return data.areas;
+    })
+    .catch((error) => {
+      careerAreaSkillsRequest = null;
+      throw error;
+    });
+  return careerAreaSkillsRequest;
 }
 
 export async function searchSkills(query: string, limit = 20): Promise<{ results: SkillSearchItem[] }> {

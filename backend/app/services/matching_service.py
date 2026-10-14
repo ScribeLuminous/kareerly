@@ -1,6 +1,7 @@
 # backend/app/services/matching_service.py
 
 import io
+import json
 import os
 import re
 import hashlib
@@ -63,6 +64,7 @@ REFERENCE_JOBS_PATH = os.path.join(DATA_DIR, "reference_jobs.csv")
 SKILLS_REFERENCE_PATH = os.path.join(DATA_DIR, "skills_reference.csv")
 CATEGORY_REFERENCE_PATH = os.path.join(DATA_DIR, "category_reference.csv")
 LEARNING_RESOURCES_PATH = os.path.join(DATA_DIR, "learning_resources.csv")
+CAREER_AREA_SKILLS_PATH = os.path.join(DATA_DIR, "career_area_skills.json")
 SKILL_EVIDENCE_RELATIONS_PATH = os.path.join(DATA_DIR, "skill_evidence_relations.csv")
 
 TOP_FIT_NOW = 10
@@ -243,6 +245,62 @@ def preferred_career_areas(value: Any) -> frozenset:
     """The current career areas a Step 3 answer covers: one, or several for a legacy broad area."""
     area = normalize_career_area(value)
     return frozenset(LEGACY_CAREER_AREAS.get(area, (area,) if area else ()))
+
+
+@lru_cache(maxsize=1)
+def career_area_skills() -> Dict[str, List[Dict[str, str]]]:
+    """Each Step 3 career area's skills: the one skill-to-area mapping.
+
+    Step 3 reads it from GET /api/career-areas for its "Your confirmed skills
+    here" labels and its job-level lock, so they and the backend's lock agree.
+    """
+    with open(CAREER_AREA_SKILLS_PATH, encoding="utf-8") as handle:
+        return json.load(handle)["areas"]
+
+
+def career_area_skill_ids(value: Any) -> frozenset:
+    """The skill IDs of a Step 3 answer's area (every covered area for a legacy one)."""
+    areas = career_area_skills()
+    return frozenset(skill["id"] for area in preferred_career_areas(value) for skill in areas.get(area, []))
+
+
+ENTRY_LEVEL = "entry"
+JOB_LEVEL_LOCK_REASON = "no_confirmed_skills_in_career_area"
+# Fields a client sends the Step 3 job level in; target_role may also be free text.
+JOB_LEVEL_FIELDS = ("role_level", "role", "target_role", "job_level")
+
+
+def gate_job_level(preferences: Dict[str, Any], skill_records: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    """Stage 1 constraint gate: lock the job level to entry for an out-of-area career.
+
+    With a career area chosen and none of the confirmed skills in it, only
+    entry-level roles are targeted, whatever level the client sent. Returns the
+    preferences to match with and, when the lock applies, why (else None).
+    """
+    area = normalize_career_area((preferences or {}).get("industry", ""))
+    area_skill_ids = career_area_skill_ids(area)
+    held = {clean_text(record.get("skill_id", "")).upper() for record in skill_records}
+    if not area_skill_ids or held & area_skill_ids:
+        return preferences, None
+    requested = clean_text(preferences.get("role_level", ""))
+    gated = dict(preferences)
+    for key in JOB_LEVEL_FIELDS:
+        value = normalize_for_match(gated.get(key, ""))
+        # A level answer ("senior", "I'm not sure") is replaced; a free-text target role is kept.
+        if value and (_role_level(value) or is_unrestricted_preference(value)):
+            gated[key] = ENTRY_LEVEL
+    gated["role_level"] = ENTRY_LEVEL
+    label = CAREER_AREA_LABELS.get(area) or LEGACY_CAREER_AREA_LABELS.get(area, area)
+    return gated, {
+        "applied": True,
+        "reason": JOB_LEVEL_LOCK_REASON,
+        "career_area": area,
+        "career_area_label": label,
+        "requested_level": requested,
+        "applied_level": ENTRY_LEVEL,
+        "overridden": _role_level(normalize_for_match(requested)) != ENTRY_LEVEL,
+        "message": f"Results are limited to entry-level roles because you have no confirmed skills in {label} yet.",
+    }
 
 
 @lru_cache(maxsize=1)
@@ -2047,6 +2105,9 @@ def match_text_to_jobs(
     # error, never a reason to guess one or to drop the filter.
     region = region_preference(preferences)
     context = _prepare_candidate_context(resume_text, confirmed_skills, removed_skill_ids)
+    # Stage 1, constraint gating: the client's job level is never trusted for
+    # a career area the candidate has no confirmed skills in.
+    preferences, job_level_lock = gate_job_level(preferences, context.skill_records)
     resume_text = context.resume_text
     final_skill_records, candidate_skill_names = context.skill_records, context.skill_names
     labels, _ = canonical_skill_lookup()
@@ -2171,6 +2232,7 @@ def match_text_to_jobs(
         ],
         "removed_skill_ids": context.removed_skill_ids,
         "preferences_used": preferences,
+        "job_level_lock": job_level_lock,
         "catalog_status": catalog,
         "location_filter": location_filter,
         "recommendation_notice": _recommendation_notice(catalog, all_fit_now_matches, all_aspiration_matches, location_filter),

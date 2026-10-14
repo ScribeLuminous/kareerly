@@ -31,7 +31,8 @@ export default function Onboarding({ isLoggedIn, onHome, onLogin, onSignUp, onVi
     <div className="min-h-screen bg-bg">
       <Header onHome={onHome} onLogin={onLogin} onSignUp={onSignUp} rightContent={rightContent} />
       <StepProgress currentStep={state.step} />
-      <main>
+      {/* viewport-fit=cover lets the page run under the iOS home indicator and toolbar; keep the last buttons clear of it. */}
+      <main className="pb-[env(safe-area-inset-bottom)]">
         {state.step === 1 && <Hero />}
         {state.step === 1 && <UploadZone />}
         {(state.step === 2 || state.step === 3) && <SurveyStep isLoggedIn={isLoggedIn} />}
