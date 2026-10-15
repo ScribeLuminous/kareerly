@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { cleanSkillLabel, toDisplayLabels, toSkillLabels } from '../lib/skillLabels';
 import { answersFromPreferencesUsed, summarizePreferences } from '../lib/preferenceOptions';
-import { getCareerAreaLabel } from '../lib/careerAreas';
 import type { PreferenceSummaryItem } from '../lib/preferenceOptions';
 import { downloadCareerReportPdf } from '../lib/reportPdf';
 import type { CareerReportContent, ReportMatchEntry } from '../lib/reportPdf';
@@ -460,12 +459,9 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
         </p>
         <p className="k-meta mt-1">{summaryCards[0].detail}</p>
       </div>
-      {jobLevelLock?.applied && (
+      {jobLevelLock?.applied && jobLevelLock.message && (
         <div className="k-banner k-banner-warn" role="status" data-testid="job-level-lock-report">
-          <p className="k-banner-body">
-            Results are limited to entry-level roles because you have no confirmed skills in{' '}
-            {jobLevelLock.career_area_label || getCareerAreaLabel(jobLevelLock.career_area)} yet.
-          </p>
+          <p className="k-banner-body">{jobLevelLock.message}</p>
         </div>
       )}
       {saveReportCallout}
