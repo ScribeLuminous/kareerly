@@ -218,12 +218,20 @@ class RegionFilterMatchingTests(unittest.TestCase):
         for job_id, values in recommended(result).items():
             self.assertEqual(values, self.baseline[job_id], job_id)
 
-    def test_empty_region_is_not_filled_with_other_jobs(self):
+    def test_empty_region_is_not_filled_with_other_jobs_except_one_fit_now(self):
         result = report({"industry": AREA, "work_setup": "onsite", "location_scope": "region", "region": "BARMM"})
-        self.assertEqual(recommended(result), {})
-        self.assertEqual(result["fit_now_matches"], [])
+        # Fit-Now always lists the job closest to the resume, here from outside
+        # the region; Aspiration is not filled with other jobs.
+        self.assertEqual(len(result["fit_now_matches"]), 1)
+        closest = result["fit_now_matches"][0]
+        # A job that passes every Fit-Now rule, shown although it is in Cebu.
+        self.assertEqual(closest["fit_now_fallback_reason"], "outside_region_filter")
+        self.assertEqual(closest["match_breakdown"]["match_category"], "Fit-Now")
+        self.assertEqual(closest["region_filter_status"], "out_of_region")
+        self.assertIn("outside the region you chose", closest["explanation"])
+        self.assertEqual(recommended(result), {closest["job_id"]: self.baseline[closest["job_id"]]})
         self.assertEqual(result["aspiration_matches"], [])
-        self.assertIn("No matching jobs were found in Bangsamoro", result["recommendation_notice"])
+        self.assertIn("No job in Bangsamoro", result["recommendation_notice"])
         self.assertIn("Anywhere in the Philippines", result["recommendation_notice"])
 
     def test_filter_without_a_region_is_refused(self):
