@@ -1,4 +1,4 @@
-"""Regression tests for a Step 4 report with zero Fit-Now matches.
+"""Regression tests for a Step 4 report where no job passes every Fit-Now rule.
 
 An executive/administrative assistant resume with Communications & Creative
 Media as the Step 3 career area. No job reaches the 75% Fit-Now coverage rule.
@@ -7,9 +7,13 @@ Product rule (2026-09-25): Fit-Now reads the resume only; Aspiration follows
 the Step 3 preferences (the chosen career area, without a clear job level,
 work setup or salary conflict), and the resume is compared with those jobs
 for the score, the order and the skills to build. So the creative jobs are
-Aspiration even though the resume shares no skill with them, and related jobs
-outside the chosen area (customer success, sales) are in neither list.
-``closest_matches`` stays in the response, always empty, for older clients.
+Aspiration even though the resume shares no skill with them.
+
+Product rule (2026-10-15): Fit-Now always lists at least one job while there
+are jobs to compare, whatever the Step 3 answers. When none passes every rule,
+the job closest to the resume is listed, marked ``fit_now_fallback``, and is
+not listed again as Aspiration. ``closest_matches`` stays in the response,
+always empty, for older clients.
 """
 import os
 import tempfile
@@ -77,7 +81,8 @@ SALES_AREA = {"industry": "sales-marketing-customer-service", "role_level": "ent
 class CareerAreaTests(unittest.TestCase):
     def test_aspiration_is_the_chosen_area_whatever_the_resume_shares(self):
         result = run()
-        self.assertEqual(result["all_fit_now_matches"], [])
+        # Outside the chosen area, but the closest job to the resume.
+        self.assertEqual(ids(result["all_fit_now_matches"]), ["cs-associate"])
         self.assertEqual(set(ids(result["all_aspiration_matches"])), {"designer", "writer"})
         for item in result["all_aspiration_matches"]:
             self.assertTrue(item["in_preferred_career_area"])
@@ -90,13 +95,20 @@ class CareerAreaTests(unittest.TestCase):
         self.assertIn("No job meets every Fit-Now requirement yet", result["recommendation_notice"])
 
     def test_shared_skills_are_noted_and_raise_the_score(self):
-        result = run(preferences=SALES_AREA)
-        self.assertEqual(ids(result["all_aspiration_matches"]), ["cs-associate", "account-exec"])
+        jobs = pd.DataFrame([
+            job("account-exec", "Account Executive", "K07", "Sales and Purchasing", "SK300;SK032;SK_SALES_TECHNIQUES"),
+            job("sales-assistant", "Sales Assistant", "K07", "Sales and Purchasing", "SK_SALES_TECHNIQUES"),
+            # Passes every Fit-Now rule, so both Aspiration jobs stay Aspiration.
+            job("support", "Customer Support Specialist", "K09", "Customer Service and Retail", "SK029;SK300;SK623"),
+        ])
+        result = run(jobs=jobs, scores=[0.30, 0.30, 0.5], preferences=SALES_AREA)
+        self.assertEqual(ids(result["all_fit_now_matches"]), ["support"])
+        self.assertEqual(ids(result["all_aspiration_matches"]), ["account-exec", "sales-assistant"])
         top = result["all_aspiration_matches"][0]
-        self.assertEqual(top["missing_skills"], ["Onboarding"])
-        self.assertEqual(len(top["matched_skills"]), 2)
-        self.assertIn("already shows 2 of 3 of its required skills", top["match_reason"])
-        self.assertIn("To get there: Onboarding", top["match_reason"])
+        self.assertEqual(top["missing_skills"], ["Negotiation", "Sales Techniques"])
+        self.assertEqual(len(top["matched_skills"]), 1)
+        self.assertIn("already shows 1 of 3 of its required skills", top["match_reason"])
+        self.assertIn("To get there: Negotiation, Sales Techniques", top["match_reason"])
 
     def test_no_closest_list_is_filled(self):
         result = run()
@@ -112,12 +124,15 @@ class FitNowIntegrityTests(unittest.TestCase):
         jobs = pd.DataFrame([job("crm", "CRM Coordinator", "K09", "Customer Service and Retail",
             "SK029;SK300;SK623;SK622;SK_NEGOTIATION", must_have="SK_NEGOTIATION")])
         result = run(jobs=jobs, scores=[0.6], preferences=SALES_AREA)
-        self.assertEqual(result["all_fit_now_matches"], [])
-        item = result["all_aspiration_matches"][0]
+        # The only job is listed as the closest to the resume, never as a full Fit-Now.
+        self.assertEqual(result["all_aspiration_matches"], [])
+        item = result["all_fit_now_matches"][0]
+        self.assertTrue(item["fit_now_fallback"])
+        self.assertEqual(item["match_breakdown"]["match_category"], "Aspiration")
         self.assertEqual(item["match_breakdown"]["required_skill_coverage"], 0.8)
         self.assertEqual(item["match_breakdown"]["failed_fit_now_rules"], ["critical_skill_missing"])
         self.assertEqual(item["missing_must_have_skills"], ["Negotiation"])
-        self.assertEqual(item["aspiration_gap_skills"], ["Negotiation"])
+        self.assertIn("To be fully ready: Negotiation", item["match_reason"])
 
     def test_fit_now_ignores_the_career_area_and_both_lists_can_be_filled(self):
         jobs = pd.concat([CATALOGUE, pd.DataFrame([job("support", "Customer Support Specialist", "K09",
@@ -125,6 +140,8 @@ class FitNowIntegrityTests(unittest.TestCase):
         result = run(jobs=jobs, scores=[*SEMANTIC, 0.5])
         # Outside the creative area, but the resume already qualifies.
         self.assertEqual(ids(result["all_fit_now_matches"]), ["support"])
+        self.assertNotIn("fit_now_fallback", result["all_fit_now_matches"][0])
+        self.assertIsNone(result["debug_summary"]["fit_now_fallback"])
         self.assertEqual(set(ids(result["all_aspiration_matches"])), {"designer", "writer"})
         self.assertEqual(result["recommendation_notice"], "")
 
@@ -143,21 +160,25 @@ class ConsistencyTests(unittest.TestCase):
 
     def test_no_job_in_the_chosen_area_means_an_empty_aspiration_list_and_a_notice(self):
         result = run(preferences={"industry": "healthcare-wellness"})
-        self.assertEqual(result["all_fit_now_matches"], [])
+        self.assertEqual(ids(result["all_fit_now_matches"]), ["cs-associate"])
         self.assertEqual(result["all_aspiration_matches"], [])
-        self.assertEqual(result["skill_gaps"], [])
-        self.assertIn("None of the available jobs", result["recommendation_notice"])
+        # Only the closest job's gaps.
+        self.assertEqual([gap["skill_name"] for gap in result["skill_gaps"]], ["Onboarding"])
+        self.assertIn("None fits the career area you chose", result["recommendation_notice"])
 
     def test_guest_access_limit_applies_to_both_lists_and_their_gaps(self):
         jobs = pd.DataFrame([job(f"cs-{n}", f"Customer Success Associate {n}", "K09", "Customer Service and Retail",
             "SK029;SK300;SK_ONBOARDING" if n < 5 else "SK029;SK300;SK_UPSELLING") for n in range(6)])
         result = run(jobs=jobs, scores=[0.4] * 5 + [0.3], preferences=SALES_AREA)
-        self.assertEqual(len(result["aspiration_matches"]), 6)
+        # The closest job leads Fit-Now; the other five are Aspiration.
+        self.assertEqual(ids(result["fit_now_matches"]), ["cs-0"])
+        self.assertEqual(len(result["aspiration_matches"]), 5)
         limited = main._apply_report_access_control(result, "guest", "initial")["limited_report"]
+        self.assertEqual(ids(limited["fit_now_matches"]), ["cs-0"])
         self.assertEqual(len(limited["aspiration_matches"]), 3)
         self.assertEqual(limited["closest_matches"], [])
-        # The guest sees three jobs, none of which needs Upselling.
-        shown = {item["job_id"] for item in limited["aspiration_matches"]}
+        # The guest sees four jobs, none of which needs Upselling.
+        shown = {item["job_id"] for item in limited["fit_now_matches"] + limited["aspiration_matches"]}
         for gap in limited["skill_gaps"]:
             self.assertTrue({job["job_id"] for job in gap["affected_job_details"]} <= shown, gap)
         self.assertNotIn("Upselling", [gap["skill_name"] for gap in limited["skill_gaps"]])
@@ -170,8 +191,76 @@ class ConsistencyTests(unittest.TestCase):
              patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
             result = matching.match_jobs(RESUME, candidate_skill_ids=["SK029", "SK300"], preferences=CREATIVE_AREA)
         matching.clear_reference_jobs_cache()
+        self.assertEqual(ids(result["fit_now_matches"]), ["cs-associate"])
         self.assertEqual(set(ids(result["aspiration_matches"])), {"designer", "writer"})
         self.assertEqual(result["closest_matches"], [])
+
+
+class FitNowGuaranteeTests(unittest.TestCase):
+    """At least one Fit-Now job from the resume, whatever the Step 3 answers."""
+
+    PREFERENCES = [
+        {},
+        CREATIVE_AREA,
+        SALES_AREA,
+        {"industry": "healthcare-wellness", "role_level": "senior", "work_setup": "remote", "salary_expectation": "50+"},
+        {"industry": "communications-creative-media", "location_scope": "region", "region": "BARMM", "work_setup": "onsite"},
+    ]
+
+    def test_every_preference_gets_the_same_closest_job(self):
+        for preferences in self.PREFERENCES:
+            with self.subTest(preferences):
+                result = run(preferences=preferences)
+                self.assertEqual(ids(result["all_fit_now_matches"]), ["cs-associate"])
+                self.assertEqual(ids(result["fit_now_matches"]), ["cs-associate"])
+                self.assertEqual(result["debug_summary"]["fit_now_count"], 1)
+
+    def test_the_closest_job_is_marked_and_explained(self):
+        result = run()
+        item = result["all_fit_now_matches"][0]
+        self.assertTrue(item["fit_now_fallback"])
+        self.assertEqual(item["fit_now_fallback_reason"], "closest_to_resume")
+        self.assertEqual(item["match_type"], "Fit-Now")
+        self.assertEqual(item["aspiration_gap_skills"], [])
+        # The scoring rules are reported as they are; nothing is overridden.
+        self.assertEqual(item["match_breakdown"]["match_category"], "Low Match")
+        self.assertEqual(item["match_breakdown"]["failed_fit_now_rules"], ["required_skill_coverage"])
+        self.assertIn("closest to your resume", item["match_reason"])
+        self.assertIn("To be fully ready: Onboarding", item["match_reason"])
+        self.assertTrue(item["explanation"].startswith("No job meets every Fit-Now requirement yet; "
+            "Customer Success Associate is the closest to your resume"))
+        self.assertEqual(result["debug_summary"]["fit_now_fallback"],
+            {"job_id": "cs-associate", "reason": "closest_to_resume", "scored_as": "Low Match"})
+        self.assertEqual(result["debug_summary"]["low_match_count"], 1)
+
+    def test_the_closest_job_is_chosen_by_the_resume(self):
+        # Higher similarity but fewer skills loses to the job whose skills the
+        # resume holds: the match score decides.
+        result = run(scores=[0.35, 0.60, 0.05, 0.12])
+        self.assertEqual(ids(result["all_fit_now_matches"]), ["cs-associate"])
+        result = run(scores=[0.05, 0.95, 0.05, 0.12])
+        self.assertEqual(ids(result["all_fit_now_matches"]), ["account-exec"])
+
+    def test_a_resume_with_no_skills_still_gets_the_closest_job(self):
+        result = run(confirmed=[], scores=[0.10, 0.10, 0.40, 0.20])
+        self.assertEqual(len(result["all_fit_now_matches"]), 1)
+
+    def test_a_closest_aspiration_job_moves_to_fit_now_once(self):
+        result = run(preferences=SALES_AREA)
+        self.assertEqual(ids(result["all_fit_now_matches"]), ["cs-associate"])
+        self.assertEqual(ids(result["all_aspiration_matches"]), ["account-exec"])
+        self.assertEqual(result["debug_summary"]["fit_now_fallback"]["scored_as"], "Aspiration")
+        self.assertIn("Fit-Now shows the job closest to your resume", result["recommendation_notice"])
+        self.assertIn("The Aspiration list shows roles in the career area you chose", result["recommendation_notice"])
+
+    def test_an_empty_region_still_gets_the_closest_job_from_elsewhere(self):
+        result = run(preferences={**CREATIVE_AREA, "work_setup": "onsite", "location_scope": "region", "region": "BARMM"})
+        item = result["all_fit_now_matches"][0]
+        self.assertEqual(item["job_id"], "cs-associate")
+        self.assertEqual(item["region_filter_status"], "out_of_region")
+        self.assertIn("outside the region you chose", item["explanation"])
+        self.assertEqual(result["all_aspiration_matches"], [])
+        self.assertIn("It is outside Bangsamoro", result["recommendation_notice"])
 
 
 class CatalogueStatusTests(unittest.TestCase):

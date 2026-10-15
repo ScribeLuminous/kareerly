@@ -137,9 +137,10 @@ class JobLevelLockReportTests(unittest.TestCase):
             "Results are limited to entry-level roles because you have no confirmed skills in Construction & Maintenance yet.")
         # The report echoes the level it was matched with, not the one sent.
         self.assertEqual(result["preferences_used"]["role_level"], "entry")
-        aspiration = {item["job_id"]: item for item in result["all_aspiration_matches"]}
-        self.assertEqual(aspiration["junior-eng"]["preference_conflicts"], [])
-        self.assertIn("job_level", aspiration["mid-eng"]["preference_conflicts"])
+        # No job passes Fit-Now, so one of the two is listed there as the closest.
+        returned = {item["job_id"]: item for item in result["all_fit_now_matches"] + result["all_aspiration_matches"]}
+        self.assertEqual(returned["junior-eng"]["preference_conflicts"], [])
+        self.assertIn("job_level", returned["mid-eng"]["preference_conflicts"])
 
     def test_two_skills_keep_a_mid_level_request(self):
         result = report({"industry": "construction-maintenance", **MID_LEVEL},
