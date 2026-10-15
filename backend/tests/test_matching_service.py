@@ -153,10 +153,16 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertIn("critical_skill_missing", analyst["match_breakdown"]["failed_fit_now_rules"])
         self.assertEqual(analyst["match_breakdown"]["penalty"], 0.1)
         empty = self.run_match([])
-        self.assertEqual(empty["fit_now_matches"], [])
+        # Without a single held skill no job passes Fit-Now; the job closest to
+        # the resume is still listed, marked as such, and its rules are not overridden.
+        self.assertEqual(len(empty["fit_now_matches"]), 1)
+        closest = empty["fit_now_matches"][0]
+        self.assertTrue(closest["fit_now_fallback"])
+        self.assertEqual(closest["match_breakdown"]["match_category"], "Low Match")
+        self.assertIn("required_skill_coverage", closest["match_breakdown"]["failed_fit_now_rules"])
         # Without a single held skill there is no learnable path, so nothing is forced into Aspiration.
         self.assertEqual(empty["aspiration_matches"], [])
-        self.assertEqual(empty["debug_summary"]["low_match_count"], 2)
+        self.assertEqual(empty["debug_summary"]["low_match_count"], 1)
 
     def test_text_route_extracts_resume_skills_when_ids_are_missing(self):
         with patch.object(matching, "extract_skills_from_text", return_value=[{

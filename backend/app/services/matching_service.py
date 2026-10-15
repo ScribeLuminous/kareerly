@@ -1477,7 +1477,8 @@ def apply_region_filter(
     """Keep the recommendable jobs the region filter allows; scores are untouched.
 
     Only Fit-Now and Aspiration jobs are counted. Excluded jobs are never
-    brought back to fill a short or empty list.
+    brought back to fill a short list; only an empty Fit-Now list may take
+    one, the job closest to the resume (closest_fit_now_job).
     """
     counts = {REGION_IN_REGION: 0, REGION_REMOTE: 0, REGION_OUT: 0, REGION_UNKNOWN: 0}
     if not region.active:
@@ -1883,11 +1884,13 @@ def grounded_explanation(
     in_preferred_career_area: Optional[bool],
     requirements_available: bool,
     mismatch_notes: Sequence[str] = (),
+    closest_fit_now: bool = False,
 ) -> str:
     """An explanation that quotes the resume evidence behind the match.
 
     Missing skills are described as not found in the resume, never as skills
     the candidate lacks, unless the candidate removed them in Step 2.
+    ``closest_fit_now``: listed as Fit-Now only as the job closest to the resume.
     """
     if not requirements_available:
         note = (f" It differs from your Step 3 choices: {'; '.join(mismatch_notes)}."
@@ -1904,7 +1907,10 @@ def grounded_explanation(
     not_found = [item["skill"] for item in missing_status if item["requirement"] == "essential" and item["status"] == MISSING_NOT_FOUND]
     removed = [item["skill"] for item in missing_status if item["requirement"] == "essential" and item["status"] == MISSING_REMOVED]
     optional = [item["skill"] for item in missing_status if item["requirement"] == "preferred"]
-    if match_type == FIT_NOW:
+    if match_type == FIT_NOW and closest_fit_now:
+        lead = (f"No job meets every Fit-Now requirement yet; {job_title} is the closest to your resume, "
+                "so it is shown as your best Fit-Now option.")
+    elif match_type == FIT_NOW:
         lead = f"{job_title} is a Fit-Now match: your resume covers its must-have skills and most of its required skills."
     elif match_type == ASPIRATION:
         if in_preferred_career_area:
@@ -2114,6 +2120,53 @@ def catalog_status(state: str, jobs_available: int = 0, source: str = "") -> Dic
     return {"state": state, "jobs_available": int(jobs_available), "source": source, "message": messages[state]}
 
 
+def closest_fit_now_job(
+    results: List[Dict[str, Any]], region: RegionPreference, preferences: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """The job to list as Fit-Now when no allowed job passes the Fit-Now rules.
+
+    Fit-Now reads the resume, so the candidate always sees the job closest to
+    it, whatever the Step 3 answers: one that passes every Fit-Now rule first,
+    then one the region filter allows, then the highest match score (resume
+    similarity and skill coverage only), required coverage and similarity.
+    It is marked ``fit_now_fallback``; its failed rules stay in the breakdown
+    and its explanation says it is the closest rather than a full Fit-Now.
+    None only when there is no job to compare.
+    """
+    def region_status(item: Dict[str, Any]) -> str:
+        return job_region_status(item, region, preferences) if region.active else ""
+
+    def key(item: Dict[str, Any]) -> Tuple:
+        return (
+            item["match_type"] == FIT_NOW,
+            region_status(item) in {"", REGION_IN_REGION, REGION_REMOTE},
+            float(item.get("match_score") or 0.0),
+            float(item.get("required_skill_coverage") or 0.0),
+            float(item.get("semantic_score") or 0.0),
+        )
+
+    if not results:
+        return None
+    # Highest key first; the job ID breaks a full tie so the choice is stable.
+    best = sorted(sorted(results, key=lambda item: str(item.get("job_id", ""))), key=key, reverse=True)[0]
+    closest = best["match_type"] != FIT_NOW
+    status = region_status(best)
+    item = {**best, "match_type": FIT_NOW, "match_category": FIT_NOW, "aspiration_gap_skills": [],
+            "fit_now_fallback": True,
+            "fit_now_fallback_reason": "closest_to_resume" if closest else "outside_region_filter"}
+    if status:
+        item["region_filter_status"] = status
+    if closest:
+        item["match_reason"] = match_reason(FIT_NOW, item["matched_skills"], item["missing_skills"],
+            item["match_breakdown"]["required_skill_count"], item["in_preferred_career_area"], closest_fit_now=True)
+        item["explanation"] = grounded_explanation(item["job_title"], FIT_NOW, item["matched_skill_evidence"],
+            item["missing_skill_status"], item["semantic_evidence_section"], item["in_preferred_career_area"],
+            item["skill_requirements_available"], closest_fit_now=True)
+    if status not in {"", REGION_IN_REGION, REGION_REMOTE}:
+        item["explanation"] += " It is outside the region you chose, where no job meets every Fit-Now requirement."
+    return item
+
+
 def _recommendation_notice(
     catalog: Dict[str, Any], fit_now: List[Dict[str, Any]], aspiration: List[Dict[str, Any]],
     location_filter: Optional[Dict[str, Any]] = None,
@@ -2121,6 +2174,26 @@ def _recommendation_notice(
     if catalog["state"] != "available":
         return catalog["message"]
     location_filter = location_filter or {}
+    fallback = next((item for item in fit_now if item.get("fit_now_fallback")), None)
+    if fallback:
+        region_name = location_filter.get("region_name") or "the region you chose"
+        if fallback["fit_now_fallback_reason"] == "closest_to_resume":
+            notice = ("No job meets every Fit-Now requirement yet. Fit-Now shows the job closest to your resume "
+                      "and the skills it still needs.")
+            if fallback.get("region_filter_status") in {REGION_OUT, REGION_UNKNOWN}:
+                notice += f" It is outside {region_name}, which has no job to compare."
+        else:
+            notice = (f"No job in {region_name} meets every Fit-Now requirement. "
+                      "Fit-Now shows the closest job to your resume from outside it.")
+        if aspiration:
+            notice += " The Aspiration list shows roles in the career area you chose."
+        elif location_filter.get("active"):
+            notice += (" No Aspiration role was found in that region; choosing another region or "
+                       "\"Anywhere in the Philippines\" may show more.")
+        else:
+            notice += (" None fits the career area you chose in Step 3; choosing another career area may show "
+                       "Aspiration roles.")
+        return notice
     if location_filter.get("active") and not fit_now and not aspiration:
         return (f"No matching jobs were found in {location_filter['region_name']}. "
                 "Jobs whose region could not be confirmed are not shown while a region filter is on. "
@@ -2193,8 +2266,8 @@ def match_text_to_jobs(
     # Fit-Now by match score, Aspiration by preference alignment then match
     # score (shared tie-breakers after). An active feedback model adds a
     # bounded adjustment to that primary key; see learning/ranking_model.py.
-    # Either list may be empty and both may be full; nothing is moved between
-    # them to reach a count.
+    # Aspiration may be empty; Fit-Now is never empty while there are jobs
+    # (see closest_fit_now_job). Nothing else is moved between lists.
     # The region filter narrows which jobs may be recommended before the top
     # Fit-Now and Aspiration jobs are chosen; it never changes a score.
     eligible_results, region_counts = apply_region_filter(results, region, preferences)
@@ -2207,8 +2280,16 @@ def match_text_to_jobs(
         "excluded_region_unknown": region_counts[REGION_UNKNOWN],
     }
     ranker = active_ranker()
-    all_fit_now_matches = rank_category([item for item in eligible_results if item["match_type"] == FIT_NOW], FIT_NOW, ranker)
-    all_aspiration_matches = rank_category([item for item in eligible_results if item["match_type"] == ASPIRATION], ASPIRATION, ranker)
+    fit_now_pool = [item for item in eligible_results if item["match_type"] == FIT_NOW]
+    # Fit-Now reads the resume: whatever the Step 3 answers, it lists at least
+    # the job closest to the resume. That job is not listed again as Aspiration.
+    fallback = None if fit_now_pool else closest_fit_now_job(results, region, preferences)
+    if fallback:
+        fit_now_pool = [fallback]
+    fallback_ids = {fallback["job_id"]} if fallback else set()
+    all_fit_now_matches = rank_category(fit_now_pool, FIT_NOW, ranker)
+    all_aspiration_matches = rank_category([item for item in eligible_results
+        if item["match_type"] == ASPIRATION and item["job_id"] not in fallback_ids], ASPIRATION, ranker)
     applied_ranker_version = next(
         (item["ranker_version"] for item in all_fit_now_matches + all_aspiration_matches), ranker.version)
     fit_now_matches = all_fit_now_matches[:TOP_FIT_NOW]
@@ -2301,9 +2382,14 @@ def match_text_to_jobs(
             "total_jobs_loaded": int(len(jobs_df)),
             "total_jobs_scored": int(len(scored_jobs)),
             "fit_now_count": len(all_fit_now_matches),
+            # The job listed as Fit-Now because none passed every rule, or None.
+            "fit_now_fallback": ({"job_id": fallback["job_id"], "reason": fallback["fit_now_fallback_reason"],
+                "scored_as": next(item["match_type"] for item in results if item["job_id"] == fallback["job_id"])}
+                if fallback else None),
             "closest_count": 0,
             "aspiration_count": len(all_aspiration_matches),
-            "low_match_count": int((results_df["match_type"] == LOW_MATCH).sum()) if not results_df.empty else 0,
+            "low_match_count": sum(1 for item in results
+                if item["match_type"] == LOW_MATCH and item["job_id"] not in fallback_ids),
             "preferred_career_area": normalize_career_area(preferences.get("industry", "")),
             # Fields left open ("I'm not sure", "Flexible - no preference") that
             # did not filter or lower any job.
@@ -2332,6 +2418,7 @@ def match_text_to_jobs(
                 "min_cosine": thresholds.fit_now_min_semantic,
                 "min_skill_coverage": thresholds.fit_now_min_required_coverage,
                 "max_critical_missing_skills": 0,
+                "fallback": "when no allowed job passes, the job closest to the resume is listed, whatever the preferences",
             },
             "aspiration_rules": {
                 "basis": "Step 3 career area",

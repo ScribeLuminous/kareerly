@@ -136,9 +136,11 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
         jobs = pd.DataFrame([
             job("onsite", "CRM Coordinator", "K07", "Sales and Purchasing", "SK642;SK651", setup="Onsite"),
             job("remote", "CRM Associate", "K07", "Sales and Purchasing", "SK642;SK651", setup="Remote"),
+            # A Fit-Now job, so neither CRM job is listed as the closest Fit-Now.
+            JOBS.iloc[0].to_dict(),
         ])
         with patch.object(matching, "load_internal_jobs_dataframe", return_value=jobs), \
-             patch.object(matching, "score_jobs", return_value=np.asarray([0.40, 0.30])), \
+             patch.object(matching, "score_jobs", return_value=np.asarray([0.40, 0.30, 0.45])), \
              patch.object(matching, "reviewed_learning_skill_ids", return_value=set()), \
              patch.object(matching, "recommend_learning_resources_for_matches", return_value=[]):
             result = matching.match_text_to_jobs(RESUME, confirmed_skills=CONFIRMED,

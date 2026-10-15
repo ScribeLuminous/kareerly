@@ -501,7 +501,13 @@ are shared by the catalogue and pasted-job paths:
 - **Fit-Now** (resume only): required skills are listed, the resume skills
   cover at least 75% of them, cosine ≥ 0.30, and no critical skill is missing.
   A critical skill is a must-have singled out from the required list.
-  Preferences never affect Fit-Now.
+  Preferences never affect Fit-Now. The list is never empty while there are
+  jobs: when no job the candidate may be shown passes these rules, the job
+  closest to the resume (highest match score; a full Fit-Now job outside the
+  chosen region comes first, then a job inside it) is listed with
+  `fit_now_fallback: true`, whatever the Step 3 answers, and is not listed
+  again as Aspiration. Its `match_breakdown` keeps the scored category and the
+  failed rules, and the dashboard labels it "Closest Fit".
 - **Aspiration** (Step 3 preferences): not Fit-Now and in the career area the
   candidate chose; ranked by job level, work setup and salary alignment, then
   by the resume match score. Without a known career area (no preference, or an
@@ -512,7 +518,8 @@ Thresholds were calibrated on the development split of the score-distribution
 diagnostic. `docs/matching-diagnosis.md` records the evidence, and
 `KAREERLY_FIT_NOW_MIN_COSINE`, `KAREERLY_FIT_NOW_MIN_COVERAGE` and
 `KAREERLY_ASPIRATION_MIN_COSINE` override them. None of these values are
-trained parameters, and no job is promoted merely to fill the Fit-Now view.
+trained parameters. Apart from that one closest job, no job is promoted to
+fill the Fit-Now view.
 
 Fit-Now is ranked by the composite score and Aspiration by preference alignment then the composite score, with cosine, coverage, preference
 alignment and reviewed learning-resource coverage as deterministic tie-breakers.
