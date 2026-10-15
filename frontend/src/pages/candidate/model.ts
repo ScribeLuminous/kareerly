@@ -93,6 +93,8 @@ export type DashboardJob = {
   matchCategory: 'fit-now' | 'aspiration';
   /** Shown when no job passes Fit-Now; listed with Aspiration but labelled Closest Match, never Fit-Now. */
   closestMatch?: boolean;
+  /** Listed as Fit-Now because no job passes every Fit-Now rule: the job closest to the resume. */
+  closestFitNow?: boolean;
   sourceType: 'internal' | 'external';
   requiredSkills: string[];
   preferredSkills: string[];
@@ -596,8 +598,8 @@ export function persistMatchVote(job: DashboardJob, vote: MatchVote | null): Pro
     : removeMatchFeedback({ jobId: job.id, jobSource: job.jobSource });
 }
 
-export function matchCategoryBadge(job: Pick<DashboardJob, 'matchCategory' | 'closestMatch'>, fitNowLabel = 'Fit Now'): string {
-  if (job.matchCategory === 'fit-now') return fitNowLabel;
+export function matchCategoryBadge(job: Pick<DashboardJob, 'matchCategory' | 'closestMatch' | 'closestFitNow'>, fitNowLabel = 'Fit Now'): string {
+  if (job.matchCategory === 'fit-now') return job.closestFitNow ? 'Closest Fit' : fitNowLabel;
   return job.closestMatch ? 'Closest Match' : 'Aspiration';
 }
 
@@ -635,6 +637,7 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
     confidence: typeof dynamic.confidence === 'string' && dynamic.confidence.trim() ? dynamic.confidence.trim() : undefined,
     matchCategory: category,
     closestMatch: match.is_closest_match === true,
+    closestFitNow: category === 'fit-now' && match.fit_now_fallback === true && match.fit_now_fallback_reason !== 'outside_region_filter',
     sourceType,
     requiredSkills,
     preferredSkills,

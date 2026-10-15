@@ -126,6 +126,18 @@ test('matched roles preserve unknown scores and use explicit job metadata', () =
   assert.match(page.getMatchBadgeLabel(actual), /^0%/);
 });
 
+test('the Fit-Now job closest to the resume is labelled Closest Fit, not Fit Now', () => {
+  const closest = page.mapRunMatch({ job_id: 'role-3', job_title: 'Role', fit_now_fallback: true,
+    fit_now_fallback_reason: 'closest_to_resume' }, 'fit-now');
+  assert.equal(closest.matchCategory, 'fit-now');
+  assert.equal(page.matchCategoryBadge(closest), 'Closest Fit');
+  // A full Fit-Now job shown from outside the chosen region keeps its label.
+  const outside = page.mapRunMatch({ job_id: 'role-4', job_title: 'Role', fit_now_fallback: true,
+    fit_now_fallback_reason: 'outside_region_filter' }, 'fit-now');
+  assert.equal(page.matchCategoryBadge(outside), 'Fit Now');
+  assert.equal(page.matchCategoryBadge(page.mapRunMatch({ job_id: 'role-5', job_title: 'Role' }, 'fit-now')), 'Fit Now');
+});
+
 test('saved applications retain their original score rather than a later match result', () => {
   const currentJob = { id: 'role-1', jobSource: 'internal', matchScore: 95, title: 'Role', company: 'Employer' };
   const row = { id: 'app-1', job_id: 'role-1', job_source: 'internal', status: 'pending' };

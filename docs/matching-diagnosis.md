@@ -642,3 +642,36 @@ to the backend (anon key). Migration `20260926090000_learning_resources_read_pol
 hides only inactive statuses, in any case. `backend/scripts/load_learning_resources.py`
 upserts the catalogue and reports how many rows the backend can read and
 recommend; LR-003 has no title and is skipped.
+
+
+## Follow-up (2026-10-15): at least one Fit-Now job, whatever the preferences
+
+Product rule: Fit-Now always lists at least one job from the uploaded resume
+while the catalogue has jobs, regardless of the Step 3 answers (career area,
+job level, work setup, salary and region). Before, a resume that reached the
+75% coverage rule for no job, or whose only Fit-Now jobs were outside the
+chosen region, got an empty Fit-Now list.
+
+- **Strict rules unchanged.** Jobs that pass every Fit-Now rule are listed as
+  before, and only they, when the region filter allows any.
+- **Fallback** (`matching_service.closest_fit_now_job`): when none is left,
+  one job is listed as Fit-Now with `fit_now_fallback: true`. It is chosen
+  from every scored job by: passes every Fit-Now rule (only possible outside
+  the region filter) → allowed by the region filter → match score (resume
+  similarity and skill coverage, no preferences) → required coverage →
+  similarity → job ID. `fit_now_fallback_reason` is `closest_to_resume` or
+  `outside_region_filter`.
+- **Honest labelling.** `match_breakdown.match_category` and
+  `failed_fit_now_rules` keep what the scoring rules said. `match_reason`
+  and `explanation` say no job meets every Fit-Now requirement and list what
+  is still missing; a job outside the chosen region says so.
+  `recommendation_notice` explains the list, and `debug_summary.fit_now_fallback`
+  records the job, the reason and the category it was scored as.
+- **Listed once.** A fallback job that was Aspiration is not listed again as
+  Aspiration; `low_match_count` excludes a fallback job that was Low Match.
+- **Frontend.** The dashboard badge reads "Closest Fit" instead of "Fit Now"
+  for `closest_to_resume`; a full Fit-Now job outside the region keeps "Fit Now".
+
+This reverses part of the 2026-09-25 decision not to pad an empty Fit-Now
+list: the padding is now one job, chosen by the resume, and marked as such.
+

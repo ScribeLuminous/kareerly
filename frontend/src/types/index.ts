@@ -229,6 +229,14 @@ export interface MatchResultItem {
   job_title: string;
   /** Set on Closest Match items: shown when no job passes Fit-Now, never a Fit-Now match. */
   is_closest_match?: boolean;
+  /**
+   * Set on the one Fit-Now job listed because no job the candidate may be shown
+   * passes every Fit-Now rule: the job closest to the resume, whatever the
+   * Step 3 answers ('closest_to_resume'), or a full Fit-Now job outside the
+   * chosen region ('outside_region_filter').
+   */
+  fit_now_fallback?: boolean;
+  fit_now_fallback_reason?: 'closest_to_resume' | 'outside_region_filter';
   closest_match_strength?: 'related' | 'weak';
   /** The category the scoring rules gave a Closest Match job (Aspiration or Low Match). */
   base_match_category?: string;

@@ -32,6 +32,10 @@ Categories (a job is in at most one; either list may be empty):
                 explicitly marked must-have is held, and the role is
                 meaningfully related to the resume (FIT_NOW_MIN_SEMANTIC).
                 Step 3 preferences never affect it.
+                When no job the candidate may be shown passes these rules, the
+                job closest to the resume is still listed as Fit-Now, marked
+                ``fit_now_fallback`` (see matching_service), so the list is
+                never empty while there are jobs to compare.
 * Aspiration  - decided by the Step 3 preferences: a job that is not Fit-Now
                 and sits in the career area the candidate chose. The other
                 answers (job level, work setup, salary) never remove a job;
@@ -293,10 +297,20 @@ def match_reason(
     missing: Sequence[str],
     required_total: int,
     in_preferred_career_area: Optional[bool] = None,
+    closest_fit_now: bool = False,
 ) -> str:
-    """One plain-language sentence explaining the category."""
+    """One plain-language sentence explaining the category.
+
+    ``closest_fit_now``: the job is listed as Fit-Now only because it is the
+    closest to the resume (it fails a Fit-Now rule); see matching_service.
+    """
     held = f"{len(matched)} of {required_total}" if required_total else "none"
     gaps = ", ".join(list(missing)[:3])
+    if category == FIT_NOW and closest_fit_now:
+        coverage = (f"your resume shows {held} of its required skills" if required_total
+                    else "its posting lists no required skills, so this rests on role similarity")
+        tail = f" To be fully ready: {gaps}." if gaps else ""
+        return f"No job meets every Fit-Now requirement yet; this is the closest to your resume ({coverage}).{tail}"
     if category == FIT_NOW:
         tail = f" Remaining gaps: {gaps}." if gaps else ""
         return f"Your resume already covers most of the important requirements ({held} required skills).{tail}"
