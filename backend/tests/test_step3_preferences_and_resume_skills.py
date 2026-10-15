@@ -120,7 +120,10 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
             ["role_level", "work_setup", "salary_expectation"])
         # Stated answers the jobs do not meet never remove a job; they lower its
         # alignment, and the job says which answers it does not fit.
-        restricted = report({"industry": AREA, **MISMATCHED_LEVEL, **MISMATCHED_SALARY, **MISMATCHED_SETUP})
+        # Three confirmed skills in the area (all already in the resume) keep "senior" open under the job-level lock.
+        three_in_area = CONFIRMED + [{"skill_id": "SK644", "skill_name": "Zendesk"}, {"skill_id": "SK643", "skill_name": "Salesforce"}]
+        restricted = report({"industry": AREA, **MISMATCHED_LEVEL, **MISMATCHED_SALARY, **MISMATCHED_SETUP},
+            confirmed=three_in_area)
         self.assertEqual({job_id for job_id, *_ in recommended(restricted)}, {"support", "sales-ops", "crm"})
         self.assertTrue(all(alignment < 1.0 for *_, alignment in recommended(restricted)))
         crm = restricted["all_aspiration_matches"][0]

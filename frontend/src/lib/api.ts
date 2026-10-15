@@ -2,7 +2,7 @@ import type { GapGroupBy, GapJobInput, GapScope, JobMatchRunResults, MatchResult
 import { normalizeMatchItemPercentages, normalizeSkillGapPercentages, parseNumericValue } from './matchScoring';
 import { supabase } from './supabase';
 import type { MatchFeedbackRow, MatchFeedbackSource, MatchVote } from './matchFeedback';
-import type { CareerAreaSkillMap } from './careerAreas';
+import type { CareerAreaRules, CareerAreaSkillMap, JobLevelThresholds } from './careerAreas';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const REQUEST_TIMEOUT_MS = 90_000;
@@ -1149,26 +1149,29 @@ export async function resolveCurrentRegion(location: string): Promise<CurrentReg
   return { currentRegion: String(body.current_region || ''), currentRegionName: String(body.current_region_name || '') };
 }
 
-let careerAreaSkillsRequest: Promise<CareerAreaSkillMap> | null = null;
+let careerAreaRulesRequest: Promise<CareerAreaRules> | null = null;
 
 /**
- * Each Step 3 career area's skills, from the backend's single definition
- * (backend/data/career_area_skills.json). Fetched once per page load; a failed
- * request is retried on the next call.
+ * Each Step 3 career area's skills and the job-level thresholds, from the
+ * backend's single definition (backend/data/career_area_skills.json). Fetched
+ * once per page load; a failed request is retried on the next call.
  */
-export function loadCareerAreaSkills(): Promise<CareerAreaSkillMap> {
-  careerAreaSkillsRequest ??= fetchWithTimeout(`${API_BASE_URL}/api/career-areas`, { method: 'GET' }, 'Career areas timed out.')
+export function loadCareerAreaRules(): Promise<CareerAreaRules> {
+  careerAreaRulesRequest ??= fetchWithTimeout(`${API_BASE_URL}/api/career-areas`, { method: 'GET' }, 'Career areas timed out.')
     .then(async (response) => {
       if (!response.ok) throw new Error('Career areas could not be loaded.');
-      const data = (await response.json()) as { areas?: CareerAreaSkillMap };
-      if (!data.areas || typeof data.areas !== 'object') throw new Error('Career areas could not be loaded.');
-      return data.areas;
+      const data = (await response.json()) as { areas?: CareerAreaSkillMap; level_thresholds?: Partial<JobLevelThresholds> };
+      const thresholds = data.level_thresholds;
+      if (!data.areas || typeof data.areas !== 'object' || typeof thresholds?.mid !== 'number' || typeof thresholds?.senior !== 'number') {
+        throw new Error('Career areas could not be loaded.');
+      }
+      return { areas: data.areas, levelThresholds: { mid: thresholds.mid, senior: thresholds.senior } };
     })
     .catch((error) => {
-      careerAreaSkillsRequest = null;
+      careerAreaRulesRequest = null;
       throw error;
     });
-  return careerAreaSkillsRequest;
+  return careerAreaRulesRequest;
 }
 
 export async function searchSkills(query: string, limit = 20): Promise<{ results: SkillSearchItem[] }> {

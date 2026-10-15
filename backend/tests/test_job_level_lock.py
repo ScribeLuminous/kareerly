@@ -1,9 +1,9 @@
 """Step 3 job-level lock, enforced in stage 1 (constraint gating).
 
-A career area with zero confirmed skills locks the job level to entry-level;
-one confirmed skill in the area is enough to lift the lock. The client's level
-is never trusted: a mid-level request for an out-of-area career is matched as
-entry-level, and the report gets the reason.
+The confirmed skills in the chosen career area cap the job level: 0 or 1
+opens entry-level only, 2 opens mid-level, 3 or more opens senior. "I'm not
+sure" is always open. The client's level is never trusted: a level above the
+cap is matched as the highest open level, and the report gets the reason.
 """
 import json
 import unittest
@@ -50,30 +50,65 @@ def report(preferences, confirmed=CONFIRMED):
         return matching.match_text_to_jobs(RESUME, confirmed_skills=confirmed, preferences=preferences)
 
 
+# Construction & Maintenance skills: Construction Safety, Electrical Installation, Carpentry.
+CONSTRUCTION = [{"skill_id": skill_id} for skill_id in ("SK070", "SK073", "SK072")]
+
+
+def gate(level, skills, area="construction-maintenance"):
+    return matching.gate_job_level({"industry": area, "role_level": level, "target_role": level, "role": level}, skills)
+
+
 class JobLevelGateTests(unittest.TestCase):
     def test_area_with_zero_confirmed_skills_locks_to_entry_level(self):
         gated, lock = matching.gate_job_level({"industry": "construction-maintenance", **MID_LEVEL}, CONFIRMED)
-        self.assertEqual(gated["role_level"], "entry")
-        self.assertEqual(gated["target_role"], "entry")
-        self.assertEqual(gated["role"], "entry")
-        self.assertEqual(lock["reason"], "no_confirmed_skills_in_career_area")
+        self.assertEqual((gated["role_level"], gated["target_role"], gated["role"]), ("entry", "entry", "entry"))
+        self.assertEqual(lock["reason"], "too_few_confirmed_skills_in_career_area")
+        self.assertEqual((lock["confirmed_skill_count"], lock["max_level"]), (0, "entry"))
         self.assertEqual(lock["requested_level"], "mid")
         self.assertTrue(lock["overridden"])
 
-    def test_area_with_one_confirmed_skill_does_not_lock(self):
-        preferences = {"industry": "sales-marketing-customer-service", **MID_LEVEL}
-        gated, lock = matching.gate_job_level(preferences, CONFIRMED)
-        self.assertIsNone(lock)
-        self.assertEqual(gated, preferences)
+    def test_area_with_one_confirmed_skill_still_locks_to_entry_level(self):
+        for level in ("mid", "senior"):
+            gated, lock = gate(level, CONSTRUCTION[:1])
+            self.assertEqual(gated["role_level"], "entry", level)
+            self.assertEqual((lock["confirmed_skill_count"], lock["max_level"]), (1, "entry"))
+        self.assertEqual(lock["message"], "Results are limited to entry-level roles because you have "
+            "only 1 confirmed skill in Construction & Maintenance.")
 
-    def test_entry_level_request_is_still_reported_as_locked_but_not_overridden(self):
-        gated, lock = matching.gate_job_level({"industry": "construction-maintenance", "role_level": "entry"}, CONFIRMED)
+    def test_two_confirmed_skills_open_mid_level_but_not_senior(self):
+        gated, lock = gate("mid", CONSTRUCTION[:2])
+        self.assertEqual(gated["role_level"], "mid")
+        self.assertIsNone(lock)
+        gated, lock = gate("senior", CONSTRUCTION[:2])
+        self.assertEqual((gated["role_level"], gated["target_role"], gated["role"]), ("mid", "mid", "mid"))
+        self.assertEqual((lock["max_level"], lock["applied_level"], lock["overridden"]), ("mid", "mid", True))
+        self.assertEqual(lock["message"], "Results are limited to mid-level roles because you have "
+            "2 confirmed skills in Construction & Maintenance; senior roles need 3.")
+
+    def test_three_confirmed_skills_open_every_level(self):
+        preferences = {"industry": "construction-maintenance", "role_level": "senior"}
+        self.assertEqual(matching.gate_job_level(preferences, CONSTRUCTION), (preferences, None))
+
+    def test_im_not_sure_is_always_open(self):
+        for skills in ([], CONSTRUCTION[:1], CONSTRUCTION[:2]):
+            for answer in ("unsure", "I'm not sure"):
+                gated, lock = gate(answer, skills)
+                self.assertIsNone(lock)
+                self.assertEqual(gated["role_level"], answer)
+
+    def test_entry_level_request_is_reported_under_an_entry_cap_but_not_overridden(self):
+        gated, lock = gate("entry", [])
         self.assertEqual(gated["role_level"], "entry")
         self.assertFalse(lock["overridden"])
+        self.assertEqual(lock["message"], "Results are limited to entry-level roles because you have "
+            "no confirmed skills in Construction & Maintenance yet.")
+        # Under a mid cap an entry-level or mid-level choice is not limited by the lock.
+        self.assertIsNone(gate("entry", CONSTRUCTION[:2])[1])
 
-    def test_unsure_and_labels_are_overridden_but_a_free_text_role_is_kept(self):
+    def test_labels_are_overridden_but_a_free_text_role_is_kept(self):
         gated, lock = matching.gate_job_level(
-            {"industry": "Construction & Maintenance", "role_level": "I'm not sure", "target_role": "Site Engineer"}, CONFIRMED)
+            {"industry": "Construction & Maintenance", "role_level": "Senior (5+ years experience)",
+             "target_role": "Site Engineer"}, CONFIRMED)
         self.assertEqual(gated["role_level"], "entry")
         self.assertEqual(gated["target_role"], "Site Engineer")
         self.assertEqual(lock["career_area_label"], "Construction & Maintenance")
@@ -82,9 +117,9 @@ class JobLevelGateTests(unittest.TestCase):
         self.assertIsNone(matching.gate_job_level({"role_level": "senior"}, [])[1])
 
     def test_legacy_area_counts_skills_of_every_area_it_covers(self):
-        # Customer Service is in Hospitality, which the legacy broad area covers.
-        self.assertIsNone(matching.gate_job_level({"industry": "engineering-trades-operations", **MID_LEVEL}, CONFIRMED)[1])
-        self.assertIsNotNone(matching.gate_job_level({"industry": "education-health-community", **MID_LEVEL}, CONFIRMED)[1])
+        # Customer Service is in Hospitality, which the legacy broad area covers: one skill, entry-level only.
+        self.assertEqual(matching.gate_job_level({"industry": "engineering-trades-operations", **MID_LEVEL}, CONFIRMED)[1]["confirmed_skill_count"], 1)
+        self.assertEqual(matching.gate_job_level({"industry": "education-health-community", **MID_LEVEL}, CONFIRMED)[1]["confirmed_skill_count"], 0)
 
 
 class JobLevelLockReportTests(unittest.TestCase):
@@ -95,7 +130,7 @@ class JobLevelLockReportTests(unittest.TestCase):
     def test_mid_level_request_for_out_of_area_career_is_overridden_with_reason(self):
         result = report({"industry": "construction-maintenance", **MID_LEVEL})
         lock = result["job_level_lock"]
-        self.assertEqual(lock["reason"], "no_confirmed_skills_in_career_area")
+        self.assertEqual(lock["reason"], "too_few_confirmed_skills_in_career_area")
         self.assertEqual(lock["requested_level"], "mid")
         self.assertEqual(lock["applied_level"], "entry")
         self.assertEqual(lock["message"],
@@ -106,8 +141,10 @@ class JobLevelLockReportTests(unittest.TestCase):
         self.assertEqual(aspiration["junior-eng"]["preference_conflicts"], [])
         self.assertIn("job_level", aspiration["mid-eng"]["preference_conflicts"])
 
-    def test_in_area_career_keeps_the_requested_level(self):
-        result = report({"industry": "sales-marketing-customer-service", **MID_LEVEL})
+    def test_two_skills_keep_a_mid_level_request(self):
+        result = report({"industry": "construction-maintenance", **MID_LEVEL},
+            confirmed=[{"skill_id": "SK070", "skill_name": "Construction Safety"},
+                       {"skill_id": "SK073", "skill_name": "Electrical Installation"}])
         self.assertIsNone(result["job_level_lock"])
         self.assertEqual(result["preferences_used"]["role_level"], "mid")
 
@@ -130,8 +167,8 @@ class CareerAreaSkillsTests(unittest.TestCase):
 
         response = TestClient(app).get("/api/career-areas")
         self.assertEqual(response.status_code, 200)
-        on_disk = json.loads((DATA_DIR / "career_area_skills.json").read_text(encoding="utf-8"))["areas"]
-        self.assertEqual(response.json()["areas"], on_disk)
+        on_disk = json.loads((DATA_DIR / "career_area_skills.json").read_text(encoding="utf-8"))
+        self.assertEqual(response.json(), {"areas": on_disk["areas"], "level_thresholds": {"mid": 2, "senior": 3}})
 
 
 if __name__ == "__main__":
