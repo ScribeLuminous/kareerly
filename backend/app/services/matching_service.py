@@ -248,14 +248,23 @@ def preferred_career_areas(value: Any) -> frozenset:
 
 
 @lru_cache(maxsize=1)
+def _career_area_rules() -> Dict[str, Any]:
+    with open(CAREER_AREA_SKILLS_PATH, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def career_area_skills() -> Dict[str, List[Dict[str, str]]]:
     """Each Step 3 career area's skills: the one skill-to-area mapping.
 
     Step 3 reads it from GET /api/career-areas for its "Your confirmed skills
     here" labels and its job-level lock, so they and the backend's lock agree.
     """
-    with open(CAREER_AREA_SKILLS_PATH, encoding="utf-8") as handle:
-        return json.load(handle)["areas"]
+    return _career_area_rules()["areas"]
+
+
+def job_level_thresholds() -> Dict[str, int]:
+    """Confirmed skills in the chosen area needed to open mid-level and senior."""
+    return _career_area_rules()["level_thresholds"]
 
 
 def career_area_skill_ids(value: Any) -> frozenset:
@@ -264,42 +273,77 @@ def career_area_skill_ids(value: Any) -> frozenset:
     return frozenset(skill["id"] for area in preferred_career_areas(value) for skill in areas.get(area, []))
 
 
-ENTRY_LEVEL = "entry"
-JOB_LEVEL_LOCK_REASON = "no_confirmed_skills_in_career_area"
+JOB_LEVEL_ORDER = ("entry", "mid", "senior")
+JOB_LEVEL_LOCK_REASON = "too_few_confirmed_skills_in_career_area"
 # Fields a client sends the Step 3 job level in; target_role may also be free text.
 JOB_LEVEL_FIELDS = ("role_level", "role", "target_role", "job_level")
 
 
-def gate_job_level(preferences: Dict[str, Any], skill_records: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
-    """Stage 1 constraint gate: lock the job level to entry for an out-of-area career.
+def _skills_phrase(count: int) -> str:
+    return f"{count} confirmed skill{'' if count == 1 else 's'}"
 
-    With a career area chosen and none of the confirmed skills in it, only
-    entry-level roles are targeted, whatever level the client sent. Returns the
-    preferences to match with and, when the lock applies, why (else None).
+
+def job_level_lock_message(max_level: str, count: int, label: str) -> str:
+    """The report line for results limited by the job-level lock."""
+    if max_level == "entry":
+        reason = f"no confirmed skills in {label} yet" if count == 0 else f"only {_skills_phrase(count)} in {label}"
+        return f"Results are limited to entry-level roles because you have {reason}."
+    senior = job_level_thresholds()["senior"]
+    return (f"Results are limited to mid-level roles because you have {_skills_phrase(count)} in {label}; "
+            f"senior roles need {senior}.")
+
+
+def gate_job_level(preferences: Dict[str, Any], skill_records: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    """Stage 1 constraint gate: cap the job level by confirmed skills in the chosen area.
+
+    Fewer than ``level_thresholds["mid"]`` confirmed skills in the area opens
+    entry-level only, fewer than ``level_thresholds["senior"]`` opens up to
+    mid-level, and more opens every level. "I'm not sure" is always open. A
+    level above the cap is lowered to the highest open level, whatever the
+    client sent. Returns the preferences to match with and, when the cap
+    limits the results, why (else None).
     """
-    area = normalize_career_area((preferences or {}).get("industry", ""))
+    preferences = preferences or {}
+    area = normalize_career_area(preferences.get("industry", ""))
     area_skill_ids = career_area_skill_ids(area)
-    held = {clean_text(record.get("skill_id", "")).upper() for record in skill_records}
-    if not area_skill_ids or held & area_skill_ids:
+    if not area_skill_ids:
         return preferences, None
+    held = {clean_text(record.get("skill_id", "")).upper() for record in skill_records}
+    count = len(held & area_skill_ids)
+    thresholds = job_level_thresholds()
+    if count >= thresholds["senior"]:
+        return preferences, None
+    max_level = "mid" if count >= thresholds["mid"] else "entry"
     requested = clean_text(preferences.get("role_level", ""))
+    if is_unrestricted_preference(requested):
+        return preferences, None
+
+    def above_cap(value: str) -> bool:
+        level = _role_level(normalize_for_match(value))
+        return not level or JOB_LEVEL_ORDER.index(level) > JOB_LEVEL_ORDER.index(max_level)
+
+    overridden = above_cap(requested)
+    if not overridden and max_level != "entry":
+        return preferences, None
     gated = dict(preferences)
-    for key in JOB_LEVEL_FIELDS:
-        value = normalize_for_match(gated.get(key, ""))
-        # A level answer ("senior", "I'm not sure") is replaced; a free-text target role is kept.
-        if value and (_role_level(value) or is_unrestricted_preference(value)):
-            gated[key] = ENTRY_LEVEL
-    gated["role_level"] = ENTRY_LEVEL
+    if overridden:
+        for key in JOB_LEVEL_FIELDS:
+            value = clean_text(gated.get(key, ""))
+            # The level answer is replaced; a free-text target role is kept.
+            if value and (value == requested or (_role_level(normalize_for_match(value)) and above_cap(value))):
+                gated[key] = max_level
     label = CAREER_AREA_LABELS.get(area) or LEGACY_CAREER_AREA_LABELS.get(area, area)
     return gated, {
         "applied": True,
         "reason": JOB_LEVEL_LOCK_REASON,
         "career_area": area,
         "career_area_label": label,
+        "confirmed_skill_count": count,
+        "max_level": max_level,
         "requested_level": requested,
-        "applied_level": ENTRY_LEVEL,
-        "overridden": _role_level(normalize_for_match(requested)) != ENTRY_LEVEL,
-        "message": f"Results are limited to entry-level roles because you have no confirmed skills in {label} yet.",
+        "applied_level": max_level if overridden else _role_level(normalize_for_match(requested)),
+        "overridden": overridden,
+        "message": job_level_lock_message(max_level, count, label),
     }
 
 
