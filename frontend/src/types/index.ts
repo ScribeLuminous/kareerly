@@ -503,15 +503,18 @@ export interface JobMatchRunResults {
   resume_text_preview?: string;
   /** The Step 3 preferences this report was generated with. */
   preferences_used?: Record<string, unknown>;
-  /** Set when the job level was locked to entry-level: no confirmed skills in the chosen career area. */
+  /** Set when too few confirmed skills in the chosen career area limited the job level. */
   job_level_lock?: {
     applied: boolean;
-    reason: 'no_confirmed_skills_in_career_area';
+    reason: 'too_few_confirmed_skills_in_career_area';
     career_area: string;
     career_area_label: string;
+    confirmed_skill_count: number;
+    max_level: 'entry' | 'mid';
     requested_level: string;
-    applied_level: 'entry';
+    applied_level: string;
     overridden: boolean;
+    /** The report line, e.g. "Results are limited to entry-level roles because …". */
     message: string;
   } | null;
   model_used?: string;
