@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { FormField, PageHeader } from '../../components/ui';
-import { RegionProvinceFields } from '../../components/ProvinceSelect';
+import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect';
 import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
-import { industryPsocGroups } from '../../lib/employerOptions';
+import { canonicalCity } from '../../lib/phCities';
 import { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from './model';
 
 export type EmployerAccountForm = {
@@ -46,7 +46,6 @@ const ACCESS_RULES = [
 
 export function EmployerAccountPage({ profile, password, isSaving, onProfileChange, onSave, onPasswordChange, onUpdatePassword, onRequestDelete }: EmployerAccountPageProps) {
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const psoc = industryPsocGroups(profile.industry);
   const set = (key: keyof EmployerAccountForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => onProfileChange({ ...profile, [key]: event.target.value });
 
   return (
@@ -65,22 +64,23 @@ export function EmployerAccountPage({ profile, password, isSaving, onProfileChan
             <FormField label="Company name *" className="k-span-2">
               <input className="k-input" value={profile.company} onChange={set('company')} autoComplete="organization" required />
             </FormField>
-            <FormField
-              label="Industry"
-              help={psoc.length > 0
-                ? `Aligned with PSOC 2012: ${psoc.map((group) => `${group.code} ${group.title}`).join(' · ')}`
-                : 'Industries follow the skill areas candidates choose from.'}
-              className="k-span-2"
-            >
+            <FormField label="Industry" className="k-span-2">
               <select className="k-select" value={profile.industry} onChange={set('industry')}>
                 <option value="">Select an industry</option>
                 {withSaved(EMPLOYER_INDUSTRIES, profile.industry).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </FormField>
-            <RegionProvinceFields value={profile.province} onChange={(province) => onProfileChange({ ...profile, province })} />
-            <FormField label="City or municipality" help="New job posts start at this location.">
-              <input className="k-input" value={profile.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="address-level2" />
-            </FormField>
+            <RegionProvinceFields
+              value={profile.province}
+              // A new province keeps the city only when that province lists it.
+              onChange={(province) => onProfileChange({ ...profile, province, city: canonicalCity(province, profile.city) })}
+            />
+            <CityField
+              province={profile.province}
+              value={profile.city}
+              onChange={(city) => onProfileChange({ ...profile, city })}
+              help="New job posts start at this location."
+            />
             <FormField label="Company size">
               <select className="k-select" value={profile.size} onChange={set('size')}>
                 <option value="">Select a size</option>
