@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight, faArrowUpRightFromSquare, faCheck, faChevronRight, faPuzzlePiece, faRotateLeft, faUserCheck } from '@fortawesome/free-solid-svg-icons';
 import { Banner, ConfirmDialog, EmptyState, InfoTip, SearchField, Segmented, SkeletonRows, Tabs } from '../../components/ui';
 import { PageHeader } from './common';
+import { MatchScoreNotice } from '../../components/MatchScoreNotice';
 import {
   EMPLOYER_CHECK_REMINDER,
   knownValue,
@@ -390,6 +391,8 @@ export function SkillGapsPage({
     if (!report || !rules || (groupBy === 'job' && !jobReport)) return <SkeletonRows count={5} label="Loading skill gaps" />;
     if (groupBy === 'job') {
       return (
+        <>
+        <MatchScoreNotice className="mb-3" />
         <ByJobView
           cards={jobCards}
           gapFreeFitNow={jobReport?.totals.gap_free_fit_now_jobs || 0}
@@ -397,6 +400,7 @@ export function SkillGapsPage({
           aspirationOpen={aspirationOpen}
           onToggleAspiration={() => setAspirationOpen((current) => !current)}
         />
+        </>
       );
     }
     return (

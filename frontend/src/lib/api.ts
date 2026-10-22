@@ -122,6 +122,16 @@ export type MessageModerationState = {
 
 export type MessageReportReason = 'spam' | 'harassment' | 'scam' | 'inappropriate' | 'impersonation' | 'other';
 
+/** Report reasons, matching MESSAGE_REPORT_REASONS in backend/app/main.py. */
+export const MESSAGE_REPORT_REASONS: Array<{ value: MessageReportReason; label: string }> = [
+  { value: 'spam', label: 'Spam or unsolicited messages' },
+  { value: 'scam', label: 'Scam, fraud, or asks for payment' },
+  { value: 'harassment', label: 'Harassment or abusive language' },
+  { value: 'inappropriate', label: 'Inappropriate content' },
+  { value: 'impersonation', label: 'Fake company, fake candidate, or impersonation' },
+  { value: 'other', label: 'Something else' },
+];
+
 export async function loadMessageModeration(applicationId: string): Promise<MessageModerationState> {
   return authenticatedMessageRequest(`/api/messages/${encodeURIComponent(applicationId)}/moderation`) as Promise<MessageModerationState>;
 }

@@ -324,7 +324,10 @@ function AppContent() {
     }
     // A returning candidate goes to the dashboard, which restores their saved
     // resume, matches and preferences; only a new candidate starts at Step 1.
-    if (await loadLatestResume({ userId: user.id })) {
+    // If the check fails, go to the dashboard anyway: it shows the load error with
+    // a retry, instead of treating a returning candidate as a new one.
+    const hasSavedResume = await loadLatestResume({ userId: user.id }).then(Boolean, () => true);
+    if (hasSavedResume) {
       setView('dashboard');
       navigate('/candidate/dashboard', { replace: true });
       return;

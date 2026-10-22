@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { MatchScoreNotice } from '../components/MatchScoreNotice';
 import {
   faArrowRight,
   faBookmark,
@@ -330,6 +331,7 @@ export default function ExternalJobAnalysisPage({ onOpenLearning }: Props) {
                   <span className={/fit/i.test(result.match.match_type || '') ? 'k-badge k-badge-fit' : 'k-badge k-badge-aspiration'}>{result.match.match_type}</span>
                   <span className="k-meta">Skill coverage {Math.round((Number(result.match.skill_coverage) || 0) * 100)}%</span>
                 </div>
+                <MatchScoreNotice className="mt-2" />
                 <div className="external-why">
                   <h3>Why this matches</h3>
                   <p>{result.match.explanation}</p>

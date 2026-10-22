@@ -2,6 +2,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight, faArrowUpRightFromSquare, faBookmark, faCheck, faCircleCheck, faBullseye } from '@fortawesome/free-solid-svg-icons';
 import MatchFeedbackControls from '../../components/MatchFeedbackControls';
 import { InfoTip, Modal, useMediaQuery, DESKTOP_QUERY } from '../../components/ui';
+import { MatchScoreNotice } from '../../components/MatchScoreNotice';
+import { MATCH_SCORE_DISCLAIMER } from '../../lib/matchDisclaimer';
 import type { MatchFeedbackStatus, MatchVote } from '../../lib/matchFeedback';
 import { formatJobDescription } from '../../lib/jobDescription';
 import {
@@ -44,7 +46,6 @@ type JobDetailProps = {
   feedback?: JobFeedback;
 };
 
-const MATCH_NOTE = 'Match percentages show how well your skills and experience line up with a role, not your chance of being hired. The employer makes the hiring decision.';
 
 /** Score, category and readiness in one line, with the methodology behind ⓘ. */
 export function JobScoreLine({ job, large = false }: { job: DashboardJob; large?: boolean }) {
@@ -57,7 +58,8 @@ export function JobScoreLine({ job, large = false }: { job: DashboardJob; large?
       <span className={`k-score ${large ? 'k-score-lg' : ''}`}>{score}%</span>
       <span className={categoryBadgeClass(job)}>{matchCategoryBadge(job)}</span>
       <span className="k-meta">{getMatchReadinessLabel(score)}</span>
-      <InfoTip label="What the match percentage means" align="left">{MATCH_NOTE}</InfoTip>
+      <InfoTip label="What the match percentage means" align="left">{MATCH_SCORE_DISCLAIMER}</InfoTip>
+      {large && <MatchScoreNotice className="basis-full" />}
     </div>
   );
 }

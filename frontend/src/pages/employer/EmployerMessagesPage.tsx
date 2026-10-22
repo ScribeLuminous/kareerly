@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faBan, faComments, faEllipsisVertical, faFlag, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
-import { EmptyState, InfoTip, Menu, PageHeader, SearchField } from '../../components/ui';
+import { faArrowLeft, faBan, faComments, faEllipsisVertical, faFlag, faPaperPlane, faUnlock } from '@fortawesome/free-solid-svg-icons';
+import { Banner, EmptyState, InfoTip, Menu, PageHeader, SearchField } from '../../components/ui';
+import type { MessageModerationState } from '../../lib/api';
 import { applicantTitle, candidateDisplayName, type CandidateApplication } from './model';
 
 type EmployerMessagesPageProps = {
@@ -15,9 +16,16 @@ type EmployerMessagesPageProps = {
   onSelect: (candidateId: string) => void;
   onDraftChange: (value: string) => void;
   onSend: () => void;
+  /** Report and block state of the selected thread; undefined while it loads. */
+  moderation?: MessageModerationState;
+  /** False for an unsent draft request: there is no thread to report or block yet. */
+  canModerate: boolean;
   onBlock: (candidate: CandidateApplication) => void;
+  onUnblock: (candidate: CandidateApplication) => void;
   onReport: (candidate: CandidateApplication) => void;
   onOpenCandidates: () => void;
+  /** Set when a refresh failed; the last loaded messages stay on screen. */
+  loadError?: string;
 };
 
 function threadState(candidate: CandidateApplication, draftRequestId: string): { label: string; badge: string } {
@@ -37,9 +45,13 @@ export function EmployerMessagesPage({
   onSelect,
   onDraftChange,
   onSend,
+  moderation,
+  canModerate,
   onBlock,
+  onUnblock,
   onReport,
   onOpenCandidates,
+  loadError,
 }: EmployerMessagesPageProps) {
   const [threadOpen, setThreadOpen] = useState(Boolean(draftRequestId));
   const [search, setSearch] = useState('');
@@ -63,6 +75,7 @@ export function EmployerMessagesPage({
           </InfoTip>
         </p>
       </PageHeader>
+      {loadError && <Banner tone="error" className="mb-4">{loadError}</Banner>}
 
       {threads.length === 0 ? (
         <EmptyState
@@ -118,14 +131,24 @@ export function EmployerMessagesPage({
                   <h2 className="k-item-title truncate">{name}</h2>
                   <p className="k-meta k-dot-sep truncate">{selected.publicId && selected.publicId !== name && <span>{selected.publicId}</span>}<span>{selected.role}</span></p>
                 </div>
-                <Menu
-                  label={`Conversation options for ${name}`}
-                  trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />}
-                  items={[
-                    { label: 'Report', icon: faFlag, onSelect: () => onReport(selected) },
-                    { label: 'Block', icon: faBan, danger: true, onSelect: () => onBlock(selected) },
-                  ]}
-                />
+                {canModerate && (
+                  <Menu
+                    label={`Conversation options for ${name}`}
+                    trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />}
+                    items={[
+                      {
+                        label: moderation?.reported_by_me ? 'Reported' : 'Report',
+                        icon: faFlag,
+                        disabled: Boolean(moderation?.reported_by_me),
+                        hint: moderation?.reported_by_me ? 'You already reported this conversation.' : undefined,
+                        onSelect: () => onReport(selected),
+                      },
+                      moderation?.blocked_by_me
+                        ? { label: 'Unblock', icon: faUnlock, onSelect: () => onUnblock(selected) }
+                        : { label: 'Block', icon: faBan, danger: true, onSelect: () => onBlock(selected) },
+                    ]}
+                  />
+                )}
               </header>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:p-5" aria-live="polite">
@@ -153,6 +176,12 @@ export function EmployerMessagesPage({
                 ))}
               </div>
 
+              {moderation?.blocked && (
+                <Banner tone="warn" className="mx-4 mb-3 lg:mx-5">
+                  {moderation.blocked_by_me ? `You blocked ${name}. Unblock them to message again.` : 'Messaging is unavailable for this conversation.'}
+                </Banner>
+              )}
+
               <form
                 className="flex items-end gap-2 border-t border-bdr p-3 lg:px-5"
                 onSubmit={(event) => { event.preventDefault(); if (canSend && draft.trim()) onSend(); }}
@@ -162,7 +191,7 @@ export function EmployerMessagesPage({
                   <textarea
                     className="k-textarea min-h-[44px]"
                     rows={isDraft ? 3 : 1}
-                    placeholder={canSend ? (isDraft ? 'Write your message request…' : 'Write a message…') : 'Waiting for the candidate to accept.'}
+                    placeholder={canSend ? (isDraft ? 'Write your message request…' : 'Write a message…') : moderation?.blocked ? 'Messaging is blocked.' : 'Waiting for the candidate to accept.'}
                     value={draft}
                     disabled={!canSend}
                     onChange={(event) => onDraftChange(event.target.value)}

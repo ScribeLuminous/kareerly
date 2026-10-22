@@ -161,9 +161,11 @@ export async function loadLatestResume(input: { userId: string }): Promise<Saved
     error = retry.error;
   }
 
+  // A failed read is an error, not "no resume": treating it as empty would send a
+  // returning candidate back to Step 1 and hide their saved matches.
   if (error) {
     console.warn('Unable to load latest resume:', error.message);
-    return null;
+    throw new Error(`Unable to load your saved resume: ${error.message}`);
   }
 
   return (data as SavedResumeRecord | null) || null;
@@ -220,7 +222,7 @@ export async function loadLatestMatchRun(input: { userId: string; resumeId?: str
   }
   if (error) {
     console.warn('Unable to load match history:', error.message);
-    return null;
+    throw new Error(`Unable to load your saved matches: ${error.message}`);
   }
   const results = (data?.results_json as JobMatchRunResults | null) || null;
   if (!results) return null;
