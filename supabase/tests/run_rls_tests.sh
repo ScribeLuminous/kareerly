@@ -66,4 +66,15 @@ psql_rsf -c "create table public.resumes (id uuid primary key default gen_random
 psql_rsf -f "$here/../migrations/20261013090000_resume_summary_feedback.sql"
 psql_rsf -f "$here/../migrations/20261013090000_resume_summary_feedback.sql"
 psql_rsf -f "$here/resume_summary_feedback_rls.sql"
+psql_run -c "create database candidate_progress_sync"
+psql_cps() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d candidate_progress_sync -v ON_ERROR_STOP=1 -q "$@"; }
+psql_cps -f "$here/supabase_stub.sql"
+psql_cps -c "create table public.profiles (id uuid primary key references auth.users(id) on delete cascade)"
+# candidate_skill_progress as schema.sql creates it, with its original policy.
+psql_cps -c "create table public.candidate_skill_progress (id uuid primary key default gen_random_uuid(), candidate_id uuid not null references public.profiles(id) on delete cascade, skill_id text, skill_name text not null, category_id text, category_name text, status text default 'missing' check (status in ('missing', 'started', 'in_progress', 'completed', 'evidenced', 'covered')), progress_percent integer default 0, selected_resource_id text, evidence_url text, evidence_filename text, evidence_uploaded_at timestamptz, created_at timestamptz default now(), updated_at timestamptz default now())"
+psql_cps -c "alter table public.candidate_skill_progress enable row level security; create policy \"Users can manage own candidate skill progress\" on public.candidate_skill_progress for all using (auth.uid() = candidate_id) with check (auth.uid() = candidate_id)"
+# Applied twice: the migration must be safe to re-run.
+psql_cps -f "$here/../migrations/20261022090000_candidate_progress_sync.sql"
+psql_cps -f "$here/../migrations/20261022090000_candidate_progress_sync.sql"
+psql_cps -f "$here/candidate_progress_sync_rls.sql"
 echo "All RLS and evaluation checks passed."

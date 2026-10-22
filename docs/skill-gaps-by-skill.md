@@ -99,10 +99,12 @@ on every card that needs it. The Learning tab stops suggesting courses for it.
   Completed everywhere but does not change match scores (a course mark is not a
   skill the resume shows). Undo sets it back to Not started.
 
-Skill progress (Not started, In progress, Done) is now kept per user in the
-browser (`kareerly.skillProgress.<user>`), like course completions and claimed
-skills, so it survives a reload. Re-uploading a resume no longer resets the
-saved `candidate_skill_progress` status, percent or chosen course.
+Skill progress (Not started, In progress, Done) is saved per user in
+`candidate_skill_progress` (keyed by `skill_key`), like course completions and
+claimed skills, so it survives a reload and is the same on every device. See
+migration `20261022090000_candidate_progress_sync.sql` and
+`frontend/src/lib/candidateProgress.ts`. Re-uploading a resume does not reset
+the saved status, percent or chosen course.
 
 ## 8. API
 
