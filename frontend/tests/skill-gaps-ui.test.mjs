@@ -25,6 +25,7 @@ const deps = {
   ...await loadUtility('../src/lib/uiData.ts'),
   ...await loadUtility('../src/lib/jobDescription.ts'),
   ...await loadUtility('../src/lib/phProvinces.ts'),
+  ...await loadUtility('../src/lib/matchDisclaimer.ts'),
   React,
 };
 
@@ -71,7 +72,7 @@ const page = {};
 for (const entry of [
   candidate('model.ts'), candidate('skillGaps.ts'),
   ui('hooks.ts'), ui('controls.tsx'), ui('feedback.tsx'), [ui('Modal.tsx'), 'Modal'], ui('page.tsx'),
-  candidate('common.tsx'), candidate('SkillGapsPage.tsx'), candidate('LearningPage.tsx'), candidate('ResumeSummaryCard.tsx'),
+  candidate('common.tsx'), '../src/components/MatchScoreNotice.tsx', candidate('SkillGapsPage.tsx'), candidate('LearningPage.tsx'), candidate('ResumeSummaryCard.tsx'),
 ]) {
   const [path, defaultName] = Array.isArray(entry) ? entry : [entry, ''];
   Object.assign(page, await loadModule(path, defaultName));

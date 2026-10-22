@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { faBriefcase, faBuilding, faChartColumn, faComments, faHouse, faLayerGroup, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { AppShell, ConfirmDialog, DESKTOP_QUERY, EmptyState, FormField, SkeletonRows, ToastRegion, useMediaQuery, type NextStep, type ToastState } from '../components/ui';
-import { loadApplicationMessages, loadEmployerAccountSettings, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, updateEmployerApplicationStatus } from '../lib/api';
+import { loadApplicationMessages, loadEmployerAccountSettings, loadMessageModeration, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, submitMessageModeration, updateEmployerApplicationStatus, type MessageModerationState, type MessageReportReason } from '../lib/api';
+import { ReportConversationModal } from '../components/ReportConversationModal';
 import { supabase } from '../lib/supabase';
 import { normalizeEmployerIndustry } from '../lib/employerOptions';
 import { joinLocation, splitLocation } from '../lib/phProvinces';
@@ -22,6 +23,7 @@ import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
 import { JobEditorPage } from './employer/JobEditorPage';
 import { clearJobDraft, hasJobDraftContent, jobDraftKey, useStoredJobDraft, validateJobDraft, type JobEditorDraft } from './employer/jobDraft';
 import {
+  applicantTitle,
   daysUntil,
   EMPLOYER_PAGE_PATHS,
   employerJobEditorIdFromPath,
@@ -134,6 +136,11 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [selectedThreadId, setSelectedThreadId] = useState<string>('');
   const [messageDraft, setMessageDraft] = useState('');
   const [draftRequestCandidateId, setDraftRequestCandidateId] = useState<string>('');
+  // Report and block state per application thread, as the backend returns it.
+  const [messageModeration, setMessageModeration] = useState<Record<string, MessageModerationState>>({});
+  const [messageLoadError, setMessageLoadError] = useState('');
+  const [reportTarget, setReportTarget] = useState<CandidateApplication | null>(null);
+  const [blockTarget, setBlockTarget] = useState<CandidateApplication | null>(null);
   const [reviewModalId, setReviewModalId] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; action: ReviewAction | null; candidateId: string | null }>({
     open: false,
@@ -326,7 +333,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   // Desktop shows the first conversation until another is picked.
   const selectedThreadCandidate = messageThreads.find((candidate) => candidate.id === selectedThreadId) || (isDesktop ? messageThreads[0] || null : null);
   const isDraftRequestThread = Boolean(selectedThreadCandidate && selectedThreadCandidate.id === draftRequestCandidateId && selectedThreadCandidate.messageRequestState === 'none');
-  const canSendMessage = selectedThreadCandidate?.messageRequestState === 'accepted' || isDraftRequestThread;
+  // A draft request has no thread yet, so there is nothing to report or block.
+  const selectedThreadHasThread = Boolean(selectedThreadCandidate && !isDraftRequestThread);
+  const selectedModeration = selectedThreadCandidate ? messageModeration[selectedThreadCandidate.id] : undefined;
+  const canSendMessage = (selectedThreadCandidate?.messageRequestState === 'accepted' || isDraftRequestThread) && !selectedModeration?.blocked;
 
   const reviewCandidate = applications.find((candidate) => candidate.id === reviewModalId) || null;
   const reviewJob = reviewCandidate ? jobMap.get(reviewCandidate.jobId) || null : null;
@@ -519,11 +529,22 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       const publicIdsByApplication = new Map<string, string>(
         (Array.isArray(publicIdData) ? publicIdData : []).map((row) => [String(row.application_id), String(row.public_id || '')]),
       );
-      const messageResults = await Promise.all(applicationIds.map(async (applicationId) => ({
-        applicationId,
-        messages: await loadApplicationMessages(applicationId).catch(() => []),
-      })));
-      const messagesByApplication = new Map<string, ApplicationMessageRow[]>(messageResults.map(({ applicationId, messages }) => [
+      // Only conversations the Messages page lists have an open thread to read:
+      // a message request was sent, and the applicant is Interviewing or Hired.
+      const threadApplicationIds = new Set(rows
+        .filter((row) => ['interviewing', 'hired'].includes(String(row.status || '').toLowerCase()))
+        .filter((row) => row.message_request_state === 'pending' || row.message_request_state === 'accepted')
+        .map((row) => row.id));
+      const messageResults = await Promise.all(applicationIds.filter((id) => threadApplicationIds.has(id)).map(async (applicationId) => {
+        try {
+          return { applicationId, messages: await loadApplicationMessages(applicationId), failed: false };
+        } catch (error) {
+          console.warn('Unable to load messages:', error);
+          return { applicationId, messages: [], failed: true };
+        }
+      }));
+      const failedMessageIds = new Set(messageResults.filter((result) => result.failed).map((result) => result.applicationId));
+      const messagesByApplication = new Map<string, ApplicationMessageRow[]>(messageResults.filter((result) => !result.failed).map(({ applicationId, messages }) => [
         applicationId,
         messages.map((message) => ({
           id: message.id || `${applicationId}-${message.created_at || ''}`,
@@ -537,7 +558,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       ]));
 
       if (!isMounted) return;
-      setApplications(rows.map((row) => toCandidateApplication(row, jobs, messagesByApplication.get(row.id) || [], publicIdsByApplication.get(row.id) || '')));
+      setApplications((current) => rows.map((row) => {
+        const next = toCandidateApplication(row, jobs, messagesByApplication.get(row.id) || [], publicIdsByApplication.get(row.id) || '');
+        // A failed refresh keeps this conversation as last loaded instead of emptying it.
+        const previous = failedMessageIds.has(row.id) ? current.find((candidate) => candidate.id === row.id) : undefined;
+        return previous ? { ...next, messages: previous.messages } : next;
+      }));
+      setMessageLoadError(failedMessageIds.size > 0 ? 'Some messages could not be loaded. Showing what loaded last; Kareerly keeps retrying.' : '');
       setApplicationsLoadStatus('ready');
     };
 
@@ -974,6 +1001,57 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     showToast('No active message thread for this candidate yet.', 'warn');
   };
 
+  const selectedThreadKey = selectedThreadHasThread ? selectedThreadCandidate?.id || '' : '';
+  useEffect(() => {
+    if (!selectedThreadKey) return undefined;
+    let isMounted = true;
+    loadMessageModeration(selectedThreadKey)
+      .then((moderation) => { if (isMounted) setMessageModeration((current) => ({ ...current, [selectedThreadKey]: moderation })); })
+      .catch((error: unknown) => {
+        console.warn('Unable to load message moderation state:', error);
+        if (isMounted) showToast(error instanceof Error ? error.message : 'Unable to check whether this conversation is blocked.', 'warn');
+      });
+    return () => { isMounted = false; };
+  }, [selectedThreadKey]);
+
+  const applyMessageModeration = async (
+    candidate: CandidateApplication,
+    input: { action: 'report' | 'block' | 'unblock'; reason?: MessageReportReason; details?: string },
+  ): Promise<boolean> => {
+    try {
+      const moderation = await submitMessageModeration({ applicationId: candidate.id, ...input });
+      setMessageModeration((current) => ({ ...current, [candidate.id]: moderation }));
+      return true;
+    } catch (error) {
+      console.warn('Unable to update message moderation:', error);
+      showToast(error instanceof Error ? error.message : 'Unable to complete this action. Please try again.', 'danger');
+      return false;
+    }
+  };
+
+  const submitMessageReport = async (reason: MessageReportReason, details: string, alsoBlock: boolean) => {
+    if (!reportTarget) return;
+    const candidate = reportTarget;
+    const label = applicantTitle(candidate);
+    if (!(await applyMessageModeration(candidate, { action: 'report', reason, details }))) return;
+    if (alsoBlock && !(await applyMessageModeration(candidate, { action: 'block' }))) return;
+    setReportTarget(null);
+    showToast(alsoBlock ? `${label} was reported and blocked.` : `Thanks — ${label} was reported for review.`, 'success');
+  };
+
+  const confirmBlockCandidate = async () => {
+    if (!blockTarget) return;
+    const candidate = blockTarget;
+    if (!(await applyMessageModeration(candidate, { action: 'block' }))) return;
+    setBlockTarget(null);
+    setMessageDraft('');
+    showToast(`${applicantTitle(candidate)} is blocked. They can no longer message you here.`, 'warn');
+  };
+
+  const unblockCandidate = async (candidate: CandidateApplication) => {
+    if (await applyMessageModeration(candidate, { action: 'unblock' })) showToast(`${applicantTitle(candidate)} is unblocked.`, 'success');
+  };
+
   const sendMessage = async () => {
     if (!selectedThreadCandidate || !canSendMessage) return;
     const text = messageDraft.trim();
@@ -1331,9 +1409,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onSelect={setSelectedThreadId}
           onDraftChange={setMessageDraft}
           onSend={() => void sendMessage()}
-          onBlock={() => showToast('Block action recorded.', 'warn')}
-          onReport={() => showToast('Report submitted.', 'warn')}
+          moderation={selectedModeration}
+          canModerate={selectedThreadHasThread}
+          onBlock={setBlockTarget}
+          onUnblock={(candidate) => void unblockCandidate(candidate)}
+          onReport={setReportTarget}
           onOpenCandidates={() => goPage('candidates')}
+          loadError={messageLoadError}
         />
       )}
 
@@ -1411,6 +1493,26 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           danger
           onCancel={() => setDeleteProfileModalOpen(false)}
           onConfirm={requestDeleteEmployerProfile}
+        />
+      )}
+
+      {reportTarget && (
+        <ReportConversationModal
+          name={applicantTitle(reportTarget)}
+          alreadyBlocked={Boolean(messageModeration[reportTarget.id]?.blocked_by_me)}
+          onCancel={() => setReportTarget(null)}
+          onSubmit={submitMessageReport}
+        />
+      )}
+
+      {blockTarget && (
+        <ConfirmDialog
+          title={`Block ${applicantTitle(blockTarget)}?`}
+          message="They won't be able to message you here, and you won't be able to send them messages. Their application isn't affected. You can unblock them later."
+          danger
+          confirmLabel="Block"
+          onCancel={() => setBlockTarget(null)}
+          onConfirm={() => void confirmBlockCandidate()}
         />
       )}
 

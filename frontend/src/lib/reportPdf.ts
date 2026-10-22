@@ -1,3 +1,4 @@
+import { MATCH_SCORE_DISCLAIMER_PLAIN } from './matchDisclaimer';
 import type { jsPDF as JsPdfDocument } from 'jspdf';
 
 /**
@@ -100,6 +101,7 @@ export function buildCareerReportPdf(JsPdf: JsPdfConstructor, content: CareerRep
   write(content.title, { size: 18, bold: true, gap: 1 });
   write(`Generated ${content.generatedAt.toLocaleString()}`, { size: 9, color: COLORS.soft, gap: 1 });
   if (content.accessNote) write(content.accessNote, { size: 9, color: COLORS.soft });
+  write(MATCH_SCORE_DISCLAIMER_PLAIN, { size: 9, color: COLORS.soft });
 
   heading('Summary');
   for (const item of content.summary) {

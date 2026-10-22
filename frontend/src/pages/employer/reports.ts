@@ -227,7 +227,7 @@ export function buildApplicantReportPdf(JsPdf: JsPdfConstructor, content: Applic
 
   write(content.title, { size: 18, bold: true, gap: 1 });
   write(`${content.scopeLabel}  |  Generated ${content.generatedAt.toLocaleString()}`, { size: 9, color: COLORS.soft, gap: 1 });
-  write('Names and locations are shown only for applicants at Interviewing or later, as on screen. Profile match is the share of the job\'s required skills found in the application; it is one input, not a ranking.', { size: 9, color: COLORS.soft });
+  write('Names and locations are shown only for applicants at Interviewing or later, as on screen. Profile match is the share of the job\'s required skills found in the application; it is one input, not a ranking, and not a probability of being hired.', { size: 9, color: COLORS.soft });
 
   heading('Match insights by job');
   if (content.insights.length === 0) write('No applicants in this report.', { color: COLORS.soft });

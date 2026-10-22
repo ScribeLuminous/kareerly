@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBookmark, faBriefcase, faMagnifyingGlassChart, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { MatchScoreNotice } from '../../components/MatchScoreNotice';
 import RegionFilterNotice from '../../components/RegionFilterNotice';
 import { EmptyState, FilterChoice, FilterPanel, SearchField, Segmented, SkeletonRows } from '../../components/ui';
 import type { JobMatchRunResults } from '../../types';
@@ -125,6 +126,7 @@ export function JobMatchesPage({
           </button>
         )}
       />
+      <MatchScoreNotice className="-mt-2 mb-3" />
 
       <Segmented<MatchView>
         label="Match list"
