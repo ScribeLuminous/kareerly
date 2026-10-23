@@ -143,7 +143,7 @@ function JobAssessmentSection({ rubric, templateName, onEditRubric }: { rubric: 
   return (
     <section className="k-detail-section" aria-label="Candidate Assessment">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="k-label">Candidate Assessment{rubric ? ` · v${rubric.version}` : ''}</h3>
+        <h3 className="k-label">Candidate Assessment</h3>
         <button className="k-btn k-btn-ghost k-btn-sm" type="button" onClick={onEditRubric}>{rubric ? 'Edit' : 'Set up'}</button>
       </div>
       {rubric ? (
@@ -273,7 +273,7 @@ function JobDetailPage({ job, stats, rubricVersion, rubric, templateName, onBack
               <FontAwesomeIcon icon={faPen} aria-hidden="true" />Edit
             </button>
             <button className="k-btn k-btn-secondary" type="button" onClick={() => onEditRubric(job.id)}>
-              <FontAwesomeIcon icon={faClipboardCheck} aria-hidden="true" />{rubricVersion ? `Assessment & rubric v${rubricVersion}` : 'Set up assessment'}
+              <FontAwesomeIcon icon={faClipboardCheck} aria-hidden="true" />{rubricVersion ? 'Assessment & rubric' : 'Set up assessment'}
             </button>
             {job.status === 'open' ? (
               <button className="k-btn k-btn-ghost" type="button" onClick={() => onRequestAction('close')}>
@@ -297,8 +297,8 @@ function JobDetailPage({ job, stats, rubricVersion, rubric, templateName, onBack
           </div>
         </header>
         <div className="px-0">
-          <JobAssessmentSection rubric={rubric} templateName={templateName} onEditRubric={() => onEditRubric(job.id)} />
           <JobDetailBody job={job} stats={stats} />
+          <JobAssessmentSection rubric={rubric} templateName={templateName} onEditRubric={() => onEditRubric(job.id)} />
         </div>
       </article>
     </div>
