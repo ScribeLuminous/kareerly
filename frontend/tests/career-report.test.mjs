@@ -15,7 +15,8 @@ function load(path, replacements = {}) {
 const careerAreas = load('../src/lib/careerAreas.ts');
 const regionPreference = load('../src/lib/regionPreference.ts');
 const preferences = await import(load('../src/lib/preferenceOptions.ts', { './careerAreas': careerAreas, './regionPreference': regionPreference }));
-const reportPdf = await import(load('../src/lib/reportPdf.ts', { jspdf: import.meta.resolve('jspdf') }));
+const matchDisclaimer = load('../src/lib/matchDisclaimer.ts');
+const reportPdf = await import(load('../src/lib/reportPdf.ts', { jspdf: import.meta.resolve('jspdf'), './matchDisclaimer': matchDisclaimer }));
 const snapshotSource = readFileSync(new URL('../src/components/SnapshotStep.tsx', import.meta.url), 'utf8');
 
 test('the preference summary shows labels for the answers given', () => {
@@ -74,6 +75,8 @@ test('the PDF holds the report text and continues long reports on new pages', ()
     assert.ok(text.includes(expected), expected);
   }
   assert.equal(short.getNumberOfPages(), 1);
+  // The match-score disclaimer is printed under the title of every report.
+  assert.ok(text.includes('Match percentages show how closely skills and experience line up'), 'match-score disclaimer');
   const long = reportPdf.buildCareerReportPdf(jsPDF, content(40));
   assert.ok(long.getNumberOfPages() > 2);
   assert.ok(long.output().includes(`Page ${long.getNumberOfPages()} of ${long.getNumberOfPages()}`));

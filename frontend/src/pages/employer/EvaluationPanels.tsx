@@ -35,7 +35,7 @@ export function ProfileMatchPanel({ match, applyTimeRankingScore }: { match: Pro
       <h3 id="profile-match-heading" className="k-label mb-1 flex items-center gap-1">
         Profile match
         <InfoTip label="How profile match is worked out">
-          Profile match comes only from the application: the job's required skills that were found in the candidate's resume when they applied, divided by the number of required skills. It says nothing about skills the resume didn't mention, and it is not a prediction of job performance.
+          Profile match comes only from the application: the job's required skills that were found in the candidate's resume when they applied, divided by the number of required skills. It says nothing about skills the resume didn't mention, and it is not a hiring probability or a prediction of job performance.
         </InfoTip>
       </h3>
       {match.percent === null ? (

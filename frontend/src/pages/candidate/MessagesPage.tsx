@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faBan, faComments, faEllipsisVertical, faFlag, faLock, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
-import { EmptyState, Menu } from '../../components/ui';
+import { Banner, EmptyState, Menu } from '../../components/ui';
 import type { MessageModerationState } from '../../lib/api';
 import { ApplicationsHeader, type ApplicationsTab } from './ApplicationsPage';
 import type { DashboardApplication, MessageRequestState } from './model';
@@ -27,6 +27,8 @@ type MessagesPageProps = {
   onTab: (tab: ApplicationsTab) => void;
   messageCount: number;
   isDesktop: boolean;
+  /** Set when a refresh failed; the last loaded messages stay on screen. */
+  loadError?: string;
 };
 
 const stateBadge: Record<MessageRequestState, string> = {
@@ -57,6 +59,7 @@ export function MessagesPage({
   onTab,
   messageCount,
   isDesktop,
+  loadError,
 }: MessagesPageProps) {
   const [threadOpen, setThreadOpen] = useState(false);
   const selected = applications.find((app) => app.jobId === selectedJobId) || null;
@@ -70,6 +73,7 @@ export function MessagesPage({
     <div className="k-page">
       <ApplicationsHeader tab="messages" onTab={onTab} messageCount={messageCount} />
       <div id="applications-panel" role="tabpanel" aria-labelledby="applications-tab-messages">
+        {loadError && <Banner tone="error" className="mb-4">{loadError}</Banner>}
         {applications.length === 0 ? (
           <EmptyState icon={faComments} title="No messages yet" text="Employers can message you once your application reaches Interviewing." />
         ) : (

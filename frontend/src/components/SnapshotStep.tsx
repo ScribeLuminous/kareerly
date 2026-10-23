@@ -6,6 +6,7 @@ import type { PreferenceSummaryItem } from '../lib/preferenceOptions';
 import { downloadCareerReportPdf } from '../lib/reportPdf';
 import type { CareerReportContent, ReportMatchEntry } from '../lib/reportPdf';
 import RegionFilterNotice from './RegionFilterNotice';
+import { MatchScoreNotice } from './MatchScoreNotice';
 import StepArrowButton from './StepArrowButton';
 import {
   faBookOpen,
@@ -458,6 +459,7 @@ export default function SnapshotStep({ isLoggedIn, onSignUp, onViewDashboard }: 
           <strong className="k-num text-dark">{summaryCards[0].value}</strong> Fit-Now matches · <strong className="k-num text-dark">{summaryCards[1].value}</strong> skill gaps · <strong className="k-num text-dark">{summaryCards[2].value}</strong> learning suggestions
         </p>
         <p className="k-meta mt-1">{summaryCards[0].detail}</p>
+        <MatchScoreNotice className="mt-2" />
       </div>
       {jobLevelLock?.applied && jobLevelLock.message && (
         <div className="k-banner k-banner-warn" role="status" data-testid="job-level-lock-report">
