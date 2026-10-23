@@ -118,6 +118,17 @@ class MessageModerationRequest(BaseModel):
 
 MESSAGE_REPORT_REASONS = {"spam", "harassment", "scam", "inappropriate", "impersonation", "other"}
 
+UNREADABLE_MESSAGE_TEXT = "This message could not be shown. Please contact Kareerly support if this keeps happening."
+
+# Shown wherever a match percentage leaves the app (reports and downloads).
+MATCH_SCORE_DISCLAIMER = (
+    "The match percentage shows how closely the candidate's skills and experience line up with this job. "
+    "It is not a probability of being hired; the employer makes the hiring decision."
+)
+
+
+CLOSED_APPLICATION_STATUSES = {"hired", "rejected", "withdrawn"}
+
 
 class EmployerApplicationStatusRequest(BaseModel):
     application_id: str
@@ -322,7 +333,9 @@ def _create_employer_message_thread(application_id: str, user_id: str) -> dict:
 
 
 def _message_block_state(application_id: str, user_id: str) -> dict:
-    """Latest block/unblock per participant; a missing table degrades to unblocked."""
+    """Latest block/unblock per participant. Only a missing table (migration not
+    applied) degrades to unblocked; any other failure is an error, so a block is
+    never ignored because the check could not run."""
     query = urllib.parse.urlencode({
         "application_id": f"eq.{application_id}",
         "action": "in.(block,unblock,report)",
@@ -332,7 +345,9 @@ def _message_block_state(application_id: str, user_id: str) -> dict:
     })
     try:
         rows = _supabase_request(f"/rest/v1/message_moderation_actions?{query}", service_role=True)
-    except HTTPException:
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise HTTPException(status_code=503, detail="Unable to check this conversation's block status. Please try again.") from exc
         rows = []
     latest_block_action: dict[str, dict] = {}
     reported_by_me = False
@@ -415,6 +430,8 @@ def get_application_messages(application_id: str, authorization: Annotated[Optio
         try:
             plaintext = cipher.decrypt(base64.b64decode(row["encryption_nonce"]), base64.b64decode(row["ciphertext"]), str(thread["id"]).encode("utf-8")).decode("utf-8")
         except Exception:
+            # Keep the message in the thread so a gap is visible, not silently skipped.
+            output.append({**row, "message_text": UNREADABLE_MESSAGE_TEXT, "unreadable": True})
             continue
         output.append({**row, "message_text": plaintext})
     return output
@@ -472,7 +489,7 @@ def update_employer_application_status(payload: EmployerApplicationStatusRequest
     if status == "rejected" and not (payload.rejection_reason or "").strip():
         raise HTTPException(status_code=400, detail="A rejection reason is required.")
 
-    app_query = urllib.parse.urlencode({"id": f"eq.{payload.application_id}", "select": "id,job_id", "limit": "1"})
+    app_query = urllib.parse.urlencode({"id": f"eq.{payload.application_id}", "select": "id,job_id,status", "limit": "1"})
     app_rows = _supabase_request(f"/rest/v1/job_applications?{app_query}", service_role=True)
     application = app_rows[0] if isinstance(app_rows, list) and app_rows else None
     employer_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "id", "limit": "1"})
@@ -487,11 +504,23 @@ def update_employer_application_status(payload: EmployerApplicationStatusRequest
 
     updated = _set_application_stage_as_employer(authorization, payload.application_id, status, payload.rejection_reason)
     if updated is None:
-        # Databases without the structured-evaluation migration: update directly.
+        # Databases without the structured-evaluation migration: update directly,
+        # with the same rule as set_application_stage. A withdrawn, hired or
+        # rejected application is closed; the update is also conditional on the
+        # status read above, so a withdrawal made meanwhile is not overwritten.
+        current_status = str(application.get("status") or "").lower()
+        if current_status in CLOSED_APPLICATION_STATUSES:
+            raise HTTPException(status_code=409, detail="This application is closed and cannot change stage.")
         body = {"status": status, "updated_at": _safe_timestamp()}
         if status == "rejected":
             body["rejection_reason"] = payload.rejection_reason.strip()
-        updated = _supabase_request(f"/rest/v1/job_applications?id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
+        update_filters = {"id": f"eq.{payload.application_id}"}
+        if current_status:
+            update_filters["status"] = f"eq.{current_status}"
+        update_query = urllib.parse.urlencode(update_filters)
+        updated = _supabase_request(f"/rest/v1/job_applications?{update_query}", method="PATCH", service_role=True, body=body, prefer="return=representation")
+        if not isinstance(updated, list) or not updated:
+            raise HTTPException(status_code=409, detail="This application changed while you were updating it. Reload and try again.")
     if status == "rejected":
         _supabase_request(f"/rest/v1/message_threads?application_id=eq.{urllib.parse.quote(payload.application_id, safe='')}", method="PATCH", service_role=True, body={"status": "closed"})
     return {"application": updated[0] if isinstance(updated, list) and updated else updated}
@@ -2391,6 +2420,33 @@ async def resume_summary(payload: str = Form(...)) -> dict:
     )
 
 
+def _parse_timestamp(value: object) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _confirmed_skills_since(user_id: str, resume_created_at: object) -> list[dict]:
+    """Skills confirmed on the Skills review step, if saved after the given resume."""
+    query = urllib.parse.urlencode({
+        "user_id": f"eq.{user_id}",
+        "source": "eq.confirmed_skill",
+        "select": "skill_id,skill_name,confidence,created_at",
+        "order": "created_at.desc",
+    })
+    rows = _supabase_request(f"/rest/v1/user_skills?{query}", service_role=True)
+    rows = [row for row in rows if isinstance(row, dict) and str(row.get("skill_name") or "").strip()] if isinstance(rows, list) else []
+    if not rows:
+        return []
+    resume_time = _parse_timestamp(resume_created_at)
+    saved_times = [time for time in (_parse_timestamp(row.get("created_at")) for row in rows) if time]
+    if resume_time and (not saved_times or max(saved_times) < resume_time):
+        return []
+    return [{"skill_id": row.get("skill_id"), "skill_name": row.get("skill_name"), "confidence": row.get("confidence")} for row in rows]
+
+
 def _load_external_job_candidate(user_id: str) -> tuple[str, list[dict], dict, dict]:
     resume_query = urllib.parse.urlencode({
         "user_id": f"eq.{user_id}",
@@ -2410,7 +2466,12 @@ def _load_external_job_candidate(user_id: str) -> tuple[str, list[dict], dict, d
     profile_json = resume.get("extracted_profile_json") if isinstance(resume, dict) else {}
     profile_json = profile_json if isinstance(profile_json, dict) else {}
     profile = profile_json.get("candidate_profile") if isinstance(profile_json.get("candidate_profile"), dict) else {}
-    skill_records = profile.get("skills") if isinstance(profile.get("skills"), list) else []
+    # The skills the candidate reviewed and confirmed (saved with each match run)
+    # are the same ones Fit-Now and Aspiration matching used, so this analysis
+    # agrees with the dashboard. They count only when saved after this resume.
+    skill_records = _confirmed_skills_since(user_id, resume.get("created_at") if isinstance(resume, dict) else None)
+    if not skill_records:
+        skill_records = profile.get("skills") if isinstance(profile.get("skills"), list) else []
     if not skill_records:
         skill_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "skill_id,skill_name,confidence", "order": "created_at.desc"})
         skill_rows = _supabase_request(f"/rest/v1/user_skills?{skill_query}", service_role=True)
@@ -2563,6 +2624,8 @@ def _build_external_job_report(analysis: dict) -> tuple[BytesIO, str]:
         run = paragraph.add_run(f"{label}: ")
         run.bold = True
         paragraph.add_run(str(value))
+    score_note = document.add_paragraph(MATCH_SCORE_DISCLAIMER)
+    score_note.runs[0].italic = True
 
     document.add_heading("Why This Matches", level=1)
     document.add_paragraph(str(match.get("explanation") or "No explanation is available."))
