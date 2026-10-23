@@ -352,7 +352,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     const rubric = latestRubrics.get(job.id);
     if (!rubric) return 'No assessment yet';
     const template = templates.find((item) => item.id === rubric.templateId);
-    return template ? `Uses ${template.name}` : `Own assessment v${rubric.version}`;
+    return template ? `Uses ${template.name}` : 'Own assessment';
   };
 
   const refreshTemplates = useCallback(() => loadAssessmentTemplates()
