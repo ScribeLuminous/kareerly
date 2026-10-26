@@ -313,16 +313,30 @@ export const getSalaryAmounts = (value: string): { minimum: number; maximum: num
   };
 };
 
+/** The editor's "minimum-maximum" salary as numbers; 0 for a side left empty. */
+export const parseSalaryInput = (value: string): { minimum: number; maximum: number } => {
+  const [minimum = '', maximum = ''] = value.split('-');
+  const amount = (part: string) => Number(part.replace(/[^\d]/g, '')) || 0;
+  return { minimum: amount(minimum), maximum: amount(maximum) };
+};
+
+/** Back from formatPesoSalary to the editor's "minimum-maximum" form. */
 export const toSalaryInputValue = (value: string): string => {
-  const { minimum, maximum } = getSalaryAmounts(value);
-  if (!minimum && !maximum) return '';
-  return `${minimum || ''}-${maximum || ''}`;
+  const text = value.trim();
+  const { minimum, maximum } = getSalaryAmounts(text);
+  if (!minimum) return '';
+  // Drafts can be saved with only one side of the range.
+  if (/^up to/i.test(text)) return `-${minimum}`;
+  if (/^from/i.test(text)) return `${minimum}-`;
+  return `${minimum}-${maximum}`;
 };
 
 export const formatPesoSalary = (value: string): string => {
-  const { minimum, maximum } = getSalaryAmounts(value);
-  if (!minimum || !maximum) return '';
-  return `₱${minimum.toLocaleString('en-PH')} - ${maximum.toLocaleString('en-PH')}`;
+  const { minimum, maximum } = parseSalaryInput(value);
+  if (minimum && maximum) return `₱${minimum.toLocaleString('en-PH')} - ${maximum.toLocaleString('en-PH')}`;
+  if (minimum) return `From ₱${minimum.toLocaleString('en-PH')}`;
+  if (maximum) return `Up to ₱${maximum.toLocaleString('en-PH')}`;
+  return '';
 };
 
 export const getCategoryCode = (categoryValue: string): string => jobCategoryOptions.find((category) => category.value === categoryValue)?.code || '';

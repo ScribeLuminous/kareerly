@@ -497,6 +497,23 @@ test('job drafts keep only real work and read back safely', () => {
   assert.equal(employerPage.addSkills(['SQL'], 'sql'), null);
 
   assert.equal(employerPage.validateJobDraft(blank), 'Add a job title.');
+  // Save draft needs only a title; posting needs every required field.
+  const halfFilled = { ...blank, form: { ...blank.form, title: 'Front Desk Agent', salaryRange: '12000-' } };
+  assert.equal(employerPage.validateDraftSave(blank), 'Add a job title to save a draft.');
+  assert.equal(employerPage.validateDraftSave(halfFilled), null);
+  assert.equal(employerPage.validateJobDraft({ ...halfFilled, form: { ...halfFilled.form, category: 'x', subcategory: 'x', experienceLevel: 'x', workSetup: 'x', city: 'x', province: 'x', deadline: '2026-12-01' } }), 'Enter both a minimum and a maximum salary.');
+
+  // A one-sided salary on a saved draft comes back to the editor as entered.
+  const minimumOnly = employerPage.toEmployerJob({ job_id: 'EMP-2', job_title: 'Front Desk Agent', salary_min_php: 12000, salary_max_php: null, posting_status: 'draft' });
+  assert.equal(minimumOnly.salaryRange, 'From ₱12,000');
+  assert.equal(employerPage.jobToDraft(minimumOnly).form.salaryRange, '12000-');
+  const maximumOnly = employerPage.toEmployerJob({ job_id: 'EMP-3', job_title: 'Front Desk Agent', salary_max_php: 20000, posting_status: 'draft' });
+  assert.equal(employerPage.jobToDraft(maximumOnly).form.salaryRange, '-20000');
+  const fullRange = employerPage.toEmployerJob({ job_id: 'EMP-4', job_title: 'Front Desk Agent', salary_min_php: 12000, salary_max_php: 20000 });
+  assert.equal(fullRange.salaryRange, '₱12,000 - 20,000');
+  assert.equal(employerPage.jobToDraft(fullRange).form.salaryRange, '12000-20000');
+  assert.equal(minimumOnly.deadline, '');
+
   const now = Date.parse('2026-10-02T12:00:00Z');
   assert.equal(employerPage.draftSavedLabel('2026-10-02T11:59:30Z', now), 'just now');
   assert.equal(employerPage.draftSavedLabel('2026-10-02T11:55:00Z', now), '5 minutes ago');
