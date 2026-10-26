@@ -200,7 +200,7 @@ export function JobEditorPage({ job, draftKey, companyLocation, backLabel, onBac
         <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />{backLabel}
       </button>
       <PageHeader title={editing ? 'Edit job' : 'Post a job'}>
-        <p className="k-secondary mt-1">Required fields are marked *. Your changes are kept on this device until you save or post, so you can leave and come back.</p>
+        <p className="k-secondary mt-1">Required fields are marked * and are needed to post. Save draft keeps the job with whatever you have filled in so far, and your changes are kept on this device until you save or post.</p>
       </PageHeader>
 
       {restoredAt && !restoreDismissed && (

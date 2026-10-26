@@ -1,5 +1,5 @@
 import { useMemo, useSyncExternalStore } from 'react';
-import { emptyJobForm, getSalaryAmounts, MIN_EMPLOYER_SALARY, toSalaryInputValue, type EmployerJob, type JobFormState } from './model';
+import { emptyJobForm, MIN_EMPLOYER_SALARY, parseSalaryInput, toSalaryInputValue, type EmployerJob, type JobFormState } from './model';
 
 /**
  * Unsaved work in the job editor, kept in this browser so leaving the page,
@@ -79,7 +79,15 @@ export function hasJobDraftContent(draft: JobEditorDraft): boolean {
     || draft.niceSkillInput.trim() !== '';
 }
 
-/** What still blocks saving, or null when the job is ready. */
+/**
+ * What blocks Save draft. Drafts stay hidden from candidates, so they can be
+ * saved half-filled; the title is kept so the draft can be found again.
+ */
+export function validateDraftSave(draft: JobEditorDraft): string | null {
+  return draft.form.title.trim() ? null : 'Add a job title to save a draft.';
+}
+
+/** What still blocks posting, or null when the job is ready. */
 export function validateJobDraft(draft: JobEditorDraft): string | null {
   const { form } = draft;
   if (!form.title.trim()) return 'Add a job title.';
@@ -91,7 +99,7 @@ export function validateJobDraft(draft: JobEditorDraft): string | null {
   if (!form.province.trim()) return 'Choose a province.';
   if (!form.deadline.trim()) return 'Set an application deadline.';
   if (!form.salaryRange.trim()) return 'Add a salary range.';
-  const { minimum, maximum } = getSalaryAmounts(form.salaryRange);
+  const { minimum, maximum } = parseSalaryInput(form.salaryRange);
   if (!minimum || !maximum) return 'Enter both a minimum and a maximum salary.';
   if (minimum < MIN_EMPLOYER_SALARY) return `The minimum salary must be at least ₱${MIN_EMPLOYER_SALARY.toLocaleString('en-PH')}.`;
   if (maximum < minimum) return 'The maximum salary must be at least the minimum.';
