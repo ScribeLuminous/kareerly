@@ -7,6 +7,7 @@ import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSu
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
 import { getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
+import { applyProgressChanges, clearLegacyProgress, diffProgressPart, hasLegacyProgress, hasProgressChanges, loadCandidateProgress, mergeLoadedProgress, PROGRESS_PARTS, readLegacyProgress, saveProgressChanges, type CandidateProgress, type ProgressHelpers } from '../lib/candidateProgress';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestMatchRun, loadLatestResume, saveMatchHistory, saveResumeAnalysis, type ExistingResumeFile, type SavedResumeRecord } from '../lib/userData';
 import { assessSavedResume, extractionWarnings, staleResumeMessage, type SavedResumeFreshness } from '../lib/resumeFreshness';
@@ -43,6 +44,25 @@ type DashboardProps = {
   onLogout: () => void;
 };
 
+const PROGRESS_HELPERS: ProgressHelpers = { keyOf: skillRecordKey, categoryOf: classifySkillCategory };
+
+function browserStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** The skill list with every claimed skill in it (claims count as the candidate's skills). */
+function withClaimedSkillNames(names: string[], claimed: Record<string, ClaimedSkill>): string[] {
+  const merged = [...names];
+  Object.values(claimed).forEach((item) => {
+    if (!merged.some((name) => normalizeSkill(name) === normalizeSkill(item.skillName))) merged.push(item.skillName);
+  });
+  return merged;
+}
+
 export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUpdateResume, onLogout }: DashboardProps) {
   void onLogin;
   void onSignUp;
@@ -58,7 +78,8 @@ export default function Dashboard({ currentUser, onHome, onLogin, onSignUp, onUp
     );
   }
 
-  return <CandidateWorkspace currentUser={currentUser} onHome={onHome} onUpdateResume={onUpdateResume} onLogout={onLogout} />;
+  // Keyed by account, so another sign-in never starts from the previous user's state.
+  return <CandidateWorkspace key={currentUser.id || currentUser.email} currentUser={currentUser} onHome={onHome} onUpdateResume={onUpdateResume} onLogout={onLogout} />;
 }
 
 function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: Pick<DashboardProps, 'onHome' | 'onUpdateResume' | 'onLogout'> & { currentUser: NonNullable<DashboardProps['currentUser']> }) {
@@ -142,24 +163,16 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [resumePreview, setResumePreview] = useState<{ url: string; name: string; mimeType: string; local: boolean } | null>(null);
   const [docxPreviewResult, setDocxPreviewResult] = useState<{ url: string; html: string; error: string } | null>(null);
   const [candidatePublicId, setCandidatePublicId] = useState('');
-  // Gap skills the candidate says they already have. Kept per user so they stay
-  // in the skill list (and out of learning suggestions) after the resume reloads.
-  const claimedSkillsStorageKey = `kareerly.claimedSkills.${currentUser.id || currentUser.email}`;
-  const [claimedSkills, setClaimedSkills] = useState<Record<string, ClaimedSkill>>(() => {
-    try {
-      const saved = window.localStorage.getItem(claimedSkillsStorageKey);
-      return saved ? JSON.parse(saved) as Record<string, ClaimedSkill> : {};
-    } catch {
-      return {};
-    }
-  });
-  const withClaimedSkills = (names: string[]) => {
-    const merged = [...names];
-    Object.values(claimedSkills).forEach((item) => {
-      if (!merged.some((name) => normalizeSkill(name) === normalizeSkill(item.skillName))) merged.push(item.skillName);
-    });
-    return merged;
-  };
+  // Gap skills the candidate says they already have. Saved to the account
+  // (with skill progress and course completions, below) so they stay in the
+  // skill list and out of learning suggestions on every device.
+  const [claimedSkills, setClaimedSkills] = useState<Record<string, ClaimedSkill>>({});
+  const withClaimedSkills = (names: string[]) => withClaimedSkillNames(names, claimedSkills);
+  // The latest claims, for actions that run later (a toast's Undo).
+  const claimedSkillsRef = useRef(claimedSkills);
+  useEffect(() => {
+    claimedSkillsRef.current = claimedSkills;
+  }, [claimedSkills]);
   const [skillNames, setSkillNames] = useState<string[]>(() => withClaimedSkills(extractSkillsFromResume(state.resume)));
   const [selectedThreadJobId, setSelectedThreadJobId] = useState<string>('');
   const [messageRequests, setMessageRequests] = useState<Record<string, string>>({});
@@ -175,26 +188,25 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [kareersError, setKareersError] = useState<string | null>(null);
   // Only explicit evidence uploads belong here; resume mentions are not uploaded or verified evidence.
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceUploadRecord[]>([]);
-  // Kept per user in the browser, like course completions, so Done and In
-  // progress (and the Completed section) survive a reload.
-  const skillProgressStorageKey = `kareerly.skillProgress.${currentUser.id || currentUser.email}`;
-  const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>(() => {
-    try {
-      const saved = window.localStorage.getItem(skillProgressStorageKey);
-      return saved ? JSON.parse(saved) as Record<string, SkillProgressRecord> : {};
-    } catch {
-      return {};
-    }
-  });
-  const courseCompletionStorageKey = `kareerly.courseCompletions.${currentUser.id || currentUser.email}`;
-  const [courseCompletions, setCourseCompletions] = useState<Record<string, CourseCompletion>>(() => {
-    try {
-      const saved = window.localStorage.getItem(courseCompletionStorageKey);
-      return saved ? JSON.parse(saved) as Record<string, CourseCompletion> : {};
-    } catch {
-      return {};
-    }
-  });
+  // Saved to the account, like course completions, so Done and In progress
+  // (and the Completed section) survive a reload and match on every device.
+  const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>({});
+  const [courseCompletions, setCourseCompletions] = useState<Record<string, CourseCompletion>>({});
+  // Loading and saving those three (lib/candidateProgress). Nothing is saved
+  // until the account's copy has loaded, so a slow or failed load never
+  // overwrites it.
+  const [progressLoad, setProgressLoad] = useState<{ status: 'loading' | 'ready' | 'error'; error: string }>(() => (
+    currentUser.id ? { status: 'loading', error: '' } : { status: 'error', error: 'Sign in again to load your saved skills and progress.' }
+  ));
+  const [progressLoadAttempt, setProgressLoadAttempt] = useState(0);
+  const [progressSaveError, setProgressSaveError] = useState('');
+  // Bumped after each save, and by Retry, so changes made meanwhile are saved too.
+  const [progressSaveTick, setProgressSaveTick] = useState(0);
+  // The copy the account holds, as far as this page knows: what changed since is saved.
+  const savedProgressRef = useRef<CandidateProgress>({ claimedSkills: {}, skillProgress: {}, courseCompletions: {} });
+  const progressSavingRef = useRef(false);
+  // This browser still holds data from before progress was saved to the account.
+  const legacyProgressPendingRef = useRef(false);
   const [evidenceCourseTarget, setEvidenceCourseTarget] = useState<DashboardCourse | null>(null);
   // A skill marked done without a course: its proof updates that skill's progress.
   const [evidenceSkillTarget, setEvidenceSkillTarget] = useState<{ key: string; gap: DashboardGap } | null>(null);
@@ -263,29 +275,82 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     return () => { cancelled = true; };
   }, [resumePreview]);
 
+  // Load the account's claimed skills, skill progress and course completions.
+  // Data an older version kept in this browser is imported once: it fills in
+  // what the account lacks and is removed from the browser once saved.
+  const progressUserKey = currentUser.id || currentUser.email;
   useEffect(() => {
-    try {
-      window.localStorage.setItem(courseCompletionStorageKey, JSON.stringify(courseCompletions));
-    } catch {
-      // Storage can be unavailable (private mode); completion still works for this session.
-    }
-  }, [courseCompletionStorageKey, courseCompletions]);
+    const userId = currentUser.id;
+    if (!userId) return;
+    let cancelled = false;
+    loadCandidateProgress(userId, PROGRESS_HELPERS).then((saved) => {
+      if (cancelled) return;
+      const legacy = readLegacyProgress(browserStorage(), progressUserKey);
+      legacyProgressPendingRef.current = hasLegacyProgress(legacy);
+      savedProgressRef.current = saved;
+      setClaimedSkills((current) => mergeLoadedProgress(current, legacy.claimedSkills, saved.claimedSkills));
+      setSkillProgressRecords((current) => mergeLoadedProgress(current, legacy.skillProgress, saved.skillProgress));
+      setCourseCompletions((current) => mergeLoadedProgress(current, legacy.courseCompletions, saved.courseCompletions));
+      // Claimed skills join the skill list used for matching.
+      setSkillNames((current) => withClaimedSkillNames(current, { ...legacy.claimedSkills, ...saved.claimedSkills }));
+      setProgressLoad({ status: 'ready', error: '' });
+    }, (error: unknown) => {
+      if (cancelled) return;
+      console.warn('Unable to load candidate progress:', error);
+      setProgressLoad({ status: 'error', error: error instanceof Error ? error.message : 'Unable to load your saved skills and progress.' });
+    });
+    return () => { cancelled = true; };
+  }, [currentUser.id, progressUserKey, progressLoadAttempt]);
 
+  // Save what changed since the last save, shortly after the change, so a burst
+  // of updates (a course moving several skills) is one write per table.
   useEffect(() => {
-    try {
-      window.localStorage.setItem(skillProgressStorageKey, JSON.stringify(skillProgressRecords));
-    } catch {
-      // Storage can be unavailable (private mode); progress still works for this session.
+    const userId = currentUser.id;
+    if (progressLoad.status !== 'ready' || !userId || progressSavingRef.current) return;
+    const current: CandidateProgress = { claimedSkills, skillProgress: skillProgressRecords, courseCompletions };
+    const changes = PROGRESS_PARTS
+      .map((part) => ({ part, change: diffProgressPart(part, savedProgressRef.current, current) }))
+      .filter(({ change }) => hasProgressChanges(change));
+    if (changes.length === 0) {
+      if (legacyProgressPendingRef.current) {
+        clearLegacyProgress(browserStorage(), progressUserKey);
+        legacyProgressPendingRef.current = false;
+      }
+      return;
     }
-  }, [skillProgressStorageKey, skillProgressRecords]);
+    const timer = window.setTimeout(() => {
+      progressSavingRef.current = true;
+      void (async () => {
+        let failure = '';
+        for (const { part, change } of changes) {
+          try {
+            await saveProgressChanges(userId, part, change);
+            savedProgressRef.current = applyProgressChanges(savedProgressRef.current, part, change);
+          } catch (error) {
+            console.warn('Unable to save candidate progress:', error);
+            failure ||= error instanceof Error ? error.message : 'Unable to save your progress.';
+          }
+        }
+        progressSavingRef.current = false;
+        setProgressSaveError(failure);
+        // After a failure, the next change or Retry tries again; no retry loop.
+        if (failure) showToast(`${failure.replace(/([^.!?])$/, '$1.')} Your change is shown here but is not saved to your account yet.`, 'danger');
+        else setProgressSaveTick((tick) => tick + 1);
+      })();
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [claimedSkills, courseCompletions, currentUser.id, progressLoad.status, progressSaveTick, progressUserKey, skillProgressRecords]);
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(claimedSkillsStorageKey, JSON.stringify(claimedSkills));
-    } catch {
-      // Storage can be unavailable (private mode); the claim still applies for this session.
+  const retryProgressSync = () => {
+    if (progressLoad.status === 'error') {
+      if (!currentUser.id) return;
+      setProgressLoad({ status: 'loading', error: '' });
+      setProgressLoadAttempt((attempt) => attempt + 1);
+      return;
     }
-  }, [claimedSkillsStorageKey, claimedSkills]);
+    setProgressSaveError('');
+    setProgressSaveTick((tick) => tick + 1);
+  };
 
   const updateSkillProgressStatus = (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => {
     setSkillProgressRecords((current) => {
@@ -775,7 +840,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       return next;
     });
-  }, [gapReport]);
+    // Runs again once saved progress has loaded, so saved records are checked
+    // against the current gaps too.
+  }, [gapReport, progressLoad.status]);
 
   const recentApplications = useMemo(
     () =>
@@ -1082,10 +1149,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     resume: ParsedResume,
     skills: string[],
     answers: SurveyAnswers,
-    options?: { analysis?: ResumeAnalyzeResponse | null; resumeId?: string | null; extraKnownSkills?: SelectedSkill[] },
+    options?: { analysis?: ResumeAnalyzeResponse | null; resumeId?: string | null; extraKnownSkills?: SelectedSkill[]; claimedSkills?: Record<string, ClaimedSkill> },
   ) => {
     const resumeText = extractResumeText(resume);
     if (!resumeText) return null;
+    // Claimed skills are the candidate's skills: they are matched on and saved
+    // as confirmed skills even when the list passed in left them out. Callers
+    // that just changed the claims pass the new ones (state updates later).
+    const claimed = options?.claimedSkills || claimedSkills;
+    skills = withClaimedSkillNames(skills, claimed);
     const activeAnalysis = options?.analysis || state.resumeAnalysis;
     const extractedSkillRecords: SelectedSkill[] = (activeAnalysis?.candidate_profile?.skills || []).map((skill) => ({
       skill_id: skill.skill_id || null,
@@ -1097,7 +1169,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       source_metadata: skill.source_metadata,
       skill_priority_score: skill.skill_priority_score,
     }));
-    const claimedSkillRecords: SelectedSkill[] = Object.values(claimedSkills).map((item) => ({
+    const claimedSkillRecords: SelectedSkill[] = Object.values(claimed).map((item) => ({
       skill_id: item.skillId || null,
       skill_name: item.skillName,
       source: 'confirmed_skill',
@@ -1178,6 +1250,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const { error: deleteSkillsError } = await supabase.from('user_skills').delete().eq('user_id', currentUser.id);
       const { error: insertSkillsError } = deleteSkillsError
         ? { error: deleteSkillsError }
+        : confirmedSkillRecords.length === 0
+        ? { error: null }
         : await supabase.from('user_skills').insert(confirmedSkillRecords.map((skill) => ({
           user_id: currentUser.id,
           skill_id: skill.skill_id,
@@ -1910,14 +1984,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   // Re-runs matching with an updated skill list; without a resume the list is just saved.
-  const refreshMatchesWithSkills = async (nextSkills: string[], extraKnownSkills?: SelectedSkill[]) => {
+  const refreshMatchesWithSkills = async (nextSkills: string[], nextClaimed: Record<string, ClaimedSkill>, extraKnownSkills?: SelectedSkill[]) => {
     setSkillNames(nextSkills);
     const savedResume = state.resume || state.resumeAnalysis?.parsedResume;
     if (!savedResume || !extractResumeText(savedResume)) return false;
     setLoading(true);
     setError(null);
     try {
-      await runMatchingWithSkills(savedResume, nextSkills, surveyAnswers, { extraKnownSkills });
+      await runMatchingWithSkills(savedResume, nextSkills, surveyAnswers, { extraKnownSkills, claimedSkills: nextClaimed });
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to refresh your matches.';
@@ -1930,15 +2004,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   const unclaimSkill = (key: string) => {
-    const item = claimedSkills[key];
+    const latestClaimed = claimedSkillsRef.current;
+    const item = latestClaimed[key];
     if (!item) return;
-    setClaimedSkills((current) => {
-      const next = { ...current };
-      delete next[key];
-      return next;
-    });
+    const nextClaimed = { ...latestClaimed };
+    delete nextClaimed[key];
+    claimedSkillsRef.current = nextClaimed;
+    setClaimedSkills(nextClaimed);
     const nextSkills = skillNames.filter((name) => normalizeSkill(name) !== normalizeSkill(item.skillName));
-    void refreshMatchesWithSkills(nextSkills).then((refreshed) => {
+    void refreshMatchesWithSkills(nextSkills, nextClaimed).then((refreshed) => {
       showToast(`${cleanSkillDisplayName(item.skillName)} is back in your skill gaps${refreshed ? ' and your matches were refreshed' : ''}.`, 'success');
     });
   };
@@ -1956,10 +2030,12 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       return;
     }
     const item: ClaimedSkill = { skillId: gap.skillId || undefined, skillName: gap.skill, claimedAt: new Date().toISOString() };
-    setClaimedSkills((current) => ({ ...current, [key]: item }));
+    const nextClaimed = { ...claimedSkills, [key]: item };
+    claimedSkillsRef.current = nextClaimed;
+    setClaimedSkills(nextClaimed);
     const nextSkills = alreadyListed ? skillNames : [...skillNames, gap.skill];
     const record: SelectedSkill = { skill_id: gap.skillId || null, skill_name: gap.skill, source: 'confirmed_skill', is_standardized: Boolean(gap.skillId) };
-    void refreshMatchesWithSkills(nextSkills, [record]).then(() => {
+    void refreshMatchesWithSkills(nextSkills, nextClaimed, [record]).then(() => {
       showToast(
         `${name} added. Keep an example of your work ready.`,
         'success',
@@ -2066,7 +2142,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setActivePage('applications');
   };
   const pendingMessageCount = eligibleMessageApps.filter((app) => app.messageRequestState === 'pending').length;
-  const hasBanners = Boolean((savedResumeFreshness?.stale && !resumeModalOpen) || inlineNotice || state.error || restoreError || savedJobsError);
+  const sentence = (text: string) => text.trim().replace(/([^.!?])$/, '$1.');
+  const progressSyncError = progressLoad.status === 'error'
+    ? `${sentence(progressLoad.error)} Changes to your skills, skill progress and courses will not be saved until it loads.`
+    : progressLoad.status === 'ready' && progressSaveError
+      ? `${sentence(progressSaveError)} Recent changes show on this page but are not saved to your account yet.`
+      : '';
+  const hasBanners = Boolean((savedResumeFreshness?.stale && !resumeModalOpen) || inlineNotice || state.error || restoreError || savedJobsError || progressSyncError);
 
   return (
     <CandidateShell
@@ -2123,6 +2205,16 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
             </Banner>
           )}
           {state.error && <Banner tone="error" onDismiss={() => setError(null)}>{state.error}</Banner>}
+          {progressSyncError && (
+            <Banner
+              tone="error"
+              actions={currentUser.id ? (
+                <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={retryProgressSync}>Try again</button>
+              ) : undefined}
+            >
+              {progressSyncError}
+            </Banner>
+          )}
         </div>
       )}
 

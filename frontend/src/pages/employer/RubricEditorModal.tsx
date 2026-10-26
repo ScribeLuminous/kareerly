@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Banner, FormField, Modal } from '../../components/ui';
 import { AssessmentCriteriaEditor } from './AssessmentCriteriaEditor';
 import {
+  canDraftFromJob,
   combineTemplates,
   rubricToDraft,
   starterRubric,
@@ -21,13 +22,17 @@ type RubricEditorModalProps = {
   saving: boolean;
   /** The employer's saved assessments, to start from instead of a blank one. */
   templates: AssessmentTemplate[];
+  /** Closes without saving. For a job with no assessment yet this is "Skip for now": the step is optional. */
   onCancel: () => void;
   /** `templateName` is set when the employer also wants to keep it as a reusable template. */
   onSave: (criteria: RubricCriterionDraft[], templateName: string) => void;
 };
 
 export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCancel, onSave }: RubricEditorModalProps) {
+  const isNew = !rubric;
   const [criteria, setCriteria] = useState<RubricCriterionDraft[]>(() => (rubric ? rubricToDraft(rubric) : starterRubric(job)));
+  // The questions shown are our draft from the job, not something the employer saved.
+  const [isJobDraft, setIsJobDraft] = useState(() => isNew && canDraftFromJob(job));
   // Remounts the editor so its open/closed cards follow a newly loaded template.
   const [editorKey, setEditorKey] = useState(0);
   const [error, setError] = useState('');
@@ -39,6 +44,7 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
     const template = templates.find((item) => item.id === templateId);
     if (!template) return;
     setCriteria(combineTemplates([template]));
+    setIsJobDraft(false);
     setEditorKey((value) => value + 1);
     setError('');
   };
@@ -50,14 +56,20 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
 
   return (
     <Modal
-      title={rubric ? 'Candidate Assessment' : 'Configure Candidate Assessment'}
+      title={rubric ? 'Candidate Assessment' : (
+        <span className="inline-flex flex-wrap items-center gap-2">
+          Configure Candidate Assessment
+          {isJobDraft && <span className="k-badge k-badge-outline">Draft</span>}
+        </span>
+      )}
       subtitle={job.title}
       onClose={onCancel}
       size="lg"
       fullOnMobile
       footer={(
         <>
-          <button className="k-btn k-btn-ghost" type="button" onClick={onCancel} disabled={saving}>Cancel</button>
+          {isNew && <span className="k-meta self-center text-center sm:mr-auto sm:text-left">Optional. You can set it up later from the job page.</span>}
+          <button className="k-btn k-btn-ghost" type="button" onClick={onCancel} disabled={saving}>{isNew ? 'Skip for now' : 'Cancel'}</button>
           <button className="k-btn k-btn-primary" type="button" onClick={submit} disabled={saving}>
             {inUse ? `Save as version ${(rubric?.version || 0) + 1}` : 'Save assessment'}
           </button>
@@ -68,6 +80,16 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
         Set the questions candidates answer when shortlisted, and the criteria reviewers use to rate their answers.
         {usedTemplate && <> Based on the template <strong>{usedTemplate.name}</strong>.</>}
       </p>
+      {isNew && (
+        <p className="k-secondary mt-2">
+          <strong>Optional, but recommended.</strong> Shortlisted applicants answer these automatically, so your team compares everyone on the same points instead of resumes alone.
+        </p>
+      )}
+      {isJobDraft && (
+        <Banner tone="info" className="mt-3">
+          <strong>Draft built from this job.</strong> We wrote these questions from the required skills and responsibilities you listed. Nothing is saved until you choose Save assessment, so edit or remove anything that doesn't fit.
+        </Banner>
+      )}
       {templates.length > 0 && (
         <FormField label="Start from a template" help="Replaces the questions below. You can still edit them for this job." className="mt-3">
           <select className="k-select" value="" onChange={(event) => loadTemplate(event.target.value)}>
