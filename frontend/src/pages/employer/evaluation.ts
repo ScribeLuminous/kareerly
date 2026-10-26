@@ -127,24 +127,67 @@ export function emptyCriterion(): RubricCriterionDraft {
   return { key: newDraftKey(), name: '', description: '', weight: 2, isRequired: true, anchors: [...DEFAULT_ANCHORS], prompts: [''], question: '' };
 }
 
-/** A starting point built from the job itself; employers edit it before saving. */
-export function starterRubric(job: Pick<EmployerJob, 'requiredSkills' | 'responsibilities'>): RubricCriterionDraft[] {
-  const fromSkills = job.requiredSkills.slice(0, 4).map((skill) => ({
+/** "Excel" → "Excel skills", but "Leadership Skills" stays as is. */
+const skillsPhrase = (skill: string) => (/\bskills?$/i.test(skill) ? skill : `${skill} skills`);
+
+// Starter questions, rotated so a draft doesn't repeat one sentence for every
+// skill. Each asks for a specific example, which is what the rating anchors
+// look for.
+const SKILL_QUESTIONS: Array<(skill: string, role: string) => string> = [
+  (skill) => `Describe a specific time your ${skillsPhrase(skill)} made a difference at work or in school. What was the situation, what did you do, and what was the result?`,
+  (skill) => `What is the most challenging ${skill} task you have handled? How did you approach it, and what would you do differently now?`,
+  (skill, role) => `Give an example of how you have used ${skill}. How would you apply it in your first month as ${role}?`,
+  (skill) => `Tell us about a mistake or setback involving ${skill}. How did you handle it, and what did you learn?`,
+];
+
+const DUTY_QUESTIONS: Array<(duty: string, role: string) => string> = [
+  (duty, role) => `As ${role}, part of your work would be: ${duty}. How would you go about it, and how would you know it went well?`,
+  (duty) => `Tell us about a time you handled work like this: ${duty}. If you haven't yet, how would you get up to speed quickly?`,
+];
+
+/** "Hotel Front Desk Agent" → "a Hotel Front Desk Agent"; falls back to "a member of this team". */
+function roleWithArticle(title: string | undefined): string {
+  const role = (title || '').trim();
+  if (!role) return 'a member of this team';
+  return `${/^[aeiou]/i.test(role) ? 'an' : 'a'} ${role}`;
+}
+
+/** Lower-cases a leading word like "Check" without touching acronyms like "SQL". */
+function asClause(duty: string): string {
+  const text = duty.trim().replace(/[.;:]+$/, '');
+  return /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
+}
+
+/** True when the job has the skills or duties a starter draft is built from. */
+export function canDraftFromJob(job: Pick<EmployerJob, 'requiredSkills' | 'responsibilities'>): boolean {
+  return job.requiredSkills.some((skill) => skill.trim()) || job.responsibilities.some((duty) => duty.trim());
+}
+
+/**
+ * A starting draft built from the job: up to 4 required skills (weight 3,
+ * required) and up to 2 responsibilities (weight 2, optional). Employers
+ * review and edit it before saving; nothing is saved until they do.
+ */
+export function starterRubric(job: Pick<EmployerJob, 'requiredSkills' | 'responsibilities'> & { title?: string }): RubricCriterionDraft[] {
+  const role = roleWithArticle(job.title);
+  const skills = job.requiredSkills.map((skill) => skill.trim()).filter(Boolean).slice(0, 4);
+  const duties = job.responsibilities.map((duty) => duty.trim()).filter(Boolean).slice(0, 2);
+  const fromSkills = skills.map((skill, index) => ({
     ...emptyCriterion(),
     name: skill,
-    description: `Can apply ${skill} to the work this role does.`,
+    description: `Gives a specific, relevant example of ${skill} and explains their own part and the result.`,
     weight: 3,
     prompts: [],
-    question: `Tell us about a time you used ${skill}. What did you do and what was the result?`,
+    question: SKILL_QUESTIONS[index % SKILL_QUESTIONS.length](skill, role),
   }));
-  const fromDuties = job.responsibilities.slice(0, 2).map((duty) => ({
+  const fromDuties = duties.map((duty, index) => ({
     ...emptyCriterion(),
     name: duty.length > 60 ? `${duty.slice(0, 57)}…` : duty,
-    description: `Shows they can: ${duty}`,
+    description: `Gives a practical, well-reasoned approach to: ${asClause(duty)}.`,
     weight: 2,
     isRequired: false,
     prompts: [],
-    question: `How would you approach this part of the role: ${duty}?`,
+    question: DUTY_QUESTIONS[index % DUTY_QUESTIONS.length](asClause(duty), role),
   }));
   const criteria = [...fromSkills, ...fromDuties];
   return criteria.length > 0 ? criteria : [emptyCriterion()];
