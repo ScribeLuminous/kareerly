@@ -57,6 +57,15 @@ test('a saved city takes the list spelling only within its province', () => {
   assert.equal(cities.canonicalCity('Quezon', ''), '');
 });
 
+test('candidate profile, company profile and job editor pick the city from the same province list', () => {
+  for (const page of ['../src/pages/candidate/AccountSettingsPage.tsx', '../src/pages/employer/EmployerAccountPage.tsx', '../src/pages/employer/JobEditorPage.tsx']) {
+    const source = fs.readFileSync(new URL(page, import.meta.url), 'utf8');
+    assert.match(source, /<CityField\b/, page);
+    // A new province keeps the city only when that province lists it.
+    assert.match(source, /canonicalCity\(/, page);
+  }
+});
+
 test('industries follow the career areas and carry PSOC groups', () => {
   assert.deepEqual(options.EMPLOYER_INDUSTRY_OPTIONS.map((option) => option.area), careerAreas.careerAreaOptions.map((option) => option.value));
   assert.equal(options.EMPLOYER_INDUSTRIES.at(-1), 'Other');
