@@ -16,6 +16,7 @@ function moduleUrl(file) {
 }
 
 const provinces = await import(moduleUrl(new URL('../src/lib/phProvinces.ts', import.meta.url)));
+const cities = await import(moduleUrl(new URL('../src/lib/phCities.ts', import.meta.url)));
 const options = await import(moduleUrl(new URL('../src/lib/employerOptions.ts', import.meta.url)));
 const careerAreas = await import(moduleUrl(new URL('../src/lib/careerAreas.ts', import.meta.url)));
 const regions = await import(moduleUrl(new URL('../src/lib/regionPreference.ts', import.meta.url)));
@@ -38,6 +39,22 @@ test('province groups use the known region codes and list each province once', (
   assert.equal(new Set(provinces.PH_PROVINCES).size, provinces.PH_PROVINCES.length);
   assert.equal(provinces.provinceRegion('Laguna'), 'IV-A');
   assert.equal(provinces.provinceRegion('Sulu'), '');
+});
+
+test('every listed province has its cities and municipalities', () => {
+  provinces.PH_PROVINCES.forEach((province) => assert.ok(cities.provinceCities(province).length > 0, province));
+  assert.ok(cities.provinceCities('Quezon').includes('Lucena City'));
+  assert.ok(cities.provinceCities('Metro Manila').includes('Makati City'));
+  // Highly urbanized cities sit under the province they lie in.
+  assert.ok(cities.provinceCities('Cebu').includes('Cebu City'));
+  assert.ok(cities.provinceCities('Davao del Sur').includes('Davao City'));
+  assert.deepEqual(cities.provinceCities('Somewhere'), []);
+});
+
+test('a saved city takes the list spelling only within its province', () => {
+  assert.equal(cities.canonicalCity('Quezon', ' lucena city '), 'Lucena City');
+  assert.equal(cities.canonicalCity('Laguna', 'Lucena City'), '');
+  assert.equal(cities.canonicalCity('Quezon', ''), '');
 });
 
 test('industries follow the career areas and carry PSOC groups', () => {

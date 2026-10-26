@@ -4,6 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Banner, ConfirmDialog, EmptyState, FormField, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
 import type { CandidateAssessment } from '../../lib/assessmentApi';
 import type { EvaluationSummary } from '../../lib/evaluationApi';
+import { MatchScoreNotice } from '../../components/MatchScoreNotice';
+import { EMPLOYER_MATCH_DISCLAIMER } from '../../lib/matchDisclaimer';
 import { ApplicantRow } from './ApplicantRow';
 import { ExportApplicantsDialog } from './ApplicantReports';
 import {
@@ -201,6 +203,8 @@ export function EmployerCandidatesPage({
               <SearchField value={filters.search} onChange={(search) => set({ search })} label="Search applicants" placeholder="Search ID or skill" />
             </div>
           </div>
+
+          <MatchScoreNotice text={EMPLOYER_MATCH_DISCLAIMER} className="mt-3" />
 
           <div className="k-chip-scroller my-4" role="group" aria-label="Filter applicants">
             <button className="k-chip" type="button" aria-pressed={filters.highMatch} onClick={() => set({ highMatch: !filters.highMatch })}>

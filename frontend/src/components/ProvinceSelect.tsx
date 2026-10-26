@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { canonicalCity, provinceCities } from '../lib/phCities';
 import { PH_PROVINCE_GROUPS, PH_PROVINCES } from '../lib/phProvinces';
 import { FormField } from './ui';
 
@@ -62,5 +63,41 @@ export function RegionProvinceFields({ value, onChange, required = false, region
         </select>
       </FormField>
     </>
+  );
+}
+
+/**
+ * The city or municipality, picked from the chosen province's list. A saved
+ * city the list does not have (older free text) stays selectable.
+ */
+export function CityField({ province, value, onChange, required = false, help, t = (text) => text }: {
+  province: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  help?: string;
+  /** Translates the field's own words. */
+  t?: (text: string) => string;
+}) {
+  const cities = provinceCities(province);
+  const selected = canonicalCity(province, value) || value.trim();
+  const unlisted = Boolean(selected) && !cities.includes(selected);
+  const mark = required ? ' *' : '';
+
+  return (
+    <FormField label={`${t('City or municipality')}${mark}`} help={help}>
+      <select
+        className="k-select"
+        value={selected}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={cities.length === 0 && !unlisted}
+        required={required}
+        autoComplete="address-level2"
+      >
+        <option value="">{t(cities.length > 0 || unlisted ? 'Select a city or municipality' : 'Choose a province first')}</option>
+        {unlisted && <option value={selected}>{selected}</option>}
+        {cities.map((city) => <option key={city} value={city}>{city}</option>)}
+      </select>
+    </FormField>
   );
 }

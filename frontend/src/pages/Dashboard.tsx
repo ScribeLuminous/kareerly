@@ -31,7 +31,8 @@ import { KareersPage } from './candidate/KareersPage';
 import { UpskillingPage } from './candidate/LearningPage';
 import { MessagesPage } from './candidate/MessagesPage';
 import { JobDetailModal } from './candidate/JobDetailModal';
-import { EvidenceFormModal, ReportConversationModal, ResumeUpdateModal } from './candidate/modals';
+import { EvidenceFormModal, ResumeUpdateModal } from './candidate/modals';
+import { ReportConversationModal } from '../components/ReportConversationModal';
 import './candidate-dashboard-v5.css';
 
 type DashboardProps = {
@@ -177,6 +178,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [messageRequests, setMessageRequests] = useState<Record<string, string>>({});
   const [messageDraft, setMessageDraft] = useState('');
   const [messageModeration, setMessageModeration] = useState<Record<string, MessageModerationState>>({});
+  const [messageLoadError, setMessageLoadError] = useState('');
   const [reportTarget, setReportTarget] = useState<DashboardApplication | null>(null);
   const [blockTarget, setBlockTarget] = useState<DashboardApplication | null>(null);
   const [messageReplies, setMessageReplies] = useState<Record<string, Array<{ from: 'employer' | 'candidate'; text: string; time: string }>>>({});
@@ -426,6 +428,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     );
   };
 
+  // A failed load must not read as "no saved jobs", so it is shown with a retry.
+  const [savedJobsError, setSavedJobsError] = useState('');
+  const [savedJobsAttempt, setSavedJobsAttempt] = useState(0);
   useEffect(() => {
     let isMounted = true;
     void supabase
@@ -436,12 +441,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         if (!isMounted) return;
         if (error) {
           console.warn('Unable to load saved jobs:', error);
+          setSavedJobsError('Your saved jobs could not be loaded.');
           return;
         }
+        setSavedJobsError('');
         setSavedJobs(new Set((data || []).map((row) => String(row.job_id)).filter(Boolean)));
       });
     return () => { isMounted = false; };
-  }, [currentUser.id]);
+  }, [currentUser.id, savedJobsAttempt]);
 
   const locateSavedResumeFile = async (latestResume: SavedResumeRecord | null): Promise<ExistingResumeFile | null> => {
     if (!currentUser.id || !latestResume) return null;
@@ -474,14 +481,20 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   // sign-in. This must not re-run on the state it restores: each re-run cancelled
   // the one before it, so a fresh login never got its matches or preferences back.
   const restoredForUser = useRef<string | null>(null);
+  // Set when the saved resume or matches could not be read, so the dashboard says
+  // so instead of showing an empty "upload your resume" state.
+  const [restoreError, setRestoreError] = useState('');
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
   useEffect(() => {
     const userId = currentUser.id;
-    if (!userId || restoredForUser.current === userId) return;
-    restoredForUser.current = userId;
+    const restoreKey = `${userId}:${restoreAttempt}`;
+    if (!userId || restoredForUser.current === restoreKey) return;
+    restoredForUser.current = restoreKey;
     let cancelled = false;
     const hasSessionResume = Boolean(state.resumeAnalysis || state.resumeFile || state.savedResumeId);
     const hasSessionPreferences = Boolean(state.surveyAnswers);
     void (async () => {
+      setRestoreError('');
       const latestResume = await loadLatestResume({ userId });
       if (cancelled) return;
       let savedPreferences: SurveyAnswers | null = null;
@@ -524,13 +537,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       // refresh) only live on the candidate profile.
       if (!savedPreferences) savedPreferences = await loadProfilePreferences(userId);
       if (!cancelled && savedPreferences) setSurveyAnswers(savedPreferences);
-    })();
+    })().catch((error: unknown) => {
+      if (cancelled) return;
+      console.warn('Unable to restore the saved resume and matches:', error);
+      setRestoreError(error instanceof Error ? error.message : 'Unable to load your saved resume and matches.');
+    });
 
     return () => {
       cancelled = true;
       restoredForUser.current = null;
     };
-  }, [currentUser.id]);
+  }, [currentUser.id, restoreAttempt]);
 
   const saveCandidateProfile = async () => {
     if (!currentUser.id) return;
@@ -639,9 +656,12 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     return [];
   }, [availableJobs, state.matchResults, state.results?.jobMatches]);
 
+  // Employers change application stages and send message requests, so the list
+  // is re-read every 30 seconds and when the tab regains focus.
   useEffect(() => {
     let isMounted = true;
-    void (async () => {
+    let loadedOnce = false;
+    const loadApplications = async () => {
       if (!currentUser.id) return;
       const { data, error } = await supabase
         .from('job_applications')
@@ -651,18 +671,26 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       if (error) {
         console.warn('Unable to load applications:', error);
-        if (isMounted) setApplicationLoadStatus('error');
+        // A failed background refresh keeps the list already shown.
+        if (isMounted && !loadedOnce) setApplicationLoadStatus('error');
         return;
       }
 
       if (!isMounted) return;
+      loadedOnce = true;
       const rows = Array.isArray(data) ? (data as JobApplicationRow[]) : [];
       setApplications(rows.map((row) => mapApplicationRow(row, jobs)));
       setApplicationLoadStatus('ready');
-    })();
+    };
+    void loadApplications();
+    const refresh = () => { if (document.visibilityState === 'visible') void loadApplications(); };
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener('focus', refresh);
 
     return () => {
       isMounted = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
     };
   }, [currentUser.id, jobs]);
 
@@ -998,11 +1026,21 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     const loadCandidateMessages = async () => {
       const applicationIds = eligibleMessageApps.map((app) => app.id).filter(Boolean);
       if (applicationIds.length === 0) return;
-      const results = await Promise.all(eligibleMessageApps.map(async (app) => ({ app, rows: await loadApplicationMessages(app.id).catch(() => []) })));
+      const results = await Promise.all(eligibleMessageApps.map(async (app) => {
+        try {
+          return { app, rows: await loadApplicationMessages(app.id), failed: false };
+        } catch (error) {
+          console.warn('Unable to load messages:', error);
+          return { app, rows: [], failed: true };
+        }
+      }));
       if (!isMounted) return;
       const requestUpdates: Record<string, string> = {};
       const replyUpdates: Record<string, Array<{ from: 'employer' | 'candidate'; text: string; time: string }>> = {};
-      results.forEach(({ app, rows }) => {
+      // A failed refresh keeps that conversation as last loaded instead of emptying it.
+      const failedJobIds = results.filter((result) => result.failed).map((result) => result.app.jobId);
+      results.forEach(({ app, rows, failed }) => {
+        if (failed) return;
         const explicitRequest = rows.find((row) => row.message_kind === 'request');
         const legacyRequest = explicitRequest || rows.find((row) => row.sender_role === 'employer');
         if (legacyRequest) requestUpdates[app.jobId] = String(legacyRequest.message_text || '');
@@ -1017,8 +1055,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           replyUpdates[app.jobId] = entries;
         });
       });
-      setMessageRequests(requestUpdates);
-      setMessageReplies(replyUpdates);
+      setMessageRequests((current) => {
+        const next = { ...requestUpdates };
+        failedJobIds.forEach((jobId) => { if (current[jobId] !== undefined) next[jobId] = current[jobId]; });
+        return next;
+      });
+      setMessageReplies((current) => {
+        const next = { ...replyUpdates };
+        failedJobIds.forEach((jobId) => { if (current[jobId] !== undefined) next[jobId] = current[jobId]; });
+        return next;
+      });
+      setMessageLoadError(failedJobIds.length > 0 ? 'Some messages could not be loaded. Showing what loaded last; Kareerly keeps retrying.' : '');
     };
     void loadCandidateMessages();
     const refreshTimer = window.setInterval(() => void loadCandidateMessages(), 5000);
@@ -1199,8 +1246,11 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
     setMatchResults(result);
     if (currentUser?.id) {
-      const { error: clearSkillsError } = await supabase.from('user_skills').delete().eq('user_id', currentUser.id);
-      const { error: saveSkillsError } = clearSkillsError || confirmedSkillRecords.length === 0
+      // The confirmed skills are what External Job Analysis and other features read.
+      const { error: deleteSkillsError } = await supabase.from('user_skills').delete().eq('user_id', currentUser.id);
+      const { error: insertSkillsError } = deleteSkillsError
+        ? { error: deleteSkillsError }
+        : confirmedSkillRecords.length === 0
         ? { error: null }
         : await supabase.from('user_skills').insert(confirmedSkillRecords.map((skill) => ({
           user_id: currentUser.id,
@@ -1209,10 +1259,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           confidence: 1,
           source: 'confirmed_skill',
         })));
-      const skillsError = clearSkillsError || saveSkillsError;
-      if (skillsError) {
-        console.warn('Unable to save confirmed skills:', skillsError.message);
-        showToast(`Matches refreshed, but your skill list could not be saved to your profile: ${skillsError.message}`, 'danger');
+      if (insertSkillsError) {
+        console.warn('Unable to save confirmed skills:', insertSkillsError);
+        showToast('Matches refreshed, but your confirmed skills could not be saved. Other pages may still use your previous skills.', 'warn');
       }
       const saved = await saveMatchHistory({
         userId: currentUser.id,
@@ -1231,6 +1280,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       return;
     }
     setSurveyAnswers(answers);
+    let preferencesSaved = true;
     if (currentUser?.id) {
       await updateCandidateProfile({
         userId: currentUser.id,
@@ -1243,11 +1293,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         preferredRegion: locationPreferencePayload(answers).region,
       }).catch((error) => {
         console.warn('Unable to save preferences to Supabase:', error);
+        preferencesSaved = false;
+        showToast('Your preferences could not be saved to your profile. They apply now but may be lost when you reload.', 'danger');
       });
     }
     const savedResume = state.resume || state.resumeAnalysis?.parsedResume;
     const resumeText = savedResume ? extractResumeText(savedResume) : '';
     if (!savedResume || !resumeText) {
+      if (!preferencesSaved) return;
       showInlineNotice('Preferences saved. Existing progress was kept; upload a resume if you want to generate Aspiration Opportunities.', 'warn');
       showToast('Preferences saved.', 'success');
       return;
@@ -1259,8 +1312,12 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const cleanSkills = Array.from(new Set(skillNames.map((skill) => skill.trim()).filter(Boolean)));
       setSkillNames(cleanSkills);
       await runMatchingWithSkills(savedResume, cleanSkills, answers);
-      showInlineNotice('Preferences and skills saved. Your dashboard is refreshed.', 'success');
-      showToast('Profile recommendations refreshed.', 'success');
+      if (preferencesSaved) {
+        showInlineNotice('Preferences and skills saved. Your dashboard is refreshed.', 'success');
+        showToast('Profile recommendations refreshed.', 'success');
+      } else {
+        showInlineNotice('Your dashboard is refreshed, but your preferences could not be saved to your profile.', 'warn');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to refresh your profile recommendations.';
       setError(message);
@@ -1528,7 +1585,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       setResumePreview({ url: localUrl, name: state.resumeFile.name, mimeType: state.resumeFile.type, local: true });
       return;
     }
-    const latestResume = await loadLatestResume({ userId: currentUser.id });
+    let latestResume: SavedResumeRecord | null;
+    try {
+      latestResume = await loadLatestResume({ userId: currentUser.id });
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to open the saved resume. Please try again.', 'danger');
+      return;
+    }
     const located = await locateSavedResumeFile(latestResume);
     if (!located) {
       showToast('The saved resume file could not be found. Please upload the resume again.', 'warn');
@@ -1549,7 +1612,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const reanalyzeSavedResume = async () => {
     if (!currentUser.id || state.isLoading) return;
-    const located = savedResumeFile || await locateSavedResumeFile(await loadLatestResume({ userId: currentUser.id }));
+    let located: ExistingResumeFile | null;
+    try {
+      located = savedResumeFile || await locateSavedResumeFile(await loadLatestResume({ userId: currentUser.id }));
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to load your saved resume. Please try again.', 'danger');
+      return;
+    }
     if (!located) {
       setSavedResumeFile(null);
       showToast('The original resume file is not stored. Please upload your resume again.', 'warn');
@@ -2079,7 +2148,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     : progressLoad.status === 'ready' && progressSaveError
       ? `${sentence(progressSaveError)} Recent changes show on this page but are not saved to your account yet.`
       : '';
-  const hasBanners = Boolean((savedResumeFreshness?.stale && !resumeModalOpen) || inlineNotice || state.error || progressSyncError);
+  const hasBanners = Boolean((savedResumeFreshness?.stale && !resumeModalOpen) || inlineNotice || state.error || restoreError || savedJobsError || progressSyncError);
 
   return (
     <CandidateShell
@@ -2102,6 +2171,22 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     >
       {hasBanners && (
         <div className="k-page !pb-0">
+          {restoreError && (
+            <Banner
+              tone="error"
+              actions={<button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => setRestoreAttempt((count) => count + 1)}>Try again</button>}
+            >
+              {restoreError} Your matches and skill gaps can't be shown until it loads.
+            </Banner>
+          )}
+          {savedJobsError && (
+            <Banner
+              tone="error"
+              actions={<button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => setSavedJobsAttempt((count) => count + 1)}>Try again</button>}
+            >
+              {savedJobsError}
+            </Banner>
+          )}
           {savedResumeFreshness?.stale && !resumeModalOpen && (
             <Banner
               tone="warn"
@@ -2308,6 +2393,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onTab={(tab) => setActivePage(tab === 'messages' ? 'messages' : 'applications')}
           messageCount={pendingMessageCount}
           isDesktop={isDesktop}
+          loadError={messageLoadError}
         />
       )}
 
@@ -2444,7 +2530,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       {reportTarget && (
         <ReportConversationModal
-          company={reportTarget.company}
+          name={reportTarget.company}
           alreadyBlocked={Boolean(messageModeration[reportTarget.id]?.blocked_by_me)}
           onCancel={() => setReportTarget(null)}
           onSubmit={submitMessageReport}
