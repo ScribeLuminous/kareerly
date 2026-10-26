@@ -268,6 +268,7 @@ export interface MatchResultItem {
   job_description?: string;
   description?: string;
   responsibilities?: string[] | string;
+  qualifications?: string[] | string;
   external_job_link_optional?: string;
   job_url?: string;
   job_source?: 'internal' | 'employer';

@@ -219,6 +219,12 @@ function JobDetailBody({ job, stats }: { job: EmployerJob; stats: JobStats }) {
               <ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul>
             </>
           )}
+          {job.qualifications.length > 0 && (
+            <>
+              <p className="k-label mt-3">Qualifications</p>
+              <ul>{job.qualifications.map((item) => <li key={item}>{item}</li>)}</ul>
+            </>
+          )}
         </div>
       </section>
 

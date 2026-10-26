@@ -331,6 +331,7 @@ export type AvailableJobItem = {
   required_skills?: string[];
   preferred_skills?: string[] | string;
   responsibilities?: string[] | string;
+  qualifications?: string[] | string;
   job_description?: string;
   description?: string;
   external_job_link_optional?: string;
