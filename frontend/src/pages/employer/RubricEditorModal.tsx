@@ -50,7 +50,7 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
 
   return (
     <Modal
-      title={rubric ? `Candidate Assessment · v${rubric.version}` : 'Configure Candidate Assessment'}
+      title={rubric ? 'Candidate Assessment' : 'Configure Candidate Assessment'}
       subtitle={job.title}
       onClose={onCancel}
       size="lg"
@@ -78,7 +78,7 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
       )}
       {inUse && (
         <Banner tone="info" className="mt-3">
-          Sent assessments or scorecards already use version {rubric?.version}. Saving creates version {(rubric?.version || 0) + 1} for new scorecards; existing scorecards and their results stay on version {rubric?.version} and are never recalculated.
+          Applicants have already received or been scored on this assessment. Your changes apply to new scorecards only; existing scorecards and their results stay as they were and are never recalculated.
         </Banner>
       )}
       {error && <Banner tone="error" className="mt-3">{error}</Banner>}

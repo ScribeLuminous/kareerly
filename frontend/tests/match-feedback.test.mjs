@@ -115,7 +115,10 @@ test('job details render the rating controls and do not present scores as hiring
   assert.match(detail, /<MatchFeedbackControls/);
   assert.match(detail, /job\.hasMatchScore && !job\.closestMatch/);
   assert.match(dashboard, /matchFeedbackKey\(job\.id, job\.jobSource\)/);
-  assert.match(dashboard, /not your chance of being hired/);
+  // The score line shows the shared disclaimer, in a tooltip and as visible text.
+  assert.match(dashboard, /MATCH_SCORE_DISCLAIMER/);
+  assert.match(dashboard, /<MatchScoreNotice/);
+  assert.match(read('../src/lib/matchDisclaimer.ts'), /not your chance of being hired/);
   // A failed save restores the previous choice instead of showing a vote that was not saved.
   assert.match(dashboard, /withMatchVote\(current, key, previous\)/);
   const css = read('../src/pages/candidate-dashboard-v5.css');

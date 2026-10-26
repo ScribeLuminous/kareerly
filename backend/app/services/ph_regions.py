@@ -4,6 +4,8 @@ Job locations ("Makati City, Metro Manila", "Laguna / Cavite") and a
 candidate's saved profile location both go through ``regions_in_location``, so
 a job and a candidate are always placed with the same rules.
 
+A "City, Province" location takes its province's region, so a town named after
+another region's province ("Quezon, Bukidnon") stays in its own region.
 Only a named region, province or city places a location in a region. Vague text
 ("Philippines", "Remote, Philippines", "Nationwide", "Regional Office") and
 places outside the country name no region: the region is unknown, never guessed.
@@ -86,8 +88,9 @@ REGIONS: Tuple[Region, ...] = (
     Region("IX", "Region IX – Zamboanga Peninsula", (
         "region ix", "region 9", "zamboanga peninsula", "zamboanga", "zamboanga del norte",
         "zamboanga del sur", "zamboanga sibugay", "dipolog", "dapitan", "pagadian",
-        # Isabela City lies on Basilan but belongs to Region IX. The "Isabela
-        # City, Basilan" form is listed whole so "basilan" does not also add BARMM.
+        # Isabela City lies on Basilan but belongs to Region IX. The whole
+        # "Isabela City Basilan" form is listed so "basilan" does not also add BARMM.
+        # "Isabela City, Basilan" is in CITIES_OUTSIDE_PROVINCE_REGION.
         "isabela city", "isabela city basilan",
     )),
     Region("X", "Region X – Northern Mindanao", (
@@ -117,6 +120,41 @@ REGIONS: Tuple[Region, ...] = (
 
 REGIONS_BY_CODE: Dict[str, Region] = {region.code: region for region in REGIONS}
 
+# The provinces of frontend/src/lib/phProvinces.ts by region; Metro Manila
+# stands in for NCR. Sulu has no region on record (see BARMM above).
+PROVINCES_BY_REGION: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    ("NCR", ("Metro Manila",)),
+    ("CAR", ("Abra", "Apayao", "Benguet", "Ifugao", "Kalinga", "Mountain Province")),
+    ("I", ("Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan")),
+    ("II", ("Batanes", "Cagayan", "Isabela", "Nueva Vizcaya", "Quirino")),
+    ("III", ("Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales")),
+    ("IV-A", ("Batangas", "Cavite", "Laguna", "Quezon", "Rizal")),
+    ("IV-B", ("Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon")),
+    ("V", ("Albay", "Camarines Norte", "Camarines Sur", "Catanduanes", "Masbate", "Sorsogon")),
+    ("VI", ("Aklan", "Antique", "Capiz", "Guimaras", "Iloilo")),
+    ("NIR", ("Negros Occidental", "Negros Oriental", "Siquijor")),
+    ("VII", ("Bohol", "Cebu")),
+    ("VIII", ("Biliran", "Eastern Samar", "Leyte", "Northern Samar", "Samar", "Southern Leyte")),
+    ("IX", ("Zamboanga del Norte", "Zamboanga del Sur", "Zamboanga Sibugay")),
+    ("X", ("Bukidnon", "Camiguin", "Lanao del Norte", "Misamis Occidental", "Misamis Oriental")),
+    ("XI", ("Davao de Oro", "Davao del Norte", "Davao del Sur", "Davao Occidental", "Davao Oriental")),
+    ("XII", ("Cotabato", "Sarangani", "South Cotabato", "Sultan Kudarat")),
+    ("XIII", ("Agusan del Norte", "Agusan del Sur", "Dinagat Islands", "Surigao del Norte", "Surigao del Sur")),
+    ("BARMM", ("Basilan", "Lanao del Sur", "Maguindanao del Norte", "Maguindanao del Sur", "Tawi-Tawi")),
+    ("", ("Sulu",)),
+)
+
+# Other spellings the province picker accepts for a province (canonicalProvince in phProvinces.ts).
+PROVINCE_ALIASES: Dict[str, str] = {"NCR": "Metro Manila", "National Capital Region": "Metro Manila"}
+
+# Cities listed under a province (phCities.ts) that belong to another region.
+CITIES_OUTSIDE_PROVINCE_REGION: Dict[Tuple[str, str], str] = {
+    ("Isabela City", "Basilan"): "IX",
+}
+
+# Text that lists more than one place ("Laguna / Metro Manila", "Cavite and Laguna").
+_LIST_SEPARATOR = re.compile(r"[/;&|]|\band\b|\bor\b", re.IGNORECASE)
+
 # How the candidate wants location to limit recommendations.
 SCOPE_ANYWHERE = "anywhere"
 SCOPE_CURRENT = "current"
@@ -139,13 +177,54 @@ def _alias_patterns() -> List[Tuple[str, str]]:
     return sorted(pairs, key=lambda pair: len(pair[0]), reverse=True)
 
 
+@lru_cache(maxsize=1)
+def _province_regions() -> Dict[str, str]:
+    """Normalized province name (or accepted alias) -> region code; "" for none."""
+    regions = {_normalize(province): code for code, provinces in PROVINCES_BY_REGION for province in provinces}
+    for alias, province in PROVINCE_ALIASES.items():
+        regions[_normalize(alias)] = regions[_normalize(province)]
+    return regions
+
+
+@lru_cache(maxsize=1)
+def _city_exceptions() -> Dict[Tuple[str, str], str]:
+    return {(_normalize(city), _normalize(province)): code
+            for (city, province), code in CITIES_OUTSIDE_PROVINCE_REGION.items()}
+
+
+def _listed_province_regions(location: Any) -> Optional[FrozenSet[str]]:
+    """The region set when a single place's last comma part is a listed province; None otherwise.
+
+    "Quezon, Palawan" is in MIMAROPA even though "Quezon" is also a CALABARZON
+    province: the province decides. Text listing several places keeps the full scan.
+    """
+    text = str(location or "")
+    if _LIST_SEPARATOR.search(text):
+        return None
+    parts = [part for part in text.split(",") if part.strip()]
+    if not parts:
+        return None
+    province = _normalize(parts[-1])
+    code = _province_regions().get(province)
+    if code is None:
+        return None
+    city = _normalize(",".join(parts[:-1]))
+    code = _city_exceptions().get((city, province), code)
+    return frozenset({code}) if code else frozenset()
+
+
 @lru_cache(maxsize=4096)
 def regions_in_location(location: Any) -> FrozenSet[str]:
     """Every region a location names; empty when it names none.
 
-    "Laguna / Metro Manila" names two regions. "Philippines", "Remote",
-    "Regional Office" and foreign places name none.
+    When the last comma-separated part is a listed province ("Rizal, Kalinga"),
+    that province alone decides. Otherwise every region, province and city name
+    in the text counts: "Laguna / Metro Manila" names two regions, while
+    "Philippines", "Remote", "Regional Office" and foreign places name none.
     """
+    listed = _listed_province_regions(location)
+    if listed is not None:
+        return listed
     text = _normalize(location)
     found = set()
     for alias, code in _alias_patterns():

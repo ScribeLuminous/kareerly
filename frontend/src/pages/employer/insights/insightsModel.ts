@@ -2,7 +2,7 @@ import { profileMatch } from '../evaluation';
 import type { CandidateApplication, EmployerJob } from '../model';
 import { GAP_ALERT_SHARE_PERCENT, getTier, SMALL_SAMPLE_MAX, type MatchLevel } from './matchTiers';
 
-export const INSIGHTS_DISCLAIMER = 'Match scores are decision-support information, not hiring decisions.';
+export const INSIGHTS_DISCLAIMER = 'Match scores are decision-support information, not hiring decisions or hiring probabilities.';
 
 export type StatusFilter = 'open' | 'closed' | 'all';
 export const STATUS_FILTERS: StatusFilter[] = ['open', 'closed', 'all'];

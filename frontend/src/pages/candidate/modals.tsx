@@ -3,10 +3,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCircleInfo, faFileLines, faForward, faSliders, faUpload, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, Modal } from '../../components/ui';
 import type { EvidenceUploadRecord, EvidenceType } from '../../lib/evidence';
-import type { MessageReportReason } from '../../lib/api';
 import { formatFileSize } from '../../lib/fileUtils';
 import { RESUME_FILE_ACCEPT } from '../../lib/resumeFreshness';
-import { EMPLOYER_CHECK_REMINDER, MESSAGE_REPORT_REASONS, type EvidencePrefill } from './model';
+import { EMPLOYER_CHECK_REMINDER, type EvidencePrefill } from './model';
 import { FormField } from './common';
 
 export function ResumeUpdateModal({
@@ -247,64 +246,6 @@ export function EvidenceFormModal({
           <textarea className="k-textarea min-h-[88px]" value={notes} onChange={(event) => setNotes(event.target.value)} />
         </FormField>
       </div>
-    </Modal>
-  );
-}
-
-export function ReportConversationModal({
-  company,
-  alreadyBlocked,
-  onCancel,
-  onSubmit,
-}: {
-  company: string;
-  alreadyBlocked: boolean;
-  onCancel: () => void;
-  onSubmit: (reason: MessageReportReason, details: string, alsoBlock: boolean) => Promise<void>;
-}) {
-  const [reason, setReason] = useState<MessageReportReason | ''>('');
-  const [details, setDetails] = useState('');
-  const [alsoBlock, setAlsoBlock] = useState(!alreadyBlocked);
-  const [submitting, setSubmitting] = useState(false);
-
-  return (
-    <Modal
-      title={`Report ${company}`}
-      subtitle={`The Kareerly team reviews reports. ${company} isn't told who reported them.`}
-      onClose={onCancel}
-      footer={(
-        <>
-          <button className="k-btn k-btn-ghost" type="button" onClick={onCancel}>Cancel</button>
-          <button
-            className="k-btn k-btn-danger"
-            type="button"
-            disabled={!reason || submitting}
-            onClick={() => {
-              if (!reason) return;
-              setSubmitting(true);
-              void onSubmit(reason, details.trim(), alsoBlock && !alreadyBlocked).finally(() => setSubmitting(false));
-            }}
-          >
-            {submitting ? 'Sending…' : 'Send report'}
-          </button>
-        </>
-      )}
-    >
-      <FormField label="Reason">
-        <select className="k-select" value={reason} onChange={(event) => setReason(event.target.value as MessageReportReason)} data-autofocus>
-          <option value="" disabled>Choose a reason</option>
-          {MESSAGE_REPORT_REASONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </FormField>
-      <FormField label="Details (optional)">
-        <textarea className="k-textarea min-h-[88px]" maxLength={2000} value={details} onChange={(event) => setDetails(event.target.value)} placeholder="What happened?" />
-      </FormField>
-      {!alreadyBlocked && (
-        <label className="mt-4 flex min-h-[44px] items-center gap-3">
-          <input className="h-5 w-5 accent-rust" type="checkbox" checked={alsoBlock} onChange={(event) => setAlsoBlock(event.target.checked)} />
-          <span className="k-secondary">Also block {company}</span>
-        </label>
-      )}
     </Modal>
   );
 }

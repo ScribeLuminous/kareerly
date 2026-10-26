@@ -1,6 +1,6 @@
 import { savedMatchScore } from '../../lib/uiData';
 import type { EvidenceUploadRecord } from '../../lib/evidence';
-import { analyzeResume, removeMatchFeedback, saveMatchFeedback, type AvailableJobItem, type MessageReportReason } from '../../lib/api';
+import { analyzeResume, removeMatchFeedback, saveMatchFeedback, type AvailableJobItem } from '../../lib/api';
 import type { MatchVote } from '../../lib/matchFeedback';
 import { cleanSkillLabel } from '../../lib/skillLabels';
 import { normalizeCareerAreaValue } from '../../lib/careerAreas';
@@ -418,7 +418,7 @@ export function splitSkillList(skills: string[]): string[] {
 
 export function getCareerGuidance(job: DashboardJob): string {
   if (!job.hasMatchScore) return 'Run matching with your current profile to generate career guidance for this role.';
-  if (job.matchScore >= 80 && job.missingSkills.length <= 2) return 'You are already a strong candidate for this role.';
+  if (job.matchScore >= 80 && job.missingSkills.length <= 2) return 'Your skills already cover most of what this role asks for.';
   if (job.missingSkills.length > 0 && job.missingSkills.length <= 3) return `This role is achievable after improving ${job.missingSkills.length === 1 ? 'one key skill' : `${job.missingSkills.length} key skills`}.`;
   if (job.missingSkills.length > 0) return `Consider exploring resources for ${cleanSkillDisplayName(job.missingSkills[0])} before applying.`;
   return 'You can apply now while continuing to strengthen your profile over time.';
@@ -1054,15 +1054,6 @@ export function learningResourceUrl(course: DashboardCourse): string | undefined
     return undefined;
   }
 }
-
-export const MESSAGE_REPORT_REASONS: Array<{ value: MessageReportReason; label: string }> = [
-  { value: 'spam', label: 'Spam or unsolicited messages' },
-  { value: 'scam', label: 'Scam, fraud, or asks for payment' },
-  { value: 'harassment', label: 'Harassment or abusive language' },
-  { value: 'inappropriate', label: 'Inappropriate content' },
-  { value: 'impersonation', label: 'Fake company or impersonation' },
-  { value: 'other', label: 'Something else' },
-];
 
 // ---------- Display helpers for the redesigned views ----------
 
