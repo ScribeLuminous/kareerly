@@ -372,6 +372,25 @@ test('employer job metadata preserves employment type and unavailable dates', ()
 });
 
 
+test('qualifications round-trip apart from responsibilities', () => {
+  const text = deps.joinJobContent('Front desk role.', 'Check guests in\n- Manage bookings', "Bachelor's degree in Hospitality, Tourism or related field\n");
+  assert.equal(text, "Front desk role.\n\nResponsibilities:\n- Check guests in\n- Manage bookings\n\nQualifications:\n- Bachelor's degree in Hospitality, Tourism or related field");
+  assert.deepEqual(deps.splitJobContent(text), {
+    description: 'Front desk role.',
+    responsibilities: ['Check guests in', 'Manage bookings'],
+    qualifications: ["Bachelor's degree in Hospitality, Tourism or related field"],
+  });
+  assert.equal(deps.joinJobContent('Front desk role.', 'Check guests in'), 'Front desk role.\n\nResponsibilities:\n- Check guests in');
+
+  const fromColumns = employerPage.toEmployerJob({ job_id: 'role-3', job_title: 'Role', job_description: text, responsibilities: 'Check guests in', qualifications: 'Licensed\n\nFluent in English' });
+  assert.equal(fromColumns.description, 'Front desk role.');
+  assert.deepEqual(fromColumns.qualifications, ['Licensed', 'Fluent in English']);
+  const fromText = employerPage.toEmployerJob({ job_id: 'role-4', job_title: 'Role', job_description: text });
+  assert.deepEqual(fromText.responsibilities, ['Check guests in', 'Manage bookings']);
+  assert.deepEqual(fromText.qualifications, ["Bachelor's degree in Hospitality, Tourism or related field"]);
+  assert.equal(employerPage.jobToDraft(fromText).form.qualifications, "Bachelor's degree in Hospitality, Tourism or related field");
+});
+
 test('assessment form separates candidate answers from employer scorecard', async () => {
   const { CandidateAssessmentModal } = await loadModule('../src/pages/candidate/CandidateAssessmentModal.tsx');
   const assessment = { id: 'a1', status: 'pending', questions: [{ id: 'q1', sourceCriterionId: 'c1', name: 'SQL', description: 'Uses SQL at work', question: 'Describe a query you improved.', required: true, response: '' }] };
@@ -456,7 +475,7 @@ test('job drafts keep only real work and read back safely', () => {
   assert.equal(placed.form.city, 'Lucena City');
   assert.equal(placed.form.province, 'Quezon');
   assert.equal(placed.form.title, '');
-  assert.equal(employerPage.jobToDraft({ ...placed.form, id: 'EMP-1', responsibilities: [], requiredSkills: [], niceToHaveSkills: [], salaryRange: '', city: 'Makati City', province: 'Metro Manila' }, { city: 'Lucena City', province: 'Quezon' }).form.city, 'Makati City');
+  assert.equal(employerPage.jobToDraft({ ...placed.form, id: 'EMP-1', responsibilities: [], qualifications: [], requiredSkills: [], niceToHaveSkills: [], salaryRange: '', city: 'Makati City', province: 'Metro Manila' }, { city: 'Lucena City', province: 'Quezon' }).form.city, 'Makati City');
 
   assert.equal(employerPage.jobDraftKey('user-1'), 'kareerly:employer-job-draft:user-1:new');
   assert.equal(employerPage.jobDraftKey('user-1', 'EMP-1'), 'kareerly:employer-job-draft:user-1:EMP-1');

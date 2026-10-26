@@ -135,6 +135,7 @@ export function JobDetailBody({ job, courses, onOpenLearning, feedback }: Pick<J
     { label: 'Posted', value: job.createdAt ? formatDateLabel(job.createdAt) : '' },
   ].filter((fact) => fact.value);
   const description = job.description?.trim() ? formatJobDescription(job.description) : '';
+  const qualifications = job.qualifications ?? [];
 
   return (
     <>
@@ -232,11 +233,17 @@ export function JobDetailBody({ job, courses, onOpenLearning, feedback }: Pick<J
       <details className="k-detail-section" open={isDesktop}>
         <summary>About the role</summary>
         <div className="k-prose">
-          {description ? <div className="whitespace-pre-wrap">{description}</div> : job.responsibilities.length === 0 && <p>The employer hasn't shared a full description yet.</p>}
+          {description ? <div className="whitespace-pre-wrap">{description}</div> : job.responsibilities.length === 0 && qualifications.length === 0 && <p>The employer hasn't shared a full description yet.</p>}
           {job.responsibilities.length > 0 && (
             <>
               <p className="k-label mt-3">What you'll do</p>
               <ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul>
+            </>
+          )}
+          {qualifications.length > 0 && (
+            <>
+              <p className="k-label mt-3">Qualifications</p>
+              <ul>{qualifications.map((item) => <li key={item}>{item}</li>)}</ul>
             </>
           )}
         </div>

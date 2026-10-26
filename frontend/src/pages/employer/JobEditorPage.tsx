@@ -328,6 +328,14 @@ export function JobEditorPage({ job, draftKey, companyLocation, backLabel, onBac
               required
             />
           </FormField>
+          <FormField label="Qualifications" help="One per line: education, licences, experience. Candidates see these as a list." className="mt-4">
+            <textarea
+              className="k-textarea min-h-[132px]"
+              value={form.qualifications}
+              placeholder={'Bachelor\'s degree in any field\nAt least 1 year of customer service experience'}
+              onChange={set('qualifications')}
+            />
+          </FormField>
         </section>
 
         <section className="k-section" aria-labelledby="job-skills">

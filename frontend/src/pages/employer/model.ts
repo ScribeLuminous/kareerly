@@ -1,5 +1,5 @@
 import { savedMatchScore } from '../../lib/uiData';
-import { splitJobContent } from '../../lib/jobDescription';
+import { splitJobContent, toListItems } from '../../lib/jobDescription';
 import { splitLocation } from '../../lib/phProvinces';
 
 export type { EmployerPage } from './routes';
@@ -26,6 +26,7 @@ export type EmployerJob = {
   experienceLevel: string;
   description: string;
   responsibilities: string[];
+  qualifications: string[];
   requiredSkills: string[];
   niceToHaveSkills: string[];
   workSetup: string;
@@ -54,6 +55,7 @@ export type EmployerJobPostRow = {
   salary_max_php: number | null;
   job_description: string | null;
   responsibilities?: string | null;
+  qualifications?: string | null;
   required_skills: string | null;
   preferred_skills: string | null;
   posting_status: string | null;
@@ -137,6 +139,7 @@ export type JobFormState = {
   experienceLevel: string;
   description: string;
   responsibilities: string;
+  qualifications: string;
   workSetup: string;
   employmentType: string;
   city: string;
@@ -347,27 +350,29 @@ export const mapApplicationStatus = (status: string | null | undefined): Candida
   return 'Pending';
 };
 
-export const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
-  id: row.job_id,
-  databaseId: row.id,
-  title: row.job_title,
-  category: row.category_name || '',
-  subcategory: row.job_subcategory || '',
-  experienceLevel: row.job_level || '',
-  description: splitJobContent(row.job_description || '').description,
-  responsibilities: row.responsibilities
-    ? row.responsibilities.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
-    : splitJobContent(row.job_description || '').responsibilities,
-  requiredSkills: splitSkills(row.required_skills),
-  niceToHaveSkills: splitSkills(row.preferred_skills),
-  workSetup: row.work_setup || '',
-  employmentType: row.employment_type || '',
-  ...splitLocation(row.location),
-  salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
-  deadline: row.application_deadline || '',
-  status: row.posting_status !== 'archived' && row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
-  postedDate: row.created_at ? row.created_at.slice(0, 10) : '',
-});
+export const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => {
+  const content = splitJobContent(row.job_description || '');
+  return {
+    id: row.job_id,
+    databaseId: row.id,
+    title: row.job_title,
+    category: row.category_name || '',
+    subcategory: row.job_subcategory || '',
+    experienceLevel: row.job_level || '',
+    description: content.description,
+    responsibilities: row.responsibilities ? toListItems(row.responsibilities) : content.responsibilities,
+    qualifications: row.qualifications ? toListItems(row.qualifications) : content.qualifications,
+    requiredSkills: splitSkills(row.required_skills),
+    niceToHaveSkills: splitSkills(row.preferred_skills),
+    workSetup: row.work_setup || '',
+    employmentType: row.employment_type || '',
+    ...splitLocation(row.location),
+    salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
+    deadline: row.application_deadline || '',
+    status: row.posting_status !== 'archived' && row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
+    postedDate: row.created_at ? row.created_at.slice(0, 10) : '',
+  };
+};
 
 export const mapMessageRequestState = (state: string | null | undefined): MessageRequestState => {
   if (state === 'pending' || state === 'accepted' || state === 'declined' || state === 'ignored') return state;
@@ -414,6 +419,7 @@ export const emptyJobForm: JobFormState = {
   experienceLevel: '',
   description: '',
   responsibilities: '',
+  qualifications: '',
   workSetup: '',
   employmentType: '',
   city: '',

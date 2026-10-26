@@ -47,6 +47,7 @@ export function jobToDraft(job: EmployerJob | null, companyLocation: JobLocation
       experienceLevel: job.experienceLevel,
       description: job.description,
       responsibilities: job.responsibilities.join('\n'),
+      qualifications: job.qualifications.join('\n'),
       workSetup: job.workSetup,
       employmentType: job.employmentType,
       city: job.city,
