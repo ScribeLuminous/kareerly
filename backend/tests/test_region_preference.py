@@ -80,6 +80,13 @@ class RegionMappingTests(unittest.TestCase):
             "Mandaluyong City, Metro\nManila": {"NCR"},
             "Parañaque": {"NCR"},
             "Laguna / Metro Manila": {"IV-A", "NCR"},
+            # The last part names a listed province, which decides the region even
+            # when the town shares a name with another region's province or city.
+            "Quezon, Palawan": {"IV-B"},
+            "Sampaloc, Quezon": {"IV-A"},
+            "Pasig, NCR": {"NCR"},
+            # Several places listed: each one still counts.
+            "Makati / Cebu City, Cebu": {"NCR", "VII"},
         }
         for location, regions in cases.items():
             with self.subTest(location):
@@ -124,10 +131,38 @@ class RegionMappingTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[2] / "frontend/src/lib/phProvinces.ts").read_text(encoding="utf-8")
         groups = re.findall(r"\{ region: '([^']*)', label: '[^']+', provinces: \[([^\]]+)\] \}", source)
         self.assertEqual(len(groups), 19)
+        # The backend's province table, which lets a "City, Province" province decide, is the same list.
+        self.assertEqual([(code, tuple(re.findall(r"'([^']+)'", provinces))) for code, provinces in groups],
+                         list(ph_regions.PROVINCES_BY_REGION))
         for code, provinces in groups:
             for province in re.findall(r"'([^']+)'", provinces):
                 with self.subTest(province=province):
                     self.assertEqual(resolve_single_region(province), code or None)
+
+    def test_every_frontend_city_resolves_to_its_province_region(self):
+        # Every "City, Province" pair the company profile can save. Many towns share a
+        # name with another region's province or city ("Quezon, Bukidnon", "Rizal,
+        # Kalinga", "Sampaloc, Quezon"); the province still decides.
+        from pathlib import Path
+        import re
+        lib = Path(__file__).resolve().parents[2] / "frontend/src/lib"
+        provinces = lib.joinpath("phProvinces.ts").read_text(encoding="utf-8")
+        province_region = {
+            province: code or None
+            for code, names in re.findall(r"\{ region: '([^']*)', label: '[^']+', provinces: \[([^\]]+)\] \}", provinces)
+            for province in re.findall(r"'([^']+)'", names)
+        }
+        cities = re.findall(r'^  "([^"]+)": \[(.*)\],$', lib.joinpath("phCities.ts").read_text(encoding="utf-8"), re.M)
+        self.assertEqual([province for province, _ in cities], list(province_region))
+        # Cities listed under a province whose region they are not in.
+        exceptions = {"Isabela City, Basilan": "IX"}
+        pairs = [f"{city}, {province}" for province, names in cities for city in re.findall(r'"([^"]+)"', names)]
+        self.assertGreater(len(pairs), 1600)
+        self.assertTrue(set(exceptions) <= set(pairs))
+        for location in pairs:
+            expected = exceptions.get(location, province_region[location.rsplit(", ", 1)[1]])
+            with self.subTest(location):
+                self.assertEqual(resolve_single_region(location), expected)
 
 class RegionPreferenceParsingTests(unittest.TestCase):
     def test_anywhere_and_missing_apply_no_filter(self):
@@ -233,6 +268,14 @@ class RegionFilterMatchingTests(unittest.TestCase):
         self.assertEqual(result["aspiration_matches"], [])
         self.assertIn("No job in Bangsamoro", result["recommendation_notice"])
         self.assertIn("Anywhere in the Philippines", result["recommendation_notice"])
+
+    def test_job_in_a_town_named_after_another_province_is_in_its_own_region(self):
+        job_at = {"location": "Quezon, Palawan", "work_type": "Onsite"}
+        onsite = {"work_setup": "onsite"}
+        self.assertEqual(matching.job_region_status(job_at, region_preference({"location_scope": "region", "region": "IV-B"}), onsite),
+                         matching.REGION_IN_REGION)
+        self.assertEqual(matching.job_region_status(job_at, region_preference({"location_scope": "region", "region": "IV-A"}), onsite),
+                         matching.REGION_OUT)
 
     def test_filter_without_a_region_is_refused(self):
         with self.assertRaises(ValueError):
