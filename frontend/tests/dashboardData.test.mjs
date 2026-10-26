@@ -228,11 +228,32 @@ test('profile match is the share of the job required skills found in the applica
   assert.equal(employerPage.profileMatch(application, { requiredSkills: [] }).percent, 83);
 });
 
+test('starter assessment drafts read naturally and vary per question', () => {
+  const draft = employerPage.starterRubric({
+    title: 'Hotel Front Desk Agent',
+    requiredSkills: ['Guest Relations', 'Reservation Management', 'Communication'],
+    responsibilities: ['Check guests in and out', 'Manage room reservations and booking changes.'],
+  });
+  assert.equal(draft.length, 5);
+  const questions = draft.map((criterion) => criterion.question);
+  assert.equal(new Set(questions.map((question) => question.split(' ').slice(0, 3).join(' '))).size, 5, 'each question opens differently');
+  assert.match(questions[2], /as a Hotel Front Desk Agent\?$/);
+  assert.equal(questions[3], 'As a Hotel Front Desk Agent, part of your work would be: check guests in and out. How would you go about it, and how would you know it went well?');
+  assert.match(questions[4], /^Tell us about a time you handled work like this: manage room reservations and booking changes\. /);
+  assert.deepEqual(draft.map((criterion) => [criterion.weight, criterion.isRequired]), [[3, true], [3, true], [3, true], [2, false], [2, false]]);
+  assert.match(employerPage.starterRubric({ requiredSkills: ['Leadership Skills'], responsibilities: [] })[0].question, /your Leadership Skills made/);
+  // Acronyms keep their case; a missing title still reads as a sentence.
+  const untitled = employerPage.starterRubric({ requiredSkills: [], responsibilities: ['SQL reporting for finance'] });
+  assert.match(untitled[0].question, /^As a member of this team, part of your work would be: SQL reporting for finance\. /);
+});
+
 test('rubric drafts are validated and serialised for the database', () => {
   const starter = employerPage.starterRubric({ requiredSkills: ['SQL', 'Excel'], responsibilities: ['Build weekly sales reports'] });
   assert.equal(starter.length, 3);
   assert.equal(employerPage.validateRubricDraft(starter), null);
   assert.match(starter[0].question, /SQL/);
+  assert.equal(employerPage.canDraftFromJob({ requiredSkills: [' '], responsibilities: [] }), false);
+  assert.equal(employerPage.canDraftFromJob({ requiredSkills: ['SQL'], responsibilities: [] }), true);
   assert.equal(employerPage.validateRubricDraft([]), 'Add at least one criterion.');
   assert.match(employerPage.validateRubricDraft([{ ...starter[0], name: ' ' }]), /needs a name/);
   assert.match(employerPage.validateRubricDraft([starter[0], { ...starter[1], name: 'sql' }]), /appears twice/);
@@ -392,8 +413,17 @@ test('scorecard shows submitted evidence before the employer rating', () => {
   const html = renderToStaticMarkup(React.createElement(employerPage.ScorecardForm, { rubric, assessment, existing: null, saving: false, disabled: false, onSave: () => {} }));
   assert.ok(html.indexOf('Candidate Response') < html.indexOf('Your Rating'));
   assert.match(html, /I improved a slow query/);
-  assert.match(html, /Add notes supporting your rating/);
   assert.match(html, /Not assessed/);
+  // One optional notes box for the whole scorecard; no notes needed per rating.
+  assert.doesNotMatch(html, /Add notes supporting your rating/);
+  assert.equal(html.match(/<textarea/g).length, 1);
+  assert.match(html, /Assessment Notes \(optional\)/);
+  const rated = { id: 's1', status: 'draft', summaryNotes: '', ratings: { c1: { rating: 3, evidence: '' } }, updatedAt: '2026-10-26T00:00:00Z', submittedAt: null };
+  const ratedHtml = renderToStaticMarkup(React.createElement(employerPage.ScorecardForm, { rubric, assessment, existing: rated, saving: false, disabled: false, onSave: () => {} }));
+  assert.match(ratedHtml, /<button class="k-btn k-btn-primary" type="submit">/, 'a rating without notes can be submitted');
+  // A note from an older scorecard stays visible.
+  const withNote = { ...rated, ratings: { c1: { rating: 3, evidence: 'Gave a clear example.' } } };
+  assert.match(renderToStaticMarkup(React.createElement(employerPage.ScorecardForm, { rubric, assessment, existing: withNote, saving: false, disabled: false, onSave: () => {} })), /Earlier note[\s\S]*Gave a clear example\./);
 });
 
 test('assessment templates live under /employer/jobs/assessments, never as a job id', async () => {
