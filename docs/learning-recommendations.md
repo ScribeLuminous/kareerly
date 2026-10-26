@@ -142,8 +142,8 @@ K13 and K20 reached by counting placeholders).
    resources and skills other than "teaches" (for example a
    `learning_relation` column: `direct` / `prerequisite`) and a UI label.
    Today every recommended resource is direct.
-3. **Completed courses.** Completions are kept in the frontend
-   (`courseCompletions`); the backend does not know them. A taken course
+3. **Completed courses.** Completions are saved per user in
+   `candidate_course_completions`; the recommender does not read them yet. A taken course
    stays in the list with a "Taken" badge, which is right while the skill is
    still a gap, since taking a course does not add the skill to the resume.
 4. **Learning page fallback (frontend).** When the selected job has no
