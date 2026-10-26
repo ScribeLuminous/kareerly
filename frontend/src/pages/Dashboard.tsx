@@ -334,7 +334,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         progressSavingRef.current = false;
         setProgressSaveError(failure);
         // After a failure, the next change or Retry tries again; no retry loop.
-        if (failure) showToast(`${failure.replace(/([^.!?])$/, '$1.')} Your change is shown here but is not saved to your account yet.`, 'danger');
+        // The page banner shows the full error with Try again.
+        if (failure) showToast("Your change wasn't saved to your account.", 'danger');
         else setProgressSaveTick((tick) => tick + 1);
       })();
     }, 400);
