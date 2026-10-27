@@ -1,5 +1,5 @@
 import { savedMatchScore } from '../../lib/uiData';
-import { splitJobContent } from '../../lib/jobDescription';
+import { splitJobContent, toListItems } from '../../lib/jobDescription';
 import { splitLocation } from '../../lib/phProvinces';
 
 export type { EmployerPage } from './routes';
@@ -26,6 +26,7 @@ export type EmployerJob = {
   experienceLevel: string;
   description: string;
   responsibilities: string[];
+  qualifications: string[];
   requiredSkills: string[];
   niceToHaveSkills: string[];
   workSetup: string;
@@ -54,6 +55,7 @@ export type EmployerJobPostRow = {
   salary_max_php: number | null;
   job_description: string | null;
   responsibilities?: string | null;
+  qualifications?: string | null;
   required_skills: string | null;
   preferred_skills: string | null;
   posting_status: string | null;
@@ -137,6 +139,7 @@ export type JobFormState = {
   experienceLevel: string;
   description: string;
   responsibilities: string;
+  qualifications: string;
   workSetup: string;
   employmentType: string;
   city: string;
@@ -310,16 +313,30 @@ export const getSalaryAmounts = (value: string): { minimum: number; maximum: num
   };
 };
 
+/** The editor's "minimum-maximum" salary as numbers; 0 for a side left empty. */
+export const parseSalaryInput = (value: string): { minimum: number; maximum: number } => {
+  const [minimum = '', maximum = ''] = value.split('-');
+  const amount = (part: string) => Number(part.replace(/[^\d]/g, '')) || 0;
+  return { minimum: amount(minimum), maximum: amount(maximum) };
+};
+
+/** Back from formatPesoSalary to the editor's "minimum-maximum" form. */
 export const toSalaryInputValue = (value: string): string => {
-  const { minimum, maximum } = getSalaryAmounts(value);
-  if (!minimum && !maximum) return '';
-  return `${minimum || ''}-${maximum || ''}`;
+  const text = value.trim();
+  const { minimum, maximum } = getSalaryAmounts(text);
+  if (!minimum) return '';
+  // Drafts can be saved with only one side of the range.
+  if (/^up to/i.test(text)) return `-${minimum}`;
+  if (/^from/i.test(text)) return `${minimum}-`;
+  return `${minimum}-${maximum}`;
 };
 
 export const formatPesoSalary = (value: string): string => {
-  const { minimum, maximum } = getSalaryAmounts(value);
-  if (!minimum || !maximum) return '';
-  return `₱${minimum.toLocaleString('en-PH')} - ${maximum.toLocaleString('en-PH')}`;
+  const { minimum, maximum } = parseSalaryInput(value);
+  if (minimum && maximum) return `₱${minimum.toLocaleString('en-PH')} - ${maximum.toLocaleString('en-PH')}`;
+  if (minimum) return `From ₱${minimum.toLocaleString('en-PH')}`;
+  if (maximum) return `Up to ₱${maximum.toLocaleString('en-PH')}`;
+  return '';
 };
 
 export const getCategoryCode = (categoryValue: string): string => jobCategoryOptions.find((category) => category.value === categoryValue)?.code || '';
@@ -347,27 +364,29 @@ export const mapApplicationStatus = (status: string | null | undefined): Candida
   return 'Pending';
 };
 
-export const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => ({
-  id: row.job_id,
-  databaseId: row.id,
-  title: row.job_title,
-  category: row.category_name || '',
-  subcategory: row.job_subcategory || '',
-  experienceLevel: row.job_level || '',
-  description: splitJobContent(row.job_description || '').description,
-  responsibilities: row.responsibilities
-    ? row.responsibilities.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
-    : splitJobContent(row.job_description || '').responsibilities,
-  requiredSkills: splitSkills(row.required_skills),
-  niceToHaveSkills: splitSkills(row.preferred_skills),
-  workSetup: row.work_setup || '',
-  employmentType: row.employment_type || '',
-  ...splitLocation(row.location),
-  salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
-  deadline: row.application_deadline || '',
-  status: row.posting_status !== 'archived' && row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
-  postedDate: row.created_at ? row.created_at.slice(0, 10) : '',
-});
+export const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => {
+  const content = splitJobContent(row.job_description || '');
+  return {
+    id: row.job_id,
+    databaseId: row.id,
+    title: row.job_title,
+    category: row.category_name || '',
+    subcategory: row.job_subcategory || '',
+    experienceLevel: row.job_level || '',
+    description: content.description,
+    responsibilities: row.responsibilities ? toListItems(row.responsibilities) : content.responsibilities,
+    qualifications: row.qualifications ? toListItems(row.qualifications) : content.qualifications,
+    requiredSkills: splitSkills(row.required_skills),
+    niceToHaveSkills: splitSkills(row.preferred_skills),
+    workSetup: row.work_setup || '',
+    employmentType: row.employment_type || '',
+    ...splitLocation(row.location),
+    salaryRange: formatPesoSalary(`${row.salary_min_php || ''}-${row.salary_max_php || ''}`),
+    deadline: row.application_deadline || '',
+    status: row.posting_status !== 'archived' && row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
+    postedDate: row.created_at ? row.created_at.slice(0, 10) : '',
+  };
+};
 
 export const mapMessageRequestState = (state: string | null | undefined): MessageRequestState => {
   if (state === 'pending' || state === 'accepted' || state === 'declined' || state === 'ignored') return state;
@@ -414,6 +433,7 @@ export const emptyJobForm: JobFormState = {
   experienceLevel: '',
   description: '',
   responsibilities: '',
+  qualifications: '',
   workSetup: '',
   employmentType: '',
   city: '',

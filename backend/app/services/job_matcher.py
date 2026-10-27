@@ -511,6 +511,7 @@ def list_available_jobs(limit: int = 5000) -> list[dict[str, Any]]:
                 "preferred_skills": [skill.strip() for skill in safe_text(record.get("nice_to_have_skills_optional")).split(",") if skill.strip()],
                 "job_description": safe_text(record.get("job_description")),
                 "responsibilities": [item.strip() for item in safe_text(record.get("responsibilities")).splitlines() if item.strip()],
+                "qualifications": [item.strip() for item in safe_text(record.get("qualifications")).splitlines() if item.strip()],
                 "external_job_link_optional": external_link,
                 "source_dataset": source_dataset,
                 "company_name": company_name,
