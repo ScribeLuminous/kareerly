@@ -30,25 +30,36 @@ export type ProfileMatch = {
 const skillKey = (skill: string) => skill.trim().toLowerCase();
 
 /**
- * Required-skill coverage from the application. When the job's list is not
- * available (an old or deleted job), falls back to the skills recorded on
- * the application at apply time, which were checked against the same job.
+ * Required-skill coverage, read from the skill evidence saved with the
+ * application. That evidence is the very lists the candidate's own match screen
+ * showed when they applied ("You have ..." and the skills to develop), checked
+ * against the job's required skills by the matching service, so the candidate
+ * and the employer always see the same skills.
+ *
+ * It is deliberately not re-derived by comparing the job's own skill wording
+ * with the saved names: the matching service records canonical names ("HTML And
+ * CSS", "Javascript Programming") that rarely equal what an employer typed
+ * ("HTML", "CSS", "JavaScript"), which showed a strong match as 0 of 3.
+ *
+ * With no saved evidence nothing is "found" or "not found"; it is unknown, and
+ * the job's own list is returned only so the screen can say what was required.
  */
 export function profileMatch(candidate: Pick<CandidateApplication, 'matchedSkills' | 'missingSkills'>, job: Pick<EmployerJob, 'requiredSkills'> | null): ProfileMatch {
-  const recordedMatched = new Set(candidate.matchedSkills.map(skillKey));
+  const unique = (skills: string[]) => Array.from(new Map(skills.map((skill) => [skillKey(skill), skill])).values());
   const hasEvidence = candidate.matchedSkills.length + candidate.missingSkills.length > 0;
-  const required = job && job.requiredSkills.length > 0
-    ? Array.from(new Map(job.requiredSkills.map((skill) => [skillKey(skill), skill])).values())
-    : [...candidate.matchedSkills, ...candidate.missingSkills];
-  // With no recorded evidence nothing is "found" or "not found"; it is unknown.
-  const found = hasEvidence ? required.filter((skill) => recordedMatched.has(skillKey(skill))) : [];
-  const notFound = hasEvidence ? required.filter((skill) => !recordedMatched.has(skillKey(skill))) : [];
+  if (!hasEvidence) {
+    return { required: unique(job?.requiredSkills || []), found: [], notFound: [], percent: null, hasEvidence: false };
+  }
+  const found = unique(candidate.matchedSkills);
+  const foundKeys = new Set(found.map(skillKey));
+  const notFound = unique(candidate.missingSkills).filter((skill) => !foundKeys.has(skillKey(skill)));
+  const required = [...found, ...notFound];
   return {
     required,
     found,
     notFound,
-    percent: required.length > 0 && hasEvidence ? Math.round((100 * found.length) / required.length) : null,
-    hasEvidence,
+    percent: Math.round((100 * found.length) / required.length),
+    hasEvidence: true,
   };
 }
 

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
+import { readCandidateSource } from './helpers/candidateSource.mjs';
 
 const require = createRequire(import.meta.url);
 async function loadUtility(path) {
@@ -206,26 +207,48 @@ test('employer applications keep the apply-time ranking score apart from profile
 // The UI case from the audit: "5 of 6 skills" shown next to "57% match". The 57%
 // was the candidate-side composite (0.45 text similarity + 0.45 required skills
 // + 0.10 preferred skills), whose similarity part is not stored. Profile match
-// is now the explainable required-skill coverage alone.
-test('profile match is the share of the job required skills found in the application', () => {
+// is the explainable required-skill coverage alone.
+test('profile match is the share of required skills in the evidence saved with the application', () => {
   const application = { matchedSkills: ['SQL', 'excel', 'Python', 'Tableau', 'Statistics'], missingSkills: ['R'] };
   const job = { requiredSkills: ['SQL', 'Excel', 'Python', 'Tableau', 'Statistics', 'R'] };
   const match = employerPage.profileMatch(application, job);
   assert.equal(match.percent, 83);
   assert.deepEqual(match.notFound, ['R']);
   assert.equal(employerPage.profileMatchLabel(match), '5 of 6 required skills');
-  // Skills added to the job after the application are not found, not guessed.
-  const grown = employerPage.profileMatch(application, { requiredSkills: [...job.requiredSkills, 'dbt', 'Airflow'] });
-  assert.equal(grown.percent, 63);
-  assert.deepEqual(grown.notFound, ['R', 'dbt', 'Airflow']);
-  // Without the job, fall back to the lists recorded at apply time.
-  assert.equal(employerPage.profileMatch(application, null).percent, 83);
+  // The saved evidence is the source; the job's current wording does not change it.
+  assert.deepEqual(employerPage.profileMatch(application, { requiredSkills: [...job.requiredSkills, 'dbt', 'Airflow'] }), match);
+  assert.deepEqual(employerPage.profileMatch(application, null), match);
+  assert.deepEqual(employerPage.profileMatch(application, { requiredSkills: [] }), match);
+  // A skill listed as both found and missing counts once, as found.
+  assert.equal(employerPage.profileMatch({ matchedSkills: ['SQL'], missingSkills: ['sql', 'R'] }, null).percent, 50);
   // No evidence recorded: no number, rather than 0%.
   const empty = employerPage.profileMatch({ matchedSkills: [], missingSkills: [] }, job);
   assert.equal(empty.percent, null);
   assert.equal(employerPage.profileMatchLabel(empty), 'No skill evidence recorded');
+  assert.deepEqual(empty.found, []);
   assert.deepEqual(empty.notFound, []);
-  assert.equal(employerPage.profileMatch(application, { requiredSkills: [] }).percent, 83);
+});
+
+// Regression for the expert test: the candidate's screen showed "You have HTML
+// And CSS, Javascript Programming" (89% fit) while the employer's showed "0 of 3
+// required skills found" because the job's own wording ("HTML", "CSS",
+// "JavaScript") was compared with the matching service's canonical names.
+test('the employer sees the same matched skills the candidate saw when applying', () => {
+  const candidateSide = { matchedSkills: ['HTML And CSS', 'Javascript Programming'], missingSkills: ['React'] };
+  const row = { id: 'app-1', job_id: 'emp-1', status: 'pending', matched_skills: candidateSide.matchedSkills, missing_skills: candidateSide.missingSkills };
+  const application = employerPage.toCandidateApplication(row, []);
+  const job = { requiredSkills: ['HTML', 'CSS', 'JavaScript', 'React'] };
+  const match = employerPage.profileMatch(application, job);
+  assert.deepEqual(match.found, candidateSide.matchedSkills);
+  assert.deepEqual(match.notFound, candidateSide.missingSkills);
+  assert.equal(match.percent, 67);
+  assert.notEqual(match.percent, 0);
+  assert.equal(employerPage.profileMatchLabel(match), '2 of 3 required skills');
+});
+
+test('an application saves the candidate-side matched and missing skills verbatim', () => {
+  const dashboardSource = readCandidateSource();
+  assert.match(dashboardSource, /matched_skills: job\.matchedSkills,\s*missing_skills: job\.missingSkills,/);
 });
 
 test('starter assessment drafts read naturally and vary per question', () => {
@@ -342,8 +365,10 @@ test('applicant rows point at the assessment before a scorecard can start', () =
 });
 
 test('the high-match quick filter keeps applicants at 75% or more', () => {
-  const app = (id, matched) => ({ id, jobId: 'J1', appliedDate: '2026-09-01', lastActivity: '', status: 'Pending', publicId: id, fullName: id, matchedSkills: matched, missingSkills: ['X'], messageRequestState: 'none' });
-  const jobs = [{ id: 'J1', requiredSkills: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] }];
+  const required = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+  // The saved evidence covers every required skill: found, or listed as missing.
+  const app = (id, matched) => ({ id, jobId: 'J1', appliedDate: '2026-09-01', lastActivity: '', status: 'Pending', publicId: id, fullName: id, matchedSkills: matched, missingSkills: required.filter((skill) => !matched.includes(skill)), messageRequestState: 'none' });
+  const jobs = [{ id: 'J1', requiredSkills: required }];
   const applications = [app('eight', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']), app('seven', ['A', 'B', 'C', 'D', 'E', 'F', 'G']), app('none', [])];
   const filters = { ...employerPage.DEFAULT_CANDIDATE_FILTERS, jobId: 'J1', highMatch: true };
   assert.deepEqual(employerPage.visibleApplicants(applications, jobs, filters, new Map()).map((item) => item.id), ['eight']);
