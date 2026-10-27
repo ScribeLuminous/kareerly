@@ -16,6 +16,8 @@ import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
 import { classifySkillCategory, cleanSkillDisplayName, skillRecordKey, type ClaimedSkill, externalJobUrl, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDownload } from '@fortawesome/free-solid-svg-icons';
 import { Banner, ConfirmDialog, DESKTOP_QUERY, Modal, ToastRegion, useMediaQuery, type ToastState } from '../components/ui';
 import { CandidateShell } from './candidate/Shell';
 import { PAGE_PATHS, pageFromPath } from './candidate/routes';
@@ -161,7 +163,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   // Set while the modal re-scans the stored original, so saving reuses that file.
   const reusedResumeFile = useRef<ExistingResumeFile | null>(null);
   const [resumePreview, setResumePreview] = useState<{ url: string; name: string; mimeType: string; local: boolean } | null>(null);
-  const [docxPreviewResult, setDocxPreviewResult] = useState<{ url: string; html: string; error: string } | null>(null);
+  // What loading the previewed file produced, keyed by its URL: rendered HTML for
+  // Word, an in-memory blob for PDF (also the source of the Download link), or why it failed.
+  const [docxPreviewResult, setDocxPreviewResult] = useState<{ url: string; html: string; blobUrl: string; error: string } | null>(null);
+  const [resumePreviewAttempt, setResumePreviewAttempt] = useState(0);
   const [candidatePublicId, setCandidatePublicId] = useState('');
   // Gap skills the candidate says they already have. Saved to the account
   // (with skill progress and course completions, below) so they stay in the
@@ -246,34 +251,50 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   }, [state.resume?.skills]);
 
   useEffect(() => {
-    const isDocx = resumePreview
-      && (resumePreview.mimeType.includes('wordprocessingml') || resumePreview.name.toLowerCase().endsWith('.docx'));
-
-    if (!isDocx || !resumePreview) return;
+    if (!resumePreview) return;
+    const name = resumePreview.name.toLowerCase();
+    const isPdf = resumePreview.mimeType.includes('pdf') || name.endsWith('.pdf');
+    const isDocx = resumePreview.mimeType.includes('wordprocessingml') || name.endsWith('.docx');
+    if (!isPdf && !isDocx) return;
 
     let cancelled = false;
+    let blobUrl = '';
+    const failed = (message: string) => {
+      if (!cancelled) setDocxPreviewResult({ url: resumePreview.url, html: '', blobUrl: '', error: message });
+    };
 
-    const renderDocx = async () => {
+    const loadPreview = async () => {
       try {
         const response = await fetch(resumePreview.url);
-        if (!response.ok) throw new Error(`Unable to load resume (${response.status}).`);
+        if (!response.ok) {
+          failed(response.status === 400 || response.status === 404
+            ? 'This resume file could not be found. It may have been moved or deleted; upload it again.'
+            : `The resume could not be loaded (error ${response.status}). Please try again.`);
+          return;
+        }
+        if (isPdf) {
+          const blob = await response.blob();
+          blobUrl = URL.createObjectURL(blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' }));
+          if (cancelled) { URL.revokeObjectURL(blobUrl); return; }
+          setDocxPreviewResult({ url: resumePreview.url, html: '', blobUrl, error: '' });
+          return;
+        }
         // Loaded only when a Word resume is previewed; it is large.
         const mammoth = await import('mammoth');
         const result = await mammoth.convertToHtml({ arrayBuffer: await response.arrayBuffer() });
-        if (!cancelled) setDocxPreviewResult({ url: resumePreview.url, html: DOMPurify.sanitize(result.value), error: '' });
+        if (!cancelled) setDocxPreviewResult({ url: resumePreview.url, html: DOMPurify.sanitize(result.value), blobUrl: '', error: '' });
       } catch (error) {
-        console.warn('Unable to render DOCX resume preview:', error);
-        if (!cancelled) setDocxPreviewResult({
-          url: resumePreview.url,
-          html: '',
-          error: 'Unable to preview this DOCX file. Please try again or upload a new copy.',
-        });
+        console.warn('Unable to load resume preview:', error);
+        failed('Unable to preview this resume. Please try again, download it, or upload a new copy.');
       }
     };
 
-    void renderDocx();
-    return () => { cancelled = true; };
-  }, [resumePreview]);
+    void loadPreview();
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [resumePreview, resumePreviewAttempt]);
 
   // Load the account's claimed skills, skill progress and course completions.
   // Data an older version kept in this browser is imported once: it fills in
@@ -1248,18 +1269,28 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setMatchResults(result);
     if (currentUser?.id) {
       // The confirmed skills are what External Job Analysis and other features read.
-      const { error: deleteSkillsError } = await supabase.from('user_skills').delete().eq('user_id', currentUser.id);
-      const { error: insertSkillsError } = deleteSkillsError
-        ? { error: deleteSkillsError }
+      // The new set is written before the old one is removed, so a failed write
+      // leaves the skills the candidate already had.
+      const { data: previousSkills, error: readSkillsError } = await supabase.from('user_skills').select('id').eq('user_id', currentUser.id);
+      const { data: insertedSkills, error: insertSkillsError } = readSkillsError
+        ? { data: null, error: readSkillsError }
         : confirmedSkillRecords.length === 0
-        ? { error: null }
+        ? { data: [], error: null }
         : await supabase.from('user_skills').insert(confirmedSkillRecords.map((skill) => ({
           user_id: currentUser.id,
           skill_id: skill.skill_id,
           skill_name: skill.skill_name,
           confidence: 1,
           source: 'confirmed_skill',
-        })));
+        }))).select('id');
+      if (!insertSkillsError) {
+        const keep = new Set((insertedSkills || []).map((row) => String(row.id)));
+        const staleIds = (previousSkills || []).map((row) => String(row.id)).filter((id) => !keep.has(id));
+        if (staleIds.length > 0) {
+          const { error: deleteSkillsError } = await supabase.from('user_skills').delete().in('id', staleIds).eq('user_id', currentUser.id);
+          if (deleteSkillsError) console.warn('Unable to remove replaced skills:', deleteSkillsError);
+        }
+      }
       if (insertSkillsError) {
         console.warn('Unable to save confirmed skills:', insertSkillsError);
         showToast("Matches refreshed, but your skills weren't saved.", 'warn');
@@ -1684,32 +1715,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
       const data = withExtractedEducation(await analyzeResume(resumeFileToAnalyze, prefs));
       setResumeAnalyzeData(data);
-      const extractedEducation = data.candidate_profile?.education?.[0];
-      if (extractedEducation) {
-        setProfileForm((current) => ({
-          ...current,
-          highestEducationalAttainment: extractedEducation.highest_educational_attainment || current.highestEducationalAttainment,
-          degreeProgram: extractedEducation.degree_program || current.degreeProgram,
-          schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
-          yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
-        }));
-        // Saving the extracted education is a convenience; a failure here must not
-        // discard the resume analysis the user is waiting on.
-        await saveCandidateAccountSettings({
-          full_name: accountIdentity.name,
-          email: accountIdentity.email,
-          birthday: profileForm.birthday,
-          location: profileForm.location,
-          contact_number: profileForm.contactNumber,
-          address: profileForm.address,
-          highest_educational_attainment: extractedEducation.highest_educational_attainment || profileForm.highestEducationalAttainment,
-          degree_program: extractedEducation.degree_program || profileForm.degreeProgram,
-          school_university: extractedEducation.school_university || profileForm.schoolUniversity,
-          year_graduated: extractedEducation.year_graduated || profileForm.yearGraduated,
-        }).catch((saveError) => {
-          console.warn('Unable to save extracted education to account settings', saveError);
-        });
-      }
       const extracted = extractSkillsFromResume(data.parsedResume);
       const baseline = extracted.length > 0 ? extracted : skillNames;
       const unique = Array.from(new Set(baseline.map((item) => item.trim()).filter(Boolean)));
@@ -1743,6 +1748,37 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
+
+  // The education a resume carries is applied to the profile only once that
+  // resume is saved, so analysing a file the candidate then abandons (or that
+  // fails to save) leaves their existing profile as it was.
+  const applyExtractedEducation = async (data: ResumeAnalyzeResponse) => {
+    const extractedEducation = data.candidate_profile?.education?.[0];
+    if (!extractedEducation) return;
+    setProfileForm((current) => ({
+      ...current,
+      highestEducationalAttainment: extractedEducation.highest_educational_attainment || current.highestEducationalAttainment,
+      degreeProgram: extractedEducation.degree_program || current.degreeProgram,
+      schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
+      yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
+    }));
+    // A failure here must not discard the resume that was just saved.
+    await saveCandidateAccountSettings({
+      full_name: accountIdentity.name,
+      email: accountIdentity.email,
+      birthday: profileForm.birthday,
+      location: profileForm.location,
+      contact_number: profileForm.contactNumber,
+      address: profileForm.address,
+      highest_educational_attainment: extractedEducation.highest_educational_attainment || profileForm.highestEducationalAttainment,
+      degree_program: extractedEducation.degree_program || profileForm.degreeProgram,
+      school_university: extractedEducation.school_university || profileForm.schoolUniversity,
+      year_graduated: extractedEducation.year_graduated || profileForm.yearGraduated,
+    }).catch((saveError) => {
+      console.warn('Unable to save extracted education to account settings', saveError);
+    });
+  };
+
   const savePendingResume = async (): Promise<string | null> => {
     if (!resumeUploadFile || !resumeAnalyzeData) return null;
     if (savedResumeUploadId.current) return savedResumeUploadId.current;
@@ -1759,6 +1795,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       savedResumeUploadId.current = resumeId;
       setSavedResumeFileName(resumeUploadFile.name);
       setSavedResumeFile(null);
+      await applyExtractedEducation(resumeAnalyzeData);
     }
     // A resume analyzed just now was read by the live reader; uploading it again
     // would not change anything, so it is never flagged as an older analysis.
@@ -2587,27 +2624,49 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         />
       )}
 
-      {resumePreview && (
-        <Modal title="Resume" subtitle={<span className="[overflow-wrap:anywhere]">{resumePreview.name}</span>} onClose={closeResumePreview} size="lg" fullOnMobile>
-          {resumePreview.mimeType.includes('pdf') || resumePreview.name.toLowerCase().endsWith('.pdf') ? (
-            <iframe className="cand-resume-preview-frame" src={resumePreview.url} title={`Preview of ${resumePreview.name}`} />
-          ) : resumePreview.mimeType.includes('msword') || resumePreview.name.toLowerCase().endsWith('.doc') ? (
-            <Banner>
-              Older Word (.doc) files can't be previewed here. <a className="k-link" href={resumePreview.url} download={resumePreview.name}>Download the resume</a>
-            </Banner>
-          ) : docxPreviewResult?.url !== resumePreview.url ? (
-            <p className="k-secondary py-8 text-center" role="status">Preparing preview…</p>
-          ) : docxPreviewResult.error ? (
-            <Banner>{docxPreviewResult.error}</Banner>
-          ) : (
-            <div
-              className="cand-resume-preview-document"
-              aria-label={`Preview of ${resumePreview.name}`}
-              dangerouslySetInnerHTML={{ __html: docxPreviewResult.html }}
-            />
-          )}
-        </Modal>
-      )}
+      {resumePreview && (() => {
+        const previewName = resumePreview.name.toLowerCase();
+        const isPdf = resumePreview.mimeType.includes('pdf') || previewName.endsWith('.pdf');
+        const isLegacyWord = resumePreview.mimeType.includes('msword') || previewName.endsWith('.doc');
+        const loaded = docxPreviewResult?.url === resumePreview.url ? docxPreviewResult : null;
+        const downloadHref = loaded?.blobUrl || resumePreview.url;
+        const downloadLink = <a className="k-link" href={downloadHref} download={resumePreview.name}>Download the resume</a>;
+        return (
+          <Modal
+            title="Resume"
+            subtitle={<span className="[overflow-wrap:anywhere]">{resumePreview.name}</span>}
+            onClose={closeResumePreview}
+            size="xl"
+            fullOnMobile
+            fill
+            headerActions={(
+              <a className="k-btn k-btn-secondary k-btn-sm" href={downloadHref} download={resumePreview.name}>
+                <FontAwesomeIcon icon={faDownload} aria-hidden="true" />Download
+              </a>
+            )}
+          >
+            {isLegacyWord ? (
+              <Banner>Older Word (.doc) files can't be previewed here. {downloadLink}</Banner>
+            ) : !loaded ? (
+              <p className="k-secondary py-8 text-center" role="status">Preparing preview…</p>
+            ) : loaded.error ? (
+              <Banner>
+                {loaded.error}{' '}
+                <button className="k-link" type="button" onClick={() => { setDocxPreviewResult(null); setResumePreviewAttempt((attempt) => attempt + 1); }}>Try again</button>
+                {' · '}{downloadLink}
+              </Banner>
+            ) : isPdf ? (
+              <iframe className="cand-resume-preview-frame" src={loaded.blobUrl} title={`Preview of ${resumePreview.name}`} />
+            ) : (
+              <div
+                className="cand-resume-preview-document"
+                aria-label={`Preview of ${resumePreview.name}`}
+                dangerouslySetInnerHTML={{ __html: loaded.html }}
+              />
+            )}
+          </Modal>
+        );
+      })()}
 
       <ToastRegion toast={toast} onClose={() => setToast(null)} />
     </CandidateShell>
