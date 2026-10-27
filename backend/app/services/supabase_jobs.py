@@ -77,14 +77,29 @@ def _join_job_text(record: dict[str, Any]) -> str:
     return " ".join(_safe_text(record.get(field)) for field in fields if _safe_text(record.get(field))).lower()
 
 
-def _split_job_content(value: Any) -> tuple[str, str]:
-    text = _safe_text(value).replace("\r\n", "\n").replace("\r", "\n")
-    marker = re.search(r"(?:^|\n)\s*(?:key responsibilities|responsibilities|what you'll do)\s*:\s*", text, re.IGNORECASE)
-    if not marker:
-        return text, ""
-    description = text[: marker.start()].strip()
-    items = [re.sub(r"^\s*[-–—•*]\s*", "", item).strip() for item in text[marker.end() :].splitlines()]
-    return description, "\n".join(item for item in items if item)
+JOB_SECTION_HEADINGS = {
+    "responsibilities": re.compile(r"(?:^|\n)\s*(?:key responsibilities|responsibilities|what you'll do)\s*:\s*", re.IGNORECASE),
+    "qualifications": re.compile(r"(?:^|\n)\s*qualifications\s*:\s*", re.IGNORECASE),
+}
+
+
+def split_job_sections(value: Any) -> tuple[str, list[str], list[str]]:
+    """Overview, responsibilities and qualifications from a description that
+    uses the employer editor's "Responsibilities:" / "Qualifications:" headings."""
+    text = _safe_text(value).replace("\r\n", "\n").replace("\r", "\n").strip()
+    found = sorted(
+        (match.start(), match.end(), key)
+        for key, pattern in JOB_SECTION_HEADINGS.items()
+        if (match := pattern.search(text))
+    )
+    sections: dict[str, list[str]] = {"responsibilities": [], "qualifications": []}
+    if not found:
+        return text, sections["responsibilities"], sections["qualifications"]
+    for index, (_start, end, key) in enumerate(found):
+        stop = found[index + 1][0] if index + 1 < len(found) else len(text)
+        items = [re.sub(r"^\s*[-–—•*]\s*", "", item).strip() for item in text[end:stop].splitlines()]
+        sections[key] = [item for item in items if item]
+    return text[: found[0][0]].strip(), sections["responsibilities"], sections["qualifications"]
 
 
 def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
@@ -93,7 +108,7 @@ def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
     must_have_skill_ids = _normalize_skill_ids(record.get("must_have_skill_ids"))
     source_note = _safe_text(record.get("source_note"))
     source_platform = _safe_text(record.get("source_platform"))
-    description, responsibilities = _split_job_content(record.get("job_description"))
+    description, responsibilities, qualifications = split_job_sections(record.get("job_description"))
     occupation = validate_occupation_code(record.get("psoc_unit_code")) if record.get("psoc_unit_code") else {}
     psoc_code = str(occupation.get("code", "")) if occupation.get("valid") and occupation.get("level") == "unit" else ""
 
@@ -114,7 +129,8 @@ def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
         "salary_max_php": _safe_text(record.get("salary_max_php")),
         "salary_range_monthly_php": _format_salary_range(record),
         "job_description": description,
-        "responsibilities": responsibilities,
+        "responsibilities": "\n".join(responsibilities),
+        "qualifications": "\n".join(qualifications),
         "required_skills_comma_separated": required_skills,
         "required_skill_ids": must_have_skill_ids,
         "must_have_skill_ids": must_have_skill_ids,

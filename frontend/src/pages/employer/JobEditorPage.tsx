@@ -201,7 +201,7 @@ export function JobEditorPage({ job, draftKey, companyLocation, backLabel, onBac
         <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />{backLabel}
       </button>
       <PageHeader title={editing ? 'Edit job' : 'Post a job'}>
-        <p className="k-secondary mt-1">Required fields are marked *. Your changes are kept on this device until you save or post, so you can leave and come back.</p>
+        <p className="k-secondary mt-1">Required fields are marked * and are needed to post. Save draft keeps the job with whatever you have filled in so far, and your changes are kept on this device until you save or post.</p>
       </PageHeader>
 
       {restoredAt && !restoreDismissed && (
@@ -330,6 +330,14 @@ export function JobEditorPage({ job, draftKey, companyLocation, backLabel, onBac
               placeholder={'Resolve support tickets within agreed response times\nWrite weekly reports'}
               onChange={set('responsibilities')}
               required
+            />
+          </FormField>
+          <FormField label="Qualifications" help="One per line: education, licences, experience. Candidates see these as a list." className="mt-4">
+            <textarea
+              className="k-textarea min-h-[132px]"
+              value={form.qualifications}
+              placeholder={'Bachelor\'s degree in any field\nAt least 1 year of customer service experience'}
+              onChange={set('qualifications')}
             />
           </FormField>
         </section>

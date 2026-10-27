@@ -32,6 +32,7 @@ from pydantic import BaseModel, ValidationError
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, ResumeSummaryRequest, RunMatchesRequest, SkillGapsRequest
 from .services.admin_stats import summarize_match_feedback
 from .services.job_matcher import list_available_jobs
+from .services.supabase_jobs import split_job_sections
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
@@ -2040,19 +2041,6 @@ def _split_detail_list(value: object) -> list[str]:
     return [item.strip() for item in re.split(r"\r?\n|;|,", value) if item.strip()]
 
 
-def _split_job_description_sections(value: object) -> tuple[str, list[str]]:
-    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
-    marker = re.search(r"(?:^|\n)\s*(?:key responsibilities|responsibilities|what you'll do)\s*:\s*", text, re.IGNORECASE)
-    if not marker:
-        return text, []
-    description = text[: marker.start()].strip()
-    responsibilities = [
-        re.sub(r"^\s*[-–—•*]\s*", "", item).strip()
-        for item in text[marker.end() :].splitlines()
-    ]
-    return description, [item for item in responsibilities if item]
-
-
 def _format_detail_salary(record: dict) -> str:
     def amount(value: object) -> int:
         raw = str(value or "").replace(",", "").strip()
@@ -2141,7 +2129,7 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
     if source == "employer" and row.get("application_deadline") and str(row.get("application_deadline")) <= datetime.now(PHILIPPINE_TIMEZONE).date().isoformat():
         raise HTTPException(status_code=404, detail="This job posting is closed and is no longer accepting applications.")
 
-    description, embedded_responsibilities = _split_job_description_sections(row.get("job_description"))
+    description, embedded_responsibilities, embedded_qualifications = split_job_sections(row.get("job_description"))
     occupation = psoc_reference.validate_occupation_code(row.get("psoc_unit_code")) if row.get("psoc_unit_code") else {}
     psoc_code = str(occupation.get("code", "")) if occupation.get("valid") and occupation.get("level") == "unit" else ""
     job = {
@@ -2160,6 +2148,8 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
         "salary_range_monthly_php": _format_detail_salary(row),
         "job_description": description,
         "responsibilities": _split_detail_list(row.get("responsibilities")) or embedded_responsibilities,
+        # One per line; qualifications often contain commas ("Hospitality, Tourism or related field").
+        "qualifications": [line.strip() for line in str(row.get("qualifications") or "").splitlines() if line.strip()] or embedded_qualifications,
         "required_skills": _split_detail_list(row.get("required_skills")),
         "preferred_skills": _split_detail_list(row.get("preferred_skills")),
         "external_job_link_optional": str(row.get("source_url") or ""),
