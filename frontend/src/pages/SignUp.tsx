@@ -5,6 +5,7 @@ import { Banner, FormField } from '../components/ui';
 import { getFriendlySignUpErrorMessage, signUpCandidate } from '../lib/auth';
 import type { KareerlyUser } from '../lib/auth';
 import { STRONG_PASSWORD_PATTERN } from '../lib/passwordRules';
+import { maxBirthdayDate } from '../lib/birthday';
 
 type SignUpProps = {
   onAuthenticated: (user: KareerlyUser) => void;
@@ -77,7 +78,7 @@ export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProp
           </FormField>
 
           <FormField label="Birthday" help="You need to be 18 or older.">
-            <input id="signup-birthday" name="birthday" className="k-input" required type="date" autoComplete="bday" />
+            <input id="signup-birthday" name="birthday" className="k-input" required type="date" autoComplete="bday" max={maxBirthdayDate()} />
           </FormField>
 
           <div className="k-field">
