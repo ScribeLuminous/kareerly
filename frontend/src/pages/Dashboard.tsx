@@ -859,15 +859,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   })), [openGapSkills]);
 
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.read_at).length, [notifications]);
-  const loadNotifications = useCallback(async () => {
-    if (!currentUser.id) return;
+  const loadNotifications = useCallback(async (): Promise<CandidateNotification[] | null> => {
+    if (!currentUser.id) return null;
     try {
       const rows = await listCandidateNotifications();
       setNotifications(rows);
       setNotificationLoadStatus('ready');
+      return rows;
     } catch (notificationError) {
       console.warn('Unable to load notifications:', notificationError);
       setNotificationLoadStatus('error');
+      return null;
     }
   }, [currentUser.id]);
 
@@ -1109,19 +1111,25 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
-  const markAllNotificationsRead = async () => {
-    if (notifications.length === 0 || unreadNotificationCount === 0) return;
-    const previous = notifications;
+  const markAllNotificationsRead = async ({ quiet = false } = {}) => {
     const readAt = new Date().toISOString();
     setNotifications((current) => current.map((row) => row.read_at ? row : { ...row, read_at: readAt }));
     try {
       await markAllCandidateNotificationsRead();
-      showToast('All notifications marked as read.', 'success');
+      if (!quiet) showToast('All notifications marked as read.', 'success');
     } catch (notificationError) {
       console.warn('Unable to persist all notification read states:', notificationError);
-      setNotifications(previous);
+      // Show the server's state again so the badge is honest.
+      void loadNotifications();
       showToast('Unable to mark all notifications as read.', 'danger');
     }
+  };
+
+  // Opening the bell counts as reading: refresh first so newly arrived
+  // notifications are included, then save them all as read.
+  const openNotifications = async () => {
+    const rows = await loadNotifications();
+    if (rows?.some((row) => !row.read_at)) await markAllNotificationsRead({ quiet: true });
   };
 
   const applyAnalysisResult = (data: ResumeAnalyzeResponse) => {
@@ -2165,7 +2173,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       notifications={notifications}
       notificationStatus={notificationLoadStatus}
       unreadCount={unreadNotificationCount}
-      onOpenNotifications={() => void loadNotifications()}
+      onOpenNotifications={() => void openNotifications()}
       onMarkAllRead={() => void markAllNotificationsRead()}
       onMarkRead={(row) => void markNotificationRead(row)}
       applicationsBadge={pendingMessageCount}
