@@ -35,6 +35,10 @@ psql_eval -f "$here/assessment_delivery_fix_tests.sql"
 psql_eval -f "$here/../migrations/20261003090000_assessment_templates.sql"
 psql_eval -f "$here/../migrations/20261003090000_assessment_templates.sql"
 psql_eval -f "$here/assessment_template_tests.sql"
+# Applied twice: the migration and its backfill must be safe to re-run.
+psql_eval -f "$here/../migrations/20261027090000_auto_assessment_templates.sql"
+psql_eval -f "$here/../migrations/20261027090000_auto_assessment_templates.sql"
+psql_eval -f "$here/auto_assessment_template_tests.sql"
 psql_run -c "create database shared_documents"
 psql_docs() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d shared_documents -v ON_ERROR_STOP=1 -q "$@"; }
 psql_docs -f "$here/supabase_stub.sql"

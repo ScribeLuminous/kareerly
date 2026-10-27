@@ -440,9 +440,26 @@ test('scorecard shows submitted evidence before the employer rating', () => {
   const rated = { id: 's1', status: 'draft', summaryNotes: '', ratings: { c1: { rating: 3, evidence: '' } }, updatedAt: '2026-10-26T00:00:00Z', submittedAt: null };
   const ratedHtml = renderToStaticMarkup(React.createElement(employerPage.ScorecardForm, { rubric, assessment, existing: rated, saving: false, disabled: false, onSave: () => {} }));
   assert.match(ratedHtml, /<button class="k-btn k-btn-primary" type="submit">/, 'a rating without notes can be submitted');
-  // A note from an older scorecard stays visible.
+  // Per-question notes from older scorecards are not shown; only Assessment Notes remain.
   const withNote = { ...rated, ratings: { c1: { rating: 3, evidence: 'Gave a clear example.' } } };
-  assert.match(renderToStaticMarkup(React.createElement(employerPage.ScorecardForm, { rubric, assessment, existing: withNote, saving: false, disabled: false, onSave: () => {} })), /Earlier note[\s\S]*Gave a clear example\./);
+  const withNoteHtml = renderToStaticMarkup(React.createElement(employerPage.ScorecardForm, { rubric, assessment, existing: withNote, saving: false, disabled: false, onSave: () => {} }));
+  assert.doesNotMatch(withNoteHtml, /Earlier note|Gave a clear example/);
+  assert.match(withNoteHtml, /Assessment Notes \(optional\)/);
+});
+
+test('saving a job assessment needs no template step, and the template it is saved as can be opened', async () => {
+  await loadModule('../src/pages/employer/AssessmentCriteriaEditor.tsx');
+  const { RubricEditorModal } = await loadModule('../src/pages/employer/RubricEditorModal.tsx');
+  const rubric = { id: 'r1', jobPostId: 'p1', version: 1, createdAt: '', supersededAt: null, templateId: 't1', criteria: [{ id: 'c1', position: 0, name: 'SQL', description: '', weight: 3, isRequired: true, anchors: ['a', 'b', 'c', 'd'], prompts: [], question: 'Describe a query you improved.' }] };
+  const templates = [{ id: 't1', name: 'Analyst assessment', description: '', criteria: [], updatedAt: '' }];
+  const html = renderToStaticMarkup(React.createElement(RubricEditorModal, {
+    job: { id: 'j1', title: 'Analyst', requiredSkills: [], responsibilities: [] }, rubric, inUse: false, saving: false, templates,
+    onCancel: () => {}, onSave: () => {}, onOpenTemplate: () => {},
+  }));
+  assert.doesNotMatch(html, /Also save as a reusable template/);
+  assert.match(html, /Saved as the template <strong>Analyst assessment<\/strong>/);
+  assert.match(html, /View template/);
+  assert.match(html, /keeps this assessment in Assessment templates/);
 });
 
 test('assessment templates live under /employer/jobs/assessments, never as a job id', async () => {
