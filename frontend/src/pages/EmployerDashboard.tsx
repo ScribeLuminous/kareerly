@@ -1323,6 +1323,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         })),
         status: 'ready',
         unreadCount,
+        onOpen: () => void markNotificationsRead(),
         onMarkAllRead: () => void markNotificationsRead(),
       }}
       account={{
