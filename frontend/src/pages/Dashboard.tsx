@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
 import { normalizeEducationLevel } from '../lib/education';
+import { assessmentDueState, formatAssessmentDue, loadAssessments, type CandidateAssessment } from '../lib/assessmentApi';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
@@ -866,6 +867,28 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     // Runs again once saved progress has loaded, so saved records are checked
     // against the current gaps too.
   }, [gapReport, progressLoad.status]);
+
+  // Candidate Assessments waiting for an answer, so the Home page can show what is due and when.
+  const [pendingAssessments, setPendingAssessments] = useState<CandidateAssessment[]>([]);
+  const assessmentApplicationKey = applications.map((application) => application.id).join(',');
+  useEffect(() => {
+    if (!assessmentApplicationKey) return undefined;
+    let mounted = true;
+    const refresh = () => void loadAssessments(assessmentApplicationKey.split(','))
+      .then((rows) => { if (mounted) setPendingAssessments(Array.from(rows.values()).filter((item) => item.status === 'pending')); })
+      .catch(() => { if (mounted) setPendingAssessments([]); });
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, [assessmentApplicationKey]);
+  const assessmentsDue = useMemo(() => [...pendingAssessments]
+    .sort((a, b) => Date.parse(a.dueAt || '9999') - Date.parse(b.dueAt || '9999'))
+    .map((item) => ({
+      applicationId: item.applicationId,
+      jobTitle: applications.find((application) => application.id === item.applicationId)?.jobTitle || 'your application',
+      dueText: item.dueAt ? formatAssessmentDue(item.dueAt) : 'soon',
+      overdue: assessmentDueState(item) === 'overdue',
+    })), [pendingAssessments, applications]);
 
   const recentApplications = useMemo(
     () =>
@@ -2286,6 +2309,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           activeApplicationCount={applications.filter((app) => ['Pending', 'Shortlisted', 'Interviewing'].includes(app.status)).length}
           onOpenApplications={() => setActivePage('applications')}
           profileTasks={profileTasks}
+          assessmentsDue={assessmentsDue}
         />
       )}
 

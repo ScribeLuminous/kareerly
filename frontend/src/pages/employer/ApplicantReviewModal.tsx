@@ -11,7 +11,8 @@ import {
   type AuditEntry,
 } from '../../lib/evaluationApi';
 import { Modal } from '../../components/ui';
-import { approveAiReviewDraft, assessmentStatusLabel, loadAssessments, requestAiReviewDraft, sendAssessment, type AiReviewDraft, type CandidateAssessment } from '../../lib/assessmentApi';
+import { approveAiReviewDraft, assessmentDueDateProblem, assessmentDueState, assessmentStatusLabel, defaultAssessmentDueDate, dueDateToTimestamp, dueDayOf, extendAssessmentDeadline, formatAssessmentDue, loadAssessments, requestAiReviewDraft, sendAssessment, type AiReviewDraft, type CandidateAssessment } from '../../lib/assessmentApi';
+import { AssessmentDeadlineField } from './AssessmentDeadlineField';
 import { AuditTrail, ProfileMatchPanel, ReviewedEvaluationPanel, ScorecardForm } from './EvaluationPanels';
 import { nextAction, profileMatch, type ApplicationEvaluation, type RatingDraft, type Rubric, type Scorecard } from './evaluation';
 import {
@@ -67,6 +68,18 @@ function StatusActions({ candidate, assessment, onAction, onSendRequest, onOpenM
     );
   }
   if (status === 'Shortlisted') {
+    // Declining for no response is only open once the deadline has passed with nothing submitted.
+    if (assessment?.status === 'pending' && assessment.dueAt) {
+      const due = formatAssessmentDue(assessment.dueAt);
+      return assessmentDueState(assessment) === 'overdue' ? (
+        <div className="space-y-2">
+          <p className="k-secondary">The deadline passed on {due} with no submission. Extend it below to give more time, or decline.</p>
+          <div className={row}>{reject}</div>
+        </div>
+      ) : (
+        <p className="k-secondary">The candidate has until {due} (Philippine time) to respond. You can decline for not responding after that, or extend the deadline below.</p>
+      );
+    }
     if (assessment?.status !== 'reviewed') return <p className="k-secondary">Review the submitted Candidate Assessment and scorecard before choosing a decision.</p>;
     return (
       <div className={row}>
@@ -117,6 +130,10 @@ export function ApplicantReviewModal({
   const [saving, setSaving] = useState(false);
   const [assessment, setAssessment] = useState<CandidateAssessment | null>(null);
   const [sending, setSending] = useState(false);
+  // Deadline for the assessment about to be sent (7 day default), and for an extension.
+  const [sendDueDate, setSendDueDate] = useState(() => defaultAssessmentDueDate());
+  const [extendDate, setExtendDate] = useState('');
+  const [extending, setExtending] = useState(false);
   const [assessmentVersion, setAssessmentVersion] = useState(0);
   useEffect(() => {
     let mounted = true;
@@ -125,10 +142,24 @@ export function ApplicantReviewModal({
     const timer = window.setInterval(refresh, 5000);
     return () => { mounted = false; window.clearInterval(timer); };
   }, [candidate.id, assessmentVersion]);
+  const extend = async () => {
+    if (!assessment) return;
+    setExtending(true);
+    try {
+      await extendAssessmentDeadline(assessment.id, dueDateToTimestamp(extendDate));
+      onToast('Deadline extended. The candidate has been notified.', 'success');
+      setExtendDate('');
+      setAssessmentVersion((value) => value + 1);
+      onEvaluationChanged();
+    } catch (error) { onToast(error instanceof Error ? error.message : 'Unable to extend the deadline.', 'danger'); }
+    finally { setExtending(false); }
+  };
   const send = async () => {
+    const problem = assessmentDueDateProblem(sendDueDate);
+    if (problem) { onToast(problem, 'warn'); return; }
     setSending(true);
     try {
-      await sendAssessment(candidate.id);
+      await sendAssessment(candidate.id, dueDateToTimestamp(sendDueDate));
       onToast('Candidate Assessment sent.', 'success');
       setAssessmentVersion((value) => value + 1);
       onEvaluationChanged();
@@ -276,8 +307,22 @@ export function ApplicantReviewModal({
         <h3 id="candidate-assessment-heading" className="k-label">Candidate Assessment</h3>
         <p className="k-secondary mt-1">{assessment ? assessmentStatusLabel(assessment) : currentRubric ? 'Not sent' : 'No assessment has been configured for this job.'}</p>
         {!assessment && (candidate.status === 'Shortlisted' || candidate.status === 'Interviewing') && (currentRubric ?
-          <button className="k-btn k-btn-primary k-btn-sm mt-2" type="button" disabled={sending} onClick={() => void send()}>Send Assessment</button> :
+          <div className="mt-2 max-w-xs">
+            <AssessmentDeadlineField value={sendDueDate} onChange={setSendDueDate} />
+            <button className="k-btn k-btn-primary k-btn-sm mt-2" type="button" disabled={sending || Boolean(assessmentDueDateProblem(sendDueDate))} onClick={() => void send()}>Send Assessment</button>
+          </div> :
           <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => job && onEditRubric(job.id)}>Configure Assessment</button>)}
+        {assessment?.status === 'pending' && !closed && (
+          <div className="mt-2 max-w-xs">
+            <AssessmentDeadlineField label="Extend deadline to" value={extendDate} onChange={setExtendDate} />
+            <button
+              className="k-btn k-btn-secondary k-btn-sm mt-2"
+              type="button"
+              disabled={extending || !extendDate || Boolean(assessmentDueDateProblem(extendDate)) || (assessment.dueAt !== null && extendDate <= dueDayOf(assessment.dueAt))}
+              onClick={() => void extend()}
+            >Extend deadline</button>
+          </div>
+        )}
         {assessment?.status === 'submitted' && <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => setTab('scorecard')}>Review Assessment</button>}
         {assessment?.status === 'reviewed' && <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => setTab('scorecard')}>View Scorecard</button>}
       </section>

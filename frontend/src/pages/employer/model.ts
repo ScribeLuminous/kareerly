@@ -556,6 +556,7 @@ export const REJECTION_REASONS: Array<{ value: string; label: string }> = [
   { value: "The candidate's location or work-setup preference did not align with this position.", label: 'Location or work-setup preference did not align' },
   { value: 'The position has been placed on hold or is no longer being filled.', label: 'Position placed on hold or no longer being filled' },
   { value: 'The compensation expectations could not be aligned with the approved range.', label: 'Compensation expectations did not align with the approved range' },
+  { value: 'The candidate did not submit the Candidate Assessment by the deadline.', label: 'Candidate Assessment not submitted by the deadline' },
 ];
 
 export const EXPERIENCE_LEVELS = ['Entry-level / Fresh Graduate', 'Junior (1-2 yrs)', 'Mid-level (3-5 yrs)', 'Senior (5+ yrs)'];

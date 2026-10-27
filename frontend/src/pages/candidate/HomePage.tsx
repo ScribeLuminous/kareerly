@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
-import { NextStepCard, SkeletonRows, type NextStep } from '../../components/ui';
+import { Banner, NextStepCard, SkeletonRows, type NextStep } from '../../components/ui';
 import { JobCard } from './JobCard';
 import { PageHeader, SectionHead, StatusBadge } from './common';
 import {
@@ -13,6 +13,8 @@ import {
 } from './model';
 
 export type { NextStep } from '../../components/ui';
+/** A Candidate Assessment still waiting for the candidate's answers. */
+export type HomeAssessmentDue = { applicationId: string; jobTitle: string; dueText: string; overdue: boolean };
 export type ProfileTask = { label: string; done: boolean; onAction: () => void };
 /** An open skill gap as the Skills page ranks it. */
 export type HomeGap = { key: string; name: string; detail: string; tierLabel: string };
@@ -36,6 +38,8 @@ type HomePageProps = {
   activeApplicationCount: number;
   onOpenApplications: () => void;
   profileTasks: ProfileTask[];
+  /** Assessments to answer, soonest deadline first. */
+  assessmentsDue?: HomeAssessmentDue[];
 };
 
 const seeAll = (label: string, onClick: () => void) => (
@@ -62,6 +66,7 @@ export function HomePage({
   activeApplicationCount,
   onOpenApplications,
   profileTasks,
+  assessmentsDue = [],
 }: HomePageProps) {
   const hasMatches = fitNowCount + aspirationCount > 0;
   const openTasks = profileTasks.filter((task) => !task.done);
@@ -72,6 +77,18 @@ export function HomePage({
       <PageHeader title="Home" />
       <div className="grid gap-7 lg:grid-cols-12 lg:gap-8">
         <div className="min-w-0 space-y-7 lg:col-span-8 lg:space-y-8">
+          {assessmentsDue.length > 0 && (
+            <Banner
+              tone="warn"
+              actions={<button className="k-btn k-btn-primary k-btn-sm" type="button" onClick={onOpenApplications}>{assessmentsDue[0].overdue ? 'View' : 'Answer now'}</button>}
+            >
+              {assessmentsDue.length === 1
+                ? assessmentsDue[0].overdue
+                  ? `The deadline for your Candidate Assessment for ${assessmentsDue[0].jobTitle} passed on ${assessmentsDue[0].dueText}. Ask the employer if they can give you more time.`
+                  : `Your Candidate Assessment for ${assessmentsDue[0].jobTitle} is due ${assessmentsDue[0].dueText}.`
+                : `You have ${assessmentsDue.length} Candidate Assessments to answer. The first is due ${assessmentsDue[0].dueText}.`}
+            </Banner>
+          )}
           <NextStepCard steps={nextSteps} />
 
           {isLoading && !hasMatches ? (
