@@ -1157,6 +1157,13 @@ a.k-row:hover {
   padding: 8px 16px 16px;
 }
 
+.k-modal-body-fill {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-height: 0;
+}
+
 .k-modal-footer {
   display: flex;
   flex-direction: column-reverse;
@@ -1183,6 +1190,14 @@ a.k-row:hover {
 
   .k-modal-lg {
     max-width: 760px;
+  }
+
+  /* Previews take most of the screen: wide enough to read a page, tall enough
+     to show most of it without scrolling the dialog. */
+  .k-modal.k-modal-xl {
+    max-width: min(1100px, calc(100vw - 48px));
+    height: min(92dvh, 1100px);
+    max-height: none;
   }
 
   .k-modal-full {
