@@ -24,11 +24,13 @@ type RubricEditorModalProps = {
   templates: AssessmentTemplate[];
   /** Closes without saving. For a job with no assessment yet this is "Skip for now": the step is optional. */
   onCancel: () => void;
-  /** `templateName` is set when the employer also wants to keep it as a reusable template. */
-  onSave: (criteria: RubricCriterionDraft[], templateName: string) => void;
+  /** Saving also keeps the assessment in Assessment templates, so there is nothing extra to choose. */
+  onSave: (criteria: RubricCriterionDraft[]) => void;
+  /** Leaves the dialog and shows that template's page. */
+  onOpenTemplate: (templateId: string) => void;
 };
 
-export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCancel, onSave }: RubricEditorModalProps) {
+export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCancel, onSave, onOpenTemplate }: RubricEditorModalProps) {
   const isNew = !rubric;
   const [criteria, setCriteria] = useState<RubricCriterionDraft[]>(() => (rubric ? rubricToDraft(rubric) : starterRubric(job)));
   // The questions shown are our draft from the job, not something the employer saved.
@@ -36,8 +38,6 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
   // Remounts the editor so its open/closed cards follow a newly loaded template.
   const [editorKey, setEditorKey] = useState(0);
   const [error, setError] = useState('');
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
-  const [templateName, setTemplateName] = useState(`${job.title} assessment`);
   const usedTemplate = rubric?.templateId ? templates.find((item) => item.id === rubric.templateId) : null;
 
   const loadTemplate = (templateId: string) => {
@@ -49,9 +49,9 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
     setError('');
   };
   const submit = () => {
-    const problem = validateRubricDraft(criteria) || (saveAsTemplate && !templateName.trim() ? 'Name the template.' : null);
+    const problem = validateRubricDraft(criteria);
     setError(problem || '');
-    if (!problem) onSave(criteria, saveAsTemplate ? templateName.trim() : '');
+    if (!problem) onSave(criteria);
   };
 
   return (
@@ -78,8 +78,13 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
     >
       <p className="k-secondary">
         Set the questions candidates answer when shortlisted, and the criteria reviewers use to rate their answers.
-        {usedTemplate && <> Based on the template <strong>{usedTemplate.name}</strong>.</>}
       </p>
+      {usedTemplate && (
+        <p className="k-meta mt-2">
+          Saved as the template <strong>{usedTemplate.name}</strong>.{' '}
+          <button className="k-link" type="button" onClick={() => onOpenTemplate(usedTemplate.id)} disabled={saving}>View template</button>
+        </p>
+      )}
       {isNew && (
         <p className="k-secondary mt-2">
           <strong>Optional, but recommended.</strong> Shortlisted applicants answer these automatically, so your team compares everyone on the same points instead of resumes alone.
@@ -109,17 +114,7 @@ export function RubricEditorModal({ job, rubric, inUse, saving, templates, onCan
         <AssessmentCriteriaEditor key={editorKey} criteria={criteria} onChange={setCriteria} />
       </div>
 
-      <div className="mt-5 rounded-[12px] border border-bdr p-3">
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={saveAsTemplate} onChange={(event) => setSaveAsTemplate(event.target.checked)} />
-          <span className="k-label">Also save as a reusable template</span>
-        </label>
-        {saveAsTemplate && (
-          <FormField label="Template name" className="mt-2">
-            <input className="k-input" value={templateName} maxLength={120} onChange={(event) => setTemplateName(event.target.value)} />
-          </FormField>
-        )}
-      </div>
+      <p className="k-meta mt-4">Saving also keeps this assessment in Assessment templates, so you can review it or reuse it in other jobs anytime.</p>
     </Modal>
   );
 }

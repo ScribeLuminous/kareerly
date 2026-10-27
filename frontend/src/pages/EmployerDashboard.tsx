@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 import { normalizeEmployerIndustry } from '../lib/employerOptions';
 import { joinLocation, splitLocation } from '../lib/phProvinces';
 import { joinJobContent } from '../lib/jobDescription';
-import { applyAssessmentTemplate, deleteAssessmentTemplates, isEvaluationUnavailable, isTemplatesUnavailable, loadAssessmentTemplates, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveAssessmentTemplate, saveRubric, type EvaluationSummary } from '../lib/evaluationApi';
+import { applyAssessmentTemplate, deleteAssessmentTemplates, isEvaluationUnavailable, isTemplatesUnavailable, loadAssessmentTemplates, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveAssessmentTemplate, saveJobAssessment, type EvaluationSummary } from '../lib/evaluationApi';
 import { loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
 import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
 import { AssessmentTemplatesPage, type JobsSection } from './employer/AssessmentTemplatesPage';
@@ -784,7 +784,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         const combined = combineTemplates(chosen);
         const problem = validateRubricDraft(combined);
         if (problem) throw new Error(problem);
-        for (const postId of postIds) await saveRubric(postId, combined);
+        // Each job keeps the combined questions as a template too; identical ones share it.
+        for (const postId of postIds) await saveJobAssessment(postId, combined);
+        await refreshTemplates();
       }
       await reloadRubrics();
       const what = chosen.length === 1 ? chosen[0].name : `${chosen.length} combined templates`;
@@ -799,6 +801,14 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const openJobsSection = (section: JobsSection) => {
     navigate(section === 'templates' ? employerTemplatePath() : EMPLOYER_PAGE_PATHS.jobs);
+    window.scrollTo({ top: 0 });
+  };
+
+  /** Shows a template's page, leaving any open assessment or review dialog. */
+  const openTemplate = (templateId: string) => {
+    setRubricEditor(null);
+    setReviewModalId(null);
+    navigate(employerTemplatePath(templateId));
     window.scrollTo({ top: 0 });
   };
 
@@ -825,24 +835,19 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     setRubricEditor({ jobId, inUse });
   };
 
-  const saveRubricDraft = async (criteria: RubricCriterionDraft[], templateName: string) => {
+  /** Saves the job's assessment; the database also keeps it in Assessment templates. */
+  const saveRubricDraft = async (criteria: RubricCriterionDraft[]) => {
     const job = rubricEditor ? jobMap.get(rubricEditor.jobId) : null;
     if (!job?.databaseId) return;
     setIsSavingRubric(true);
     try {
-      await saveRubric(job.databaseId, criteria);
-      if (templateName) {
-        try {
-          await saveAssessmentTemplate({ employerProfileId, name: templateName, description: `Saved from ${job.title}.`, criteria });
-          await refreshTemplates();
-        } catch (error) {
-          showToast(`Assessment saved, but not as a template: ${error instanceof Error ? error.message : 'try again from Assessment templates.'}`, 'warn');
-        }
-      }
+      const { templateId } = await saveJobAssessment(job.databaseId, criteria);
+      if (templateId) await refreshTemplates();
       const postIds = jobs.map((item) => item.databaseId).filter((id): id is string => Boolean(id));
       setRubrics(await loadRubrics(postIds));
       setSummaryVersion((value) => value + 1);
-      showToast(rubricEditor?.inUse ? 'Saved as a new rubric version. Earlier scorecards keep their version.' : 'Rubric saved.', 'success');
+      const saved = rubricEditor?.inUse ? 'Saved as a new rubric version. Earlier scorecards keep their version.' : 'Assessment saved.';
+      showToast(templateId ? `${saved} It's also in Assessment templates.` : saved, 'success');
       setRubricEditor(null);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to save the rubric.', 'danger');
@@ -1308,7 +1313,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           usage={templateUsage}
           describeJob={describeJobAssessment}
           templateId={templateRouteId}
-          onOpen={(id) => { navigate(employerTemplatePath(id)); window.scrollTo({ top: 0 }); }}
+          onOpen={openTemplate}
           onBackToList={() => openJobsSection('templates')}
           onSection={openJobsSection}
           onSave={saveTemplate}
@@ -1361,6 +1366,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onDiscardNewJobDraft={() => clearJobDraft(newJobDraftKey)}
           onEdit={startEditJobForm}
           onEditRubric={(jobId) => void openRubricEditor(jobId)}
+          onOpenTemplate={openTemplate}
           onViewApplicants={viewApplicants}
           onBulkAction={bulkJobAction}
         />
@@ -1464,7 +1470,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
             if (rubricEditor.afterPosting) showToast('Assessment skipped. You can set it up anytime from the job page.');
             setRubricEditor(null);
           }}
-          onSave={(criteria, templateName) => void saveRubricDraft(criteria, templateName)}
+          onSave={(criteria) => void saveRubricDraft(criteria)}
+          onOpenTemplate={openTemplate}
         />
       )}
 

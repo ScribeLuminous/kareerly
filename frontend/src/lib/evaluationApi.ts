@@ -81,6 +81,22 @@ export async function saveRubric(jobPostId: string, criteria: RubricCriterionDra
   return String(data);
 }
 
+/**
+ * Saves a job's assessment and keeps it in Assessment templates, linked to the
+ * job. Falls back to a plain rubric save on a database without that migration.
+ */
+export async function saveJobAssessment(jobPostId: string, criteria: RubricCriterionDraft[]): Promise<{ rubricId: string; templateId: string | null }> {
+  const { data, error } = await supabase.rpc('save_job_assessment', { target_job_post_id: jobPostId, criteria: rubricPayload(criteria) });
+  if (error) {
+    if (/save_job_assessment|PGRST202|schema cache/i.test(error.message || '')) {
+      return { rubricId: await saveRubric(jobPostId, criteria), templateId: null };
+    }
+    fail(error, 'Unable to save the assessment.');
+  }
+  const result = (data || {}) as { rubric_id?: string; template_id?: string | null };
+  return { rubricId: String(result.rubric_id || ''), templateId: result.template_id ? String(result.template_id) : null };
+}
+
 export async function loadScorecards(applicationId: string): Promise<Scorecard[]> {
   const { data, error } = await supabase.from('evaluation_scorecards').select('*').eq('application_id', applicationId);
   if (error) fail(error, 'Unable to load scorecards.');

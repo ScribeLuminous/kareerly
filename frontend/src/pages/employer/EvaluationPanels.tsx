@@ -175,7 +175,7 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
   const [ratings, setRatings] = useState(initial);
   const [summary, setSummary] = useState(existing?.summaryNotes || '');
 
-  // Only the rating changes here. Notes written per question on older scorecards stay in `evidence` and are saved back unchanged.
+  // Only the rating changes here. Per-question notes from older scorecards are not shown; they stay in `evidence` and are saved back unchanged.
   const update = (criterionId: string, patch: Partial<RatingDraft>) => {
     setRatings((current) => ({ ...current, [criterionId]: { ...current[criterionId], ...patch } }));
   };
@@ -233,9 +233,6 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
                     </span>
                   </label>
                 </div>
-                {value.evidence.trim() && (
-                  <div className="mt-3"><p className="k-meta">Earlier note</p><p className="k-secondary whitespace-pre-wrap">{value.evidence}</p></div>
-                )}
               </fieldset>
             </li>
           );
