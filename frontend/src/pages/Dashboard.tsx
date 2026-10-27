@@ -1150,7 +1150,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     resume: ParsedResume,
     skills: string[],
     answers: SurveyAnswers,
-    options?: { analysis?: ResumeAnalyzeResponse | null; resumeId?: string | null; extraKnownSkills?: SelectedSkill[]; claimedSkills?: Record<string, ClaimedSkill> },
+    options?: { analysis?: ResumeAnalyzeResponse | null; resumeId?: string | null; extraKnownSkills?: SelectedSkill[]; claimedSkills?: Record<string, ClaimedSkill>; refreshJobs?: boolean },
   ) => {
     const resumeText = extractResumeText(resume);
     if (!resumeText) return null;
@@ -1243,6 +1243,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         // the backend resolves the region with the same mapping it uses for jobs.
         ...locationPreferencePayload(answers, profileForm.location),
       },
+      refresh_jobs: options?.refreshJobs,
     });
 
     setMatchResults(result);
@@ -2004,6 +2005,36 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
+  // "Refresh matches": matches the latest resume, skills (including ones claimed
+  // on the Skills page) and preferences against freshly loaded job posts.
+  const refreshMatches = async () => {
+    if (state.isLoading) return;
+    const savedResume = state.resume || state.resumeAnalysis?.parsedResume;
+    if (!savedResume || !extractResumeText(savedResume)) {
+      openResumeModal();
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    // Job details and employer names shown on the cards come from this list.
+    void loadKareers(true);
+    try {
+      const cleanSkills = Array.from(new Set(skillNames.map((skill) => skill.trim()).filter(Boolean)));
+      const result = await runMatchingWithSkills(savedResume, cleanSkills, surveyAnswers, { refreshJobs: true });
+      if (result) {
+        showToast('Matches refreshed with the latest jobs and your current profile.', 'success');
+      } else {
+        showToast('Add at least one skill in Preferences to refresh your matches.', 'warn');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to refresh your matches.';
+      setError(message);
+      showToast(message, 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const unclaimSkill = (key: string) => {
     const latestClaimed = claimedSkillsRef.current;
     const item = latestClaimed[key];
@@ -2277,6 +2308,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           isBusy={state.isLoading}
           onChangeRegion={() => setActivePage('preferences')}
           onRemoveRegionFilter={() => void handlePreferencesSave({ ...surveyAnswers, locationScope: 'anywhere', region: '' })}
+          onRefresh={() => void refreshMatches()}
         />
       )}
 

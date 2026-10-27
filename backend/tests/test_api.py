@@ -68,6 +68,17 @@ class ApiRegressionTests(unittest.TestCase):
             self.assertIn('model unavailable', result.json()['detail'])
         self.assertEqual(self.client.post('/api/matches/from-resume', files={'file': ('resume.txt', b'text')}).status_code, 400)
 
+    def test_refresh_jobs_expires_the_job_cache_only_when_asked(self):
+        with patch('backend.app.main.run_matching', return_value={}), \
+             patch('backend.app.main._apply_report_access_control', return_value={'fit_now_matches': []}), \
+             patch('backend.app.main.expire_stale_reference_jobs') as expire:
+            self.client.post('/api/matches/run', json={'resume_text_for_matching': 'SQL developer'})
+            expire.assert_not_called()
+            result = self.client.post('/api/matches/run-form',
+                files={'payload': (None, '{"resume_text_for_matching":"SQL developer","refresh_jobs":true}')})
+            self.assertEqual(result.status_code, 200)
+            expire.assert_called_once()
+
     def test_both_matching_routes_dispatch_successfully(self):
         with patch('backend.app.main.run_matching', return_value={}) as match, patch('backend.app.main._apply_report_access_control', return_value={'fit_now_matches': []}):
             result = self.client.post('/api/matches/run', json={'resume_text_for_matching': 'SQL developer'})
