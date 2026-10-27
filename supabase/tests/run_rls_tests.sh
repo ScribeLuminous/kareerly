@@ -95,4 +95,12 @@ psql_anon -c "create table public.profiles (id uuid primary key); create table p
 psql_anon -f "$here/../migrations/20261028090000_revoke_anon_table_access.sql"
 psql_anon -f "$here/../migrations/20261028090000_revoke_anon_table_access.sql"
 psql_anon -f "$here/anon_table_access_tests.sql"
+psql_run -c "create database education_levels"
+psql_edu() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d education_levels -v ON_ERROR_STOP=1 -q "$@"; }
+psql_edu -f "$here/supabase_stub.sql"
+psql_edu -c "alter table auth.users add column if not exists raw_user_meta_data jsonb not null default '{}'::jsonb"
+# The test applies the migration itself (after inserting legacy rows) and the
+# script applies it again: it must be safe to re-run.
+psql_edu -f "$here/education_levels_tests.sql"
+psql_edu -f "$here/../migrations/20261028110000_education_levels.sql"
 echo "All RLS and evaluation checks passed."

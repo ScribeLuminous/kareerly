@@ -2,6 +2,7 @@ import { prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } f
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
+import { normalizeEducationLevel } from '../lib/education';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
@@ -407,7 +408,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         address: data.address || current.address,
         birthday: data.birthday || current.birthday,
         location: data.location || current.location,
-        highestEducationalAttainment: data.highest_educational_attainment || current.highestEducationalAttainment,
+        highestEducationalAttainment: normalizeEducationLevel(data.highest_educational_attainment) || current.highestEducationalAttainment,
         degreeProgram: data.degree_program || current.degreeProgram,
         schoolUniversity: data.school_university || current.schoolUniversity,
         yearGraduated: data.year_graduated || current.yearGraduated,
@@ -1159,7 +1160,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     if (extractedEducation) {
       setProfileForm((current) => ({
         ...current,
-        highestEducationalAttainment: extractedEducation.highest_educational_attainment || current.highestEducationalAttainment,
+        highestEducationalAttainment: normalizeEducationLevel(extractedEducation.highest_educational_attainment) || current.highestEducationalAttainment,
         degreeProgram: extractedEducation.degree_program || current.degreeProgram,
         schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
         yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
@@ -1757,7 +1758,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     if (!extractedEducation) return;
     setProfileForm((current) => ({
       ...current,
-      highestEducationalAttainment: extractedEducation.highest_educational_attainment || current.highestEducationalAttainment,
+      highestEducationalAttainment: normalizeEducationLevel(extractedEducation.highest_educational_attainment) || current.highestEducationalAttainment,
       degreeProgram: extractedEducation.degree_program || current.degreeProgram,
       schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
       yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
@@ -1770,7 +1771,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       location: profileForm.location,
       contact_number: profileForm.contactNumber,
       address: profileForm.address,
-      highest_educational_attainment: extractedEducation.highest_educational_attainment || profileForm.highestEducationalAttainment,
+      highest_educational_attainment: normalizeEducationLevel(extractedEducation.highest_educational_attainment) || profileForm.highestEducationalAttainment,
       degree_program: extractedEducation.degree_program || profileForm.degreeProgram,
       school_university: extractedEducation.school_university || profileForm.schoolUniversity,
       year_graduated: extractedEducation.year_graduated || profileForm.yearGraduated,
