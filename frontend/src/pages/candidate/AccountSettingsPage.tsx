@@ -4,6 +4,7 @@ import { faEllipsisVertical, faEye, faFileLines, faTrash, faUpload } from '@fort
 import { Banner, EmptyState, Menu } from '../../components/ui';
 import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect';
 import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
+import { maxBirthdayDate } from '../../lib/birthday';
 import type { EvidenceUploadRecord } from '../../lib/evidence';
 import { canonicalCity } from '../../lib/phCities';
 import { joinLocation, splitLocation } from '../../lib/phProvinces';
@@ -152,7 +153,7 @@ export function AccountSettingsPage({
             </FormField>
             <LocationFields location={profile.location} onChange={(location) => onProfileChange({ ...profile, location })} t={t} />
             <FormField label={t('Birthday')}>
-              <input className="k-input" type="date" autoComplete="bday" value={profile.birthday} onChange={set('birthday')} />
+              <input className="k-input" type="date" autoComplete="bday" max={maxBirthdayDate()} value={profile.birthday} onChange={set('birthday')} />
             </FormField>
             <FormField label={t('Address')} className="k-span-2">
               <input className="k-input" autoComplete="street-address" value={profile.address} onChange={set('address')} />
