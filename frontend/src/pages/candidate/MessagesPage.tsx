@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faBan, faComments, faEllipsisVertical, faFlag, faLock, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
-import { Banner, EmptyState, Menu } from '../../components/ui';
+import { Banner, ConfirmDialog, EmptyState, Menu } from '../../components/ui';
 import type { MessageModerationState } from '../../lib/api';
 import { ApplicationsHeader, type ApplicationsTab } from './ApplicationsPage';
 import type { DashboardApplication, MessageRequestState } from './model';
@@ -62,6 +62,8 @@ export function MessagesPage({
   loadError,
 }: MessagesPageProps) {
   const [threadOpen, setThreadOpen] = useState(false);
+  // Declining or ignoring a request can't be undone from here, so it is confirmed first.
+  const [pendingChoice, setPendingChoice] = useState<'decline' | 'ignore' | null>(null);
   const selected = applications.find((app) => app.jobId === selectedJobId) || null;
   const selectedModeration = selected ? moderation[selected.id] : undefined;
   const state: MessageRequestState = selected ? requestStates[selected.jobId] || 'Pending' : 'Pending';
@@ -161,8 +163,8 @@ export function MessagesPage({
                     <p className="k-secondary mb-3">Accept to reply. Your application isn't affected either way.</p>
                     <div className="k-button-row">
                       <button className="k-btn k-btn-primary" type="button" onClick={onAccept}>Accept</button>
-                      <button className="k-btn k-btn-secondary" type="button" onClick={onDecline}>Decline</button>
-                      <button className="k-btn k-btn-ghost" type="button" onClick={onIgnore}>Ignore</button>
+                      <button className="k-btn k-btn-secondary" type="button" onClick={() => setPendingChoice('decline')}>Decline</button>
+                      <button className="k-btn k-btn-ghost" type="button" onClick={() => setPendingChoice('ignore')}>Ignore</button>
                     </div>
                   </div>
                 ) : (
@@ -191,6 +193,21 @@ export function MessagesPage({
           </div>
         )}
       </div>
+      {pendingChoice && selected && (
+        <ConfirmDialog
+          title={pendingChoice === 'decline' ? 'Decline this message request?' : 'Ignore this message request?'}
+          message={pendingChoice === 'decline'
+            ? `${selected.company} won't be able to message you about this application, and you can't undo this here. Your application isn't affected.`
+            : `You won't be able to reply to ${selected.company}'s request unless they send a new one, and you can't undo this here. Your application isn't affected.`}
+          confirmLabel={pendingChoice === 'decline' ? 'Decline request' : 'Ignore request'}
+          danger={pendingChoice === 'decline'}
+          onCancel={() => setPendingChoice(null)}
+          onConfirm={() => {
+            if (pendingChoice === 'decline') onDecline(); else onIgnore();
+            setPendingChoice(null);
+          }}
+        />
+      )}
     </div>
   );
 }

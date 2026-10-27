@@ -496,7 +496,7 @@ export function statusActionMessage(action: ReviewAction, candidateId: string): 
   if (action === 'interviewing') {
     return 'Moving to Interviewing will unlock full candidate profile details and allow message requests.';
   }
-  if (action === 'hired') return 'Marking this application as Hired records a final recruitment outcome.';
+  if (action === 'hired') return 'Marking this application as Hired is final: it records the outcome and the application can no longer change stage.';
   return 'Rejecting this applicant is a final decision and will close this application.';
 }
 
