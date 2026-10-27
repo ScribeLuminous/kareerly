@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Banner, Modal } from '../../components/ui';
+import { Banner, ConfirmDialog, Modal } from '../../components/ui';
 import { assessmentDueState, formatAssessmentDue, saveAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
 
 export function CandidateAssessmentModal({ assessment, jobTitle, onClose, onSaved }: {
@@ -13,12 +13,20 @@ export function CandidateAssessmentModal({ assessment, jobTitle, onClose, onSave
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   // Past the deadline the answers are locked until the employer gives more time.
   const overdue = assessmentDueState(assessment) === 'overdue';
   const readonly = assessment.status !== 'pending' || submitted || overdue;
+  // Submitting is final, so it is confirmed first (after the required answers are checked).
+  const askToSubmit = () => {
+    setAttempted(true);
+    if (assessment.questions.some((item) => item.required && !answers[item.id]?.trim())) return;
+    setConfirmingSubmit(true);
+  };
   const save = async (submit: boolean) => {
     setAttempted(submit);
     if (submit && assessment.questions.some((item) => item.required && !answers[item.id]?.trim())) return;
+    setConfirmingSubmit(false);
     setSaving(true);
     setError('');
     try {
@@ -37,7 +45,7 @@ export function CandidateAssessmentModal({ assessment, jobTitle, onClose, onSave
       footer={readonly ? <button className="k-btn k-btn-secondary" type="button" onClick={onClose}>Close</button> : (
         <div className="k-button-row w-full">
           <button className="k-btn k-btn-secondary" type="button" disabled={saving} onClick={() => void save(false)}>Save draft</button>
-          <button className="k-btn k-btn-primary" type="button" disabled={saving} onClick={() => void save(true)}>Submit Assessment</button>
+          <button className="k-btn k-btn-primary" type="button" disabled={saving} onClick={askToSubmit}>Submit Assessment</button>
         </div>
       )}>
       {overdue && !submitted
@@ -64,6 +72,17 @@ export function CandidateAssessmentModal({ assessment, jobTitle, onClose, onSave
           </li>;
         })}
       </ol>
+      {confirmingSubmit && (
+        <ConfirmDialog
+          title="Submit your assessment?"
+          message="Once you submit, your answers go to the employer and you can't change them. Save a draft instead if you want to keep working."
+          confirmLabel="Submit assessment"
+          cancelLabel="Keep editing"
+          busy={saving}
+          onCancel={() => setConfirmingSubmit(false)}
+          onConfirm={() => save(true)}
+        />
+      )}
     </Modal>
   );
 }

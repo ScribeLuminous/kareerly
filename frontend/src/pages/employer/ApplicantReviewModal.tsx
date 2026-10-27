@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight, faClipboardCheck, faComments, faEyeSlash, faLock } from '@fortawesome/free-solid-svg-icons';
-import { Banner, Tabs } from '../../components/ui';
+import { Banner, ConfirmDialog, Tabs } from '../../components/ui';
 import {
   isEvaluationUnavailable,
   loadApplicationEvaluation,
@@ -134,6 +134,9 @@ export function ApplicantReviewModal({
   const [sendDueDate, setSendDueDate] = useState(() => defaultAssessmentDueDate());
   const [extendDate, setExtendDate] = useState('');
   const [extending, setExtending] = useState(false);
+  // Sending an assessment, changing its deadline and submitting a scorecard can't be taken back, so each is confirmed.
+  const [confirming, setConfirming] = useState<'send' | 'extend' | 'scorecard' | null>(null);
+  const [pendingScorecard, setPendingScorecard] = useState<{ ratings: Record<string, RatingDraft>; summary: string; aiDrafted: boolean } | null>(null);
   const [assessmentVersion, setAssessmentVersion] = useState(0);
   useEffect(() => {
     let mounted = true;
@@ -309,7 +312,7 @@ export function ApplicantReviewModal({
         {!assessment && (candidate.status === 'Shortlisted' || candidate.status === 'Interviewing') && (currentRubric ?
           <div className="mt-2 max-w-xs">
             <AssessmentDeadlineField value={sendDueDate} onChange={setSendDueDate} />
-            <button className="k-btn k-btn-primary k-btn-sm mt-2" type="button" disabled={sending || Boolean(assessmentDueDateProblem(sendDueDate))} onClick={() => void send()}>Send Assessment</button>
+            <button className="k-btn k-btn-primary k-btn-sm mt-2" type="button" disabled={sending || Boolean(assessmentDueDateProblem(sendDueDate))} onClick={() => setConfirming('send')}>Send Assessment</button>
           </div> :
           <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => job && onEditRubric(job.id)}>Configure Assessment</button>)}
         {assessment?.status === 'pending' && !closed && (
@@ -319,7 +322,7 @@ export function ApplicantReviewModal({
               className="k-btn k-btn-secondary k-btn-sm mt-2"
               type="button"
               disabled={extending || !extendDate || Boolean(assessmentDueDateProblem(extendDate)) || (assessment.dueAt !== null && extendDate <= dueDayOf(assessment.dueAt))}
-              onClick={() => void extend()}
+              onClick={() => setConfirming('extend')}
             >Extend deadline</button>
           </div>
         )}
@@ -392,13 +395,52 @@ export function ApplicantReviewModal({
                   You also scored this applicant on rubric version{myOlderCards.length > 1 ? 's' : ''} {myOlderCards.map((card) => rubrics.find((rubric) => rubric.id === card.rubricId)?.version || '?').join(', ')}. Those stay as they were; this scorecard uses version {reviewRubric.version}.
                 </Banner>
               )}
-              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit, aiDrafted) => void save(ratings, summary, submit, aiDrafted)} onRequestDraft={requestDraft} />
+              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit, aiDrafted) => {
+                // The first submission marks the assessment reviewed and opens the decision, so it is confirmed; later edits are not.
+                if (submit && myCurrentCard?.status !== 'submitted') { setPendingScorecard({ ratings, summary, aiDrafted }); setConfirming('scorecard'); return; }
+                void save(ratings, summary, submit, aiDrafted);
+              }} onRequestDraft={requestDraft} />
             </>
           )
         )}
 
         {tab === 'history' && <AuditTrail entries={audit} status={evaluationUnavailable ? 'ready' : loadStatus} currentUserId={currentUserId} />}
       </div>
+      {confirming === 'send' && (
+        <ConfirmDialog
+          title="Send the Candidate Assessment?"
+          message={`${applicantTitle(candidate)} will be notified and has until ${sendDueDate} (end of day, Philippine time) to answer. You can't unsend it.`}
+          confirmLabel="Send assessment"
+          busy={sending}
+          onCancel={() => setConfirming(null)}
+          onConfirm={async () => { setConfirming(null); await send(); }}
+        />
+      )}
+      {confirming === 'extend' && (
+        <ConfirmDialog
+          title="Extend the deadline?"
+          message={`The candidate will be notified that they now have until ${extendDate} (end of day, Philippine time). A deadline can only be moved later, so you can't shorten it afterwards.`}
+          confirmLabel="Extend deadline"
+          busy={extending}
+          onCancel={() => setConfirming(null)}
+          onConfirm={async () => { setConfirming(null); await extend(); }}
+        />
+      )}
+      {confirming === 'scorecard' && pendingScorecard && (
+        <ConfirmDialog
+          title="Submit your scorecard?"
+          message={`${pendingScorecard.aiDrafted ? 'You are approving a review the AI drafted, so check that every rating reflects the candidate\'s answers. ' : ''}Submitting marks the assessment as reviewed and opens the decision on this applicant. You can still update your scorecard later; changes are kept in the activity history.`}
+          confirmLabel={pendingScorecard.aiDrafted ? 'Approve and submit' : 'Submit scorecard'}
+          busy={saving}
+          onCancel={() => { setConfirming(null); setPendingScorecard(null); }}
+          onConfirm={async () => {
+            const card = pendingScorecard;
+            setConfirming(null);
+            setPendingScorecard(null);
+            await save(card.ratings, card.summary, true, card.aiDrafted);
+          }}
+        />
+      )}
     </Modal>
   );
 }
