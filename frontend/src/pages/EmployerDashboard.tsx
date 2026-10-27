@@ -183,11 +183,16 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         .order('created_at', { ascending: false })
         .limit(30);
       if (error || !mounted) return;
-      const assessmentNotices: NotificationItem[] = (data || []).map((row) => ({
-        id: `assessment-${row.id}`, title: row.title, message: row.message,
-        time: new Date(row.created_at).toLocaleString(), type: 'app', unread: !row.read_at,
-      }));
-      setNotifications((current) => [...assessmentNotices, ...current.filter((row) => !row.id.startsWith('assessment-'))]);
+      setNotifications((current) => {
+        // A poll can land before a read is saved; keep what the employer already read.
+        const readLocally = new Set(current.filter((row) => !row.unread).map((row) => row.id));
+        const assessmentNotices: NotificationItem[] = (data || []).map((row) => ({
+          id: `assessment-${row.id}`, title: row.title, message: row.message,
+          time: new Date(row.created_at).toLocaleString(), type: 'app',
+          unread: !row.read_at && !readLocally.has(`assessment-${row.id}`),
+        }));
+        return [...assessmentNotices, ...current.filter((row) => !row.id.startsWith('assessment-'))];
+      });
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 10000);
@@ -593,10 +598,24 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     return () => { isMounted = false; window.clearInterval(timer); };
   }, [applicationIdsKey, assessmentVersion]);
 
-  const markNotificationsRead = () => {
-    const ids = notifications.filter((item) => item.id.startsWith('assessment-') && item.unread).map((item) => item.id.slice('assessment-'.length));
-    if (ids.length) void supabase.from('candidate_notifications').update({ read_at: new Date().toISOString() }).in('id', ids);
-    setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
+  // Supabase queries only run when awaited, so `void supabase...update()` never
+  // reached the database and the badge came back on the next refresh.
+  const markNotificationsRead = async (itemIds?: string[]) => {
+    const targets = notifications.filter((item) => item.unread && (!itemIds || itemIds.includes(item.id)));
+    if (!targets.length) return;
+    const targetIds = new Set(targets.map((item) => item.id));
+    setNotifications((current) => current.map((item) => (targetIds.has(item.id) ? { ...item, unread: false } : item)));
+    const storedIds = targets.filter((item) => item.id.startsWith('assessment-')).map((item) => item.id.slice('assessment-'.length));
+    if (!storedIds.length) return;
+    const { error } = await supabase.from('candidate_notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('recipient_user_id', employer.id)
+      .in('id', storedIds);
+    if (error) {
+      console.warn('Unable to save notification read state:', error);
+      setNotifications((current) => current.map((item) => (targetIds.has(item.id) ? { ...item, unread: true } : item)));
+      showToast("Couldn't mark notifications as read. Try again.", 'danger');
+    }
   };
 
   const startEditJobForm = (job: EmployerJob) => {
@@ -1300,14 +1319,11 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           unread: item.unread,
           icon: notificationIcon[item.type],
           onOpen: () => goPage(item.type === 'msg' ? 'messages' : item.type === 'job' ? 'jobs' : 'candidates'),
-          onMarkRead: () => {
-            if (item.id.startsWith('assessment-')) void supabase.from('candidate_notifications').update({ read_at: new Date().toISOString() }).eq('id', item.id.slice('assessment-'.length));
-            setNotifications((current) => current.map((row) => (row.id === item.id ? { ...row, unread: false } : row)));
-          },
+          onMarkRead: () => void markNotificationsRead([item.id]),
         })),
         status: 'ready',
         unreadCount,
-        onMarkAllRead: markNotificationsRead,
+        onMarkAllRead: () => void markNotificationsRead(),
       }}
       account={{
         name: companyName,
