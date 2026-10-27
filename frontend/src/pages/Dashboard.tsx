@@ -22,7 +22,7 @@ import { PAGE_PATHS, pageFromPath } from './candidate/routes';
 import { HomePage, type HomeGap, type NextStep, type ProfileTask } from './candidate/HomePage';
 import { JobMatchesPage } from './candidate/MatchesPage';
 import { SkillGapsPage, type GapLoadStatus } from './candidate/SkillGapsPage';
-import { appliedJobRefs, gapJobInputs, gapRecordKey, openAndCompleted, requirementSummary, savedJobRefs, taxonomyIdOf } from './candidate/skillGaps';
+import { appliedJobRefs, gapJobInputs, gapRecordKey, openAndCompleted, provenSkills, requirementSummary, savedJobRefs, taxonomyIdOf, withoutProof, withSkillProof } from './candidate/skillGaps';
 import { ResumeSummaryCard, type ResumeSummaryVote } from './candidate/ResumeSummaryCard';
 import { ApplicationsPage } from './candidate/ApplicationsPage';
 import { PreferencesPage } from './candidate/PreferencesPage';
@@ -191,6 +191,11 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   // Saved to the account, like course completions, so Done and In progress
   // (and the Completed section) survive a reload and match on every device.
   const [skillProgressRecords, setSkillProgressRecords] = useState<Record<string, SkillProgressRecord>>({});
+  // The latest progress, for matching runs started right after a change.
+  const skillProgressRef = useRef(skillProgressRecords);
+  useEffect(() => {
+    skillProgressRef.current = skillProgressRecords;
+  }, [skillProgressRecords]);
   const [courseCompletions, setCourseCompletions] = useState<Record<string, CourseCompletion>>({});
   // Loading and saving those three (lib/candidateProgress). Nothing is saved
   // until the account's copy has loaded, so a slow or failed load never
@@ -354,18 +359,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   const updateSkillProgressStatus = (skillKey: string, status: SkillProgressStatus, selectedResourceId?: string) => {
-    setSkillProgressRecords((current) => {
-      const existing = current[skillKey];
-      if (!existing) return current;
-      return {
-        ...current,
-        [skillKey]: {
-          ...existing,
-          status,
-          progressPercent: SKILL_PROGRESS_PERCENT[status],
-          selectedResourceId: selectedResourceId || existing.selectedResourceId,
-        },
-      };
+    const current = skillProgressRef.current;
+    const existing = current[skillKey];
+    if (!existing) return;
+    void commitSkillProgress({
+      ...current,
+      [skillKey]: {
+        ...existing,
+        status,
+        progressPercent: SKILL_PROGRESS_PERCENT[status],
+        selectedResourceId: selectedResourceId || existing.selectedResourceId,
+      },
     });
   };
   useEffect(() => {
@@ -830,7 +834,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       });
 
       Object.entries(next).forEach(([key, record]) => {
-        if (!activeKeys.has(key) && record.status !== 'covered') {
+        // A skill with proof stays proven: matching counts it, which is why it is no longer a gap.
+        if (!activeKeys.has(key) && record.status !== 'covered' && record.status !== 'evidenced') {
           next[key] = {
             ...record,
             status: 'covered',
@@ -1150,14 +1155,25 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     resume: ParsedResume,
     skills: string[],
     answers: SurveyAnswers,
-    options?: { analysis?: ResumeAnalyzeResponse | null; resumeId?: string | null; extraKnownSkills?: SelectedSkill[]; claimedSkills?: Record<string, ClaimedSkill>; refreshJobs?: boolean },
+    options?: {
+      analysis?: ResumeAnalyzeResponse | null;
+      resumeId?: string | null;
+      extraKnownSkills?: SelectedSkill[];
+      claimedSkills?: Record<string, ClaimedSkill>;
+      skillProgress?: Record<string, SkillProgressRecord>;
+      refreshJobs?: boolean;
+    },
   ) => {
     const resumeText = extractResumeText(resume);
     if (!resumeText) return null;
-    // Claimed skills are the candidate's skills: they are matched on and saved
-    // as confirmed skills even when the list passed in left them out. Callers
-    // that just changed the claims pass the new ones (state updates later).
-    const claimed = options?.claimedSkills || claimedSkills;
+    // Claimed skills, and skills with uploaded proof (certificates, course
+    // completions, work samples), are the candidate's skills: they are matched
+    // on and saved as confirmed skills even when the list passed in left them
+    // out. Callers that just changed them pass the new ones (state updates later).
+    const claimed = {
+      ...provenSkills(options?.skillProgress || skillProgressRef.current),
+      ...(options?.claimedSkills || claimedSkills),
+    };
     skills = withClaimedSkillNames(skills, claimed);
     const activeAnalysis = options?.analysis || state.resumeAnalysis;
     const extractedSkillRecords: SelectedSkill[] = (activeAnalysis?.candidate_profile?.skills || []).map((skill) => ({
@@ -1890,23 +1906,30 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       setEvidenceModalOpen(false);
       setEditingEvidence(null);
+      const proof = { fileName: nextRecord.fileName, uploadedAt: nextRecord.uploadedAt };
+      // The skills this proof covers count toward matches from now on.
+      let refreshed = false;
       if (evidenceCourseTarget) {
         const course = evidenceCourseTarget;
         setCourseCompletions((current) => ({ ...current, [course.id]: { status: 'evidenced', markedAt: current[course.id]?.markedAt || new Date().toISOString(), evidenceId: nextRecord.id } }));
-        updateCourseSkillProgress(course, 'evidenced', { fileName: nextRecord.fileName, uploadedAt: nextRecord.uploadedAt });
         setEvidenceCourseTarget(null);
-        showToast('Proof uploaded. Pending verification.', 'success');
+        refreshed = await updateCourseSkillProgress(course, 'evidenced', proof);
       } else if (evidenceSkillTarget) {
         const { key } = evidenceSkillTarget;
-        setSkillProgressRecords((current) => (current[key] ? {
-          ...current,
-          [key]: { ...current[key], status: 'evidenced', progressPercent: SKILL_PROGRESS_PERCENT.evidenced, evidenceFilename: nextRecord.fileName, evidenceUploadedAt: nextRecord.uploadedAt },
-        } : current));
+        const current = skillProgressRef.current;
         setEvidenceSkillTarget(null);
-        showToast('Proof uploaded. Pending verification.', 'success');
+        refreshed = current[key]
+          ? await commitSkillProgress({
+            ...current,
+            [key]: { ...current[key], status: 'evidenced', progressPercent: SKILL_PROGRESS_PERCENT.evidenced, evidenceFilename: proof.fileName, evidenceUploadedAt: proof.uploadedAt },
+          })
+          : await commitSkillProgress(withSkillProof(current, nextRecord.relatedSkill, proof));
       } else {
-        showToast('Proof saved. Pending verification.', 'success');
+        // Proof added from the profile names its skill; editing proof replaces what the old file proved.
+        const withoutOld = existingRecord ? withoutProof(skillProgressRef.current, { fileName: existingRecord.fileName, uploadedAt: existingRecord.uploadedAt }) : skillProgressRef.current;
+        refreshed = await commitSkillProgress(withSkillProof(withoutOld, nextRecord.relatedSkill, proof));
       }
+      showToast(refreshed ? 'Proof uploaded and pending verification. Your matches now count this skill.' : 'Proof saved. Pending verification.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to validate certificate upload.';
       setError(message);
@@ -1931,24 +1954,23 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   ) => {
     const courseIds = new Set(course.mappedSkillIds.map((id) => id.toUpperCase()));
     const courseSkills = new Set(getCourseSkillLabels(course).map(normalizeSkill));
-    setSkillProgressRecords((current) => {
-      const next = { ...current };
-      Object.entries(current).forEach(([key, record]) => {
-        const covers = (record.skillId && courseIds.has(record.skillId.toUpperCase())) || courseSkills.has(normalizeSkill(record.skillName));
-        if (!covers || record.status === 'covered') return;
-        if (status === 'missing' && record.selectedResourceId !== course.id) return;
-        if (status === 'completed' && record.status === 'evidenced') return;
-        next[key] = {
-          ...record,
-          status,
-          progressPercent: SKILL_PROGRESS_PERCENT[status],
-          selectedResourceId: course.id,
-          evidenceFilename: status === 'missing' ? undefined : evidence?.fileName || record.evidenceFilename,
-          evidenceUploadedAt: status === 'missing' ? undefined : evidence?.uploadedAt || record.evidenceUploadedAt,
-        };
-      });
-      return next;
+    const current = skillProgressRef.current;
+    const next = { ...current };
+    Object.entries(current).forEach(([key, record]) => {
+      const covers = (record.skillId && courseIds.has(record.skillId.toUpperCase())) || courseSkills.has(normalizeSkill(record.skillName));
+      if (!covers || record.status === 'covered') return;
+      if (status === 'missing' && record.selectedResourceId !== course.id) return;
+      if (status === 'completed' && record.status === 'evidenced') return;
+      next[key] = {
+        ...record,
+        status,
+        progressPercent: SKILL_PROGRESS_PERCENT[status],
+        selectedResourceId: course.id,
+        evidenceFilename: status === 'missing' ? undefined : evidence?.fileName || record.evidenceFilename,
+        evidenceUploadedAt: status === 'missing' ? undefined : evidence?.uploadedAt || record.evidenceUploadedAt,
+      };
     });
+    return commitSkillProgress(next);
   };
 
   const openCourseEvidenceUpload = (course: DashboardCourse) => {
@@ -1960,7 +1982,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const markCourseTaken = (course: DashboardCourse) => {
     setCourseCompletions((current) => ({ ...current, [course.id]: { status: 'completed', markedAt: new Date().toISOString() } }));
-    updateCourseSkillProgress(course, 'completed');
+    void updateCourseSkillProgress(course, 'completed');
     openCourseEvidenceUpload(course);
   };
 
@@ -1970,7 +1992,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       delete next[course.id];
       return next;
     });
-    updateCourseSkillProgress(course, 'missing');
+    void updateCourseSkillProgress(course, 'missing');
     showToast(`${course.title} marked as not taken.`, 'warn');
   };
 
@@ -1986,14 +2008,19 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   };
 
   // Re-runs matching with an updated skill list; without a resume the list is just saved.
-  const refreshMatchesWithSkills = async (nextSkills: string[], nextClaimed: Record<string, ClaimedSkill>, extraKnownSkills?: SelectedSkill[]) => {
+  const refreshMatchesWithSkills = async (
+    nextSkills: string[],
+    nextClaimed: Record<string, ClaimedSkill>,
+    extraKnownSkills?: SelectedSkill[],
+    nextProgress?: Record<string, SkillProgressRecord>,
+  ) => {
     setSkillNames(nextSkills);
     const savedResume = state.resume || state.resumeAnalysis?.parsedResume;
     if (!savedResume || !extractResumeText(savedResume)) return false;
     setLoading(true);
     setError(null);
     try {
-      await runMatchingWithSkills(savedResume, nextSkills, surveyAnswers, { extraKnownSkills, claimedSkills: nextClaimed });
+      await runMatchingWithSkills(savedResume, nextSkills, surveyAnswers, { extraKnownSkills, claimedSkills: nextClaimed, skillProgress: nextProgress });
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to refresh your matches.';
@@ -2005,8 +2032,25 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
+  // Skills with uploaded proof count in matching, so when proof is added or
+  // removed the new progress is set and matches are refreshed. Resolves true
+  // when matches were refreshed.
+  const commitSkillProgress = async (next: Record<string, SkillProgressRecord>) => {
+    const before = provenSkills(skillProgressRef.current);
+    const after = provenSkills(next);
+    skillProgressRef.current = next;
+    setSkillProgressRecords(next);
+    const beforeKeys = Object.keys(before).sort().join('|');
+    if (Object.keys(after).sort().join('|') === beforeKeys) return false;
+    const counted = withClaimedSkillNames(withClaimedSkillNames(skillNames, claimedSkillsRef.current), after);
+    if (Object.keys(after).some((key) => !before[key]) && counted.length > CONFIRMED_SKILL_LIMIT) {
+      showToast(`Only ${CONFIRMED_SKILL_LIMIT} skills are used for matching. Remove one in Preferences so all your proof counts.`, 'warn');
+    }
+    return refreshMatchesWithSkills(skillNames, claimedSkillsRef.current, undefined, next);
+  };
+
   // "Refresh matches": matches the latest resume, skills (including ones claimed
-  // on the Skills page) and preferences against freshly loaded job posts.
+  // or proven with a certificate) and preferences against freshly loaded job posts.
   const refreshMatches = async () => {
     if (state.isLoading) return;
     const savedResume = state.resume || state.resumeAnalysis?.parsedResume;
@@ -2117,9 +2161,21 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const confirmDeleteEvidence = () => {
     if (!deleteEvidenceTarget) return;
-    setEvidenceRecords((current) => current.filter((record) => record.id !== deleteEvidenceTarget.id));
+    const deleted = deleteEvidenceTarget;
+    setEvidenceRecords((current) => current.filter((record) => record.id !== deleted.id));
     setDeleteEvidenceTarget(null);
-    showToast('Evidence record deleted.', 'success');
+    // Courses it proved stay taken, without proof.
+    setCourseCompletions((current) => {
+      const proved = Object.keys(current).filter((id) => current[id].evidenceId === deleted.id);
+      if (proved.length === 0) return current;
+      const next = { ...current };
+      proved.forEach((id) => { next[id] = { status: 'completed', markedAt: current[id].markedAt }; });
+      return next;
+    });
+    // The skills it proved stop counting toward matches.
+    void commitSkillProgress(withoutProof(skillProgressRef.current, { fileName: deleted.fileName, uploadedAt: deleted.uploadedAt })).then((refreshed) => {
+      showToast(refreshed ? 'Evidence record deleted. Your matches were refreshed.' : 'Evidence record deleted.', 'success');
+    });
   };
 
   const matchesExist = fitNowJobs.length + aspirationJobs.length > 0;

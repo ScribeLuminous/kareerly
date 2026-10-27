@@ -7,6 +7,8 @@ import {
   isClaimedSkill,
   knownValue,
   normalizeSkill,
+  SKILL_PROGRESS_PERCENT,
+  skillRecordKey,
   type ClaimedSkill,
   type DashboardApplication,
   type DashboardGap,
@@ -44,6 +46,54 @@ export function gapCompletion(
   if (isClaimedSkill(claimed, { skillId: skill.taxonomy_skill_id || undefined, skill: skill.skill_name })) return 'owned';
   const status = progress[gapRecordKey(skill)]?.status;
   return status === 'completed' || status === 'evidenced' ? 'done' : null;
+}
+
+/**
+ * Skills with uploaded proof (a certificate, course completion or work sample).
+ * Matching counts them as the candidate's skills, like the ones they claimed.
+ */
+export function provenSkills(progress: Record<string, SkillProgressRecord>): Record<string, ClaimedSkill> {
+  return Object.fromEntries(Object.entries(progress)
+    .filter(([, record]) => record.status === 'evidenced' && record.skillName.trim())
+    .map(([key, record]) => [key, { skillId: record.skillId, skillName: record.skillName, claimedAt: record.evidenceUploadedAt || '' }]));
+}
+
+type ProofFile = { fileName?: string; uploadedAt?: string };
+
+/** Records proof for the skill an upload names, adding a progress record when the skill has none. */
+export function withSkillProof(progress: Record<string, SkillProgressRecord>, skillName: string, proof: ProofFile): Record<string, SkillProgressRecord> {
+  const name = skillName.trim().slice(0, 200);
+  if (!name) return progress;
+  const wanted = normalizeSkill(name);
+  const key = Object.keys(progress).find((existingKey) => normalizeSkill(progress[existingKey].skillName) === wanted)
+    || skillRecordKey({ skill: name }).slice(0, 200);
+  const existing = progress[key];
+  const category = existing?.category || classifySkillCategory(name);
+  return {
+    ...progress,
+    [key]: {
+      ...existing,
+      skillName: existing?.skillName || name,
+      category,
+      categoryName: existing?.categoryName || category,
+      status: 'evidenced',
+      progressPercent: SKILL_PROGRESS_PERCENT.evidenced,
+      evidenceFilename: proof.fileName,
+      evidenceUploadedAt: proof.uploadedAt,
+    },
+  };
+}
+
+/** Deleted proof: the skills it proved go back to Done without proof and stop counting in matching. */
+export function withoutProof(progress: Record<string, SkillProgressRecord>, proof: ProofFile): Record<string, SkillProgressRecord> {
+  let changed = false;
+  const next = { ...progress };
+  Object.entries(progress).forEach(([key, record]) => {
+    if (record.status !== 'evidenced' || !proof.fileName || record.evidenceFilename !== proof.fileName || record.evidenceUploadedAt !== proof.uploadedAt) return;
+    changed = true;
+    next[key] = { ...record, status: 'completed', progressPercent: SKILL_PROGRESS_PERCENT.completed, evidenceFilename: undefined, evidenceUploadedAt: undefined };
+  });
+  return changed ? next : progress;
 }
 
 /** The matches as the gaps endpoint reads them: identity, score and missing skills. */

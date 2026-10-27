@@ -185,6 +185,33 @@ test('skills marked done or already owned move to Completed with an Undo', () =>
   assert.equal(rowCount(html), 8);
 });
 
+test('skills with uploaded proof count as the candidate\'s skills and stay listed once they leave the gaps', () => {
+  const proof = { fileName: 'cert.pdf', uploadedAt: '2026-10-27' };
+  // Proof for a skill that has a gap record updates that record (found by name).
+  const gapRecord = { SK1: { skillId: 'SK1', skillName: 'Data Analysis', status: 'in_progress', progressPercent: 35, category: 'Other' } };
+  const proven = page.withSkillProof(gapRecord, ' data analysis ', proof);
+  assert.equal(proven.SK1.status, 'evidenced');
+  assert.equal(proven.SK1.evidenceFilename, 'cert.pdf');
+  assert.deepEqual(page.provenSkills(proven), { SK1: { skillId: 'SK1', skillName: 'Data Analysis', claimedAt: '2026-10-27' } });
+  // Proof for any other skill adds a record for it.
+  const added = page.withSkillProof({}, 'Canva', proof);
+  assert.deepEqual(Object.values(page.provenSkills(added)).map((item) => item.skillName), ['Canva']);
+  assert.deepEqual(page.withSkillProof({}, '   ', proof), {});
+  // Only proof (not Done or In progress) counts.
+  assert.deepEqual(page.provenSkills(gapRecord), {});
+  // Deleting the proof leaves the skill Done without proof, and it stops counting.
+  const removed = page.withoutProof(proven, proof);
+  assert.equal(removed.SK1.status, 'completed');
+  assert.deepEqual(page.provenSkills(removed), {});
+  assert.equal(page.withoutProof(proven, { fileName: 'other.pdf', uploadedAt: '2026-10-27' }), proven);
+
+  // No longer a gap (matching now counts it), the skill stays under Completed with an Undo.
+  const html = renderGaps({ skillProgressRecords: added });
+  assert.match(html, /Completed · 1/);
+  assert.match(html, /Proof uploaded · counts toward your matches/);
+  assert.match(html, /aria-label="Undo: Canva"/);
+});
+
 test('a row shows its requirement, progress, job titles, job count and impact; the selected row is the detail', () => {
   const html = renderGaps({ report: report([skill(1, 'close_first', { required: 2, nice: 1, name: 'Business Analytics' })]) });
   assert.match(html, /Required by 2 jobs · nice to have for 1/);
