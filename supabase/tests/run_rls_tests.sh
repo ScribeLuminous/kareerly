@@ -81,4 +81,15 @@ psql_cps -c "alter table public.candidate_skill_progress enable row level securi
 psql_cps -f "$here/../migrations/20261022090000_candidate_progress_sync.sql"
 psql_cps -f "$here/../migrations/20261022090000_candidate_progress_sync.sql"
 psql_cps -f "$here/candidate_progress_sync_rls.sql"
+psql_run -c "create database anon_table_access"
+psql_anon() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d anon_table_access -v ON_ERROR_STOP=1 -q "$@"; }
+psql_anon -f "$here/supabase_stub.sql"
+# Stand-ins for user-data and public-catalog tables, with the broad default
+# grants Supabase gives anon (including message_blocks, which exists in
+# production but not in schema.sql).
+psql_anon -c "create table public.profiles (id uuid primary key); create table public.user_skills (id uuid primary key); create table public.saved_jobs (id uuid primary key); create table public.job_applications (id uuid primary key); create table public.skill_candidates (id uuid primary key); create table public.employer_profiles (id uuid primary key); create table public.message_blocks (id uuid primary key); create table public.resumes (id uuid primary key); create table public.employer_job_posts (id uuid primary key); create table public.learning_resources (id uuid primary key); grant usage on schema public to anon, authenticated, service_role; grant all on all tables in schema public to anon, authenticated, service_role"
+# Applied twice: the migration must be safe to re-run.
+psql_anon -f "$here/../migrations/20261028090000_revoke_anon_table_access.sql"
+psql_anon -f "$here/../migrations/20261028090000_revoke_anon_table_access.sql"
+psql_anon -f "$here/anon_table_access_tests.sql"
 echo "All RLS and evaluation checks passed."
