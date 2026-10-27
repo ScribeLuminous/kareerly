@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEllipsisVertical, faEye, faFileLines, faTrash, faUpload } from '@fortawesome/free-solid-svg-icons';
 import { Banner, EmptyState, Menu } from '../../components/ui';
-import { RegionProvinceFields } from '../../components/ProvinceSelect';
+import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect';
 import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
 import type { EvidenceUploadRecord } from '../../lib/evidence';
+import { canonicalCity } from '../../lib/phCities';
 import { joinLocation, splitLocation } from '../../lib/phProvinces';
 import { FormField, PageHeader } from './common';
 import { cleanSkillDisplayName, formatDateLabel, tr } from './model';
@@ -21,29 +22,21 @@ type ProfileForm = {
 };
 
 /**
- * Region, province, then city, saved together as one "City, Province"
- * location so the region can be read back from it.
+ * Region, province, then city or municipality from that province's list, the
+ * same fields as the employer company profile. Saved together as one
+ * "City, Province" location so the region can be read back from it.
  */
 function LocationFields({ location, onChange, t }: { location: string; onChange: (location: string) => void; t: (text: string) => string }) {
   const { city, province } = splitLocation(location);
-  // The city as typed, so spaces at the end survive until the field is left.
-  const [typedCity, setTypedCity] = useState<string | null>(null);
   return (
     <>
-      <RegionProvinceFields value={province} onChange={(next) => onChange(joinLocation(typedCity ?? city, next))} t={t} />
-      <FormField label={t('City or municipality')}>
-        <input
-          className="k-input"
-          autoComplete="address-level2"
-          value={typedCity ?? city}
-          onChange={(event) => {
-            setTypedCity(event.target.value);
-            onChange(joinLocation(event.target.value, province));
-          }}
-          onBlur={() => setTypedCity(null)}
-          placeholder="e.g. Quezon City"
-        />
-      </FormField>
+      <RegionProvinceFields
+        value={province}
+        // A new province keeps the city only when that province lists it.
+        onChange={(next) => onChange(joinLocation(canonicalCity(next, city), next))}
+        t={t}
+      />
+      <CityField province={province} value={city} onChange={(next) => onChange(joinLocation(next, province))} t={t} />
     </>
   );
 }

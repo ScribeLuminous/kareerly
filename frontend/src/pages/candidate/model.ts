@@ -51,6 +51,7 @@ export const FILIPINO_UI: Record<string, string> = {
   Region: 'Rehiyon', Province: 'Lalawigan', 'City or municipality': 'Lungsod o munisipalidad',
   'Up to 11 digits, e.g. 09123456789.': 'Hanggang 11 numero, hal. 09123456789.',
   'Select a region': 'Pumili ng rehiyon', 'Select a province': 'Pumili ng lalawigan', 'Choose a region first': 'Pumili muna ng rehiyon',
+  'Select a city or municipality': 'Pumili ng lungsod o munisipalidad', 'Choose a province first': 'Pumili muna ng lalawigan',
   'Enter contact number': 'Ilagay ang numero ng telepono', 'Enter your address': 'Ilagay ang iyong address',
   'Enter your region': 'Ilagay ang iyong rehiyon', 'Save Details': 'I-save ang mga Detalye', Saving: 'Sine-save',
   'Password & Security': 'Password at Seguridad', 'Current Password': 'Kasalukuyang Password',

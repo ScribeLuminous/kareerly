@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCircleCheck, faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, ConfirmDialog, FormField, PageHeader } from '../../components/ui';
-import { RegionProvinceFields } from '../../components/ProvinceSelect';
+import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect';
+import { canonicalCity } from '../../lib/phCities';
 import { addSkills, clearJobDraft, draftSavedLabel, hasJobDraftContent, jobDraftSignature, jobToDraft, readJobDraft, useStoredJobDraft, writeJobDraft, type JobEditorDraft, type JobLocation } from './jobDraft';
 import {
   EMPLOYMENT_TYPES,
@@ -263,10 +264,13 @@ export function JobEditorPage({ job, draftKey, companyLocation, backLabel, onBac
               : 'The region places the job in candidates\' location filters.'}
           </p>
           <div className="k-form-grid">
-            <RegionProvinceFields value={form.province} onChange={(province) => onUpdateForm('province', province)} required />
-            <FormField label="City or municipality *">
-              <input className="k-input" value={form.city} onChange={set('city')} placeholder="e.g. Makati City" autoComplete="off" required />
-            </FormField>
+            <RegionProvinceFields
+              value={form.province}
+              // A new province keeps the city only when that province lists it.
+              onChange={(province) => setForm((current) => ({ ...current, province, city: canonicalCity(province, current.city) }))}
+              required
+            />
+            <CityField province={form.province} value={form.city} onChange={(city) => onUpdateForm('city', city)} required />
             <FormField label="Work setup *">
               <select className="k-select" value={form.workSetup} onChange={set('workSetup')} required>
                 <option value="">Select a setup</option>

@@ -43,9 +43,14 @@ Learning tabs) and the research each decision rests on. Every source is from
    - On the Learning course card, the duplicate "Taken" badge and button are
      now a single **Mark as done / Done** toggle.
 
-Claimed skills are stored per user in the browser (`kareerly.claimedSkills.<user>`),
-the same way course completions are. They are sent to matching as confirmed
-skills and saved to `user_skills` whenever matches refresh.
+Claimed skills are saved per user in `candidate_claimed_skills`, the same way
+course completions (`candidate_course_completions`) and skill progress
+(`candidate_skill_progress`) are, so they are the same on every device. They
+are always sent to matching as confirmed skills and saved to `user_skills`
+(source `confirmed_skill`) whenever matches refresh. Data an earlier version
+kept in the browser (`kareerly.claimedSkills.<user>` and the like) is imported
+once on the next sign-in and then removed from the browser. If loading or
+saving fails, the dashboard shows an error banner with "Try again".
 
 ## Research basis (2022–present)
 
