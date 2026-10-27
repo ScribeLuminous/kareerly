@@ -3,13 +3,19 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 
+function moduleUrl(code) {
+  const { outputText } = ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } });
+  return `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`;
+}
+
+const birthdayUrl = moduleUrl(readFileSync(new URL('../src/lib/birthday.ts', import.meta.url), 'utf8'));
 const source = readFileSync(new URL('../src/lib/auth.ts', import.meta.url), 'utf8')
+  .replace("from './birthday';", `from '${birthdayUrl}';`)
   .replace("import { supabase } from './supabase';", `const supabase = { auth: {
     signInWithPassword: async () => { throw new TypeError('Failed to fetch'); },
     signUp: async () => globalThis.signUpResponse,
   } };`);
-const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } });
-const auth = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const auth = await import(moduleUrl(source));
 
 test('network failures are distinguished from rejected credentials', () => {
   for (const message of ['Failed to fetch', 'Load failed', 'NetworkError when attempting to fetch resource.', 'fetch failed']) {
