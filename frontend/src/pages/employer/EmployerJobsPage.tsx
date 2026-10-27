@@ -10,6 +10,7 @@ import {
   faPen,
   faPlus,
   faTrash,
+  faUpload,
   faUsers,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
@@ -19,6 +20,7 @@ import { formatJobDescription } from '../../lib/jobDescription';
 import { AssessmentSummary } from './AssessmentCriteriaEditor';
 import { ChooseTemplatesModal, JobsSectionTabs, type JobsSection } from './AssessmentTemplatesPage';
 import { rubricToDraft, type AssessmentTemplate, type Rubric } from './evaluation';
+import { BulkJobUploadModal, type BulkImportItem } from './BulkJobUploadModal';
 import {
   daysUntil,
   EMPTY_JOB_STATS,
@@ -58,6 +60,8 @@ type EmployerJobsPageProps = JobHandlers & {
   onOpenJob: (jobId: string) => void;
   onBackToList: () => void;
   onPostJob: () => void;
+  /** Saves jobs from an uploaded file; resolves true once saved. */
+  onImportJobs: (items: BulkImportItem[]) => Promise<boolean>;
   /** An unsaved new posting kept on this device, if any. */
   newJobDraft: { title: string; savedAt: string } | null;
   onDiscardNewJobDraft: () => void;
@@ -332,6 +336,7 @@ export function EmployerJobsPage({
   onOpenJob,
   onBackToList,
   onPostJob,
+  onImportJobs,
   newJobDraft,
   onDiscardNewJobDraft,
   onEdit,
@@ -346,6 +351,7 @@ export function EmployerJobsPage({
   const [busy, setBusy] = useState(false);
   const [choosingTemplate, setChoosingTemplate] = useState(false);
   const [confirmDiscardDraft, setConfirmDiscardDraft] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const counts = useMemo(() => {
     const result: Record<StatusFilter, number> = { all: 0, open: 0, draft: 0, closed: 0, archived: 0 };
@@ -462,9 +468,14 @@ export function EmployerJobsPage({
       <PageHeader
         title="Jobs"
         actions={!isLoading && jobs.length > 0 ? (
-          <button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>
-            <FontAwesomeIcon icon={faPlus} aria-hidden="true" />Post a job
-          </button>
+          <>
+            <button className="k-btn k-btn-secondary" type="button" onClick={() => setUploading(true)}>
+              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />Upload jobs
+            </button>
+            <button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>
+              <FontAwesomeIcon icon={faPlus} aria-hidden="true" />Post a job
+            </button>
+          </>
         ) : undefined}
       />
 
@@ -491,8 +502,15 @@ export function EmployerJobsPage({
         <EmptyState
           icon={faBriefcase}
           title="No jobs yet"
-          text="Post a job to start receiving matched applicants."
-          actions={<button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>{newJobDraft ? 'Continue your draft' : 'Post a job'}</button>}
+          text="Post a job to start receiving matched applicants, or upload several at once from a spreadsheet."
+          actions={(
+            <>
+              <button className="k-btn k-btn-primary" type="button" onClick={onPostJob}>{newJobDraft ? 'Continue your draft' : 'Post a job'}</button>
+              <button className="k-btn k-btn-secondary" type="button" onClick={() => setUploading(true)}>
+                <FontAwesomeIcon icon={faUpload} aria-hidden="true" />Upload jobs
+              </button>
+            </>
+          )}
         />
       ) : (
         <>
@@ -573,6 +591,13 @@ export function EmployerJobsPage({
           danger
           onCancel={() => setConfirmDiscardDraft(false)}
           onConfirm={() => { setConfirmDiscardDraft(false); onDiscardNewJobDraft(); }}
+        />
+      )}
+      {uploading && (
+        <BulkJobUploadModal
+          existingTitles={jobs.map((job) => job.title)}
+          onImport={onImportJobs}
+          onClose={() => setUploading(false)}
         />
       )}
       {choosingTemplate && (
