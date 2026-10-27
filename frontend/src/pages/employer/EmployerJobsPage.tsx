@@ -36,6 +36,8 @@ export type JobBulkAction = 'open' | 'close' | 'archive' | 'delete';
 type JobHandlers = {
   onEdit: (job: EmployerJob) => void;
   onEditRubric: (jobId: string) => void;
+  /** Shows the page of the template a job's assessment is saved as. */
+  onOpenTemplate: (templateId: string) => void;
   onViewApplicants: (jobId: string) => void;
   /** Applies a status change or delete to the eligible jobs; resolves when saved. */
   onBulkAction: (action: JobBulkAction, jobIds: string[]) => Promise<void>;
@@ -139,7 +141,7 @@ function JobPostCard({ job, stats, checked, onToggle, onOpen }: { job: EmployerJ
   );
 }
 
-function JobAssessmentSection({ rubric, templateName, onEditRubric }: { rubric: Rubric | null; templateName: string; onEditRubric: () => void }) {
+function JobAssessmentSection({ rubric, template, onEditRubric, onOpenTemplate }: { rubric: Rubric | null; template: AssessmentTemplate | null; onEditRubric: () => void; onOpenTemplate: (templateId: string) => void }) {
   return (
     <section className="k-detail-section" aria-label="Candidate Assessment">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -148,7 +150,12 @@ function JobAssessmentSection({ rubric, templateName, onEditRubric }: { rubric: 
       </div>
       {rubric ? (
         <>
-          {templateName && <p className="k-meta mb-2">Based on the template {templateName}.</p>}
+          {template && (
+            <p className="k-meta mb-2">
+              Saved as the template <strong>{template.name}</strong>.{' '}
+              <button className="k-link" type="button" onClick={() => onOpenTemplate(template.id)}>View template</button>
+            </p>
+          )}
           <AssessmentSummary criteria={rubricToDraft(rubric)} compact />
         </>
       ) : (
@@ -242,12 +249,12 @@ function JobDetailBody({ job, stats }: { job: EmployerJob; stats: JobStats }) {
 type PendingAction = { action: JobBulkAction; eligible: EmployerJob[]; skipped: Array<{ job: EmployerJob; reason: string }>; onDone?: () => void };
 
 /** A job's own page: everything about the posting, with its actions. */
-function JobDetailPage({ job, stats, rubricVersion, rubric, templateName, onBack, onEdit, onEditRubric, onViewApplicants, onRequestAction }: Omit<JobHandlers, 'onBulkAction'> & {
+function JobDetailPage({ job, stats, rubricVersion, rubric, template, onBack, onEdit, onEditRubric, onOpenTemplate, onViewApplicants, onRequestAction }: Omit<JobHandlers, 'onBulkAction'> & {
   job: EmployerJob;
   stats: JobStats;
   rubricVersion?: number;
   rubric: Rubric | null;
-  templateName: string;
+  template: AssessmentTemplate | null;
   onBack: () => void;
   onRequestAction: (action: JobBulkAction) => void;
 }) {
@@ -298,7 +305,7 @@ function JobDetailPage({ job, stats, rubricVersion, rubric, templateName, onBack
         </header>
         <div className="px-0">
           <JobDetailBody job={job} stats={stats} />
-          <JobAssessmentSection rubric={rubric} templateName={templateName} onEditRubric={() => onEditRubric(job.id)} />
+          <JobAssessmentSection rubric={rubric} template={template} onEditRubric={() => onEditRubric(job.id)} onOpenTemplate={onOpenTemplate} />
         </div>
       </article>
     </div>
@@ -322,6 +329,7 @@ export function EmployerJobsPage({
   onDiscardNewJobDraft,
   onEdit,
   onEditRubric,
+  onOpenTemplate,
   onViewApplicants,
   onBulkAction,
 }: EmployerJobsPageProps) {
@@ -428,10 +436,11 @@ export function EmployerJobsPage({
           stats={jobStats.get(job.id) || EMPTY_JOB_STATS}
           rubricVersion={rubricVersions.get(job.id)}
           rubric={latestRubrics.get(job.id) || null}
-          templateName={templates.find((item) => item.id === latestRubrics.get(job.id)?.templateId)?.name || ''}
+          template={templates.find((item) => item.id === latestRubrics.get(job.id)?.templateId) || null}
           onBack={onBackToList}
           onEdit={onEdit}
           onEditRubric={onEditRubric}
+          onOpenTemplate={onOpenTemplate}
           onViewApplicants={onViewApplicants}
           onRequestAction={(action) => requestAction(action, [job], action === 'delete' ? onBackToList : undefined)}
         />

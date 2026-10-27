@@ -227,6 +227,7 @@ function TemplateEditorPage({ template, jobs, latestRubrics, usage, describeJob,
   const [applyOpen, setApplyOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const jobsWithAssessment = jobs.filter((job) => latestRubrics.has(job.id));
+  const usedBy = savedId ? jobs.filter((job) => latestRubrics.get(job.id)?.templateId === savedId).map((job) => job.title) : [];
 
   const copyFromJob = (jobId: string) => {
     const rubric = latestRubrics.get(jobId);
@@ -270,7 +271,7 @@ function TemplateEditorPage({ template, jobs, latestRubrics, usage, describeJob,
         )}
       >
         <p className="k-secondary mt-1">
-          {savedId ? `Used by ${usage.get(savedId) || 0} job${usage.get(savedId) === 1 ? '' : 's'}. ` : ''}
+          {savedId ? (usedBy.length > 0 ? `Used by ${usedBy.join(', ')}. ` : `Used by ${usage.get(savedId) || 0} jobs. `) : ''}
           Editing a template changes it for the next time you apply it; jobs already using it keep their questions.
         </p>
       </PageHeader>
