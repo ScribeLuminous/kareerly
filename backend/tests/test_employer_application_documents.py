@@ -100,6 +100,23 @@ class JobDetailHeaderFieldsTests(unittest.TestCase):
         self.assertEqual(job["screening_questions"], [{"question": "Years with SQL?"}])
         self.assertEqual(job["hiring_stages"], [{"stage": "Application", "description": None}, {"stage": "Interview", "description": "45 minutes"}])
 
+    def test_employer_job_detail_lists_qualifications_whole(self):
+        row = {
+            "job_id": "EMP-2", "job_title": "Front Desk Agent", "posting_status": "open",
+            "job_description": "Welcome guests.\n\nResponsibilities:\n- Check guests in\n\nQualifications:\n- Licensed",
+            "responsibilities": "Check guests in",
+            "qualifications": "Bachelor's degree in Hospitality, Tourism or related field\nFluent in English",
+        }
+
+        def request(path, *, method="GET", token=None, service_role=False, body=None, prefer=None):
+            return [row] if path.startswith("/rest/v1/employer_job_posts?") else None
+
+        with patch("backend.app.main._supabase_request", side_effect=request):
+            job = TestClient(app).get("/api/jobs/detail?job_id=EMP-2&job_source=employer").json()["job"]
+        self.assertEqual(job["job_description"], "Welcome guests.")
+        self.assertEqual(job["responsibilities"], ["Check guests in"])
+        self.assertEqual(job["qualifications"], ["Bachelor's degree in Hospitality, Tourism or related field", "Fluent in English"])
+
 
 if __name__ == "__main__":
     unittest.main()
