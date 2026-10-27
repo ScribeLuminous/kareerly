@@ -19,6 +19,7 @@ import { candidateActionBlocker, combineTemplates, DEFAULT_CANDIDATE_FILTERS, va
 import { EmployerHomePage } from './employer/EmployerHomePage';
 import { InsightsPage } from './employer/insights/InsightsPage';
 import { EmployerJobsPage, type JobBulkAction } from './employer/EmployerJobsPage';
+import type { BulkImportItem } from './employer/BulkJobUploadModal';
 import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
 import { JobEditorPage } from './employer/JobEditorPage';
 import { clearJobDraft, hasJobDraftContent, jobDraftKey, useStoredJobDraft, validateDraftSave, validateJobDraft, type JobEditorDraft } from './employer/jobDraft';
@@ -608,19 +609,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     window.scrollTo({ top: 0 });
   };
 
-  /** Saves the editor's job; resolves with what blocked it, or null once saved. */
-  const saveJobForm = async (mode: 'draft' | 'post', draft: JobEditorDraft): Promise<string | null> => {
-    const error = mode === 'draft' ? validateDraftSave(draft) : validateJobDraft(draft);
-    if (error) return error;
-    if (!employerProfileId) return 'Your employer profile is still loading. Try again in a moment.';
-    const { form: jobForm, requiredSkills: requiredSkillsDraft, niceSkills: niceSkillsDraft } = draft;
-    const status: JobStatus = mode === 'draft' ? 'draft' : jobForm.status === 'closed' ? 'closed' : 'open';
+  /** The employer_job_posts row for a job draft. */
+  const jobPostPayload = (draft: JobEditorDraft, status: JobStatus, jobId: string) => {
+    const { form: jobForm } = draft;
     const location = joinLocation(jobForm.city, jobForm.province);
     const { minimum: salaryMinPhp, maximum: salaryMaxPhp } = parseSalaryInput(jobForm.salaryRange);
-    const currentJob = editorJob;
-    const jobId = currentJob?.id || `EMP-${Date.now()}`;
     const postingStatus = status === 'open' ? 'active' : status;
-    const payload = {
+    return {
       job_id: jobId,
       employer_id: employerProfileId,
       category_code: getCategoryCode(jobForm.category),
@@ -638,45 +633,57 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       job_description: joinJobContent(jobForm.description, jobForm.responsibilities, jobForm.qualifications),
       responsibilities: toListItems(jobForm.responsibilities).join('\n'),
       qualifications: toListItems(jobForm.qualifications).join('\n'),
-      required_skills: requiredSkillsDraft.join(', '),
-      preferred_skills: niceSkillsDraft.join(', '),
+      required_skills: draft.requiredSkills.join(', '),
+      preferred_skills: draft.niceSkills.join(', '),
       must_have_skill_ids: '',
       application_deadline: jobForm.deadline || null,
       posting_status: postingStatus,
       updated_at: new Date().toISOString(),
     };
+  };
 
-    // Columns added by later migrations. While a database is still missing
-    // one, save without it: the description text carries the same content.
+  /**
+   * Saves job rows. Columns added by later migrations are dropped while a
+   * database is still missing one: the description text carries the same content.
+   */
+  const upsertJobPosts = async (payloads: Array<ReturnType<typeof jobPostPayload>>) => {
     const optionalColumns = ['responsibilities', 'qualifications', 'job_subcategory'] as const;
-    let attempt: Partial<typeof payload> = payload;
-    let { data: savedPost, error: saveError } = await supabase
-      .from('employer_job_posts')
-      .upsert(attempt, { onConflict: 'job_id' })
-      .select('*')
-      .single();
-
-    for (let retries = 0; saveError && retries < optionalColumns.length; retries += 1) {
-      const message = String(saveError.message || '');
-      const missing = optionalColumns.find((column) => column in attempt && message.includes(column));
+    let attempt: Array<Partial<ReturnType<typeof jobPostPayload>>> = payloads;
+    let result = await supabase.from('employer_job_posts').upsert(attempt, { onConflict: 'job_id' }).select('*');
+    for (let retries = 0; result.error && retries < optionalColumns.length; retries += 1) {
+      const message = String(result.error.message || '');
+      const missing = optionalColumns.find((column) => column in (attempt[0] || {}) && message.includes(column));
       if (!missing) break;
-      attempt = { ...attempt };
-      delete attempt[missing];
-      const retryResult = await supabase
-        .from('employer_job_posts')
-        .upsert(attempt, { onConflict: 'job_id' })
-        .select('*')
-        .single();
-      savedPost = retryResult.data;
-      saveError = retryResult.error;
+      attempt = attempt.map((row) => {
+        const next = { ...row };
+        delete next[missing];
+        return next;
+      });
+      result = await supabase.from('employer_job_posts').upsert(attempt, { onConflict: 'job_id' }).select('*');
     }
+    return { data: (result.data || []) as EmployerJobPostRow[], error: result.error as { message: string } | null };
+  };
+
+  /** Saves the editor's job; resolves with what blocked it, or null once saved. */
+  const saveJobForm = async (mode: 'draft' | 'post', draft: JobEditorDraft): Promise<string | null> => {
+    const error = mode === 'draft' ? validateDraftSave(draft) : validateJobDraft(draft);
+    if (error) return error;
+    if (!employerProfileId) return 'Your employer profile is still loading. Try again in a moment.';
+    const { form: jobForm } = draft;
+    const status: JobStatus = mode === 'draft' ? 'draft' : jobForm.status === 'closed' ? 'closed' : 'open';
+    const currentJob = editorJob;
+    const jobId = currentJob?.id || `EMP-${Date.now()}`;
+    const payload = jobPostPayload(draft, status, jobId);
+
+    const { data: savedPost, error: upsertError } = await upsertJobPosts([payload]);
+    const saveError = upsertError || (savedPost.length === 0 ? { message: 'No row returned' } : null);
 
     if (saveError) {
       console.warn('Unable to save job post:', saveError);
       return "The job couldn't be saved. Please try again.";
     }
 
-    const savedJob = toEmployerJob(savedPost as EmployerJobPostRow);
+    const savedJob = toEmployerJob(savedPost[0]);
 
     if (currentJob) {
       setJobs((current) =>
@@ -700,6 +707,37 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     }
     window.scrollTo({ top: 0 });
     return null;
+  };
+
+  /** Saves jobs from an uploaded file in one go; resolves true once saved. */
+  const importJobs = async (items: BulkImportItem[]): Promise<boolean> => {
+    if (items.length === 0) return false;
+    if (!employerProfileId) {
+      showToast('Your employer profile is still loading. Try again in a moment.', 'warn');
+      return false;
+    }
+    // Checked again here so nothing incomplete is ever posted.
+    const prepared = items.map((item) => ({
+      draft: item.draft,
+      status: (item.mode === 'post' && !validateJobDraft(item.draft) ? 'open' : 'draft') as JobStatus,
+    })).filter((item) => !validateDraftSave(item.draft));
+    if (prepared.length === 0) return false;
+    const stamp = Date.now();
+    const payloads = prepared.map((item, index) => jobPostPayload(item.draft, item.status, `EMP-${stamp}-${index + 1}`));
+    const { data, error } = await upsertJobPosts(payloads);
+    if (error) {
+      console.warn('Unable to import jobs:', error);
+      showToast("The jobs couldn't be saved. Nothing was added. Please try again.", 'danger');
+      return false;
+    }
+    const order = new Map(payloads.map((payload, index) => [payload.job_id, index]));
+    const saved = data.map(toEmployerJob).sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    setJobs((current) => [...saved, ...current.filter((job) => !order.has(job.id))]);
+    const posted = saved.filter((job) => job.status === 'open').length;
+    const drafts = saved.length - posted;
+    const parts = [posted > 0 ? `${posted} job${posted === 1 ? '' : 's'} posted` : '', drafts > 0 ? `${drafts} saved as draft${drafts === 1 ? '' : 's'}` : ''].filter(Boolean);
+    showToast(`${parts.join(', ')}.`.replace(/^./, (letter) => letter.toUpperCase()), saved.length === payloads.length ? 'success' : 'warn');
+    return true;
   };
 
   const bulkJobAction = async (action: JobBulkAction, jobIds: string[]) => {
@@ -1352,6 +1390,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           onOpenJob={openJob}
           onBackToList={() => goPage('jobs')}
           onPostJob={postJob}
+          onImportJobs={importJobs}
           newJobDraft={newJobDraft}
           onDiscardNewJobDraft={() => clearJobDraft(newJobDraftKey)}
           onEdit={startEditJobForm}
