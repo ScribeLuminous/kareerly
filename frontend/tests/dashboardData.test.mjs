@@ -23,6 +23,7 @@ const deps = {
   ...await loadUtility('../src/lib/uiData.ts'),
   ...await loadUtility('../src/lib/jobDescription.ts'),
   ...await loadUtility('../src/lib/phProvinces.ts'),
+  ...await loadUtility('../src/lib/assessmentDeadline.ts'),
   React,
 };
 // Names a module re-exports from elsewhere (`export { A } from './x'`).
@@ -598,4 +599,17 @@ test('contact numbers keep digits only, up to 11', async () => {
   assert.equal(contactNumberInput('0912-345-6789'), '09123456789');
   assert.equal(contactNumberInput('0912 345 678912345'), '09123456789');
   assert.equal(contactNumberInput('abc'), '');
+});
+
+test('declining for no response is open only once the assessment deadline has passed', () => {
+  const blocker = employerPage.candidateActionBlocker;
+  const shortlisted = { status: 'Shortlisted' };
+  const open = { status: 'pending', dueAt: new Date(Date.now() + 3 * 86400000).toISOString() };
+  const overdue = { status: 'pending', dueAt: new Date(Date.now() - 3600000).toISOString() };
+  assert.match(blocker('rejected', shortlisted, open, true), /the candidate has until/);
+  assert.equal(blocker('rejected', shortlisted, overdue, true), null);
+  // Moving someone to Interviewing still needs a reviewed assessment, deadline or not.
+  assert.ok(blocker('interviewing', shortlisted, overdue, true));
+  assert.equal(employerPage.assessmentAwareAction('Shortlisted', 'none', null, true, false, overdue).label, 'Deadline passed');
+  assert.equal(employerPage.assessmentAwareAction('Shortlisted', 'none', null, true, false, open).label, 'Awaiting candidate response');
 });

@@ -11,6 +11,7 @@
 //   figure and a score; the score stays empty until every required
 //   criterion has been rated at least once.
 
+import { assessmentDueState, formatAssessmentDue } from '../../lib/assessmentDeadline';
 import { candidateDisplayName, type CandidateApplication, type CandidateStatus, type EmployerJob } from './model';
 import { STRONG_MATCH_PERCENT } from './insights/matchTiers';
 
@@ -487,7 +488,7 @@ export function nextAction(status: CandidateStatus, messageState: CandidateAppli
   return { label: 'Record the outcome', detail: 'Mark as hired or decline when the team has decided.' };
 }
 
-type AssessmentState = { status: 'pending' | 'submitted' | 'reviewed' } | null;
+type AssessmentState = { status: 'pending' | 'submitted' | 'reviewed'; dueAt?: string | null } | null;
 
 /**
  * The next step once the Candidate Assessment is part of the flow: a scorecard
@@ -499,7 +500,11 @@ export function assessmentAwareAction(status: CandidateStatus, messageState: Can
   if (!hasRubric) return { label: 'Set up the assessment', detail: 'Add the questions and criteria for this job.' };
   if (status === 'Pending') return { label: 'Shortlist to send the assessment', detail: 'Shortlisting sends the Candidate Assessment.' };
   if (!assessment) return { label: 'Send Assessment', detail: 'The candidate has not received the assessment yet.' };
-  if (assessment.status === 'pending') return { label: 'Awaiting candidate response', detail: 'The candidate can save a draft and submit when ready.' };
+  if (assessment.status === 'pending') {
+    return assessmentDueState(assessment) === 'overdue'
+      ? { label: 'Deadline passed', detail: 'The candidate did not submit in time. Extend the deadline or decline.' }
+      : { label: 'Awaiting candidate response', detail: assessment.dueAt ? `The candidate can answer until ${formatAssessmentDue(assessment.dueAt)}.` : 'The candidate can save a draft and submit when ready.' };
+  }
   if (assessment.status === 'submitted' && !reviewedByMe) return { label: 'Review the assessment', detail: 'Rate the submitted answers on your scorecard.' };
   return nextAction(status, messageState, evaluation, hasRubric, reviewedByMe);
 }
@@ -530,6 +535,8 @@ export function candidateActionBlocker(action: CandidateBulkAction, candidate: P
     if (assessment) return 'assessment already sent';
     return status === 'Pending' || status === 'Shortlisted' || status === 'Interviewing' ? null : 'not eligible';
   }
+  // Declining for no response is allowed once the deadline has passed with nothing submitted.
+  const unansweredPastDeadline = assessment?.status === 'pending' && assessmentDueState(assessment) === 'overdue';
   if (action === 'interviewing') {
     if (status === 'Interviewing') return 'already interviewing';
     if (status === 'Pending') return 'shortlist first';
@@ -537,6 +544,8 @@ export function candidateActionBlocker(action: CandidateBulkAction, candidate: P
   }
   if (action === 'hired') return status === 'Interviewing' ? null : 'not interviewing yet';
   if (status === 'Interviewing') return null;
+  if (unansweredPastDeadline) return null;
+  if (assessment?.status === 'pending' && assessment.dueAt) return `the candidate has until ${formatAssessmentDue(assessment.dueAt)}`;
   return assessment?.status === 'reviewed' ? null : 'assessment not reviewed yet';
 }
 

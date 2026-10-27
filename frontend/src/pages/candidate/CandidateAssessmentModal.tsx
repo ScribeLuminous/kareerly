@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Banner, Modal } from '../../components/ui';
-import { saveAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
+import { assessmentDueState, formatAssessmentDue, saveAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
 
 export function CandidateAssessmentModal({ assessment, jobTitle, onClose, onSaved }: {
   assessment: CandidateAssessment;
@@ -13,7 +13,9 @@ export function CandidateAssessmentModal({ assessment, jobTitle, onClose, onSave
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
-  const readonly = assessment.status !== 'pending' || submitted;
+  // Past the deadline the answers are locked until the employer gives more time.
+  const overdue = assessmentDueState(assessment) === 'overdue';
+  const readonly = assessment.status !== 'pending' || submitted || overdue;
   const save = async (submit: boolean) => {
     setAttempted(submit);
     if (submit && assessment.questions.some((item) => item.required && !answers[item.id]?.trim())) return;
@@ -38,8 +40,13 @@ export function CandidateAssessmentModal({ assessment, jobTitle, onClose, onSave
           <button className="k-btn k-btn-primary" type="button" disabled={saving} onClick={() => void save(true)}>Submit Assessment</button>
         </div>
       )}>
-      {readonly ? <Banner tone="info" className="mb-4">Assessment submitted. Your responses have been sent to the employer and are read-only.</Banner>
-        : <p className="k-secondary mb-4">The employer has requested additional information as part of your application review. Answer each required question before submitting.</p>}
+      {overdue && !submitted
+        ? <Banner tone="warn" className="mb-4">The deadline for this assessment passed on {formatAssessmentDue(assessment.dueAt!, true)} (Philippine time), so it can no longer be answered. Ask the employer if they can give you more time; if they do, you will be notified.</Banner>
+        : readonly ? <Banner tone="info" className="mb-4">Assessment submitted. Your responses have been sent to the employer and are read-only.</Banner>
+        : <>
+          {assessment.dueAt && <Banner tone="warn" className="mb-4"><strong>Due {formatAssessmentDue(assessment.dueAt, true)} (Philippine time).</strong> Answers are accepted until then. You can save a draft and come back.</Banner>}
+          <p className="k-secondary mb-4">The employer has requested additional information as part of your application review. Answer each required question before submitting.</p>
+        </>}
       {error && <Banner tone="error" className="mb-4">{error}</Banner>}
       <ol className="space-y-5">
         {assessment.questions.map((item, index) => {

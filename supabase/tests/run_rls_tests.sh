@@ -42,6 +42,10 @@ psql_eval -f "$here/auto_assessment_template_tests.sql"
 psql_eval -f "$here/../migrations/20261028100000_assessment_ai_review_drafts.sql"
 psql_eval -f "$here/../migrations/20261028100000_assessment_ai_review_drafts.sql"
 psql_eval -f "$here/assessment_ai_draft_tests.sql"
+# Applied twice: the migration must be safe to re-run.
+psql_eval -f "$here/../migrations/20261028120000_assessment_due_dates.sql"
+psql_eval -f "$here/../migrations/20261028120000_assessment_due_dates.sql"
+psql_eval -f "$here/assessment_due_date_tests.sql"
 psql_run -c "create database shared_documents"
 psql_docs() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d shared_documents -v ON_ERROR_STOP=1 -q "$@"; }
 psql_docs -f "$here/supabase_stub.sql"

@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { faClipboardCheck, faDownload, faPaperPlane, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Banner, ConfirmDialog, EmptyState, FormField, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
-import type { CandidateAssessment } from '../../lib/assessmentApi';
+import { assessmentDueDateProblem, defaultAssessmentDueDate, type CandidateAssessment } from '../../lib/assessmentApi';
 import type { EvaluationSummary } from '../../lib/evaluationApi';
 import { MatchScoreNotice } from '../../components/MatchScoreNotice';
 import { EMPLOYER_MATCH_DISCLAIMER } from '../../lib/matchDisclaimer';
 import { ApplicantRow } from './ApplicantRow';
+import { AssessmentDeadlineField } from './AssessmentDeadlineField';
 import { ExportApplicantsDialog } from './ApplicantReports';
 import {
   APPLICANT_SORTS,
@@ -43,7 +44,7 @@ type EmployerCandidatesPageProps = {
   onOpenJobs: () => void;
   onEditRubric: (jobId: string) => void;
   /** Applies a stage change to the eligible applicants; resolves when done. */
-  onBulkAction: (action: CandidateBulkAction, candidateIds: string[], rejectionReason: string) => Promise<void>;
+  onBulkAction: (action: CandidateBulkAction, candidateIds: string[], rejectionReason: string, assessmentDueDate: string) => Promise<void>;
 };
 
 const STATUSES: CandidateStatus[] = ['Pending', 'Shortlisted', 'Interviewing', 'Hired', 'Rejected', 'Withdrawn'];
@@ -85,6 +86,9 @@ export function EmployerCandidatesPage({
 }: EmployerCandidatesPageProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<PendingBulk | null>(null);
+  // The day Candidate Assessments sent by this action are due; starts at the 7 day default.
+  const [dueDate, setDueDate] = useState(() => defaultAssessmentDueDate());
+  const sendsAssessment = pending?.action === 'shortlisted' || pending?.action === 'send-assessment';
   const [rejectionReason, setRejectionReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -132,6 +136,7 @@ export function EmployerCandidatesPage({
       else eligible.push(candidate);
     });
     setRejectionReason('');
+    setDueDate(defaultAssessmentDueDate());
     setPending({ action, eligible, skipped });
   };
 
@@ -142,7 +147,7 @@ export function EmployerCandidatesPage({
     }
     setBusy(true);
     try {
-      await onBulkAction(pending.action, pending.eligible.map((candidate) => candidate.id), rejectionReason);
+      await onBulkAction(pending.action, pending.eligible.map((candidate) => candidate.id), rejectionReason, dueDate);
       setSelectedIds(new Set());
     } finally {
       setBusy(false);
@@ -335,10 +340,13 @@ export function EmployerCandidatesPage({
           confirmLabel={pending.eligible.length === 0 ? 'OK' : CANDIDATE_BULK_LABEL[pending.action]}
           danger={pending.action === 'rejected' && pending.eligible.length > 0}
           busy={busy}
-          confirmDisabled={pending.action === 'rejected' && pending.eligible.length > 0 && !rejectionReason}
+          confirmDisabled={(pending.action === 'rejected' && pending.eligible.length > 0 && !rejectionReason) || (sendsAssessment && pending.eligible.length > 0 && Boolean(assessmentDueDateProblem(dueDate)))}
           onCancel={() => setPending(null)}
           onConfirm={run}
         >
+          {sendsAssessment && pending.eligible.length > 0 && (
+            <AssessmentDeadlineField className="mt-4" value={dueDate} onChange={setDueDate} />
+          )}
           {pending.action === 'rejected' && pending.eligible.length > 0 && (
             <FormField label="Reason *" help="Use an objective, job-related reason. It is saved with each application." className="mt-4">
               <select className="k-select" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} required>
