@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { isOldEnough, MIN_SIGNUP_AGE } from './birthday';
 
 export type AuthRole = 'candidate' | 'employer' | 'admin';
 export type AuthStatus = 'loading' | 'signed_out' | 'verifying_role' | 'authenticated' | 'role_mismatch';
@@ -272,12 +273,10 @@ export async function signUpCandidate(input: {
   password: string;
   birthday: string;
 }): Promise<SignUpResult> {
-  const birthDate = new Date(input.birthday);
-  const today = new Date();
-  const ageMs = today.getTime() - birthDate.getTime();
-  const ageYears = ageMs / (1000 * 60 * 60 * 24 * 365.25);
-  if (Number.isNaN(birthDate.getTime())) throw new Error('Please provide a valid birthday.');
-  if (ageYears < 18) throw new Error('You must be at least 18 years old to sign up.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.birthday) || Number.isNaN(new Date(input.birthday).getTime())) {
+    throw new Error('Please provide a valid birthday.');
+  }
+  if (!isOldEnough(input.birthday, MIN_SIGNUP_AGE)) throw new Error(`You must be at least ${MIN_SIGNUP_AGE} years old to sign up.`);
 
   const { data, error } = await supabase.auth.signUp({
     email: input.email,
