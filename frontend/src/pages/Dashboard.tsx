@@ -14,7 +14,7 @@ import { assessSavedResume, extractionWarnings, staleResumeMessage, type SavedRe
 import type { GapGroupBy, GapScope, ParsedResume, ResumeSummary, SelectedSkill, SkillGapReport, SurveyAnswers } from '../types';
 import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
-import { classifySkillCategory, cleanSkillDisplayName, EMPLOYER_CHECK_REMINDER, skillRecordKey, type ClaimedSkill, externalJobUrl, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
+import { classifySkillCategory, cleanSkillDisplayName, skillRecordKey, type ClaimedSkill, externalJobUrl, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Banner, ConfirmDialog, DESKTOP_QUERY, Modal, ToastRegion, useMediaQuery, type ToastState } from '../components/ui';
 import { CandidateShell } from './candidate/Shell';
@@ -334,7 +334,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         progressSavingRef.current = false;
         setProgressSaveError(failure);
         // After a failure, the next change or Retry tries again; no retry loop.
-        if (failure) showToast(`${failure.replace(/([^.!?])$/, '$1.')} Your change is shown here but is not saved to your account yet.`, 'danger');
+        // The page banner shows the full error with Try again.
+        if (failure) showToast("Your change wasn't saved to your account.", 'danger');
         else setProgressSaveTick((tick) => tick + 1);
       })();
     }, 400);
@@ -1261,7 +1262,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         })));
       if (insertSkillsError) {
         console.warn('Unable to save confirmed skills:', insertSkillsError);
-        showToast('Matches refreshed, but your confirmed skills could not be saved. Other pages may still use your previous skills.', 'warn');
+        showToast("Matches refreshed, but your skills weren't saved.", 'warn');
       }
       const saved = await saveMatchHistory({
         userId: currentUser.id,
@@ -1269,7 +1270,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         preferences: answers,
         results: result,
       });
-      if (!saved) showToast('Matches refreshed, but they could not be saved to your profile. They may not appear after you reload.', 'warn');
+      if (!saved) showToast('Matches refreshed, but not saved to your profile.', 'warn');
     }
     return result;
   };
@@ -1294,7 +1295,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       }).catch((error) => {
         console.warn('Unable to save preferences to Supabase:', error);
         preferencesSaved = false;
-        showToast('Your preferences could not be saved to your profile. They apply now but may be lost when you reload.', 'danger');
+        showToast('Preferences not saved. They may reset when you reload.', 'danger');
       });
     }
     const savedResume = state.resume || state.resumeAnalysis?.parsedResume;
@@ -1363,7 +1364,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         if (alreadySaved) next.add(jobId); else next.delete(jobId);
         return next;
       });
-      showToast('Unable to update saved jobs in Supabase.', 'danger');
+      showToast("Couldn't update your saved jobs. Please try again.", 'danger');
       return;
     }
     showToast(alreadySaved ? 'Job removed from saved list.' : 'Job saved to your account.', 'success');
@@ -1371,7 +1372,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const applyToInternalJob = async (job: DashboardJob): Promise<boolean> => {
     if (job.sourceType === 'external') {
-      showToast('External opportunities are link-outs only.', 'warn');
+      showToast("Apply for this job on the employer's site.", 'warn');
       return false;
     }
     const existing = applications.find((app) => app.jobId === job.id && app.jobSource === job.jobSource && app.status !== 'Withdrawn');
@@ -1594,7 +1595,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
     const located = await locateSavedResumeFile(latestResume);
     if (!located) {
-      showToast('The saved resume file could not be found. Please upload the resume again.', 'warn');
+      showToast('Resume file not found. Please upload it again.', 'warn');
       return;
     }
     const { data, error } = await supabase.storage
@@ -1621,7 +1622,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
     if (!located) {
       setSavedResumeFile(null);
-      showToast('The original resume file is not stored. Please upload your resume again.', 'warn');
+      showToast('Resume file not found. Please upload it again.', 'warn');
       openResumeModal();
       return;
     }
@@ -1715,8 +1716,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       setReviewSkills(unique);
       setResumeStep('decision');
       showToast(reusedResumeFile.current
-        ? 'Saved resume re-scanned. Choose to review skills/preferences or apply changes directly.'
-        : 'Resume uploaded. Choose to review skills/preferences or apply changes directly.', 'success');
+        ? 'Resume re-scanned.'
+        : 'Resume uploaded.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to analyze uploaded resume.';
       setError(message);
@@ -1893,7 +1894,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         setCourseCompletions((current) => ({ ...current, [course.id]: { status: 'evidenced', markedAt: current[course.id]?.markedAt || new Date().toISOString(), evidenceId: nextRecord.id } }));
         updateCourseSkillProgress(course, 'evidenced', { fileName: nextRecord.fileName, uploadedAt: nextRecord.uploadedAt });
         setEvidenceCourseTarget(null);
-        showToast('Proof uploaded. Your profile and skill progress were updated (pending verification).', 'success');
+        showToast('Proof uploaded. Pending verification.', 'success');
       } else if (evidenceSkillTarget) {
         const { key } = evidenceSkillTarget;
         setSkillProgressRecords((current) => (current[key] ? {
@@ -1901,9 +1902,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           [key]: { ...current[key], status: 'evidenced', progressPercent: SKILL_PROGRESS_PERCENT.evidenced, evidenceFilename: nextRecord.fileName, evidenceUploadedAt: nextRecord.uploadedAt },
         } : current));
         setEvidenceSkillTarget(null);
-        showToast('Proof uploaded. Your skill progress was updated (pending verification).', 'success');
+        showToast('Proof uploaded. Pending verification.', 'success');
       } else {
-        showToast('Evidence saved. Pending Verification; file checks do not verify the credential.', 'success');
+        showToast('Proof saved. Pending verification.', 'success');
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to validate certificate upload.';
@@ -2026,7 +2027,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     if (claimedSkills[key] || state.isLoading) return;
     const alreadyListed = skillNames.some((skill) => normalizeSkill(skill) === normalizeSkill(gap.skill));
     if (!alreadyListed && skillNames.length >= CONFIRMED_SKILL_LIMIT) {
-      showToast(`You can list up to ${CONFIRMED_SKILL_LIMIT} skills. Remove one in Preferences, then add ${name}.`, 'warn');
+      showToast('Skill limit reached. Remove one in Preferences first.', 'warn');
       return;
     }
     const item: ClaimedSkill = { skillId: gap.skillId || undefined, skillName: gap.skill, claimedAt: new Date().toISOString() };
@@ -2035,9 +2036,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setClaimedSkills(nextClaimed);
     const nextSkills = alreadyListed ? skillNames : [...skillNames, gap.skill];
     const record: SelectedSkill = { skill_id: gap.skillId || null, skill_name: gap.skill, source: 'confirmed_skill', is_standardized: Boolean(gap.skillId) };
-    void refreshMatchesWithSkills(nextSkills, nextClaimed, [record]).then((refreshed) => {
+    void refreshMatchesWithSkills(nextSkills, nextClaimed, [record]).then(() => {
       showToast(
-        `${name} added to your skills${refreshed ? ' and your matches were refreshed' : ''}. ${EMPLOYER_CHECK_REMINDER}`,
+        `${name} added. Keep an example of your work ready.`,
         'success',
         { label: 'Undo', onClick: () => unclaimSkill(key) },
       );
@@ -2519,7 +2520,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
             setEvidenceModalOpen(false);
             setEditingEvidence(null);
             if (evidenceCourseTarget || evidenceSkillTarget) {
-              showToast(`Marked as done without proof. ${EMPLOYER_CHECK_REMINDER} You can add proof later.`, 'success');
+              showToast('Marked as done. You can add proof later.', 'success');
             }
             setEvidenceCourseTarget(null);
             setEvidenceSkillTarget(null);

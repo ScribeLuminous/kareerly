@@ -209,12 +209,14 @@ class ResumeSummaryTests(unittest.TestCase):
                       role_level="entry", fit_now_titles=["Data Encoder", "Office Clerk", "data encoder"], aspiration_titles=["Analyst"])
         return build_resume_summary(**{**values, **changes})
 
-    def test_summary_is_two_or_three_template_sentences(self):
+    def test_summary_is_only_the_skills_sentence(self):
         for changes in [{}, {"role_level": "unsure"}, {"fit_now_titles": []}, {"fit_now_titles": [], "aspiration_titles": []},
                         {"skills": []}, {"role_level": "Mid-level (2-5 years experience)"}]:
             with self.subTest(changes=changes):
                 result = self.summary(**changes)
-                self.assertIn(len(result["sentences"]), (2, 3))
+                self.assertEqual(len(result["sentences"]), 1)
+                self.assertNotIn("You told us", result["summary"])
+                self.assertNotIn("right now", result["summary"])
                 self.assertNotIn("—", result["summary"])
                 self.assertNotIn("–", result["summary"])
 
@@ -225,8 +227,8 @@ class ResumeSummaryTests(unittest.TestCase):
         self.assertEqual((result["experience_level"]["value"], result["experience_level"]["source"]), ("entry", "step3_job_level"))
         self.assertEqual((result["best_fit_roles"], result["roles_basis"]), (["Data Encoder", "Office Clerk"], "fit_now"))
         closest = self.summary(fit_now_titles=[])
-        self.assertEqual(closest["roles_basis"], "aspiration")
-        self.assertIn("not a Fit-Now match yet", closest["summary"])
+        self.assertEqual((closest["best_fit_roles"], closest["roles_basis"]), (["Analyst"], "aspiration"))
+        self.assertEqual(self.summary()["experience_level"], {"value": "entry", "source": "step3_job_level", "label": "Entry level"})
         self.assertEqual(self.summary(role_level="")["experience_level"]["value"], "unset")
 
     def test_resume_version_follows_the_resume_text(self):
