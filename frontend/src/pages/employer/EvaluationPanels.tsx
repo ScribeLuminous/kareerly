@@ -1,7 +1,7 @@
-import type { CandidateAssessment } from '../../lib/assessmentApi';
+import type { AiReviewDraft, CandidateAssessment } from '../../lib/assessmentApi';
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faCircleQuestion, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faCircleQuestion, faTriangleExclamation, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 import { Banner, InfoTip } from '../../components/ui';
 import type { AuditEntry } from '../../lib/evaluationApi';
 import {
@@ -160,11 +160,13 @@ type ScorecardFormProps = {
   existing: Scorecard | null;
   saving: boolean;
   disabled: boolean;
-  onSave: (ratings: Record<string, RatingDraft>, summary: string, submit: boolean) => void;
+  onSave: (ratings: Record<string, RatingDraft>, summary: string, submit: boolean, aiDrafted: boolean) => void;
+  /** Asks for an AI first pass. Resolves to null when none could be made (the reason is already shown). */
+  onRequestDraft: () => Promise<AiReviewDraft | null>;
 };
 
 /** One reviewer's ratings for one applicant on one rubric version. Key it by scorecard so it resets after a save. */
-export function ScorecardForm({ rubric, assessment, existing, saving, disabled, onSave }: ScorecardFormProps) {
+export function ScorecardForm({ rubric, assessment, existing, saving, disabled, onSave, onRequestDraft }: ScorecardFormProps) {
   const initial = useMemo(() => {
     const ratings: Record<string, RatingDraft> = {};
     rubric.criteria.forEach((criterion) => {
@@ -174,6 +176,31 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
   }, [rubric, existing]);
   const [ratings, setRatings] = useState(initial);
   const [summary, setSummary] = useState(existing?.summaryNotes || '');
+  const [aiDraft, setAiDraft] = useState<AiReviewDraft | null>(null);
+  const [drafting, setDrafting] = useState(false);
+
+  // The draft only fills criteria the reviewer has not rated, so it never overwrites their own judgement.
+  const draftWithAi = async () => {
+    setDrafting(true);
+    try {
+      const draft = await onRequestDraft();
+      if (!draft) return;
+      setRatings((current) => {
+        const next = { ...current };
+        draft.ratings.forEach((item) => {
+          const mine = next[item.criterionId];
+          if (mine && mine.rating === null && !mine.evidence.trim()) {
+            next[item.criterionId] = { rating: item.rating, evidence: item.evidence ? `AI draft: ${item.evidence}` : '' };
+          }
+        });
+        return next;
+      });
+      setSummary((current) => current.trim() ? current : draft.summary);
+      setAiDraft(draft);
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   // Only the rating changes here. Per-question notes from older scorecards are not shown; they stay in `evidence` and are saved back unchanged.
   const update = (criterionId: string, patch: Partial<RatingDraft>) => {
@@ -187,12 +214,31 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onSave(ratings, summary, true);
+        onSave(ratings, summary, true, aiDraft !== null);
       }}
     >
       <p className="k-secondary mb-3">
         Rate what you saw in each answer, not a general impression. Leave a criterion <strong>Not assessed</strong> when you have no evidence; that is different from a low rating.
       </p>
+      {!disabled && (
+        <div className="mb-3">
+          <button className="k-btn k-btn-secondary" type="button" disabled={drafting || saving} onClick={() => void draftWithAi()}>
+            <FontAwesomeIcon icon={faWandMagicSparkles} aria-hidden="true" />{drafting ? 'Drafting…' : aiDraft ? 'Draft again with AI' : 'Draft review with AI'}
+          </button>
+          <p className="k-meta mt-1">The AI suggests ratings from the answers only. Nothing is saved until you review it and submit.</p>
+        </div>
+      )}
+      {aiDraft && (
+        <Banner tone="info" className="mb-3">
+          <strong>AI draft. Not your evaluation yet.</strong> Check every rating against the answer, change what you disagree with, then approve and submit.
+          {aiDraft.links.length > 0 && (
+            <span className="mt-2 block">
+              Links in the answers, not opened by the AI. Check them yourself:
+              <span className="block">{aiDraft.links.map((link) => <a key={link} className="k-link mr-3 [overflow-wrap:anywhere]" href={link} target="_blank" rel="noopener noreferrer">{link}</a>)}</span>
+            </span>
+          )}
+        </Banner>
+      )}
       {existing?.status === 'submitted' && <Banner tone="info" className="mb-3">You submitted this scorecard on {formatDateLabel((existing.submittedAt || existing.updatedAt).slice(0, 10))}. Changes are saved to the activity history.</Banner>}
       <ol className="space-y-4">
         {rubric.criteria.map((criterion, index) => {
@@ -212,6 +258,15 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
                   <div><p className="k-meta">Assessment Question</p><p className="k-secondary">{answer?.question || criterion.prompts[0] || 'No question recorded'}</p></div>
                   <div><p className="k-meta">Candidate Response</p><p className="k-body whitespace-pre-wrap rounded-[10px] bg-bg p-3">{answer?.response || 'No response provided.'}</p></div>
                 </div>
+                {aiDraft?.ratings.find((item) => item.criterionId === criterion.id) && (() => {
+                  const suggestion = aiDraft.ratings.find((item) => item.criterionId === criterion.id)!;
+                  return (
+                    <p className="k-meta mt-3 rounded-[10px] bg-bg p-2">
+                      <span className="k-badge k-badge-info mr-2">AI draft</span>
+                      {suggestion.rating === null ? 'Not assessed' : `Suggested ${suggestion.rating} of 4`}{suggestion.evidence ? `: ${suggestion.evidence}` : ''}
+                    </p>
+                  );
+                })()}
                 <p className="k-label mt-3">Your Rating</p>
                 <div className="k-rating-group mt-3" role="radiogroup" aria-label={`Rating for ${criterion.name}`}>
                   {RATING_SCALE.map((option) => (
@@ -244,9 +299,9 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
         {requiredUnrated.length > 0 && <p className="k-meta">Required, not assessed yet: {requiredUnrated.map((criterion) => criterion.name).join(', ')}. You can still submit; the team score waits until someone assesses them.</p>}
       </div>
       <div className="k-button-row mt-3">
-        <button className="k-btn k-btn-secondary" type="button" disabled={disabled || saving} onClick={() => onSave(ratings, summary, false)}>Save draft</button>
+        <button className="k-btn k-btn-secondary" type="button" disabled={disabled || saving} onClick={() => onSave(ratings, summary, false, aiDraft !== null)}>Save draft</button>
         <button className="k-btn k-btn-primary" type="submit" disabled={disabled || saving}>
-          {existing?.status === 'submitted' ? 'Update scorecard' : 'Submit scorecard'}
+          {existing?.status === 'submitted' ? 'Update scorecard' : aiDraft ? 'Approve and submit scorecard' : 'Submit scorecard'}
         </button>
       </div>
     </form>

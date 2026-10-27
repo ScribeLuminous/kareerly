@@ -11,7 +11,7 @@ import {
   type AuditEntry,
 } from '../../lib/evaluationApi';
 import { Modal } from '../../components/ui';
-import { assessmentStatusLabel, loadAssessments, sendAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
+import { approveAiReviewDraft, assessmentStatusLabel, loadAssessments, requestAiReviewDraft, sendAssessment, type AiReviewDraft, type CandidateAssessment } from '../../lib/assessmentApi';
 import { AuditTrail, ProfileMatchPanel, ReviewedEvaluationPanel, ScorecardForm } from './EvaluationPanels';
 import { nextAction, profileMatch, type ApplicationEvaluation, type RatingDraft, type Rubric, type Scorecard } from './evaluation';
 import {
@@ -175,11 +175,26 @@ export function ApplicantReviewModal({
         ? { label: 'Shortlist to send the assessment', detail: 'Shortlisting sends the Candidate Assessment to the applicant.' }
       : nextAction(candidate.status, candidate.messageRequestState, currentResult, Boolean(reviewRubric), myCurrentCard?.status === 'submitted');
 
-  const save = async (ratings: Record<string, RatingDraft>, summary: string, submit: boolean) => {
+  const requestDraft = async (): Promise<AiReviewDraft | null> => {
+    try {
+      const draft = await requestAiReviewDraft(candidate.id);
+      onToast('AI draft ready. Review it before submitting.', 'success');
+      return draft;
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : 'Unable to draft a review right now. You can still rate the answers yourself.', 'warn');
+      return null;
+    }
+  };
+
+  const save = async (ratings: Record<string, RatingDraft>, summary: string, submit: boolean, aiDrafted: boolean) => {
     if (!reviewRubric || !assessment || !['submitted', 'reviewed'].includes(assessment.status)) return;
     setSaving(true);
     try {
       await saveScorecard({ applicationId: candidate.id, rubricId: reviewRubric.id, ratings, summary, submit });
+      // A person has now reviewed and submitted what the AI drafted; keep that on record.
+      if (submit && aiDrafted) {
+        await approveAiReviewDraft(assessment.id).catch((error) => console.warn('Unable to record the AI draft approval:', error));
+      }
       onToast(submit ? 'Scorecard submitted.' : 'Draft saved.', 'success');
       setReloadKey((value) => value + 1);
       onEvaluationChanged();
@@ -332,7 +347,7 @@ export function ApplicantReviewModal({
                   You also scored this applicant on rubric version{myOlderCards.length > 1 ? 's' : ''} {myOlderCards.map((card) => rubrics.find((rubric) => rubric.id === card.rubricId)?.version || '?').join(', ')}. Those stay as they were; this scorecard uses version {reviewRubric.version}.
                 </Banner>
               )}
-              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit) => void save(ratings, summary, submit)} />
+              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit, aiDrafted) => void save(ratings, summary, submit, aiDrafted)} onRequestDraft={requestDraft} />
             </>
           )
         )}
