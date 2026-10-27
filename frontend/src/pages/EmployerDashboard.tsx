@@ -131,7 +131,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [summaryVersion, setSummaryVersion] = useState(0);
   const [assessments, setAssessments] = useState<Map<string, CandidateAssessment>>(new Map());
   const [assessmentVersion, setAssessmentVersion] = useState(0);
-  const [rubricEditor, setRubricEditor] = useState<{ jobId: string; inUse: boolean } | null>(null);
+  // afterPosting: opened right after a job was posted, so closing it means the employer skipped the step.
+  const [rubricEditor, setRubricEditor] = useState<{ jobId: string; inUse: boolean; afterPosting?: boolean } | null>(null);
   const [isSavingRubric, setIsSavingRubric] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string>('');
   const [messageDraft, setMessageDraft] = useState('');
@@ -695,7 +696,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       setJobs((current) => [newJob, ...current]);
       showToast(mode === 'draft' ? 'Saved as a draft.' : 'Job posted.', 'success');
       navigate(employerJobPath(newJob.id), { replace: true });
-      if (newJob.databaseId) setRubricEditor({ jobId: newJob.id, inUse: false });
+      if (newJob.databaseId) setRubricEditor({ jobId: newJob.id, inUse: false, afterPosting: true });
     }
     window.scrollTo({ top: 0 });
     return null;
@@ -1454,7 +1455,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           inUse={rubricEditor.inUse}
           saving={isSavingRubric}
           templates={templates}
-          onCancel={() => setRubricEditor(null)}
+          onCancel={() => {
+            if (rubricEditor.afterPosting) showToast('Assessment skipped. You can set it up anytime from the job page.');
+            setRubricEditor(null);
+          }}
           onSave={(criteria, templateName) => void saveRubricDraft(criteria, templateName)}
         />
       )}

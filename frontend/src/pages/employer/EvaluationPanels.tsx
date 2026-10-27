@@ -174,16 +174,14 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
   }, [rubric, existing]);
   const [ratings, setRatings] = useState(initial);
   const [summary, setSummary] = useState(existing?.summaryNotes || '');
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
+  // Only the rating changes here. Notes written per question on older scorecards stay in `evidence` and are saved back unchanged.
   const update = (criterionId: string, patch: Partial<RatingDraft>) => {
     setRatings((current) => ({ ...current, [criterionId]: { ...current[criterionId], ...patch } }));
-    setTouched((current) => ({ ...current, [criterionId]: true }));
   };
   const shares = weightShares(rubric.criteria);
   const unrated = rubric.criteria.filter((criterion) => ratings[criterion.id]?.rating === null);
   const requiredUnrated = unrated.filter((criterion) => criterion.isRequired);
-  const ratedWithoutEvidence = rubric.criteria.filter((criterion) => ratings[criterion.id]?.rating !== null && !ratings[criterion.id]?.evidence.trim());
 
   return (
     <form
@@ -193,7 +191,7 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
       }}
     >
       <p className="k-secondary mb-3">
-        Rate what you saw, not a general impression. Cite the evidence for each rating: an answer, a work sample, a reference. Leave a criterion <strong>Not assessed</strong> when you have no evidence; that is different from a low rating.
+        Rate what you saw in each answer, not a general impression. Leave a criterion <strong>Not assessed</strong> when you have no evidence; that is different from a low rating.
       </p>
       {existing?.status === 'submitted' && <Banner tone="info" className="mb-3">You submitted this scorecard on {formatDateLabel((existing.submittedAt || existing.updatedAt).slice(0, 10))}. Changes are saved to the activity history.</Banner>}
       <ol className="space-y-4">
@@ -235,31 +233,22 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
                     </span>
                   </label>
                 </div>
-                <label className="k-meta mt-3 block" htmlFor={`evidence-${criterion.id}`}>Assessment Notes</label>
-                <textarea
-                  id={`evidence-${criterion.id}`}
-                  className="k-textarea mt-1"
-                  rows={2}
-                  maxLength={2000}
-                  value={value.evidence}
-                  placeholder="Add notes supporting your rating"
-                  onChange={(event) => update(criterion.id, { evidence: event.target.value })}
-                  aria-invalid={touched[criterion.id] && value.rating !== null && !value.evidence.trim() ? true : undefined}
-                />
+                {value.evidence.trim() && (
+                  <div className="mt-3"><p className="k-meta">Earlier note</p><p className="k-secondary whitespace-pre-wrap">{value.evidence}</p></div>
+                )}
               </fieldset>
             </li>
           );
         })}
       </ol>
-      <label className="k-label mt-4 block" htmlFor="scorecard-summary">Overall notes</label>
-      <textarea id="scorecard-summary" className="k-textarea mt-1" rows={3} maxLength={4000} value={summary} onChange={(event) => setSummary(event.target.value)} disabled={disabled} />
+      <label className="k-label mt-4 block" htmlFor="scorecard-summary">Assessment Notes (optional)</label>
+      <textarea id="scorecard-summary" className="k-textarea mt-1" rows={3} maxLength={4000} value={summary} placeholder="Anything the team should know about this applicant" onChange={(event) => setSummary(event.target.value)} disabled={disabled} />
       <div className="mt-3 space-y-1" aria-live="polite">
         {requiredUnrated.length > 0 && <p className="k-meta">Required, not assessed yet: {requiredUnrated.map((criterion) => criterion.name).join(', ')}. You can still submit; the team score waits until someone assesses them.</p>}
-        {ratedWithoutEvidence.length > 0 && <p className="k-meta text-amber">Add evidence for: {ratedWithoutEvidence.map((criterion) => criterion.name).join(', ')}.</p>}
       </div>
       <div className="k-button-row mt-3">
         <button className="k-btn k-btn-secondary" type="button" disabled={disabled || saving} onClick={() => onSave(ratings, summary, false)}>Save draft</button>
-        <button className="k-btn k-btn-primary" type="submit" disabled={disabled || saving || ratedWithoutEvidence.length > 0}>
+        <button className="k-btn k-btn-primary" type="submit" disabled={disabled || saving}>
           {existing?.status === 'submitted' ? 'Update scorecard' : 'Submit scorecard'}
         </button>
       </div>
