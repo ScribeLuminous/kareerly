@@ -7,7 +7,7 @@ import { ReportConversationModal } from '../components/ReportConversationModal';
 import { supabase } from '../lib/supabase';
 import { normalizeEmployerIndustry } from '../lib/employerOptions';
 import { joinLocation, splitLocation } from '../lib/phProvinces';
-import { joinJobContent } from '../lib/jobDescription';
+import { joinJobContent, toListItems } from '../lib/jobDescription';
 import { applyAssessmentTemplate, deleteAssessmentTemplates, isEvaluationUnavailable, isTemplatesUnavailable, loadAssessmentTemplates, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveAssessmentTemplate, saveJobAssessment, type EvaluationSummary } from '../lib/evaluationApi';
 import { loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
 import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
@@ -21,7 +21,7 @@ import { InsightsPage } from './employer/insights/InsightsPage';
 import { EmployerJobsPage, type JobBulkAction } from './employer/EmployerJobsPage';
 import { EmployerMessagesPage } from './employer/EmployerMessagesPage';
 import { JobEditorPage } from './employer/JobEditorPage';
-import { clearJobDraft, hasJobDraftContent, jobDraftKey, useStoredJobDraft, validateJobDraft, type JobEditorDraft } from './employer/jobDraft';
+import { clearJobDraft, hasJobDraftContent, jobDraftKey, useStoredJobDraft, validateDraftSave, validateJobDraft, type JobEditorDraft } from './employer/jobDraft';
 import {
   applicantTitle,
   daysUntil,
@@ -35,7 +35,7 @@ import {
   employerTemplatePath,
   getCategoryCode,
   getInitials,
-  getSalaryAmounts,
+  parseSalaryInput,
   initialApplications,
   initialJobs,
   initialNotifications,
@@ -610,13 +610,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   /** Saves the editor's job; resolves with what blocked it, or null once saved. */
   const saveJobForm = async (mode: 'draft' | 'post', draft: JobEditorDraft): Promise<string | null> => {
-    const error = validateJobDraft(draft);
+    const error = mode === 'draft' ? validateDraftSave(draft) : validateJobDraft(draft);
     if (error) return error;
     if (!employerProfileId) return 'Your employer profile is still loading. Try again in a moment.';
     const { form: jobForm, requiredSkills: requiredSkillsDraft, niceSkills: niceSkillsDraft } = draft;
     const status: JobStatus = mode === 'draft' ? 'draft' : jobForm.status === 'closed' ? 'closed' : 'open';
     const location = joinLocation(jobForm.city, jobForm.province);
-    const { minimum: salaryMinPhp, maximum: salaryMaxPhp } = getSalaryAmounts(jobForm.salaryRange);
+    const { minimum: salaryMinPhp, maximum: salaryMaxPhp } = parseSalaryInput(jobForm.salaryRange);
     const currentJob = editorJob;
     const jobId = currentJob?.id || `EMP-${Date.now()}`;
     const postingStatus = status === 'open' ? 'active' : status;
@@ -632,44 +632,39 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       work_setup: jobForm.workSetup,
       employment_type: jobForm.employmentType.trim() || null,
       job_level: jobForm.experienceLevel,
-      salary_min_php: salaryMinPhp,
-      salary_max_php: salaryMaxPhp,
-      job_description: joinJobContent(jobForm.description, jobForm.responsibilities),
-      responsibilities: jobForm.responsibilities
-        .split(/\r?\n/)
-        .map((item) => item.replace(/^\s*[-–—•*]\s*/, '').trim())
-        .filter(Boolean)
-        .join('\n'),
+      // A draft can leave these empty.
+      salary_min_php: salaryMinPhp || null,
+      salary_max_php: salaryMaxPhp || null,
+      job_description: joinJobContent(jobForm.description, jobForm.responsibilities, jobForm.qualifications),
+      responsibilities: toListItems(jobForm.responsibilities).join('\n'),
+      qualifications: toListItems(jobForm.qualifications).join('\n'),
       required_skills: requiredSkillsDraft.join(', '),
       preferred_skills: niceSkillsDraft.join(', '),
       must_have_skill_ids: '',
-      application_deadline: jobForm.deadline,
+      application_deadline: jobForm.deadline || null,
       posting_status: postingStatus,
       updated_at: new Date().toISOString(),
     };
 
+    // Columns added by later migrations. While a database is still missing
+    // one, save without it: the description text carries the same content.
+    const optionalColumns = ['responsibilities', 'qualifications', 'job_subcategory'] as const;
+    let attempt: Partial<typeof payload> = payload;
     let { data: savedPost, error: saveError } = await supabase
       .from('employer_job_posts')
-      .upsert(payload, { onConflict: 'job_id' })
+      .upsert(attempt, { onConflict: 'job_id' })
       .select('*')
       .single();
 
-    if (saveError && String(saveError.message || '').includes('responsibilities')) {
-      const { responsibilities: _responsibilities, ...payloadWithoutResponsibilities } = payload;
+    for (let retries = 0; saveError && retries < optionalColumns.length; retries += 1) {
+      const message = String(saveError.message || '');
+      const missing = optionalColumns.find((column) => column in attempt && message.includes(column));
+      if (!missing) break;
+      attempt = { ...attempt };
+      delete attempt[missing];
       const retryResult = await supabase
         .from('employer_job_posts')
-        .upsert(payloadWithoutResponsibilities, { onConflict: 'job_id' })
-        .select('*')
-        .single();
-      savedPost = retryResult.data;
-      saveError = retryResult.error;
-    }
-
-    if (saveError && String(saveError.message || '').includes('job_subcategory')) {
-      const { job_subcategory: _jobSubcategory, ...payloadWithoutSubcategory } = payload;
-      const retryResult = await supabase
-        .from('employer_job_posts')
-        .upsert(payloadWithoutSubcategory, { onConflict: 'job_id' })
+        .upsert(attempt, { onConflict: 'job_id' })
         .select('*')
         .single();
       savedPost = retryResult.data;

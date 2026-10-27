@@ -100,6 +100,8 @@ export type DashboardJob = {
   requiredSkills: string[];
   preferredSkills: string[];
   responsibilities: string[];
+  /** Education, licences or experience the employer asks for, one per item. */
+  qualifications?: string[];
   description?: string;
   matchedSkills: string[];
   missingSkills: string[];
@@ -354,6 +356,13 @@ export function extractStringList(value: unknown): string[] {
       .map((item) => item.trim())
       .filter(Boolean);
   }
+  return [];
+}
+
+/** Items kept whole, one per line: qualifications often contain commas. */
+export function extractLineList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap((item) => extractLineList(item));
+  if (typeof value === 'string') return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
   return [];
 }
 
@@ -621,6 +630,7 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
   const requiredSkills = Array.from(new Set([...cleanSkillList(extractStringList(match.required_skills)), ...matchedSkills, ...missingSkills]));
   const preferredSkills = cleanSkillList(extractStringList(match.preferred_skills));
   const responsibilities = extractStringList((match as unknown as Record<string, unknown>).responsibilities);
+  const qualifications = extractLineList(dynamic.qualifications);
   const categoryLabel = typeof dynamic.category === 'string' && dynamic.category.trim() ? dynamic.category : 'Not specified';
   const subCategoryLabel = typeof dynamic.sub_category === 'string' && dynamic.sub_category.trim() ? dynamic.sub_category : 'Not specified';
   const jobLevel = typeof dynamic.job_level === 'string' && dynamic.job_level.trim() ? dynamic.job_level : 'Not specified';
@@ -643,6 +653,7 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
     requiredSkills,
     preferredSkills,
     responsibilities,
+    qualifications,
     description: typeof (match as unknown as Record<string, unknown>).job_description === 'string'
       ? String((match as unknown as Record<string, unknown>).job_description)
       : typeof (match as unknown as Record<string, unknown>).description === 'string'
@@ -705,6 +716,7 @@ export function mapAvailableJob(job: AvailableJobItem): DashboardJob {
   const requiredSkills = Array.isArray(job.required_skills) ? cleanSkillList(job.required_skills).slice(0, 12) : [];
   const preferredSkills = cleanSkillList(extractStringList(job.preferred_skills));
   const responsibilities = extractStringList(job.responsibilities);
+  const qualifications = extractLineList(job.qualifications);
 
   return {
     id: job.job_id || `${job.job_title}-${job.company_name || 'company'}`,
@@ -722,6 +734,7 @@ export function mapAvailableJob(job: AvailableJobItem): DashboardJob {
     requiredSkills,
     preferredSkills,
     responsibilities,
+    qualifications,
     description: job.job_description || job.description || undefined,
     matchedSkills: [],
     missingSkills: [],
@@ -743,6 +756,7 @@ export function mergeSupabaseJobDetails(job: DashboardJob, detail?: AvailableJob
   const requiredSkills = Array.isArray(detail.required_skills) ? cleanSkillList(detail.required_skills) : cleanSkillList(extractStringList(detail.required_skills));
   const preferredSkills = cleanSkillList(extractStringList(detail.preferred_skills));
   const responsibilities = extractStringList(detail.responsibilities);
+  const qualifications = extractLineList(detail.qualifications);
   const workType = detail.work_type || detail.work_setup || '';
   const setup = workType || job.setup;
 
@@ -757,6 +771,7 @@ export function mergeSupabaseJobDetails(job: DashboardJob, detail?: AvailableJob
     requiredSkills: requiredSkills.length > 0 ? requiredSkills : job.requiredSkills,
     preferredSkills: preferredSkills.length > 0 ? preferredSkills : job.preferredSkills,
     responsibilities: responsibilities.length > 0 ? responsibilities : job.responsibilities,
+    qualifications: qualifications.length > 0 ? qualifications : job.qualifications,
     description: detail.job_description || detail.description || job.description,
     category: titleCase(detail.job_category || job.category || ''),
     subCategory: titleCase(detail.job_subcategory || job.subCategory || ''),

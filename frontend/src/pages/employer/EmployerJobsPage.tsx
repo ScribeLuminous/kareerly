@@ -14,7 +14,7 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { Banner, ConfirmDialog, EmptyState, InfoTip, PageHeader, SearchField, SkeletonRows } from '../../components/ui';
-import { draftSavedLabel } from './jobDraft';
+import { draftSavedLabel, jobToDraft, validateJobDraft } from './jobDraft';
 import { formatJobDescription } from '../../lib/jobDescription';
 import { AssessmentSummary } from './AssessmentCriteriaEditor';
 import { ChooseTemplatesModal, JobsSectionTabs, type JobsSection } from './AssessmentTemplatesPage';
@@ -86,6 +86,8 @@ function deadlineLabel(job: EmployerJob): string {
 function jobActionBlocker(action: JobBulkAction, job: EmployerJob, applicants: number): string | null {
   if (action === 'open') {
     if (job.status === 'open') return 'already open';
+    // Drafts can be saved half-filled; they post only once complete.
+    if (job.status === 'draft' && validateJobDraft(jobToDraft(job))) return 'draft not finished';
     const days = daysUntil(job.deadline);
     if (days === null || days < 1) return 'deadline has passed';
     return null;
@@ -106,8 +108,14 @@ function confirmCopy(action: JobBulkAction, eligible: number, skipped: Array<{ j
   const reasons = Array.from(new Set(skipped.map((item) => item.reason)));
   const skipText = skipped.length === 0 ? '' : ` ${skipped.length} selected job${skipped.length === 1 ? ' is' : 's are'} skipped (${reasons.join(', ')}).`;
   const hint = action === 'delete' && skipped.some((item) => item.reason === 'has applicants') ? ' Archive jobs with applicants instead, so their records are kept.' : '';
-  const openHint = action === 'open' && skipped.some((item) => item.reason === 'deadline has passed') ? ' Edit a job to set a later deadline before reopening it.' : '';
-  return `${message}${skipText}${hint}${openHint}`;
+  return `${message}${skipText}${hint}${openHint(action, skipped)}`;
+}
+
+function openHint(action: JobBulkAction, skipped: Array<{ reason: string }>): string {
+  if (action !== 'open') return '';
+  const unfinished = skipped.some((item) => item.reason === 'draft not finished') ? ' Edit unfinished drafts to fill in the required fields before posting.' : '';
+  const expired = skipped.some((item) => item.reason === 'deadline has passed') ? ' Edit a job to set a later deadline before reopening it.' : '';
+  return `${unfinished}${expired}`;
 }
 
 /** One job posting as a card: title, where, status, and how applicants are looking. */
@@ -224,6 +232,12 @@ function JobDetailBody({ job, stats }: { job: EmployerJob; stats: JobStats }) {
             <>
               <p className="k-label mt-3">Responsibilities</p>
               <ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul>
+            </>
+          )}
+          {job.qualifications.length > 0 && (
+            <>
+              <p className="k-label mt-3">Qualifications</p>
+              <ul>{job.qualifications.map((item) => <li key={item}>{item}</li>)}</ul>
             </>
           )}
         </div>
@@ -403,7 +417,7 @@ export function EmployerJobsPage({
     <ConfirmDialog
       title={pending.eligible.length === 0 ? `Nothing to ${BULK_LABEL[pending.action].toLowerCase()}` : `${BULK_LABEL[pending.action]} ${pending.eligible.length} job${pending.eligible.length === 1 ? '' : 's'}?`}
       message={pending.eligible.length === 0
-        ? `None of the selected jobs can be changed: ${Array.from(new Set(pending.skipped.map((item) => item.reason))).join(', ')}.${pending.action === 'delete' ? ' Archive jobs with applicants instead, so their records are kept.' : ''}${pending.action === 'open' ? ' Edit a job to set a later deadline before reopening it.' : ''}`
+        ? `None of the selected jobs can be changed: ${Array.from(new Set(pending.skipped.map((item) => item.reason))).join(', ')}.${pending.action === 'delete' ? ' Archive jobs with applicants instead, so their records are kept.' : ''}${openHint(pending.action, pending.skipped)}`
         : confirmCopy(pending.action, pending.eligible.length, pending.skipped)}
       confirmLabel={pending.eligible.length === 0 ? 'OK' : BULK_LABEL[pending.action]}
       danger={pending.action === 'delete' && pending.eligible.length > 0}
