@@ -132,7 +132,7 @@ export function JobMatchesPage({
                 onClick={onRefresh}
                 disabled={isBusy}
                 aria-busy={isBusy}
-                title="Check for new jobs and update your matches with your latest resume, skills and preferences"
+                title="Check for new jobs and update your matches with your latest resume, skills, certificates and preferences"
               >
                 <FontAwesomeIcon icon={faArrowsRotate} className={isBusy ? 'fa-spin' : undefined} aria-hidden="true" />
                 {isBusy ? 'Refreshing…' : 'Refresh matches'}
