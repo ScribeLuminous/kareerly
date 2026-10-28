@@ -65,7 +65,7 @@ export const FILIPINO_UI: Record<string, string> = {
   'Enter degree or program': 'Ilagay ang degree o programa', 'Enter school or university': 'Ilagay ang paaralan o unibersidad',
   'Enter graduation year': 'Ilagay ang taon ng pagtatapos', 'Save Education': 'I-save ang Edukasyon',
   'User-Uploaded Evidence': 'Mga Sertipikasyon at Na-upload na Katibayan',
-  'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Delete: 'Tanggalin',
+  'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Edit: 'I-edit', Delete: 'Tanggalin',
   'Delete Profile': 'Tanggalin ang Profile',
   'Update resume': 'I-update ang resume', 'Upload proof': 'Mag-upload ng katibayan', 'Personal details': 'Personal na detalye',
   'Password and security': 'Password at seguridad', 'Delete profile': 'Tanggalin ang profile', 'Request deletion': 'Humiling na tanggalin',

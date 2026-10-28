@@ -1,4 +1,4 @@
-import { prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } from '../lib/evidence';
+import { inferRelatedSkills, prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } from '../lib/evidence';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
@@ -1956,7 +1956,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     credentialCheck?: CredentialLinkCheck;
   }) => {
     const existingRecord = draft.id ? evidenceRecords.find((record) => record.id === draft.id) : undefined;
-    draft = { ...draft, category: draft.category.trim() || deriveEvidenceCategory(draft.relatedSkill, gaps, evidenceCourseTarget) };
     setLoading(true);
     setError(null);
     try {
@@ -1964,6 +1963,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       if (draft.credentialUrl?.trim()) {
         draft = { ...draft, credentialCheck: await checkCredentialLink(draft.credentialUrl.trim(), accountIdentity.name) };
       }
+      // The related skill is optional: when left empty it is read from the title, notes and badge details. It can be edited on the record afterwards.
+      if (!draft.relatedSkill.trim()) {
+        const vocabulary = [...skillNames, ...gaps.map((gap) => gap.skill), ...courses.flatMap(getCourseSkillLabels)];
+        const details = [draft.title, draft.notes, draft.credentialCheck?.badge_name, draft.credentialCheck?.issuer].filter(Boolean).join(' ');
+        draft = { ...draft, relatedSkill: inferRelatedSkills(details, vocabulary) };
+      }
+      draft = { ...draft, category: draft.category.trim() || deriveEvidenceCategory(draft.relatedSkill, gaps, evidenceCourseTarget) };
       const nextRecord = await prepareEvidenceUpload(draft, existingRecord, validateCertificateFile);
       // Saved to the account first, so a failure keeps the form open and nothing looks saved that is not.
       if (currentUser.id) await saveEvidence(currentUser.id, nextRecord);
@@ -2166,7 +2172,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     window.open(target, '_blank', 'noopener,noreferrer');
   };
 
-  const handleReplaceEvidence = (record: EvidenceUploadRecord) => {
+  const handleEditEvidence = (record: EvidenceUploadRecord) => {
     setEditingEvidence(record);
     setEvidenceModalOpen(true);
   };
@@ -2548,7 +2554,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onViewResume={() => void viewSavedResume()}
           onOpenEvidenceUpload={openEvidenceUploadModal}
           onViewEvidence={handleViewEvidence}
-          onReplaceEvidence={handleReplaceEvidence}
+          onEditEvidence={handleEditEvidence}
           onDeleteEvidence={handleDeleteEvidence}
           onProfileChange={setProfileForm}
           onIdentityChange={setAccountIdentity}

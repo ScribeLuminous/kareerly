@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import ts from 'typescript';
 import { readCandidateSource } from './helpers/candidateSource.mjs';
 const source = fs.readFileSync(new URL('../src/lib/evidence.ts', import.meta.url), 'utf8');
-const { prepareEvidenceUpload } = await import('data:text/javascript;base64,' + Buffer.from(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText).toString('base64'));
+const { prepareEvidenceUpload, inferRelatedSkills } = await import('data:text/javascript;base64,' + Buffer.from(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText).toString('base64'));
 const draft = { title: 'Course', evidenceType: 'Certificate', relatedSkill: 'SQL', category: 'Technical', file: null };
 const pdf = new File(['%PDF /Type /Page'], 'course.pdf', { type: 'application/pdf' });
 const validate = async () => ({ status: 'valid', message: 'PDF checks passed' });
@@ -103,7 +103,15 @@ test('with neither a PDF nor a link nothing is saved, and a PDF and a link can b
 
 test('the dashboard checks a certificate link before it can become proof', () => {
   const dashboard = readCandidateSource();
-  const save = dashboard.slice(dashboard.indexOf('const nextRecord = await prepareEvidenceUpload') - 400, dashboard.indexOf('const nextRecord = await prepareEvidenceUpload'));
+  const save = dashboard.slice(dashboard.indexOf('const nextRecord = await prepareEvidenceUpload') - 1200, dashboard.indexOf('const nextRecord = await prepareEvidenceUpload'));
   assert.match(save, /await checkCredentialLink\(/);
   assert.match(dashboard, /const target = record\.fileUrl \|\| record\.credentialUrl;/);
+});
+
+// ---------- Related skill is optional and filled in from the title ----------
+test('the related skill is read from the title and badge details, longest names first', async () => {
+  assert.equal(inferRelatedSkills('Artificial Intelligence Fundamentals IBM SkillsBuild', ['Artificial Intelligence', 'Python']), 'Artificial Intelligence');
+  assert.equal(inferRelatedSkills('Microsoft Excel for Analysts', ['Excel', 'Microsoft Excel']), 'Microsoft Excel');
+  assert.equal(inferRelatedSkills('Learning Javascript', ['Java', 'JavaScript']), 'JavaScript');
+  assert.equal(inferRelatedSkills('Cooking basics', ['Python', 'SQL']), '');
 });
