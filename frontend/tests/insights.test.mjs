@@ -27,7 +27,7 @@ const job = (id, title, requiredSkills, status = 'open') => ({
   niceToHaveSkills: [], workSetup: '', employmentType: '', city: '', province: '', salaryRange: '', deadline: '', status, postedDate: '',
 });
 const applicant = (id, jobId, status, matchedSkills, missingSkills, extra = {}) => ({
-  id, publicId: `KR-${id}`, fullName: `Person ${id}`, role: '', jobId, applyTimeRankingScore: null, matchedSkills, missingSkills,
+  id, publicId: `KR-${id}`, fullName: `Person ${id}`, role: '', jobId, applyTimeRankingScore: (matchedSkills.length + missingSkills.length) ? Math.round(100 * matchedSkills.length / (matchedSkills.length + missingSkills.length)) : null, matchedSkills, missingSkills,
   status, appliedDate: '2026-09-01', lastActivity: '2026-09-10T08:00:00Z', location: 'Cebu City', messageRequestState: 'none', messages: [], ...extra,
 });
 
