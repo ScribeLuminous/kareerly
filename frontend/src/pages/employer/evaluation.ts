@@ -22,7 +22,7 @@ export type ProfileMatch = {
   required: string[];
   found: string[];
   notFound: string[];
-  /** found / required, 0-100; null when the job lists no required skills. */
+  /** The candidate's fit score for this job when they applied (0-100), or null when none was saved. */
   percent: number | null;
   /** The application recorded skill evidence at all. */
   hasEvidence: boolean;
@@ -31,40 +31,37 @@ export type ProfileMatch = {
 const skillKey = (skill: string) => skill.trim().toLowerCase();
 
 /**
- * Required-skill coverage, read from the skill evidence saved with the
- * application. That evidence is the very lists the candidate's own match screen
- * showed when they applied ("You have ..." and the skills to develop), checked
- * against the job's required skills by the matching service, so the candidate
- * and the employer always see the same skills.
+ * The one match figure an employer sees: the candidate's own fit score for the
+ * job, saved when they applied. It is the same number the candidate saw (for
+ * example "89% Fit Now"), so the two sides never show different percentages.
+ * It is null when the application did not record a score.
  *
- * It is deliberately not re-derived by comparing the job's own skill wording
- * with the saved names: the matching service records canonical names ("HTML And
- * CSS", "Javascript Programming") that rarely equal what an employer typed
- * ("HTML", "CSS", "JavaScript"), which showed a strong match as 0 of 3.
+ * Beside it, the skills found and not found come from the evidence saved with
+ * the application: the same matched and missing lists behind the candidate's
+ * "You have ..." chips. They are listed by name, not turned into a second
+ * percentage, and they are not re-derived by comparing the job's own wording
+ * with the saved names, which showed a strong match as 0 of 3 because the
+ * matching service records canonical names ("HTML And CSS") that rarely equal
+ * what an employer typed ("HTML", "CSS").
  *
  * With no saved evidence nothing is "found" or "not found"; it is unknown, and
  * the job's own list is returned only so the screen can say what was required.
  */
-export function profileMatch(candidate: Pick<CandidateApplication, 'matchedSkills' | 'missingSkills'>, job: Pick<EmployerJob, 'requiredSkills'> | null): ProfileMatch {
+export function profileMatch(candidate: Pick<CandidateApplication, 'matchedSkills' | 'missingSkills'> & { applyTimeRankingScore?: number | null }, job: Pick<EmployerJob, 'requiredSkills'> | null): ProfileMatch {
   const unique = (skills: string[]) => Array.from(new Map(skills.map((skill) => [skillKey(skill), skill])).values());
+  const score = candidate.applyTimeRankingScore;
+  const percent = typeof score === 'number' && Number.isFinite(score) ? Math.round(score) : null;
   const hasEvidence = candidate.matchedSkills.length + candidate.missingSkills.length > 0;
   if (!hasEvidence) {
-    return { required: unique(job?.requiredSkills || []), found: [], notFound: [], percent: null, hasEvidence: false };
+    return { required: unique(job?.requiredSkills || []), found: [], notFound: [], percent, hasEvidence: false };
   }
   const found = unique(candidate.matchedSkills);
   const foundKeys = new Set(found.map(skillKey));
   const notFound = unique(candidate.missingSkills).filter((skill) => !foundKeys.has(skillKey(skill)));
-  const required = [...found, ...notFound];
-  return {
-    required,
-    found,
-    notFound,
-    percent: Math.round((100 * found.length) / required.length),
-    hasEvidence: true,
-  };
+  return { required: [...found, ...notFound], found, notFound, percent, hasEvidence: true };
 }
 
-/** The quick filter on the Candidates page: applicants at or above this profile match. */
+/** The quick filter on the Candidates page: applicants at or above this match score. */
 export const HIGH_MATCH_PERCENT = STRONG_MATCH_PERCENT;
 
 /** Short match figure for lists, e.g. "Match 80%". */
@@ -78,9 +75,12 @@ export function matchScoreBadgeClass(match: ProfileMatch): string {
   return 'k-badge k-badge-warn';
 }
 
+/** The required skills found in the application, by name (a count would read as a second percentage). */
 export function profileMatchLabel(match: ProfileMatch): string {
-  if (match.percent === null) return match.required.length === 0 ? 'No required skills listed' : 'No skill evidence recorded';
-  return `${match.found.length} of ${match.required.length} required skills`;
+  if (!match.hasEvidence) return match.required.length === 0 ? 'No required skills listed' : 'No skill evidence recorded';
+  if (match.found.length === 0) return 'None found';
+  const shown = match.found.slice(0, 3).join(', ');
+  return match.found.length > 3 ? `${shown} +${match.found.length - 3}` : shown;
 }
 
 // ---------- Rubrics ----------
@@ -440,7 +440,7 @@ export const APPLICANT_SORTS: Array<{ value: ApplicantSort; label: string }> = [
   { value: 'applied-oldest', label: 'Applied, oldest first' },
   { value: 'applied-newest', label: 'Applied, newest first' },
   { value: 'activity', label: 'Last activity' },
-  { value: 'profile-match', label: 'Profile match' },
+  { value: 'profile-match', label: 'Match score' },
   { value: 'reviewed', label: 'Reviewed evaluation' },
 ];
 
@@ -556,7 +556,7 @@ export type CandidateFilters = {
   status: 'all' | CandidateStatus;
   search: string;
   sort: ApplicantSort;
-  /** Only applicants with a profile match of at least HIGH_MATCH_PERCENT. */
+  /** Only applicants with a match score of at least HIGH_MATCH_PERCENT. */
   highMatch: boolean;
 };
 

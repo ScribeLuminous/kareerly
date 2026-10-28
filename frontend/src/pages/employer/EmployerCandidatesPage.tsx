@@ -227,7 +227,7 @@ export function EmployerCandidatesPage({
           </div>
 
           {evaluationUnavailable ? (
-            <Banner tone="warn" className="mb-4">Structured evaluation isn't available on this database yet. Profile match and stage changes still work.</Banner>
+            <Banner tone="warn" className="mb-4">Structured evaluation isn't available on this database yet. The match score and stage changes still work.</Banner>
           ) : !hasRubric && job ? (
             <Banner
               tone="info"

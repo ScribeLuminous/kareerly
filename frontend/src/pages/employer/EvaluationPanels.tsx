@@ -29,23 +29,26 @@ export function CoverageMeter({ percent, label }: { percent: number; label: stri
   );
 }
 
-export function ProfileMatchPanel({ match, applyTimeRankingScore }: { match: ProfileMatch; applyTimeRankingScore: number | null }) {
+export function ProfileMatchPanel({ match }: { match: ProfileMatch; applyTimeRankingScore?: number | null }) {
   return (
     <section className="k-detail-section" aria-labelledby="profile-match-heading">
       <h3 id="profile-match-heading" className="k-label mb-1 flex items-center gap-1">
-        Profile match
-        <InfoTip label="How profile match is worked out">
-          Profile match comes only from the application: the job's required skills that were found in the candidate's resume when they applied, divided by the number of required skills. It says nothing about skills the resume didn't mention, and it is not a hiring probability or a prediction of job performance.
+        Match at application
+        <InfoTip label="How the match is worked out">
+          This is the candidate's own fit score for the job, saved when they applied, so you see the same number they saw. It combines how closely their resume reads like the job with the required skills found. It is not a hiring probability or a prediction of job performance.
         </InfoTip>
       </h3>
       {match.percent === null ? (
-        <p className="k-secondary">{match.required.length === 0 ? 'This job lists no required skills, so there is nothing to compare.' : 'The application recorded no skill evidence.'}</p>
+        <p className="k-secondary">No fit score was saved with this application.</p>
+      ) : (
+        <p className="k-body"><strong>{match.percent}%</strong> fit when they applied.</p>
+      )}
+      {!match.hasEvidence ? (
+        <p className="k-secondary mt-2">{match.required.length === 0 ? 'This job lists no required skills, so there is nothing to compare.' : 'The application recorded no skill evidence.'}</p>
       ) : (
         <>
-          <p className="k-body">
-            <strong>{match.found.length} of {match.required.length}</strong> required skills found in the application ({match.percent}%).
-          </p>
-          <ul className="mt-2 space-y-1" aria-label="Required skills">
+          <p className="k-meta mt-3">Required skills</p>
+          <ul className="mt-1 space-y-1" aria-label="Required skills">
             {match.required.map((skill) => {
               const found = match.found.includes(skill);
               return (
@@ -59,11 +62,6 @@ export function ProfileMatchPanel({ match, applyTimeRankingScore }: { match: Pro
           </ul>
           {match.notFound.length > 0 && <p className="k-meta mt-2">"Not found" means the resume didn't show it, not that the candidate lacks it. Ask about it in the interview.</p>}
         </>
-      )}
-      {applyTimeRankingScore !== null && (
-        <p className="k-meta mt-2">
-          The candidate's own match list ranked this job at {applyTimeRankingScore}% when they applied. That figure mixes resume text similarity with skill coverage and isn't used here.
-        </p>
       )}
     </section>
   );
