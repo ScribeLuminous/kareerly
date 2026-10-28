@@ -169,11 +169,14 @@ export function EvidenceFormModal({
   loading,
   record,
   prefill,
+  mode,
   onClose,
   onSave,
 }: {
   loading: boolean;
   record: EvidenceUploadRecord | null;
+  /** Limits the form to a PDF upload or a link; omitted shows both. */
+  mode?: 'file' | 'link';
   prefill?: EvidencePrefill;
   onClose: () => void;
   onSave: (draft: {
@@ -195,10 +198,12 @@ export function EvidenceFormModal({
   const [notes, setNotes] = useState(record?.notes || '');
   const [file, setFile] = useState<File | null>(null);
   const [credentialUrl, setCredentialUrl] = useState(record?.credentialUrl || '');
+  const showFile = mode !== 'link';
+  const showLink = mode !== 'file';
   const hasProof = Boolean(file || credentialUrl.trim() || record?.fileName || record?.credentialUrl);
   return (
     <Modal
-      title={record ? 'Edit proof' : prefill ? 'Add proof (optional)' : 'Upload proof'}
+      title={record ? 'Edit proof' : prefill ? 'Add proof (optional)' : mode === 'link' ? 'Add certificate link' : mode === 'file' ? 'Upload PDF' : 'Upload proof'}
       subtitle={prefill ? 'You can skip this and add it later.' : undefined}
       onClose={onClose}
       fullOnMobile
@@ -236,21 +241,21 @@ export function EvidenceFormModal({
         <FormField label="Related skill (optional)" help={record ? undefined : 'Left blank, we fill this in from the title and badge.'}>
           <input className="k-input" value={relatedSkill} onChange={(event) => setRelatedSkill(event.target.value)} />
         </FormField>
-        <div className="k-field k-span-2">
-          <span className="k-label">PDF file (optional if you add a link)</span>
+        {showFile && <div className="k-field k-span-2">
+          <span className="k-label">{showLink ? 'PDF file (optional if you add a link)' : 'PDF file'}</span>
           <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-[8px] border border-dashed border-soft bg-bg px-3 py-2 hover:border-rust">
             <FontAwesomeIcon icon={faUpload} className="text-rust" aria-hidden="true" />
             <span className="k-secondary min-w-0 flex-1 [overflow-wrap:anywhere]">{file?.name || record?.fileName || 'Choose a PDF'}</span>
             <input type="file" accept="application/pdf,.pdf" className="sr-only" onChange={(event) => setFile(event.target.files?.[0] || null)} />
           </label>
           <span className="k-help block">PDF only. Stays pending until reviewed.</span>
-        </div>
-        <FormField
+        </div>}
+        {showLink && <FormField
           label="Certificate or badge link"
           className="k-span-2"
         >
           <input className="k-input" type="url" inputMode="url" autoComplete="off" value={credentialUrl} onChange={(event) => setCredentialUrl(event.target.value)} placeholder="https://www.credly.com/badges/…" />
-        </FormField>
+        </FormField>}
         <FormField label="Notes (optional)" className="k-span-2">
           <textarea className="k-textarea min-h-[88px]" value={notes} onChange={(event) => setNotes(event.target.value)} />
         </FormField>
