@@ -11,7 +11,7 @@ import {
   type AuditEntry,
 } from '../../lib/evaluationApi';
 import { Modal } from '../../components/ui';
-import { approveAiReviewDraft, assessmentDueDateProblem, assessmentDueState, assessmentStatusLabel, defaultAssessmentDueDate, dueDateToTimestamp, dueDayOf, extendAssessmentDeadline, formatAssessmentDue, loadAssessments, requestAiReviewDraft, sendAssessment, type AiReviewDraft, type CandidateAssessment } from '../../lib/assessmentApi';
+import { assessmentDueDateProblem, assessmentDueState, assessmentStatusLabel, defaultAssessmentDueDate, dueDateToTimestamp, dueDayOf, extendAssessmentDeadline, formatAssessmentDue, loadAssessments, sendAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
 import { AssessmentDeadlineField } from './AssessmentDeadlineField';
 import { AuditTrail, ProfileMatchPanel, ReviewedEvaluationPanel, ScorecardForm } from './EvaluationPanels';
 import { nextAction, profileMatch, type ApplicationEvaluation, type RatingDraft, type Rubric, type Scorecard } from './evaluation';
@@ -136,7 +136,7 @@ export function ApplicantReviewModal({
   const [extending, setExtending] = useState(false);
   // Sending an assessment, changing its deadline and submitting a scorecard can't be taken back, so each is confirmed.
   const [confirming, setConfirming] = useState<'send' | 'extend' | 'scorecard' | null>(null);
-  const [pendingScorecard, setPendingScorecard] = useState<{ ratings: Record<string, RatingDraft>; summary: string; aiDrafted: boolean } | null>(null);
+  const [pendingScorecard, setPendingScorecard] = useState<{ ratings: Record<string, RatingDraft>; summary: string } | null>(null);
   const [assessmentVersion, setAssessmentVersion] = useState(0);
   useEffect(() => {
     let mounted = true;
@@ -209,26 +209,11 @@ export function ApplicantReviewModal({
         ? { label: 'Shortlist to send the assessment', detail: 'Shortlisting sends the Candidate Assessment to the applicant.' }
       : nextAction(candidate.status, candidate.messageRequestState, currentResult, Boolean(reviewRubric), myCurrentCard?.status === 'submitted');
 
-  const requestDraft = async (): Promise<AiReviewDraft | null> => {
-    try {
-      const draft = await requestAiReviewDraft(candidate.id);
-      onToast('AI draft ready. Review it before submitting.', 'success');
-      return draft;
-    } catch (error) {
-      onToast(error instanceof Error ? error.message : 'Unable to draft a review right now. You can still rate the answers yourself.', 'warn');
-      return null;
-    }
-  };
-
-  const save = async (ratings: Record<string, RatingDraft>, summary: string, submit: boolean, aiDrafted: boolean) => {
+  const save = async (ratings: Record<string, RatingDraft>, summary: string, submit: boolean) => {
     if (!reviewRubric || !assessment || !['submitted', 'reviewed'].includes(assessment.status)) return;
     setSaving(true);
     try {
       await saveScorecard({ applicationId: candidate.id, rubricId: reviewRubric.id, ratings, summary, submit });
-      // A person has now reviewed and submitted what the AI drafted; keep that on record.
-      if (submit && aiDrafted) {
-        await approveAiReviewDraft(assessment.id).catch((error) => console.warn('Unable to record the AI draft approval:', error));
-      }
       onToast(submit ? 'Scorecard submitted.' : 'Draft saved.', 'success');
       setReloadKey((value) => value + 1);
       onEvaluationChanged();
@@ -395,11 +380,11 @@ export function ApplicantReviewModal({
                   You also scored this applicant on rubric version{myOlderCards.length > 1 ? 's' : ''} {myOlderCards.map((card) => rubrics.find((rubric) => rubric.id === card.rubricId)?.version || '?').join(', ')}. Those stay as they were; this scorecard uses version {reviewRubric.version}.
                 </Banner>
               )}
-              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit, aiDrafted) => {
+              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit) => {
                 // The first submission marks the assessment reviewed and opens the decision, so it is confirmed; later edits are not.
-                if (submit && myCurrentCard?.status !== 'submitted') { setPendingScorecard({ ratings, summary, aiDrafted }); setConfirming('scorecard'); return; }
-                void save(ratings, summary, submit, aiDrafted);
-              }} onRequestDraft={requestDraft} />
+                if (submit && myCurrentCard?.status !== 'submitted') { setPendingScorecard({ ratings, summary }); setConfirming('scorecard'); return; }
+                void save(ratings, summary, submit);
+              }} />
             </>
           )
         )}
@@ -429,15 +414,15 @@ export function ApplicantReviewModal({
       {confirming === 'scorecard' && pendingScorecard && (
         <ConfirmDialog
           title="Submit your scorecard?"
-          message={`${pendingScorecard.aiDrafted ? 'You are approving a review the AI drafted, so check that every rating reflects the candidate\'s answers. ' : ''}Submitting marks the assessment as reviewed and opens the decision on this applicant. You can still update your scorecard later; changes are kept in the activity history.`}
-          confirmLabel={pendingScorecard.aiDrafted ? 'Approve and submit' : 'Submit scorecard'}
+          message={`Submitting marks the assessment as reviewed and opens the decision on this applicant. You can still update your scorecard later; changes are kept in the activity history.`}
+          confirmLabel="Submit scorecard"
           busy={saving}
           onCancel={() => { setConfirming(null); setPendingScorecard(null); }}
           onConfirm={async () => {
             const card = pendingScorecard;
             setConfirming(null);
             setPendingScorecard(null);
-            await save(card.ratings, card.summary, true, card.aiDrafted);
+            await save(card.ratings, card.summary, true);
           }}
         />
       )}

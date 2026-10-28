@@ -26,7 +26,7 @@ alter table public.employer_review_audit_log drop constraint if exists employer_
 alter table public.employer_review_audit_log add constraint employer_review_audit_log_event_type_check check
   (event_type in ('stage_changed','scorecard_saved','scorecard_submitted','rubric_saved','rubric_versioned',
     'assessment_sent','assessment_submitted','scorecard_reviewed','candidate_moved_to_interviewing','candidate_declined',
-    'ai_review_draft_generated','ai_review_draft_approved','assessment_deadline_extended'));
+    'assessment_deadline_extended'));
 
 -- A second argument means a second overload, which makes PostgREST calls
 -- ambiguous, so the one-argument version is replaced rather than kept.

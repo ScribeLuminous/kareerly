@@ -81,9 +81,6 @@ async function authenticatedMessageRequest(path: string, options: RequestInit = 
   return payload;
 }
 
-/** Calls the backend with the signed-in user's token (refreshing it once if stale). */
-export const authenticatedRequest = authenticatedMessageRequest;
-
 const MATCH_FEEDBACK_PATH = '/api/candidate/match-feedback';
 
 export async function loadMatchFeedback(): Promise<MatchFeedbackRow[]> {

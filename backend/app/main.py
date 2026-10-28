@@ -42,8 +42,6 @@ from .services.matching_service import MatchingModelUnavailable, career_area_ski
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
 from .services.education import normalize_education_level
-from .services.assessment_review import build_review_request, extract_links, normalize_draft
-from .services.gemma_service import GemmaUnavailable, gemma_service
 from .services.skill_gap_aggregation import build_gap_report
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
@@ -587,88 +585,6 @@ def get_employer_application_documents(application_id: str, authorization: Annot
                     "download_url": path if path.startswith("http") else f"{SUPABASE_URL}/storage/v1{path}",
                 }
     return {"available": True, "reason": None, "resume": resume, "portfolio_url": shared.get("portfolio_url") or None}
-
-
-@app.post("/api/employer/applications/{application_id}/assessment-review-draft")
-def draft_assessment_review(application_id: str, authorization: Annotated[Optional[str], Header()] = None) -> dict:
-    """An AI-drafted first pass at a submitted Candidate Assessment.
-
-    The draft is stored for the audit trail and returned to pre-fill the
-    reviewer's scorecard form. It is never a scorecard: the reviewer edits it and
-    submits it themselves, which is what ``approve_assessment_ai_draft`` records."""
-    user_id = _get_authenticated_user_id(authorization)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Authentication is required.")
-    token = authorization.split(" ", 1)[1].strip()
-
-    # Everything is read with the employer's own token, so row-level security
-    # decides what they may see; a null job post means the application is not theirs.
-    job_post_id = _supabase_request(
-        "/rest/v1/rpc/owned_job_post_for_application", method="POST", token=token,
-        body={"target_application_id": application_id},
-    )
-    if not job_post_id:
-        raise HTTPException(status_code=403, detail="This application does not belong to your employer account.")
-    assessments = _supabase_request(
-        "/rest/v1/candidate_assessments?" + urllib.parse.urlencode({"application_id": f"eq.{application_id}", "select": "id,status,rubric_id", "limit": "1"}),
-        token=token,
-    )
-    assessment = assessments[0] if isinstance(assessments, list) and assessments else None
-    if not isinstance(assessment, dict):
-        raise HTTPException(status_code=404, detail="No assessment was sent for this application.")
-    if assessment.get("status") not in {"submitted", "reviewed"}:
-        raise HTTPException(status_code=409, detail="The candidate has not submitted the assessment yet.")
-
-    snapshots = _supabase_request(
-        "/rest/v1/assessment_criterion_snapshots?" + urllib.parse.urlencode({"assessment_id": f"eq.{assessment['id']}", "select": "id,source_criterion_id,name,description,question,weight,position", "order": "position"}),
-        token=token,
-    ) or []
-    responses = _supabase_request(
-        "/rest/v1/candidate_assessment_responses?" + urllib.parse.urlencode({"assessment_id": f"eq.{assessment['id']}", "select": "criterion_snapshot_id,response_text"}),
-        token=token,
-    ) or []
-    anchors = _supabase_request(
-        "/rest/v1/evaluation_criteria?" + urllib.parse.urlencode({"rubric_id": f"eq.{assessment['rubric_id']}", "select": "id,anchors"}),
-        token=token,
-    ) or []
-    answer_by_snapshot = {row["criterion_snapshot_id"]: row.get("response_text") or "" for row in responses}
-    anchors_by_criterion = {row["id"]: row.get("anchors") or [] for row in anchors}
-    criteria = [
-        {
-            "criterion_id": row["source_criterion_id"], "name": row.get("name"), "description": row.get("description"),
-            "question": row.get("question"), "weight": row.get("weight"),
-            "anchors": anchors_by_criterion.get(row["source_criterion_id"], []),
-            "response": answer_by_snapshot.get(row["id"], ""),
-        }
-        for row in snapshots
-    ]
-    if not criteria:
-        raise HTTPException(status_code=409, detail="This assessment has no questions to review.")
-
-    if not gemma_service.configured:
-        raise HTTPException(status_code=503, detail="AI drafting is not set up on this server. You can still rate the answers yourself.")
-    try:
-        raw = gemma_service.draft_assessment_review(build_review_request(criteria))
-    except GemmaUnavailable as exc:
-        raise HTTPException(status_code=503, detail="AI drafting is unavailable right now. You can still rate the answers yourself.") from exc
-    draft = normalize_draft(raw, criteria)
-    links = extract_links(item["response"] for item in criteria)
-
-    _supabase_request(
-        "/rest/v1/assessment_ai_drafts?on_conflict=assessment_id", method="POST", service_role=True,
-        prefer="resolution=merge-duplicates,return=minimal",
-        body={
-            "assessment_id": assessment["id"], "job_post_id": job_post_id, "generated_by": user_id,
-            "model": gemma_service.model, "ratings": draft["ratings"], "summary": draft["summary"], "links": links,
-            "generated_at": _safe_timestamp(), "approved_by": None, "approved_at": None,
-        },
-    )
-    _supabase_request(
-        "/rest/v1/employer_review_audit_log", method="POST", service_role=True, prefer="return=minimal",
-        body={"application_id": application_id, "job_post_id": job_post_id, "actor_user_id": user_id,
-              "event_type": "ai_review_draft_generated", "details": {"assessment_id": assessment["id"], "model": gemma_service.model}},
-    )
-    return {"draft": {"assessment_id": assessment["id"], **draft, "links": links, "model": gemma_service.model}}
 
 
 def _set_application_stage_as_employer(authorization: str | None, application_id: str, status: str, reason: Optional[str]) -> object | None:
