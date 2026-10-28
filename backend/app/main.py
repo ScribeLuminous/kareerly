@@ -609,13 +609,6 @@ def draft_assessment_review(application_id: str, authorization: Annotated[Option
     )
     if not job_post_id:
         raise HTTPException(status_code=403, detail="This application does not belong to your employer account.")
-    # The employer can switch AI drafting off per job; nothing is sent to a model then.
-    job_rows = _supabase_request(
-        "/rest/v1/employer_job_posts?" + urllib.parse.urlencode({"id": f"eq.{job_post_id}", "select": "ai_review_enabled", "limit": "1"}),
-        token=token,
-    )
-    if isinstance(job_rows, list) and job_rows and job_rows[0].get("ai_review_enabled") is False:
-        raise HTTPException(status_code=403, detail="AI drafting is turned off for this job. You can rate the answers yourself.")
     assessments = _supabase_request(
         "/rest/v1/candidate_assessments?" + urllib.parse.urlencode({"application_id": f"eq.{application_id}", "select": "id,status,rubric_id", "limit": "1"}),
         token=token,

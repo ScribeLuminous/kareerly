@@ -15,5 +15,3 @@ Add ordered, reviewed database migrations here. The current consolidated schema 
 `20261028110000_education_levels.sql` adds `normalize_education_level()` (the SQL copy of the fixed education list) and rewrites existing account metadata to it. Checks are in `tests/education_levels_tests.sql`.
 
 `20261028120000_assessment_due_dates.sql` adds `candidate_assessments.due_at` (default 7 days, set by the employer when sending), `extend_assessment_deadline`, a locked answer window after the deadline, and the rule that an employer can decline for no response only once the deadline has passed. Checks are in `tests/assessment_due_date_tests.sql`.
-
-`20261028130000_job_ai_review_switch.sql` adds `employer_job_posts.ai_review_enabled` (default true), the per-job switch for AI-drafted assessment reviews.

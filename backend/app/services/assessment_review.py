@@ -15,12 +15,6 @@ MAX_SUMMARY_CHARS = 1500
 MAX_LINKS = 20
 
 _URL_PATTERN = re.compile(r"https?://[^\s<>\"')\]]+", re.IGNORECASE)
-# Contact details a candidate may put in an answer. They are removed before the
-# text reaches a model; the reviewer still sees the original answer.
-_EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+")
-_BARE_LINK_PATTERN = re.compile(r"\b(?:www\.|[A-Za-z0-9\-]+\.(?:com|net|org|ph|io|co|me|dev|app|ly|gg)\b)[^\s<>\"')\]]*", re.IGNORECASE)
-# 7 to 15 digits with optional +, spaces, dashes, dots or brackets: 0917 123 4567, +63 917-123-4567, (02) 8123 4567.
-_PHONE_PATTERN = re.compile(r"(?<![\w/])\+?\(?\d[\d\s().\-]{5,17}\d(?![\w/])")
 _TRAILING_PUNCTUATION = ".,;:!?"
 
 
@@ -40,31 +34,9 @@ def extract_links(texts: Iterable[str]) -> list[str]:
     return seen
 
 
-def redact_contact_details(text: str) -> str:
-    """The answer with emails, phone numbers and links replaced by placeholders.
-
-    Years and short numbers ("2019", "40 sacks", "1,200") stay, because a phone
-    number needs at least 7 digits."""
-    def link(match: re.Match) -> str:
-        # Sentence punctuation after a link stays in the sentence.
-        trailing = match.group(0)[len(match.group(0).rstrip(_TRAILING_PUNCTUATION)):]
-        return "[link removed]" + trailing
-
-    text = _URL_PATTERN.sub(link, text or "")
-    text = _EMAIL_PATTERN.sub("[email removed]", text)
-    text = _BARE_LINK_PATTERN.sub(link, text)
-
-    def phone(match: re.Match) -> str:
-        return "[phone removed]" if 7 <= len(re.sub(r"\D", "", match.group(0))) <= 15 else match.group(0)
-
-    return _PHONE_PATTERN.sub(phone, text)
-
-
 def build_review_request(criteria: list[dict[str, Any]]) -> dict[str, Any]:
     """The model's input: each question, its rating anchors and the answer. It
-    carries no candidate identity, and emails, phone numbers and links in the
-    answers are replaced by placeholders, so neither the draft nor the provider
-    receives them."""
+    carries no candidate identity, so the draft cannot depend on who answered."""
     return {
         "scale": {"1": "Does not meet", "2": "Partly meets", "3": "Meets", "4": "Exceeds"},
         "criteria": [
@@ -75,7 +47,7 @@ def build_review_request(criteria: list[dict[str, Any]]) -> dict[str, Any]:
                 "question": str(item.get("question") or ""),
                 "weight": item.get("weight"),
                 "anchors": [str(anchor) for anchor in (item.get("anchors") or [])][:4],
-                "candidate_answer": redact_contact_details(str(item.get("response") or ""))[:MAX_ANSWER_CHARS],
+                "candidate_answer": str(item.get("response") or "")[:MAX_ANSWER_CHARS],
             }
             for item in criteria
         ],
