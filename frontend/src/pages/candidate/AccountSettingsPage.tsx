@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisVertical, faEye, faFileLines, faTrash, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { faEllipsisVertical, faEye, faFileLines, faPen, faTrash, faUpload } from '@fortawesome/free-solid-svg-icons';
 import { Banner, EmptyState, Menu } from '../../components/ui';
 import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect';
 import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
@@ -60,7 +60,7 @@ type AccountSettingsPageProps = {
   onViewResume: () => void;
   onOpenEvidenceUpload: () => void;
   onViewEvidence: (record: EvidenceUploadRecord) => void;
-  onReplaceEvidence: (record: EvidenceUploadRecord) => void;
+  onEditEvidence: (record: EvidenceUploadRecord) => void;
   onDeleteEvidence: (record: EvidenceUploadRecord) => void;
   onProfileChange: (profile: ProfileForm) => void;
   onIdentityChange: (identity: { name: string; email: string }) => void;
@@ -85,7 +85,7 @@ export function AccountSettingsPage({
   onViewResume,
   onOpenEvidenceUpload,
   onViewEvidence,
-  onReplaceEvidence,
+  onEditEvidence,
   onDeleteEvidence,
   onProfileChange,
   onIdentityChange,
@@ -223,7 +223,7 @@ export function AccountSettingsPage({
                   trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />}
                   items={[
                     { label: t('View'), icon: faEye, onSelect: () => onViewEvidence(record) },
-                    { label: t('Replace'), icon: faUpload, onSelect: () => onReplaceEvidence(record) },
+                    { label: t('Edit'), icon: faPen, onSelect: () => onEditEvidence(record) },
                     { label: t('Delete'), icon: faTrash, danger: true, onSelect: () => onDeleteEvidence(record) },
                   ]}
                 />
