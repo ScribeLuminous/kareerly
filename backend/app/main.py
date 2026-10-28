@@ -590,6 +590,7 @@ def get_employer_application_documents(application_id: str, authorization: Annot
 
 class CredentialLinkRequest(BaseModel):
     url: str
+    candidate_name: str = ""
 
 
 @app.post("/api/candidate/credential-links/check")
@@ -597,7 +598,7 @@ def check_candidate_credential_link(payload: CredentialLinkRequest, authorizatio
     """Cleans up a certificate link and, for Credly, checks that it is a real badge (services/credential_links.py)."""
     if not _get_authenticated_user_id(authorization):
         raise HTTPException(status_code=401, detail="Authentication is required.")
-    return check_credential_link(payload.url)
+    return check_credential_link(payload.url, candidate_name=payload.candidate_name)
 
 
 def _set_application_stage_as_employer(authorization: str | None, application_id: str, status: str, reason: Optional[str]) -> object | None:

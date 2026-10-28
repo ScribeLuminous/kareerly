@@ -94,6 +94,25 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(self.check("javascript:alert(1)")["status"], "invalid")
 
 
+class NameMatchTests(unittest.TestCase):
+    def test_same_person_despite_case_order_accents_and_middle_names(self):
+        for recipient, candidate in (("Juan Dela Cruz", "juan dela cruz"), ("Juan Dela Cruz", "Dela Cruz, Juan"),
+                                     ("Juan P. Dela Cruz", "Juan Dela Cruz"), ("José Santos", "Jose Santos")):
+            with self.subTest(recipient=recipient, candidate=candidate):
+                self.assertTrue(links.names_match(recipient, candidate))
+
+    def test_other_people_and_single_names_do_not_match(self):
+        for recipient, candidate in (("Juan Dela Cruz", "Maria Dela Cruz"), ("Juan", "Juan"), ("", "Juan Dela Cruz"), ("Juan Dela Cruz", "")):
+            with self.subTest(recipient=recipient, candidate=candidate):
+                self.assertFalse(links.names_match(recipient, candidate))
+
+    def test_a_badge_in_the_candidates_name_reports_a_match(self):
+        fetch = lambda _url: (200, GOOD_PAGE)
+        self.assertTrue(links.check_credential_link(BADGE, fetch, "Juan Dela Cruz")["recipient_match"])
+        self.assertFalse(links.check_credential_link(BADGE, fetch, "Someone Else")["recipient_match"])
+        self.assertFalse(links.check_credential_link(BADGE, fetch)["recipient_match"])
+
+
 class EndpointTests(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
@@ -111,7 +130,7 @@ class EndpointTests(unittest.TestCase):
             response = self.client.post("/api/candidate/credential-links/check", json={"url": BADGE}, headers={"Authorization": "Bearer t"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "verified")
-        check.assert_called_once_with(BADGE)
+        check.assert_called_once_with(BADGE, candidate_name="")
 
 
 if __name__ == "__main__":
