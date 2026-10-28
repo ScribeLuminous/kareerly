@@ -9,7 +9,8 @@ import { normalizeEmployerIndustry } from '../lib/employerOptions';
 import { joinLocation, splitLocation } from '../lib/phProvinces';
 import { joinJobContent, toListItems } from '../lib/jobDescription';
 import { applyAssessmentTemplate, deleteAssessmentTemplates, isEvaluationUnavailable, isTemplatesUnavailable, loadAssessmentTemplates, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveAssessmentTemplate, saveJobAssessment, type EvaluationSummary } from '../lib/evaluationApi';
-import { loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
+import { assessmentDueDateProblem, defaultAssessmentDueDate, dueDateToTimestamp, loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
+import { AssessmentDeadlineField } from './employer/AssessmentDeadlineField';
 import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
 import { AssessmentTemplatesPage, type JobsSection } from './employer/AssessmentTemplatesPage';
 import { EmployerAccountPage, type EmployerAccountForm } from './employer/EmployerAccountPage';
@@ -144,6 +145,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [reportTarget, setReportTarget] = useState<CandidateApplication | null>(null);
   const [blockTarget, setBlockTarget] = useState<CandidateApplication | null>(null);
   const [reviewModalId, setReviewModalId] = useState<string | null>(null);
+  // The day the Candidate Assessment is due, for the shortlist confirmation. Starts at the 7 day default.
+  const [assessmentDueDate, setAssessmentDueDate] = useState(() => defaultAssessmentDueDate());
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; action: ReviewAction | null; candidateId: string | null }>({
     open: false,
     action: null,
@@ -895,11 +898,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const openConfirmStatus = (action: ReviewAction, candidateId: string) => {
     setRejectionReason('');
+    setAssessmentDueDate(defaultAssessmentDueDate());
     setConfirmModal({ open: true, action, candidateId });
   };
 
   const closeConfirm = () => {
     setRejectionReason('');
+    setAssessmentDueDate(defaultAssessmentDueDate());
     setConfirmModal({ open: false, action: null, candidateId: null });
   };
 
@@ -916,6 +921,12 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     const dbStatus = nextStatus.toLowerCase();
     if (nextStatus === 'Rejected' && !rejectionReason) {
       showToast('Please select a short rejection reason.', 'warn');
+      return;
+    }
+    const shortlistedCandidate = nextStatus === 'Shortlisted' ? applications.find((candidate) => candidate.id === confirmModal.candidateId) : undefined;
+    const sendsAssessment = Boolean(shortlistedCandidate && rubricsByJob.has(shortlistedCandidate.jobId));
+    if (sendsAssessment && assessmentDueDateProblem(assessmentDueDate)) {
+      showToast(assessmentDueDateProblem(assessmentDueDate), 'warn');
       return;
     }
     try {
@@ -944,7 +955,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       showToast(`${label} moved to Interviewing. You can now send a message request.`, 'success');
     } else if (nextStatus === 'Shortlisted' && target && rubricsByJob.has(target.jobId)) {
       // Shortlisting is when the Candidate Assessment goes out.
-      const { sent, errors } = await sendAssessments([target.id]);
+      const { sent, errors } = await sendAssessments([target.id], assessmentDueDate);
       if (sent > 0) showToast(`${label} shortlisted and sent the Candidate Assessment.`, 'success');
       else showToast(`${label} shortlisted, but the assessment wasn't sent: ${errors[0] || 'try Send Assessment again.'}`, 'warn');
     } else if (nextStatus === 'Shortlisted') {
@@ -955,8 +966,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   };
 
   /** Sends the Candidate Assessment to each applicant; returns how many went out and why others didn't. */
-  const sendAssessments = async (candidateIds: string[]) => {
-    const results = await Promise.all(candidateIds.map((id) => sendAssessment(id)
+  const sendAssessments = async (candidateIds: string[], dueDate: string) => {
+    const dueAt = dueDateToTimestamp(dueDate);
+    const results = await Promise.all(candidateIds.map((id) => sendAssessment(id, dueAt)
       .then(() => null)
       .catch((error: unknown) => (error instanceof Error ? error.message : 'Unable to send the assessment.'))));
     setAssessmentVersion((value) => value + 1);
@@ -982,7 +994,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     return { moved, firstError };
   };
 
-  const bulkCandidateAction = async (action: CandidateBulkAction, candidateIds: string[], reason: string) => {
+  const bulkCandidateAction = async (action: CandidateBulkAction, candidateIds: string[], reason: string, dueDate: string = defaultAssessmentDueDate()) => {
     // Re-check against the latest data; the list may have refreshed since selecting.
     const eligible = candidateIds.filter((id) => {
       const candidate = applications.find((item) => item.id === id);
@@ -994,11 +1006,15 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     }
     const people = (count: number) => `${count} applicant${count === 1 ? '' : 's'}`;
     if (action === 'shortlisted' || action === 'send-assessment') {
+      if (assessmentDueDateProblem(dueDate)) {
+        showToast(assessmentDueDateProblem(dueDate), 'warn');
+        return;
+      }
       const pendingIds = eligible.filter((id) => applications.find((item) => item.id === id)?.status === 'Pending');
       const { moved, firstError } = pendingIds.length > 0 ? await moveApplicants(pendingIds, 'Shortlisted') : { moved: new Set<string>(), firstError: '' };
       const readyIds = eligible.filter((id) => !pendingIds.includes(id) || moved.has(id));
       const withRubric = readyIds.filter((id) => rubricsByJob.has(applications.find((item) => item.id === id)?.jobId || ''));
-      const { sent, errors } = withRubric.length > 0 ? await sendAssessments(withRubric) : { sent: 0, errors: [] as string[] };
+      const { sent, errors } = withRubric.length > 0 ? await sendAssessments(withRubric, dueDate) : { sent: 0, errors: [] as string[] };
       const parts = [
         moved.size > 0 ? `${people(moved.size)} shortlisted` : '',
         sent > 0 ? `Candidate Assessment sent to ${people(sent)}` : '',
@@ -1515,10 +1531,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           message={statusActionMessage(confirmModal.action, confirmCandidate?.publicId || 'this candidate')}
           confirmLabel={confirmModal.action === 'rejected' ? 'Reject' : 'Confirm'}
           danger={confirmModal.action === 'rejected'}
-          confirmDisabled={confirmModal.action === 'rejected' && !rejectionReason}
+          confirmDisabled={(confirmModal.action === 'rejected' && !rejectionReason) || (confirmModal.action === 'shortlisted' && Boolean(confirmCandidate && rubricsByJob.has(confirmCandidate.jobId)) && Boolean(assessmentDueDateProblem(assessmentDueDate)))}
           onCancel={closeConfirm}
           onConfirm={applyStatusChange}
         >
+          {confirmModal.action === 'shortlisted' && confirmCandidate && rubricsByJob.has(confirmCandidate.jobId) && (
+            <AssessmentDeadlineField className="mt-4" value={assessmentDueDate} onChange={setAssessmentDueDate} />
+          )}
           {confirmModal.action === 'rejected' && (
             <FormField label="Reason *" help="Use an objective, job-related reason. It is saved with the application." className="mt-4">
               <select className="k-select" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} required>
