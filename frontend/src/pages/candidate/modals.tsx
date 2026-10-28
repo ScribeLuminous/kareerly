@@ -247,7 +247,6 @@ export function EvidenceFormModal({
         </div>
         <FormField
           label="Certificate or badge link"
-          help="Most certificates are shared as a link, for example a Credly badge (credly.com/badges/…). We check that Credly badge links point to a real badge, and mark it Verified when the badge is issued to the name on your profile. We can't confirm the issuer is genuine."
           className="k-span-2"
         >
           <input className="k-input" type="url" inputMode="url" autoComplete="off" value={credentialUrl} onChange={(event) => setCredentialUrl(event.target.value)} placeholder="https://www.credly.com/badges/…" />
