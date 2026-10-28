@@ -82,3 +82,25 @@ export async function prepareEvidenceUpload(
     status: autoVerified ? 'Verified' : file || typedLink ? 'Pending Verification' : existing!.status,
   };
 }
+
+/**
+ * The known skills a certificate is about, read from its title, notes and badge
+ * details, as text for the Related skill field. Whole words only, longest skill
+ * names first (so "Microsoft Excel" is not also reported as "Excel"), at most
+ * three. Empty when nothing matches; the candidate can edit it afterwards.
+ */
+export function inferRelatedSkills(text: string, vocabulary: string[], limit = 3): string {
+  const fold = (value: string) => ` ${value.toLowerCase().replace(/[^a-z0-9+#]+/g, ' ').trim()} `;
+  let remaining = fold(text);
+  const found: string[] = [];
+  const names = Array.from(new Set(vocabulary.map((name) => name.trim()).filter(Boolean)))
+    .sort((a, b) => b.length - a.length);
+  for (const name of names) {
+    const needle = fold(name.replace(/\s*\([^)]*\)/g, ''));
+    if (needle.trim().length < 2 || !remaining.includes(needle)) continue;
+    found.push(name);
+    remaining = remaining.split(needle).join(' ');
+    if (found.length >= limit) break;
+  }
+  return found.join(', ');
+}
