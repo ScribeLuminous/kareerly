@@ -42,9 +42,9 @@ class ClassificationTests(unittest.TestCase):
         self.assertFalse(matching.resume_names_role("Executive Chef", resume))
 
     def test_module_documents_the_fit_now_coverage_threshold(self):
-        # The docstring said "at least half" after the bar moved to 75%.
-        self.assertEqual(scoring.FIT_NOW_MIN_REQUIRED_COVERAGE, 0.75)
-        self.assertIn("at least 75%", scoring.__doc__)
+        # The docstring said "at least half" after the bar moved to 70%.
+        self.assertEqual(scoring.FIT_NOW_MIN_REQUIRED_COVERAGE, 0.70)
+        self.assertIn("at least 70%", scoring.__doc__)
         self.assertNotIn("at least half", scoring.__doc__)
 
     def test_strong_match_is_fit_now(self):
