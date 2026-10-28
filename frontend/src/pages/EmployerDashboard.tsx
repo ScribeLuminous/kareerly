@@ -640,6 +640,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       preferred_skills: draft.niceSkills.join(', '),
       must_have_skill_ids: '',
       application_deadline: jobForm.deadline || null,
+      ai_review_enabled: jobForm.aiReview !== 'off',
       posting_status: postingStatus,
       updated_at: new Date().toISOString(),
     };
@@ -650,7 +651,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
    * database is still missing one: the description text carries the same content.
    */
   const upsertJobPosts = async (payloads: Array<ReturnType<typeof jobPostPayload>>) => {
-    const optionalColumns = ['responsibilities', 'qualifications', 'job_subcategory'] as const;
+    const optionalColumns = ['responsibilities', 'qualifications', 'job_subcategory', 'ai_review_enabled'] as const;
     let attempt: Array<Partial<ReturnType<typeof jobPostPayload>>> = payloads;
     let result = await supabase.from('employer_job_posts').upsert(attempt, { onConflict: 'job_id' }).select('*');
     for (let retries = 0; result.error && retries < optionalColumns.length; retries += 1) {

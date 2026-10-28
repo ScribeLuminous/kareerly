@@ -399,7 +399,7 @@ export function ApplicantReviewModal({
                 // The first submission marks the assessment reviewed and opens the decision, so it is confirmed; later edits are not.
                 if (submit && myCurrentCard?.status !== 'submitted') { setPendingScorecard({ ratings, summary, aiDrafted }); setConfirming('scorecard'); return; }
                 void save(ratings, summary, submit, aiDrafted);
-              }} onRequestDraft={requestDraft} />
+              }} onRequestDraft={requestDraft} aiAvailable={job?.aiReviewEnabled !== false} />
             </>
           )
         )}
