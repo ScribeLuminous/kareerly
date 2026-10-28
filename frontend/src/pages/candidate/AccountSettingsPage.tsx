@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisVertical, faEye, faFileLines, faPen, faTrash, faUpload } from '@fortawesome/free-solid-svg-icons';
-import { Banner, EmptyState, Menu } from '../../components/ui';
+import { faEllipsisVertical, faEye, faFileLines, faLink, faPen, faTrash, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { Banner, EmptyState, Menu, Tabs } from '../../components/ui';
 import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect';
 import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
 import { maxBirthdayDate } from '../../lib/birthday';
@@ -44,6 +44,8 @@ function LocationFields({ location, onChange, t }: { location: string; onChange:
   );
 }
 
+type SettingsTab = 'profile' | 'files' | 'security';
+
 type AccountSettingsPageProps = {
   user: { name: string; email: string; publicId: string };
   uiLanguage: 'en' | 'fil';
@@ -58,7 +60,7 @@ type AccountSettingsPageProps = {
   onOpenDelete: () => void;
   onOpenResume: () => void;
   onViewResume: () => void;
-  onOpenEvidenceUpload: () => void;
+  onOpenEvidenceUpload: (mode: 'file' | 'link') => void;
   onViewEvidence: (record: EvidenceUploadRecord) => void;
   onEditEvidence: (record: EvidenceUploadRecord) => void;
   onDeleteEvidence: (record: EvidenceUploadRecord) => void;
@@ -95,11 +97,54 @@ export function AccountSettingsPage({
 }: AccountSettingsPageProps) {
   const t = (text: string) => tr(uiLanguage, text);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [tab, setTab] = useState<SettingsTab>('profile');
   const sortedEvidence = useMemo(
     () => [...evidenceRecords].sort((left, right) => (left.category || 'Other').localeCompare(right.category || 'Other') || left.title.localeCompare(right.title)),
     [evidenceRecords],
   );
+  // A record with a PDF shows under files; one with only a link shows under links.
+  const pdfEvidence = sortedEvidence.filter((record) => record.fileName);
+  const linkEvidence = sortedEvidence.filter((record) => !record.fileName && record.credentialUrl);
   const set = (key: keyof ProfileForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => onProfileChange({ ...profile, [key]: event.target.value });
+
+  const renderEvidence = (records: EvidenceUploadRecord[], emptyTitle: string, emptyText: string) => (
+    <>
+      {records.length === 0 ? (
+        <div className="k-card"><EmptyState className="py-4" title={emptyTitle} text={emptyText} /></div>
+      ) : (
+        <ul className="k-list">
+          {records.map((record) => (
+            <li key={record.id} className="k-row pr-1">
+              <div className="k-row-main">
+                <p className="k-label [overflow-wrap:anywhere]">{record.title}</p>
+                <p className="k-meta k-dot-sep mt-0.5">
+                  <span>{cleanSkillDisplayName(record.relatedSkill || '') || 'No skill set'}</span>
+                  <span>{record.evidenceType}</span>
+                  <span>{formatDateLabel(record.uploadedAt)}</span>
+                </p>
+                {record.credentialUrl && (
+                  <p className="k-meta mt-0.5 [overflow-wrap:anywhere]">
+                    {record.badgeName ? `${record.badgeName}${record.issuer ? ` · ${record.issuer}` : ''} · ` : ''}
+                    {credentialStatusLabel(record.credentialStatus, record.credentialProvider)}
+                  </p>
+                )}
+              </div>
+              <span className={record.status === 'Verified' ? 'k-badge k-badge-success' : 'k-badge k-badge-high'}>{record.status}</span>
+              <Menu
+                label={`Actions for ${record.title}`}
+                trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />}
+                items={[
+                  { label: t('View'), icon: faEye, onSelect: () => onViewEvidence(record) },
+                  { label: t('Edit'), icon: faPen, onSelect: () => onEditEvidence(record) },
+                  { label: t('Delete'), icon: faTrash, danger: true, onSelect: () => onDeleteEvidence(record) },
+                ]}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
 
   return (
     <div className="k-page k-page-narrow">
@@ -107,25 +152,21 @@ export function AccountSettingsPage({
         {user.publicId && <p className="k-meta mt-1">{t('Candidate ID')}: <span className="k-num">{user.publicId}</span></p>}
       </PageHeader>
 
-      <section className="k-section" aria-labelledby="profile-resume">
-        <h2 id="profile-resume" className="k-section-title mb-3">{t('Resume')}</h2>
-        <div className="k-card flex flex-wrap items-center gap-3">
-          <FontAwesomeIcon icon={faFileLines} className="h-5 w-5 text-soft" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="k-label [overflow-wrap:anywhere]">{savedResumeFileName || t('No resume saved yet')}</p>
-            <p className="k-meta">Updating it refreshes your matches, gaps and learning.</p>
-          </div>
-          <div className="k-button-row w-full sm:w-auto">
-            <button className="k-btn k-btn-secondary flex-1 sm:flex-none" type="button" onClick={onViewResume} disabled={!savedResumeFileName}>
-              <FontAwesomeIcon icon={faEye} aria-hidden="true" />{t('View')}
-            </button>
-            <button className="k-btn k-btn-primary flex-1 sm:flex-none" type="button" onClick={onOpenResume}>
-              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Update resume')}
-            </button>
-          </div>
-        </div>
-      </section>
+@@RESUME@@@@FORM@@@@EVID@@      <Tabs
+        label={t('Profile sections')}
+        idPrefix="account"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'profile', label: t('Profile') },
+          { id: 'files', label: t('Files') },
+          { id: 'security', label: t('Security') },
+        ]}
+      />
 
+      <div id="account-panel" role="tabpanel" aria-labelledby={`account-tab-${tab}`}>
+        {tab === 'profile' && (
+          <>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -138,9 +179,6 @@ export function AccountSettingsPage({
           <div className="k-form-grid">
             <FormField label={t('Full Name')} className="k-span-2">
               <input className="k-input" value={user.name} autoComplete="name" onChange={(event) => onIdentityChange({ name: event.target.value, email: user.email })} />
-            </FormField>
-            <FormField label={t('Email Address')}>
-              <input className="k-input" type="email" inputMode="email" autoComplete="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} />
             </FormField>
             <FormField label={t('Contact Number')} help={t(`Up to ${CONTACT_NUMBER_DIGITS} digits, e.g. 09123456789.`)}>
               <input
@@ -190,51 +228,71 @@ export function AccountSettingsPage({
         </section>
       </form>
 
-      <section className="k-section" aria-labelledby="profile-evidence">
-        <div className="k-section-head">
-          <h2 id="profile-evidence" className="k-section-title">{t('Certificates and proof')}</h2>
-          <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={onOpenEvidenceUpload}>
-            <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Upload proof')}
-          </button>
-        </div>
-        {sortedEvidence.length === 0 ? (
-          <div className="k-card"><EmptyState className="py-4" title="Nothing uploaded yet" text="Add certificates or project samples to back up your skill progress." /></div>
-        ) : (
-          <ul className="k-list">
-            {sortedEvidence.map((record) => (
-              <li key={record.id} className="k-row pr-1">
-                <div className="k-row-main">
-                  <p className="k-label [overflow-wrap:anywhere]">{record.title}</p>
-                  <p className="k-meta k-dot-sep mt-0.5">
-                    <span>{cleanSkillDisplayName(record.relatedSkill || '') || 'No skill set'}</span>
-                    <span>{record.evidenceType}</span>
-                    <span>{formatDateLabel(record.uploadedAt)}</span>
-                  </p>
-                  {record.credentialUrl && (
-                    <p className="k-meta mt-0.5 [overflow-wrap:anywhere]">
-                      {record.badgeName ? `${record.badgeName}${record.issuer ? ` · ${record.issuer}` : ''} · ` : ''}
-                      {credentialStatusLabel(record.credentialStatus, record.credentialProvider)}
-                    </p>
-                  )}
-                </div>
-                <span className={record.status === 'Verified' ? 'k-badge k-badge-success' : 'k-badge k-badge-high'}>{record.status}</span>
-                <Menu
-                  label={`Actions for ${record.title}`}
-                  trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />}
-                  items={[
-                    { label: t('View'), icon: faEye, onSelect: () => onViewEvidence(record) },
-                    { label: t('Edit'), icon: faPen, onSelect: () => onEditEvidence(record) },
-                    { label: t('Delete'), icon: faTrash, danger: true, onSelect: () => onDeleteEvidence(record) },
-                  ]}
-                />
-              </li>
-            ))}
-          </ul>
+          </>
         )}
+        {tab === 'files' && (
+          <>
+      <section className="k-section" aria-labelledby="profile-resume">
+        <h2 id="profile-resume" className="k-section-title mb-3">{t('Resume')}</h2>
+        <div className="k-card flex flex-wrap items-center gap-3">
+          <FontAwesomeIcon icon={faFileLines} className="h-5 w-5 text-soft" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="k-label [overflow-wrap:anywhere]">{savedResumeFileName || t('No resume saved yet')}</p>
+            <p className="k-meta">Updating it refreshes your matches, gaps and learning.</p>
+          </div>
+          <div className="k-button-row w-full sm:w-auto">
+            <button className="k-btn k-btn-secondary flex-1 sm:flex-none" type="button" onClick={onViewResume} disabled={!savedResumeFileName}>
+              <FontAwesomeIcon icon={faEye} aria-hidden="true" />{t('View')}
+            </button>
+            <button className="k-btn k-btn-primary flex-1 sm:flex-none" type="button" onClick={onOpenResume}>
+              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Update resume')}
+            </button>
+          </div>
+        </div>
       </section>
 
+      <section className="k-section" aria-labelledby="profile-evidence-files">
+        <div className="k-section-head">
+          <h2 id="profile-evidence-files" className="k-section-title">{t('Certificates and proof (PDF)')}</h2>
+          <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => onOpenEvidenceUpload('file')}>
+            <FontAwesomeIcon icon={faUpload} aria-hidden="true" />{t('Upload PDF')}
+          </button>
+        </div>
+        {renderEvidence(pdfEvidence, 'No PDFs uploaded yet', 'Upload certificates or project samples as PDF to back up your skill progress.')}
+      </section>
+
+      <section className="k-section" aria-labelledby="profile-evidence-links">
+        <div className="k-section-head">
+          <h2 id="profile-evidence-links" className="k-section-title">{t('Certificate links')}</h2>
+          <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => onOpenEvidenceUpload('link')}>
+            <FontAwesomeIcon icon={faLink} aria-hidden="true" />{t('Add link')}
+          </button>
+        </div>
+        {renderEvidence(linkEvidence, 'No links added yet', 'Add a Credly, Coursera or other certificate or badge link.')}
+      </section>
+          </>
+        )}
+        {tab === 'security' && (
+          <>
       <section className="k-section" aria-labelledby="profile-security">
-        <h2 id="profile-security" className="k-section-title mb-3">{t('Password and security')}</h2>
+        <h2 id="profile-security" className="k-section-title mb-3">{t('Email and password')}</h2>
+        <form
+          className="k-card mb-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+        >
+          {profileSaveNotice && <Banner>{profileSaveNotice}</Banner>}
+          <FormField label={t('Email Address')}>
+            <input className="k-input" type="email" inputMode="email" autoComplete="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} />
+          </FormField>
+          <div className="mt-4">
+            <button className="k-btn k-btn-primary" type="submit" disabled={isSavingProfile}>
+              {isSavingProfile ? `${t('Saving')}…` : t('Save email')}
+            </button>
+          </div>
+        </form>
         {!passwordOpen ? (
           <button className="k-btn k-btn-secondary" type="button" onClick={() => setPasswordOpen(true)}>{t('Change password')}</button>
         ) : (
@@ -285,6 +343,9 @@ export function AccountSettingsPage({
         <p className="k-secondary mb-3 mt-1">Removes your candidate account, matches, applications and progress.</p>
         <button className="k-btn k-btn-danger-outline" type="button" onClick={onOpenDelete}>{t('Request deletion')}</button>
       </section>
+          </>
+        )}
+      </div>
     </div>
   );
 }
