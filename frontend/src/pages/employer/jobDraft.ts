@@ -55,7 +55,6 @@ export function jobToDraft(job: EmployerJob | null, companyLocation: JobLocation
       salaryRange: toSalaryInputValue(job.salaryRange),
       deadline: job.deadline,
       status: job.status,
-      aiReview: job.aiReviewEnabled ? 'on' : 'off',
     },
     requiredSkills: job.requiredSkills,
     niceSkills: job.niceToHaveSkills,
@@ -71,7 +70,7 @@ export function jobDraftSignature(draft: JobEditorDraft): string {
 
 /** Whether a new posting has anything worth keeping. */
 export function hasJobDraftContent(draft: JobEditorDraft): boolean {
-  const fields = (Object.keys(draft.form) as Array<keyof JobFormState>).filter((field) => field !== 'status' && field !== 'aiReview');
+  const fields = (Object.keys(draft.form) as Array<keyof JobFormState>).filter((field) => field !== 'status');
   // An untouched salary is stored as "-".
   return fields.some((field) => draft.form[field].replace(/^-$/, '').trim() !== '')
     || draft.requiredSkills.length > 0
