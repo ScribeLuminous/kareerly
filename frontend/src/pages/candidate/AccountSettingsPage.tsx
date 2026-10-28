@@ -180,9 +180,6 @@ export function AccountSettingsPage({
             <FormField label={t('Full Name')} className="k-span-2">
               <input className="k-input" value={user.name} autoComplete="name" onChange={(event) => onIdentityChange({ name: event.target.value, email: user.email })} />
             </FormField>
-            <FormField label={t('Email Address')}>
-              <input className="k-input" type="email" inputMode="email" autoComplete="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} />
-            </FormField>
             <FormField label={t('Contact Number')} help={t(`Up to ${CONTACT_NUMBER_DIGITS} digits, e.g. 09123456789.`)}>
               <input
                 className="k-input"
@@ -278,7 +275,24 @@ export function AccountSettingsPage({
         {tab === 'security' && (
           <>
       <section className="k-section" aria-labelledby="profile-security">
-        <h2 id="profile-security" className="k-section-title mb-3">{t('Password and security')}</h2>
+        <h2 id="profile-security" className="k-section-title mb-3">{t('Email and password')}</h2>
+        <form
+          className="k-card mb-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+        >
+          {profileSaveNotice && <Banner>{profileSaveNotice}</Banner>}
+          <FormField label={t('Email Address')}>
+            <input className="k-input" type="email" inputMode="email" autoComplete="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} />
+          </FormField>
+          <div className="mt-4">
+            <button className="k-btn k-btn-primary" type="submit" disabled={isSavingProfile}>
+              {isSavingProfile ? `${t('Saving')}…` : t('Save email')}
+            </button>
+          </div>
+        </form>
         {!passwordOpen ? (
           <button className="k-btn k-btn-secondary" type="button" onClick={() => setPasswordOpen(true)}>{t('Change password')}</button>
         ) : (
