@@ -10,6 +10,8 @@ export type CredentialLinkCheck = {
   badge_name?: string;
   issuer?: string;
   recipient?: string;
+  /** The badge names the signed-in candidate as its recipient. */
+  recipient_match?: boolean;
 };
 
 export type EvidenceUploadRecord = {
@@ -63,6 +65,9 @@ export async function prepareEvidenceUpload(
     const result = await validate(file);
     if (result.status !== 'valid') throw new Error(result.message || 'PDF file validation failed.');
   }
+  // A Credly badge page that names this candidate is the one case checked without a reviewer.
+  // A PDF uploaded beside the link has not been checked, so it keeps the record pending.
+  const autoVerified = Boolean(typedLink && !file && check?.status === 'verified' && check.recipient_match);
   return {
     id: existing?.id || crypto.randomUUID(),
     title: draft.title.trim(), evidenceType: draft.evidenceType,
@@ -74,6 +79,6 @@ export async function prepareEvidenceUpload(
     ...(typedLink && check
       ? { credentialUrl: check.url, credentialProvider: check.provider, credentialStatus: check.status, badgeName: check.badge_name || undefined, issuer: check.issuer || undefined }
       : { credentialUrl: existing?.credentialUrl, credentialProvider: existing?.credentialProvider, credentialStatus: existing?.credentialStatus, badgeName: existing?.badgeName, issuer: existing?.issuer }),
-    status: file || typedLink ? 'Pending Verification' : existing!.status,
+    status: autoVerified ? 'Verified' : file || typedLink ? 'Pending Verification' : existing!.status,
   };
 }

@@ -2,10 +2,10 @@ import { authenticatedRequest } from './api';
 import type { CredentialLinkCheck } from './evidence';
 
 /** Cleans up a certificate link and, for Credly, asks the backend whether it points to a real badge. */
-export async function checkCredentialLink(url: string): Promise<CredentialLinkCheck> {
+export async function checkCredentialLink(url: string, candidateName = ''): Promise<CredentialLinkCheck> {
   return authenticatedRequest(
     '/api/candidate/credential-links/check',
-    { method: 'POST', body: JSON.stringify({ url }) },
+    { method: 'POST', body: JSON.stringify({ url, candidate_name: candidateName }) },
     'Unable to check the certificate link right now. Please try again.',
   ) as Promise<CredentialLinkCheck>;
 }
