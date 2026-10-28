@@ -1,4 +1,3 @@
-import { authenticatedRequest } from './api';
 import { assessmentDueLabel } from './assessmentDeadline';
 import { supabase } from './supabase';
 
@@ -102,38 +101,4 @@ export function assessmentStatusLabel(assessment: CandidateAssessment | null): s
   }
   if (assessment.status === 'submitted') return 'Submitted';
   return 'Reviewed';
-}
-
-/** A model's first-pass ratings for a submitted assessment. It is a suggestion, not a scorecard: the reviewer edits and submits it. */
-export type AiReviewDraft = {
-  assessmentId: string;
-  ratings: { criterionId: string; rating: number | null; evidence: string }[];
-  summary: string;
-  /** Links in the candidate's answers. The AI does not open them; the reviewer should. */
-  links: string[];
-};
-
-export async function requestAiReviewDraft(applicationId: string): Promise<AiReviewDraft> {
-  const payload = await authenticatedRequest(
-    `/api/employer/applications/${encodeURIComponent(applicationId)}/assessment-review-draft`,
-    { method: 'POST' },
-    'Unable to draft a review right now. You can still rate the answers yourself.',
-  );
-  const draft = payload?.draft;
-  return {
-    assessmentId: String(draft?.assessment_id || ''),
-    ratings: Array.isArray(draft?.ratings)
-      ? draft.ratings.map((item: { criterion_id: string; rating: number | null; evidence?: string }) => ({
-        criterionId: item.criterion_id, rating: item.rating ?? null, evidence: item.evidence || '',
-      }))
-      : [],
-    summary: typeof draft?.summary === 'string' ? draft.summary : '',
-    links: Array.isArray(draft?.links) ? draft.links.map(String) : [],
-  };
-}
-
-/** Records that a reviewer submitted their scorecard on an AI draft. */
-export async function approveAiReviewDraft(assessmentId: string): Promise<void> {
-  const { error } = await supabase.rpc('approve_assessment_ai_draft', { target_assessment_id: assessmentId });
-  assert(error);
 }

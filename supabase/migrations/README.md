@@ -10,7 +10,6 @@ Add ordered, reviewed database migrations here. The current consolidated schema 
 
 `20261028090000_revoke_anon_table_access.sql` revokes every `anon` privilege on public tables except SELECT on the public catalogs (jobs, learning resources, reference data), so anonymous requests for user data are refused instead of answered with an empty list. `tests/anon_table_access_tests.sql` checks it.
 
-`20261028100000_assessment_ai_review_drafts.sql` stores AI-drafted assessment reviews (`assessment_ai_drafts`, written by the backend only) and `approve_assessment_ai_draft`, which records that a reviewer submitted their scorecard on a draft. Checks are in `tests/assessment_ai_draft_tests.sql`.
 
 `20261028110000_education_levels.sql` adds `normalize_education_level()` (the SQL copy of the fixed education list) and rewrites existing account metadata to it. Checks are in `tests/education_levels_tests.sql`.
 

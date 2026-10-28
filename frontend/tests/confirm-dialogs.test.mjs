@@ -34,5 +34,4 @@ test('other irreversible actions are confirmed', () => {
   assert.match(review, /setConfirming\('send'\)/);
   assert.match(review, /setConfirming\('extend'\)/);
   assert.match(review, /setConfirming\('scorecard'\)/);
-  assert.match(review, /Approve and submit/);
 });
