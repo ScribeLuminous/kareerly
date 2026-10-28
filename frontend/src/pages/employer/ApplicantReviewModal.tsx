@@ -11,7 +11,7 @@ import {
   type AuditEntry,
 } from '../../lib/evaluationApi';
 import { Modal } from '../../components/ui';
-import { assessmentDueDateProblem, assessmentDueState, assessmentStatusLabel, defaultAssessmentDueDate, dueDateToTimestamp, dueDayOf, extendAssessmentDeadline, formatAssessmentDue, loadAssessments, sendAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
+import { logAssessmentLinkOpened, assessmentDueDateProblem, assessmentDueState, assessmentStatusLabel, defaultAssessmentDueDate, dueDateToTimestamp, dueDayOf, extendAssessmentDeadline, formatAssessmentDue, loadAssessments, sendAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
 import { AssessmentDeadlineField } from './AssessmentDeadlineField';
 import { AuditTrail, ProfileMatchPanel, ReviewedEvaluationPanel, ScorecardForm } from './EvaluationPanels';
 import { nextAction, profileMatch, type ApplicationEvaluation, type RatingDraft, type Rubric, type Scorecard } from './evaluation';
@@ -209,6 +209,20 @@ export function ApplicantReviewModal({
         ? { label: 'Shortlist to send the assessment', detail: 'Shortlisting sends the Candidate Assessment to the applicant.' }
       : nextAction(candidate.status, candidate.messageRequestState, currentResult, Boolean(reviewRubric), myCurrentCard?.status === 'submitted');
 
+  // Links opened so far, from the activity history plus any opened since it loaded.
+  const [openedNow, setOpenedNow] = useState<Set<string>>(new Set());
+  const openedLinks = new Set([
+    ...audit.filter((entry) => entry.eventType === 'assessment_link_opened').map((entry) => String(entry.details.url || '')),
+    ...openedNow,
+  ]);
+  const openLink = (url: string) => {
+    if (!assessment) return;
+    setOpenedNow((current) => new Set(current).add(url));
+    void logAssessmentLinkOpened(assessment.id, url)
+      .then(() => setReloadKey((value) => value + 1))
+      .catch((error) => console.warn('Unable to record the opened link:', error));
+  };
+
   const save = async (ratings: Record<string, RatingDraft>, summary: string, submit: boolean) => {
     if (!reviewRubric || !assessment || !['submitted', 'reviewed'].includes(assessment.status)) return;
     setSaving(true);
@@ -380,7 +394,7 @@ export function ApplicantReviewModal({
                   You also scored this applicant on rubric version{myOlderCards.length > 1 ? 's' : ''} {myOlderCards.map((card) => rubrics.find((rubric) => rubric.id === card.rubricId)?.version || '?').join(', ')}. Those stay as they were; this scorecard uses version {reviewRubric.version}.
                 </Banner>
               )}
-              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit) => {
+              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} openedLinks={openedLinks} onLinkOpened={openLink} onSave={(ratings, summary, submit) => {
                 // The first submission marks the assessment reviewed and opens the decision, so it is confirmed; later edits are not.
                 if (submit && myCurrentCard?.status !== 'submitted') { setPendingScorecard({ ratings, summary }); setConfirming('scorecard'); return; }
                 void save(ratings, summary, submit);
