@@ -24,6 +24,7 @@ const deps = {
   ...await loadUtility('../src/lib/jobDescription.ts'),
   ...await loadUtility('../src/lib/phProvinces.ts'),
   ...await loadUtility('../src/lib/assessmentDeadline.ts'),
+  ...await loadUtility('../src/lib/answerLinks.ts'),
   React,
 };
 // Names a module re-exports from elsewhere (`export { A } from './x'`).

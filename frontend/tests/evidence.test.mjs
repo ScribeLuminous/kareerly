@@ -45,3 +45,55 @@ test('dashboard has no resume-driven evidence setter or alternate unvalidated up
   assert.match(dashboard, /const openSkillEvidenceUpload = [\s\S]*?setEvidenceModalOpen\(true\)/);
   assert.match(dashboard, /useState<EvidenceUploadRecord\[\]>\(\[\]\)/);
 });
+
+// ---------- Certificate links (Credly and similar) ----------
+const verified = { status: 'verified', url: 'https://www.credly.com/badges/d6edaf38-1ed2-418c-9ecd-f6913acdc0f2/public_url', provider: 'Credly', message: 'Credly badge found.', badge_name: 'Data Analytics Certificate', issuer: 'Example Academy' };
+const link = { credentialUrl: verified.url, credentialCheck: verified };
+
+test('a checked certificate link is enough proof without a PDF, and stays pending review', async () => {
+  const record = await prepareEvidenceUpload({ ...draft, ...link }, undefined, validate);
+  assert.equal(record.credentialUrl, verified.url);
+  assert.equal(record.credentialStatus, 'verified');
+  assert.equal(record.badgeName, 'Data Analytics Certificate');
+  assert.equal(record.issuer, 'Example Academy');
+  assert.equal(record.fileName, undefined);
+  // "Verified" is reserved for a human review; finding the badge page is not that.
+  assert.equal(record.status, 'Pending Verification');
+});
+
+test('a link that does not point to a real badge is refused and the old record is kept', async () => {
+  for (const status of ['not_found', 'invalid']) {
+    await assert.rejects(
+      prepareEvidenceUpload({ ...draft, credentialUrl: 'https://www.credly.com/badges/x', credentialCheck: { ...verified, status, message: 'Credly has no badge at this link.' } }, undefined, validate),
+      /no badge at this link/,
+    );
+  }
+  const existing = await prepareEvidenceUpload({ ...draft, ...link }, undefined, validate);
+  const snapshot = structuredClone(existing);
+  await assert.rejects(prepareEvidenceUpload({ ...draft, id: existing.id, credentialUrl: 'x', credentialCheck: { ...verified, status: 'not_found', message: 'nope' } }, existing, validate), /nope/);
+  assert.deepEqual(existing, snapshot);
+});
+
+test('a link that could not be checked is kept as unchecked, and a link with no check result is refused', async () => {
+  const record = await prepareEvidenceUpload({ ...draft, credentialUrl: verified.url, credentialCheck: { ...verified, status: 'unreachable', message: 'saved unchecked' } }, undefined, validate);
+  assert.equal(record.credentialStatus, 'unreachable');
+  await assert.rejects(prepareEvidenceUpload({ ...draft, credentialUrl: verified.url }, undefined, validate), /could not be checked/);
+});
+
+test('with neither a PDF nor a link nothing is saved, and a PDF and a link can be kept together', async () => {
+  await assert.rejects(prepareEvidenceUpload({ ...draft }, undefined, validate), /upload a PDF evidence file or add a certificate link/);
+  const both = await prepareEvidenceUpload({ ...draft, file: pdf, ...link }, undefined, validate);
+  assert.equal(both.fileName, 'course.pdf');
+  assert.equal(both.credentialUrl, verified.url);
+  URL.revokeObjectURL(both.fileUrl);
+  // Replacing only the notes keeps the stored link.
+  const kept = await prepareEvidenceUpload({ ...draft, id: both.id, notes: 'updated' }, both, validate);
+  assert.equal(kept.credentialUrl, verified.url);
+});
+
+test('the dashboard checks a certificate link before it can become proof', () => {
+  const dashboard = readCandidateSource();
+  const save = dashboard.slice(dashboard.indexOf('const nextRecord = await prepareEvidenceUpload') - 400, dashboard.indexOf('const nextRecord = await prepareEvidenceUpload'));
+  assert.match(save, /await checkCredentialLink\(/);
+  assert.match(dashboard, /const target = record\.fileUrl \|\| record\.credentialUrl;/);
+});
