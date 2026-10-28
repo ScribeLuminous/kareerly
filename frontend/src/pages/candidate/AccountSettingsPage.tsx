@@ -152,7 +152,7 @@ export function AccountSettingsPage({
         {user.publicId && <p className="k-meta mt-1">{t('Candidate ID')}: <span className="k-num">{user.publicId}</span></p>}
       </PageHeader>
 
-@@RESUME@@@@FORM@@@@EVID@@      <Tabs
+      <Tabs
         label={t('Profile sections')}
         idPrefix="account"
         value={tab}
@@ -277,7 +277,7 @@ export function AccountSettingsPage({
       <section className="k-section" aria-labelledby="profile-security">
         <h2 id="profile-security" className="k-section-title mb-3">{t('Email and password')}</h2>
         <form
-          className="k-card mb-3"
+          className="mb-6 max-w-xl"
           onSubmit={(event) => {
             event.preventDefault();
             onSave();
@@ -287,8 +287,8 @@ export function AccountSettingsPage({
           <FormField label={t('Email Address')}>
             <input className="k-input" type="email" inputMode="email" autoComplete="email" value={user.email} onChange={(event) => onIdentityChange({ name: user.name, email: event.target.value })} />
           </FormField>
-          <div className="mt-4">
-            <button className="k-btn k-btn-primary" type="submit" disabled={isSavingProfile}>
+          <div className="mt-3">
+            <button className="k-btn k-btn-secondary" type="submit" disabled={isSavingProfile}>
               {isSavingProfile ? `${t('Saving')}…` : t('Save email')}
             </button>
           </div>
