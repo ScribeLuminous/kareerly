@@ -269,6 +269,16 @@ export const SKILL_PROGRESS_PERCENT: Record<SkillProgressStatus, number> = {
   covered: 100,
 };
 
+// Skill Development Progress Labels (thesis table): the label for a 0-100 score.
+// The paper lists four ranges up to 75%; 76-100% is labelled "Skill Covered".
+export function skillProgressLabel(percent: number): string {
+  if (percent <= 0) return 'Not Started / Missing';
+  if (percent <= 25) return 'Foundation Progress';
+  if (percent <= 50) return 'Intermediate Progress';
+  if (percent <= 75) return 'Advanced Progress';
+  return 'Skill Covered';
+}
+
 export type ResumeAnalyzeResponse = Awaited<ReturnType<typeof analyzeResume>>;
 
 export const defaultSurveyAnswers: SurveyAnswers = {
@@ -573,10 +583,10 @@ export const SKILL_STATUS_LABEL: Record<SkillProgressStatus, string> = {
 };
 
 export function skillNextStep(status: SkillProgressStatus, skill: string): string {
-  if (status === 'missing') return `Open a course above. Set this to In progress when you start.`;
-  if (status === 'started' || status === 'in_progress') return `Set this to Done when you finish the course.`;
-  if (status === 'completed') return 'Done. Adding proof is optional.';
-  if (status === 'evidenced') return 'Done. Your proof is on file and pending review.';
+  if (status === 'missing') return 'Set to In progress when you start.';
+  if (status === 'started' || status === 'in_progress') return 'Set to Done when you finish.';
+  if (status === 'completed') return 'Proof is optional.';
+  if (status === 'evidenced') return 'Proof added, pending review.';
   return `${skill} no longer appears as a gap in your current matches.`;
 }
 
