@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
 import { normalizeEducationLevel } from '../lib/education';
+import { checkCredentialLink } from '../lib/credentialLinks';
+import type { CredentialLinkCheck } from '../lib/evidence';
 import { assessmentDueState, formatAssessmentDue, loadAssessments, type CandidateAssessment } from '../lib/assessmentApi';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
@@ -1933,12 +1935,18 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     category: string;
     notes?: string;
     file: File | null;
+    credentialUrl?: string;
+    credentialCheck?: CredentialLinkCheck;
   }) => {
     const existingRecord = draft.id ? evidenceRecords.find((record) => record.id === draft.id) : undefined;
     draft = { ...draft, category: draft.category.trim() || deriveEvidenceCategory(draft.relatedSkill, gaps, evidenceCourseTarget) };
     setLoading(true);
     setError(null);
     try {
+      // A certificate link is checked first (Credly badges are looked up), so a made-up link never becomes proof.
+      if (draft.credentialUrl?.trim()) {
+        draft = { ...draft, credentialCheck: await checkCredentialLink(draft.credentialUrl.trim()) };
+      }
       const nextRecord = await prepareEvidenceUpload(draft, existingRecord, validateCertificateFile);
 
       setEvidenceRecords((current) => {
@@ -1953,14 +1961,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       if (evidenceCourseTarget) {
         const course = evidenceCourseTarget;
         setCourseCompletions((current) => ({ ...current, [course.id]: { status: 'evidenced', markedAt: current[course.id]?.markedAt || new Date().toISOString(), evidenceId: nextRecord.id } }));
-        updateCourseSkillProgress(course, 'evidenced', { fileName: nextRecord.fileName, uploadedAt: nextRecord.uploadedAt });
+        updateCourseSkillProgress(course, 'evidenced', { fileName: nextRecord.fileName || `${nextRecord.credentialProvider || 'Certificate'} link`, uploadedAt: nextRecord.uploadedAt });
         setEvidenceCourseTarget(null);
         showToast('Proof uploaded. Pending verification.', 'success');
       } else if (evidenceSkillTarget) {
         const { key } = evidenceSkillTarget;
         setSkillProgressRecords((current) => (current[key] ? {
           ...current,
-          [key]: { ...current[key], status: 'evidenced', progressPercent: SKILL_PROGRESS_PERCENT.evidenced, evidenceFilename: nextRecord.fileName, evidenceUploadedAt: nextRecord.uploadedAt },
+          [key]: { ...current[key], status: 'evidenced', progressPercent: SKILL_PROGRESS_PERCENT.evidenced, evidenceFilename: nextRecord.fileName || `${nextRecord.credentialProvider || 'Certificate'} link`, evidenceUploadedAt: nextRecord.uploadedAt },
         } : current));
         setEvidenceSkillTarget(null);
         showToast('Proof uploaded. Pending verification.', 'success');
@@ -2129,11 +2137,12 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   } : undefined;
 
   const handleViewEvidence = (record: EvidenceUploadRecord) => {
-    if (!record.fileUrl) {
-      showToast('No viewable PDF is attached to this evidence record yet.', 'warn');
+    const target = record.fileUrl || record.credentialUrl;
+    if (!target) {
+      showToast('No viewable PDF or link is attached to this evidence record yet.', 'warn');
       return;
     }
-    window.open(record.fileUrl, '_blank', 'noopener,noreferrer');
+    window.open(target, '_blank', 'noopener,noreferrer');
   };
 
   const handleReplaceEvidence = (record: EvidenceUploadRecord) => {

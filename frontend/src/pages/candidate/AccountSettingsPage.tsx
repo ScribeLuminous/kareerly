@@ -6,6 +6,7 @@ import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect
 import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
 import { maxBirthdayDate } from '../../lib/birthday';
 import { EDUCATION_LEVELS, normalizeEducationLevel } from '../../lib/education';
+import { credentialStatusLabel } from '../../lib/credentialLinks';
 import type { EvidenceUploadRecord } from '../../lib/evidence';
 import { canonicalCity } from '../../lib/phCities';
 import { joinLocation, splitLocation } from '../../lib/phProvinces';
@@ -209,6 +210,12 @@ export function AccountSettingsPage({
                     <span>{record.evidenceType}</span>
                     <span>{formatDateLabel(record.uploadedAt)}</span>
                   </p>
+                  {record.credentialUrl && (
+                    <p className="k-meta mt-0.5 [overflow-wrap:anywhere]">
+                      {record.badgeName ? `${record.badgeName}${record.issuer ? ` · ${record.issuer}` : ''} · ` : ''}
+                      {credentialStatusLabel(record.credentialStatus, record.credentialProvider)}
+                    </p>
+                  )}
                 </div>
                 <span className={record.status === 'Verified' ? 'k-badge k-badge-success' : 'k-badge k-badge-high'}>{record.status}</span>
                 <Menu
@@ -224,7 +231,7 @@ export function AccountSettingsPage({
             ))}
           </ul>
         )}
-        <p className="k-meta mt-2">PDF only. Uploads stay pending until reviewed; Kareerly does not confirm issuer authenticity.</p>
+        <p className="k-meta mt-2">Upload a PDF or add a certificate link. Uploads stay pending until reviewed; Kareerly checks that Credly links point to a real badge but does not confirm that the badge is yours or that the issuer is genuine.</p>
       </section>
 
       <section className="k-section" aria-labelledby="profile-security">
