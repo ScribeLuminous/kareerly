@@ -37,6 +37,8 @@ export type EmployerJob = {
   deadline: string;
   status: JobStatus;
   postedDate: string;
+  /** Whether the AI may draft a first-pass review of this job's assessments. On unless the employer turned it off. */
+  aiReviewEnabled: boolean;
 };
 
 export type EmployerJobPostRow = {
@@ -60,6 +62,7 @@ export type EmployerJobPostRow = {
   preferred_skills: string | null;
   posting_status: string | null;
   application_deadline?: string | null;
+  ai_review_enabled?: boolean | null;
   created_at: string | null;
 };
 
@@ -147,6 +150,8 @@ export type JobFormState = {
   salaryRange: string;
   deadline: string;
   status: JobStatus;
+  /** 'on' or 'off': whether the AI may draft first-pass reviews of this job's assessments. */
+  aiReview: string;
 };
 
 export const jobCategoryOptions = [
@@ -385,6 +390,7 @@ export const toEmployerJob = (row: EmployerJobPostRow): EmployerJob => {
     deadline: row.application_deadline || '',
     status: row.posting_status !== 'archived' && row.application_deadline && row.application_deadline <= todayIso() ? 'closed' : mapPostingStatusToJobStatus(row.posting_status),
     postedDate: row.created_at ? row.created_at.slice(0, 10) : '',
+    aiReviewEnabled: row.ai_review_enabled !== false,
   };
 };
 
@@ -441,6 +447,7 @@ export const emptyJobForm: JobFormState = {
   salaryRange: '',
   deadline: '',
   status: 'draft',
+  aiReview: 'on',
 };
 
 export const initialJobs: EmployerJob[] = [];

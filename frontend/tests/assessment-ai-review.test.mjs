@@ -31,3 +31,19 @@ test('manual rating still works when the AI is unavailable', () => {
   assert.match(modal, /You can still rate the answers yourself/);
   assert.match(modal, /return null;/);
 });
+
+test('an employer can turn AI drafting off per job, and nothing is offered or sent when it is off', () => {
+  const editor = read('../src/pages/employer/JobEditorPage.tsx');
+  const dashboard = read('../src/pages/EmployerDashboard.tsx');
+  assert.match(editor, /Let AI draft a first-pass review/);
+  assert.match(dashboard, /ai_review_enabled: jobForm\.aiReview !== 'off'/);
+  assert.match(dashboard, /'ai_review_enabled'\] as const/);
+  assert.match(modal, /aiAvailable=\{job\?\.aiReviewEnabled !== false\}/);
+  assert.match(panels, /!disabled && aiAvailable && \(/);
+});
+
+test('candidates are told AI may assist and what is not sent to it', () => {
+  const candidateModal = read('../src/pages/candidate/CandidateAssessmentModal.tsx');
+  assert.match(candidateModal, /may use an AI tool to draft a first-pass review/);
+  assert.match(candidateModal, /emails, phone numbers and links are not sent/);
+});

@@ -163,10 +163,12 @@ type ScorecardFormProps = {
   onSave: (ratings: Record<string, RatingDraft>, summary: string, submit: boolean, aiDrafted: boolean) => void;
   /** Asks for an AI first pass. Resolves to null when none could be made (the reason is already shown). */
   onRequestDraft: () => Promise<AiReviewDraft | null>;
+  /** False when the employer turned AI drafting off for this job. */
+  aiAvailable?: boolean;
 };
 
 /** One reviewer's ratings for one applicant on one rubric version. Key it by scorecard so it resets after a save. */
-export function ScorecardForm({ rubric, assessment, existing, saving, disabled, onSave, onRequestDraft }: ScorecardFormProps) {
+export function ScorecardForm({ rubric, assessment, existing, saving, disabled, onSave, onRequestDraft, aiAvailable = true }: ScorecardFormProps) {
   const initial = useMemo(() => {
     const ratings: Record<string, RatingDraft> = {};
     rubric.criteria.forEach((criterion) => {
@@ -220,7 +222,7 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
       <p className="k-secondary mb-3">
         Rate what you saw in each answer, not a general impression. Leave a criterion <strong>Not assessed</strong> when you have no evidence; that is different from a low rating.
       </p>
-      {!disabled && (
+      {!disabled && aiAvailable && (
         <div className="mb-3">
           <button className="k-btn k-btn-secondary" type="button" disabled={drafting || saving} onClick={() => void draftWithAi()}>
             <FontAwesomeIcon icon={faWandMagicSparkles} aria-hidden="true" />{drafting ? 'Drafting…' : aiDraft ? 'Draft again with AI' : 'Draft review with AI'}

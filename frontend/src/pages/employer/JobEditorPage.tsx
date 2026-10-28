@@ -283,6 +283,24 @@ export function JobEditorPage({ job, draftKey, companyLocation, backLabel, onBac
           </div>
         </section>
 
+        <section className="k-section" aria-labelledby="job-ai-review">
+          <h2 id="job-ai-review" className="k-section-title mb-3">AI-assisted review</h2>
+          <label className="flex items-start gap-3">
+            <input
+              className="mt-1"
+              type="checkbox"
+              checked={form.aiReview !== 'off'}
+              onChange={(event) => onUpdateForm('aiReview', event.target.checked ? 'on' : 'off')}
+            />
+            <span>
+              <span className="k-label block">Let AI draft a first-pass review of assessment answers</span>
+              <span className="k-help block">
+                A reviewer on your team still rates and approves every answer. Candidates' names, contact details, emails, phone numbers and links are removed before any text is sent. Turn this off to keep all assessment answers for this job away from AI tools.
+              </span>
+            </span>
+          </label>
+        </section>
+
         <section className="k-section" aria-labelledby="job-pay">
           <h2 id="job-pay" className="k-section-title mb-3">Monthly salary *</h2>
           <div className="k-form-grid">

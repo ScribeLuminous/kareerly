@@ -53,6 +53,7 @@ export function CandidateAssessmentModal({ assessment, jobTitle, onClose, onSave
         : readonly ? <Banner tone="info" className="mb-4">Assessment submitted. Your responses have been sent to the employer and are read-only.</Banner>
         : <>
           {assessment.dueAt && <Banner tone="warn" className="mb-4"><strong>Due {formatAssessmentDue(assessment.dueAt, true)} (Philippine time).</strong> Answers are accepted until then. You can save a draft and come back.</Banner>}
+          <p className="k-meta mb-2">The employer may use an AI tool to draft a first-pass review of your answers. Your name, contact details, emails, phone numbers and links are not sent to it, and a person makes every decision.</p>
           <p className="k-secondary mb-4">The employer has requested additional information as part of your application review. Answer each required question before submitting.</p>
         </>}
       {error && <Banner tone="error" className="mb-4">{error}</Banner>}

@@ -3,7 +3,7 @@ returned, and never becomes a scorecard by itself."""
 import unittest
 from unittest.mock import patch
 
-from backend.app.services.assessment_review import build_review_request, extract_links, normalize_draft
+from backend.app.services.assessment_review import build_review_request, extract_links, normalize_draft, redact_contact_details
 
 CRITERIA = [
     {"criterion_id": "c1", "name": "SQL", "description": "Uses SQL", "question": "Describe a query.", "weight": 3,
@@ -21,7 +21,7 @@ class DraftCleanupTests(unittest.TestCase):
     def test_request_carries_no_candidate_identity(self):
         request = build_review_request([{**CRITERIA[0], "candidate_name": "Juan"}])
         self.assertNotIn("Juan", str(request))
-        self.assertEqual(request["criteria"][0]["candidate_answer"], CRITERIA[0]["response"])
+        self.assertEqual(request["criteria"][0]["candidate_answer"], "I tuned a join. See [link removed].")
 
     def test_ratings_outside_the_scale_or_for_unknown_criteria_are_dropped(self):
         draft = normalize_draft({"ratings": [
@@ -44,13 +44,38 @@ class DraftCleanupTests(unittest.TestCase):
         self.assertLessEqual(len(draft["summary"]), 1500)
 
 
-def supabase_stub(status="submitted", owned=True):
+class RedactionTests(unittest.TestCase):
+    def test_emails_phones_and_links_are_removed(self):
+        text = ("Email me at juan.dela-cruz@example.com or call 0917 123 4567, +63 (917) 123-4567 or (02) 8123 4567. "
+                "See https://example.com/work, www.myportfolio.ph/cv and github.com/juan.")
+        redacted = redact_contact_details(text)
+        for leaked in ("example.com", "0917", "123-4567", "8123 4567", "myportfolio", "github.com", "@"):
+            self.assertNotIn(leaked, redacted)
+        self.assertIn("[email removed]", redacted)
+        self.assertIn("[phone removed]", redacted)
+        self.assertIn("[link removed]", redacted)
+
+    def test_years_amounts_and_ordinary_text_are_kept(self):
+        text = "In 2019 we collected 40 sacks, raised 1,200 pesos from 15 volunteers (June 2020-March 2021) and cut errors by 35.5%."
+        self.assertEqual(redact_contact_details(text), text)
+
+    def test_the_model_request_has_no_contact_details_but_the_reviewer_link_list_keeps_links(self):
+        criteria = [{**CRITERIA[0], "response": "Call 09171234567 or write a@b.com. Work: https://example.com/work"}]
+        request = str(build_review_request(criteria))
+        for leaked in ("09171234567", "a@b.com", "example.com"):
+            self.assertNotIn(leaked, request)
+        self.assertEqual(extract_links([criteria[0]["response"]]), ["https://example.com/work"])
+
+
+def supabase_stub(status="submitted", owned=True, ai_enabled=True):
     calls = []
 
     def request(path, *, method="GET", token=None, service_role=False, body=None, prefer=None):
         calls.append((method, path, service_role, body))
         if path.startswith("/rest/v1/rpc/owned_job_post_for_application"):
             return "post-1" if owned else None
+        if path.startswith("/rest/v1/employer_job_posts?"):
+            return [{"ai_review_enabled": ai_enabled}]
         if path.startswith("/rest/v1/candidate_assessments?"):
             return [{"id": "as-1", "status": status, "rubric_id": "rub-1"}]
         if path.startswith("/rest/v1/assessment_criterion_snapshots?"):
@@ -93,6 +118,18 @@ class DraftEndpointTests(unittest.TestCase):
     def test_another_employers_application_is_refused(self):
         request, _ = supabase_stub(owned=False)
         self.assertEqual(self.post(request).status_code, 403)
+
+    def test_a_job_with_ai_drafting_turned_off_sends_nothing_to_a_model(self):
+        request, calls = supabase_stub(ai_enabled=False)
+        from unittest.mock import MagicMock
+        model = MagicMock()
+        with patch("backend.app.main._supabase_request", side_effect=request), patch("backend.app.main.gemma_service.draft_assessment_review", model):
+            response = self.client.post("/api/employer/applications/app-1/assessment-review-draft", headers={"Authorization": "Bearer t"})
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("turned off", response.json()["detail"])
+        model.assert_not_called()
+        self.assertFalse(any("candidate_assessment_responses" in path for _, path, _, _ in calls))
+        self.assertFalse(any("assessment_ai_drafts" in path for _, path, _, _ in calls))
 
     def test_assessment_must_be_submitted_first(self):
         request, _ = supabase_stub(status="pending")
