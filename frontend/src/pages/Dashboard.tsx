@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
 import { normalizeEducationLevel } from '../lib/education';
+import { deleteEvidence, loadEvidence, saveEvidence } from '../lib/evidenceStore';
 import { checkCredentialLink } from '../lib/credentialLinks';
 import type { CredentialLinkCheck } from '../lib/evidence';
 import { assessmentDueState, formatAssessmentDue, loadAssessments, type CandidateAssessment } from '../lib/assessmentApi';
@@ -1139,6 +1140,22 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     toastTimeoutRef.current = window.setTimeout(() => setToast(null), action ? 6000 : 4000);
   };
 
+  // Certificates and proof saved to the account. A record added while this loads is kept.
+  useEffect(() => {
+    const userId = currentUser.id;
+    if (!userId) return;
+    let cancelled = false;
+    loadEvidence(userId).then((saved) => {
+      if (cancelled) return;
+      setEvidenceRecords((current) => [...current.filter((record) => !saved.some((item) => item.id === record.id)), ...saved]);
+    }, (error: unknown) => {
+      if (cancelled) return;
+      console.warn('Unable to load certificates:', error);
+      showToast(error instanceof Error ? error.message : 'Unable to load your saved certificates.', 'danger');
+    });
+    return () => { cancelled = true; };
+  }, [currentUser.id]);
+
   const showInlineNotice = (message: string, type: ToastType = 'success') => {
     setInlineNotice({ message, type });
   };
@@ -1948,6 +1965,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         draft = { ...draft, credentialCheck: await checkCredentialLink(draft.credentialUrl.trim(), accountIdentity.name) };
       }
       const nextRecord = await prepareEvidenceUpload(draft, existingRecord, validateCertificateFile);
+      // Saved to the account first, so a failure keeps the form open and nothing looks saved that is not.
+      if (currentUser.id) await saveEvidence(currentUser.id, nextRecord);
 
       setEvidenceRecords((current) => {
         if (draft.id) {
@@ -2139,7 +2158,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const handleViewEvidence = (record: EvidenceUploadRecord) => {
     const target = record.fileUrl || record.credentialUrl;
     if (!target) {
-      showToast('No viewable PDF or link is attached to this evidence record yet.', 'warn');
+      showToast(record.fileName
+        ? 'The PDF itself is not kept after you leave this page. Add a certificate link or upload it again to open it.'
+        : 'No viewable PDF or link is attached to this evidence record yet.', 'warn');
       return;
     }
     window.open(target, '_blank', 'noopener,noreferrer');
@@ -2154,9 +2175,16 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setDeleteEvidenceTarget(record);
   };
 
-  const confirmDeleteEvidence = () => {
+  const confirmDeleteEvidence = async () => {
     if (!deleteEvidenceTarget) return;
-    setEvidenceRecords((current) => current.filter((record) => record.id !== deleteEvidenceTarget.id));
+    const target = deleteEvidenceTarget;
+    try {
+      if (currentUser.id) await deleteEvidence(currentUser.id, target.id);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to delete this certificate.', 'danger');
+      return;
+    }
+    setEvidenceRecords((current) => current.filter((record) => record.id !== target.id));
     setDeleteEvidenceTarget(null);
     showToast('Evidence record deleted.', 'success');
   };

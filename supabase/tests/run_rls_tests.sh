@@ -108,4 +108,11 @@ psql_edu -c "alter table auth.users add column if not exists raw_user_meta_data 
 # script applies it again: it must be safe to re-run.
 psql_edu -f "$here/education_levels_tests.sql"
 psql_edu -f "$here/../migrations/20261028110000_education_levels.sql"
+psql_run -c "create database candidate_evidence"
+psql_ev() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d candidate_evidence -v ON_ERROR_STOP=1 -q "$@"; }
+psql_ev -f "$here/supabase_stub.sql"
+# Applied twice: the migration must be safe to re-run.
+psql_ev -f "$here/../migrations/20261028150000_candidate_evidence.sql"
+psql_ev -f "$here/../migrations/20261028150000_candidate_evidence.sql"
+psql_ev -f "$here/candidate_evidence_rls.sql"
 echo "All RLS and evaluation checks passed."
