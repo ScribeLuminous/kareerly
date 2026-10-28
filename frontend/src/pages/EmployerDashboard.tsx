@@ -607,12 +607,14 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     setNotifications((current) => current.map((item) => (targetIds.has(item.id) ? { ...item, unread: false } : item)));
     const storedIds = targets.filter((item) => item.id.startsWith('assessment-')).map((item) => item.id.slice('assessment-'.length));
     if (!storedIds.length) return;
-    const { error } = await supabase.from('candidate_notifications')
+    const { data, error } = await supabase.from('candidate_notifications')
       .update({ read_at: new Date().toISOString() })
       .eq('recipient_user_id', employer.id)
-      .in('id', storedIds);
-    if (error) {
-      console.warn('Unable to save notification read state:', error);
+      .in('id', storedIds)
+      .select('id');
+    // A blocked update returns no error and no rows, so check what was saved.
+    if (error || (data?.length ?? 0) < storedIds.length) {
+      console.warn('Unable to save notification read state:', error ?? 'no rows updated');
       setNotifications((current) => current.map((item) => (targetIds.has(item.id) ? { ...item, unread: true } : item)));
       showToast("Couldn't mark notifications as read. Try again.", 'danger');
     }
