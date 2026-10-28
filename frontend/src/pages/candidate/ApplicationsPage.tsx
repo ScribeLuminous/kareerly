@@ -5,7 +5,7 @@ import { Banner, EmptyState, Menu, SearchField, SkeletonRows, Tabs, type MenuIte
 import { PageHeader, StatusBadge } from './common';
 import { formatDateLabel, knownValue, MESSAGING_STATUSES, WITHDRAWABLE_STATUSES, type ApplicationStatus, type DashboardApplication } from './model';
 import { scoreLabel } from '../../lib/uiData';
-import { loadAssessments, type CandidateAssessment } from '../../lib/assessmentApi';
+import { assessmentDueState, candidateAssessmentNote, formatAssessmentDue, loadAssessments, type CandidateAssessment } from '../../lib/assessmentApi';
 import { CandidateAssessmentModal } from './CandidateAssessmentModal';
 
 export type ApplicationsTab = 'applications' | 'messages';
@@ -114,17 +114,27 @@ export function ApplicationsPage({ loadStatus, applications, focusedApplicationI
           />
         ) : (
           <>
-            {pendingAssessments.length > 0 && (
-              <Banner
-                tone="warn"
-                className="mb-4"
-                actions={<button className="k-btn k-btn-primary k-btn-sm" type="button" onClick={() => setAssessmentOpen(pendingAssessments[0].id)}>Start Assessment</button>}
-              >
-                {pendingAssessments.length === 1
-                  ? `${pendingAssessments[0].company && knownValue(pendingAssessments[0].company) ? pendingAssessments[0].company : 'An employer'} sent you a Candidate Assessment for ${pendingAssessments[0].jobTitle}. Answer it to keep your application moving.`
-                  : `You have ${pendingAssessments.length} Candidate Assessments to complete. Answer them to keep your applications moving.`}
-              </Banner>
-            )}
+            {pendingAssessments.length > 0 && (() => {
+              // The assessment due soonest comes first; one that is already overdue is named as such.
+              const dueSoonest = [...pendingAssessments].sort((a, b) => Date.parse(assessments.get(a.id)?.dueAt || '9999') - Date.parse(assessments.get(b.id)?.dueAt || '9999'))[0];
+              const dueAssessment = assessments.get(dueSoonest.id)!;
+              const overdue = assessmentDueState(dueAssessment) === 'overdue';
+              const employer = dueSoonest.company && knownValue(dueSoonest.company) ? dueSoonest.company : 'An employer';
+              const dueText = dueAssessment.dueAt ? formatAssessmentDue(dueAssessment.dueAt) : '';
+              return (
+                <Banner
+                  tone="warn"
+                  className="mb-4"
+                  actions={<button className="k-btn k-btn-primary k-btn-sm" type="button" onClick={() => setAssessmentOpen(dueSoonest.id)}>{overdue ? 'View Assessment' : 'Start Assessment'}</button>}
+                >
+                  {pendingAssessments.length === 1
+                    ? overdue
+                      ? `The deadline for your Candidate Assessment for ${dueSoonest.jobTitle} passed on ${dueText}. Ask ${employer} if they can give you more time.`
+                      : `${employer} sent you a Candidate Assessment for ${dueSoonest.jobTitle}.${dueText ? ` Submit it by ${dueText} (end of day, Philippine time).` : ' Answer it to keep your application moving.'}`
+                    : `You have ${pendingAssessments.length} Candidate Assessments to complete.${dueText ? ` The first is due ${overdue ? 'since' : 'on'} ${dueText}.` : ''} Answer them to keep your applications moving.`}
+                </Banner>
+              );
+            })()}
             <div className="k-toolbar">
               <SearchField value={search} onChange={setSearch} label="Search applications" placeholder="Search job or company" />
             </div>
@@ -156,7 +166,7 @@ export function ApplicationsPage({ loadStatus, applications, focusedApplicationI
                           <span>Applied {formatDateLabel(application.dateApplied)}</span>
                         </span>
                         <span className="mt-1.5 block"><StatusBadge status={application.status} /></span>
-                        {assessments.has(application.id) && <span className="k-meta mt-1 block">Candidate Assessment: {assessments.get(application.id)?.status === 'pending' ? 'Action required' : 'Submitted'}</span>}
+                        {assessments.has(application.id) && <span className="k-meta mt-1 block">Candidate Assessment: {candidateAssessmentNote(assessments.get(application.id) || null)}</span>}
                       </button>
                       {assessments.has(application.id) && <button className="k-btn k-btn-secondary k-btn-sm" type="button" onClick={() => setAssessmentOpen(application.id)}>{assessments.get(application.id)?.status === 'pending' ? 'Start Assessment' : 'View Assessment'}</button>}
                       <Menu label={`Actions for ${application.jobTitle}`} trigger={<FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />} items={menuItems(application)} />

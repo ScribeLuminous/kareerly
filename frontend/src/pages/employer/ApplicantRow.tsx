@@ -46,7 +46,7 @@ export function ApplicantRow({ candidate, job, summary, assessment = null, hasRu
       className={`k-row items-start ${candidate.status === 'Withdrawn' ? 'opacity-70' : ''}`}
       type="button"
       onClick={() => onReview(candidate.id)}
-      aria-label={`Review ${title}, ${candidate.status}. ${matchScoreLabel(profile)}. Profile match ${profileMatchLabel(profile)}. Reviewed evaluation ${reviewed}. Assessment ${assessmentStatusLabel(assessment)}. Next: ${action.label}.`}
+      aria-label={`Review ${title}, ${candidate.status}. ${matchScoreLabel(profile)}. Skills found ${profileMatchLabel(profile)}. Reviewed evaluation ${reviewed}. Assessment ${assessmentStatusLabel(assessment)}. Next: ${action.label}.`}
     >
       <span className="k-avatar mt-0.5 bg-tan text-dark" aria-hidden="true">
         {revealed ? getInitials(candidate.fullName) : <FontAwesomeIcon icon={faUser} />}
@@ -64,7 +64,7 @@ export function ApplicantRow({ candidate, job, summary, assessment = null, hasRu
           {candidate.lastActivity && <span>Active {formatDateLabel(candidate.lastActivity.slice(0, 10))}</span>}
         </span>
         <span className="mt-1.5 grid gap-x-4 gap-y-0.5 text-[13px] sm:grid-cols-2">
-          <span className="k-secondary"><span className="text-soft-text">Profile match: </span>{profileMatchLabel(profile)}</span>
+          <span className="k-secondary"><span className="text-soft-text">Skills found: </span>{profileMatchLabel(profile)}</span>
           <span className="k-secondary"><span className="text-soft-text">Reviewed evaluation: </span>{reviewed}</span>
         </span>
         {(candidate.status === 'Shortlisted' || assessment) && <span className="k-meta mt-1 block">Assessment: {assessmentStatusLabel(assessment)}</span>}

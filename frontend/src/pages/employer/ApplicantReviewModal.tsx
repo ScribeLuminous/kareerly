@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight, faClipboardCheck, faComments, faEyeSlash, faLock } from '@fortawesome/free-solid-svg-icons';
-import { Banner, Tabs } from '../../components/ui';
+import { Banner, ConfirmDialog, Tabs } from '../../components/ui';
 import {
   isEvaluationUnavailable,
   loadApplicationEvaluation,
@@ -11,7 +11,8 @@ import {
   type AuditEntry,
 } from '../../lib/evaluationApi';
 import { Modal } from '../../components/ui';
-import { assessmentStatusLabel, loadAssessments, sendAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
+import { assessmentDueDateProblem, assessmentDueState, assessmentStatusLabel, defaultAssessmentDueDate, dueDateToTimestamp, dueDayOf, extendAssessmentDeadline, formatAssessmentDue, loadAssessments, sendAssessment, type CandidateAssessment } from '../../lib/assessmentApi';
+import { AssessmentDeadlineField } from './AssessmentDeadlineField';
 import { AuditTrail, ProfileMatchPanel, ReviewedEvaluationPanel, ScorecardForm } from './EvaluationPanels';
 import { nextAction, profileMatch, type ApplicationEvaluation, type RatingDraft, type Rubric, type Scorecard } from './evaluation';
 import {
@@ -67,6 +68,18 @@ function StatusActions({ candidate, assessment, onAction, onSendRequest, onOpenM
     );
   }
   if (status === 'Shortlisted') {
+    // Declining for no response is only open once the deadline has passed with nothing submitted.
+    if (assessment?.status === 'pending' && assessment.dueAt) {
+      const due = formatAssessmentDue(assessment.dueAt);
+      return assessmentDueState(assessment) === 'overdue' ? (
+        <div className="space-y-2">
+          <p className="k-secondary">The deadline passed on {due} with no submission. Extend it below to give more time, or decline.</p>
+          <div className={row}>{reject}</div>
+        </div>
+      ) : (
+        <p className="k-secondary">The candidate has until {due} (Philippine time) to respond. You can decline for not responding after that, or extend the deadline below.</p>
+      );
+    }
     if (assessment?.status !== 'reviewed') return <p className="k-secondary">Review the submitted Candidate Assessment and scorecard before choosing a decision.</p>;
     return (
       <div className={row}>
@@ -117,6 +130,13 @@ export function ApplicantReviewModal({
   const [saving, setSaving] = useState(false);
   const [assessment, setAssessment] = useState<CandidateAssessment | null>(null);
   const [sending, setSending] = useState(false);
+  // Deadline for the assessment about to be sent (7 day default), and for an extension.
+  const [sendDueDate, setSendDueDate] = useState(() => defaultAssessmentDueDate());
+  const [extendDate, setExtendDate] = useState('');
+  const [extending, setExtending] = useState(false);
+  // Sending an assessment, changing its deadline and submitting a scorecard can't be taken back, so each is confirmed.
+  const [confirming, setConfirming] = useState<'send' | 'extend' | 'scorecard' | null>(null);
+  const [pendingScorecard, setPendingScorecard] = useState<{ ratings: Record<string, RatingDraft>; summary: string } | null>(null);
   const [assessmentVersion, setAssessmentVersion] = useState(0);
   useEffect(() => {
     let mounted = true;
@@ -125,10 +145,24 @@ export function ApplicantReviewModal({
     const timer = window.setInterval(refresh, 5000);
     return () => { mounted = false; window.clearInterval(timer); };
   }, [candidate.id, assessmentVersion]);
+  const extend = async () => {
+    if (!assessment) return;
+    setExtending(true);
+    try {
+      await extendAssessmentDeadline(assessment.id, dueDateToTimestamp(extendDate));
+      onToast('Deadline extended. The candidate has been notified.', 'success');
+      setExtendDate('');
+      setAssessmentVersion((value) => value + 1);
+      onEvaluationChanged();
+    } catch (error) { onToast(error instanceof Error ? error.message : 'Unable to extend the deadline.', 'danger'); }
+    finally { setExtending(false); }
+  };
   const send = async () => {
+    const problem = assessmentDueDateProblem(sendDueDate);
+    if (problem) { onToast(problem, 'warn'); return; }
     setSending(true);
     try {
-      await sendAssessment(candidate.id);
+      await sendAssessment(candidate.id, dueDateToTimestamp(sendDueDate));
       onToast('Candidate Assessment sent.', 'success');
       setAssessmentVersion((value) => value + 1);
       onEvaluationChanged();
@@ -261,8 +295,22 @@ export function ApplicantReviewModal({
         <h3 id="candidate-assessment-heading" className="k-label">Candidate Assessment</h3>
         <p className="k-secondary mt-1">{assessment ? assessmentStatusLabel(assessment) : currentRubric ? 'Not sent' : 'No assessment has been configured for this job.'}</p>
         {!assessment && (candidate.status === 'Shortlisted' || candidate.status === 'Interviewing') && (currentRubric ?
-          <button className="k-btn k-btn-primary k-btn-sm mt-2" type="button" disabled={sending} onClick={() => void send()}>Send Assessment</button> :
+          <div className="mt-2 max-w-xs">
+            <AssessmentDeadlineField value={sendDueDate} onChange={setSendDueDate} />
+            <button className="k-btn k-btn-primary k-btn-sm mt-2" type="button" disabled={sending || Boolean(assessmentDueDateProblem(sendDueDate))} onClick={() => setConfirming('send')}>Send Assessment</button>
+          </div> :
           <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => job && onEditRubric(job.id)}>Configure Assessment</button>)}
+        {assessment?.status === 'pending' && !closed && (
+          <div className="mt-2 max-w-xs">
+            <AssessmentDeadlineField label="Extend deadline to" value={extendDate} onChange={setExtendDate} />
+            <button
+              className="k-btn k-btn-secondary k-btn-sm mt-2"
+              type="button"
+              disabled={extending || !extendDate || Boolean(assessmentDueDateProblem(extendDate)) || (assessment.dueAt !== null && extendDate <= dueDayOf(assessment.dueAt))}
+              onClick={() => setConfirming('extend')}
+            >Extend deadline</button>
+          </div>
+        )}
         {assessment?.status === 'submitted' && <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => setTab('scorecard')}>Review Assessment</button>}
         {assessment?.status === 'reviewed' && <button className="k-btn k-btn-secondary k-btn-sm mt-2" type="button" onClick={() => setTab('scorecard')}>View Scorecard</button>}
       </section>
@@ -332,13 +380,52 @@ export function ApplicantReviewModal({
                   You also scored this applicant on rubric version{myOlderCards.length > 1 ? 's' : ''} {myOlderCards.map((card) => rubrics.find((rubric) => rubric.id === card.rubricId)?.version || '?').join(', ')}. Those stay as they were; this scorecard uses version {reviewRubric.version}.
                 </Banner>
               )}
-              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit) => void save(ratings, summary, submit)} />
+              <ScorecardForm key={`${reviewRubric.id}-${myCurrentCard?.id || 'new'}-${myCurrentCard?.updatedAt || ''}`} rubric={reviewRubric} assessment={assessment} existing={myCurrentCard} saving={saving} disabled={closed && !myCurrentCard} onSave={(ratings, summary, submit) => {
+                // The first submission marks the assessment reviewed and opens the decision, so it is confirmed; later edits are not.
+                if (submit && myCurrentCard?.status !== 'submitted') { setPendingScorecard({ ratings, summary }); setConfirming('scorecard'); return; }
+                void save(ratings, summary, submit);
+              }} />
             </>
           )
         )}
 
         {tab === 'history' && <AuditTrail entries={audit} status={evaluationUnavailable ? 'ready' : loadStatus} currentUserId={currentUserId} />}
       </div>
+      {confirming === 'send' && (
+        <ConfirmDialog
+          title="Send the Candidate Assessment?"
+          message={`${applicantTitle(candidate)} will be notified and has until ${sendDueDate} (end of day, Philippine time) to answer. You can't unsend it.`}
+          confirmLabel="Send assessment"
+          busy={sending}
+          onCancel={() => setConfirming(null)}
+          onConfirm={async () => { setConfirming(null); await send(); }}
+        />
+      )}
+      {confirming === 'extend' && (
+        <ConfirmDialog
+          title="Extend the deadline?"
+          message={`The candidate will be notified that they now have until ${extendDate} (end of day, Philippine time). A deadline can only be moved later, so you can't shorten it afterwards.`}
+          confirmLabel="Extend deadline"
+          busy={extending}
+          onCancel={() => setConfirming(null)}
+          onConfirm={async () => { setConfirming(null); await extend(); }}
+        />
+      )}
+      {confirming === 'scorecard' && pendingScorecard && (
+        <ConfirmDialog
+          title="Submit your scorecard?"
+          message={`Submitting marks the assessment as reviewed and opens the decision on this applicant. You can still update your scorecard later; changes are kept in the activity history.`}
+          confirmLabel="Submit scorecard"
+          busy={saving}
+          onCancel={() => { setConfirming(null); setPendingScorecard(null); }}
+          onConfirm={async () => {
+            const card = pendingScorecard;
+            setConfirming(null);
+            setPendingScorecard(null);
+            await save(card.ratings, card.summary, true);
+          }}
+        />
+      )}
     </Modal>
   );
 }

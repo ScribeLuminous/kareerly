@@ -5,6 +5,7 @@ import { Banner, EmptyState, Menu } from '../../components/ui';
 import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect';
 import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
 import { maxBirthdayDate } from '../../lib/birthday';
+import { EDUCATION_LEVELS, normalizeEducationLevel } from '../../lib/education';
 import type { EvidenceUploadRecord } from '../../lib/evidence';
 import { canonicalCity } from '../../lib/phCities';
 import { joinLocation, splitLocation } from '../../lib/phProvinces';
@@ -97,7 +98,7 @@ export function AccountSettingsPage({
     () => [...evidenceRecords].sort((left, right) => (left.category || 'Other').localeCompare(right.category || 'Other') || left.title.localeCompare(right.title)),
     [evidenceRecords],
   );
-  const set = (key: keyof ProfileForm) => (event: React.ChangeEvent<HTMLInputElement>) => onProfileChange({ ...profile, [key]: event.target.value });
+  const set = (key: keyof ProfileForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => onProfileChange({ ...profile, [key]: event.target.value });
 
   return (
     <div className="k-page k-page-narrow">
@@ -165,7 +166,10 @@ export function AccountSettingsPage({
           <h2 id="profile-education" className="k-section-title mb-3">{t('Education')}</h2>
           <div className="k-form-grid">
             <FormField label={t('Highest Educational Attainment')} className="k-span-2">
-              <input className="k-input" value={profile.highestEducationalAttainment} onChange={set('highestEducationalAttainment')} placeholder="e.g. Bachelor's degree" />
+              <select className="k-select" value={normalizeEducationLevel(profile.highestEducationalAttainment)} onChange={set('highestEducationalAttainment')}>
+                <option value="">{t('Select your highest level')}</option>
+                {EDUCATION_LEVELS.map((level) => <option key={level} value={level}>{level}</option>)}
+              </select>
             </FormField>
             <FormField label={t('Degree / Program')}>
               <input className="k-input" value={profile.degreeProgram} onChange={set('degreeProgram')} />

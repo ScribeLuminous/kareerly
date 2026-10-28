@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
+import { readCandidateSource } from './helpers/candidateSource.mjs';
 
 const require = createRequire(import.meta.url);
 async function loadUtility(path) {
@@ -22,6 +23,7 @@ const deps = {
   ...await loadUtility('../src/lib/uiData.ts'),
   ...await loadUtility('../src/lib/jobDescription.ts'),
   ...await loadUtility('../src/lib/phProvinces.ts'),
+  ...await loadUtility('../src/lib/assessmentDeadline.ts'),
   React,
 };
 // Names a module re-exports from elsewhere (`export { A } from './x'`).
@@ -203,29 +205,56 @@ test('employer applications keep the apply-time ranking score apart from profile
   assert.equal(active.lastActivity, '2026-09-05T00:00:00Z');
 });
 
-// The UI case from the audit: "5 of 6 skills" shown next to "57% match". The 57%
-// was the candidate-side composite (0.45 text similarity + 0.45 required skills
-// + 0.10 preferred skills), whose similarity part is not stored. Profile match
-// is now the explainable required-skill coverage alone.
-test('profile match is the share of the job required skills found in the application', () => {
-  const application = { matchedSkills: ['SQL', 'excel', 'Python', 'Tableau', 'Statistics'], missingSkills: ['R'] };
+// The employer sees one match figure: the candidate's own fit score at
+// application, the same number the candidate saw. The skills found and not
+// found come from the evidence saved with the application and are listed by
+// name; they are not turned into a second percentage.
+test('the match figure is the fit score saved at application, with the saved skill evidence beside it', () => {
+  const application = { applyTimeRankingScore: 89, matchedSkills: ['SQL', 'excel', 'Python', 'Tableau', 'Statistics'], missingSkills: ['R'] };
   const job = { requiredSkills: ['SQL', 'Excel', 'Python', 'Tableau', 'Statistics', 'R'] };
   const match = employerPage.profileMatch(application, job);
-  assert.equal(match.percent, 83);
+  assert.equal(match.percent, 89);
   assert.deepEqual(match.notFound, ['R']);
-  assert.equal(employerPage.profileMatchLabel(match), '5 of 6 required skills');
-  // Skills added to the job after the application are not found, not guessed.
-  const grown = employerPage.profileMatch(application, { requiredSkills: [...job.requiredSkills, 'dbt', 'Airflow'] });
-  assert.equal(grown.percent, 63);
-  assert.deepEqual(grown.notFound, ['R', 'dbt', 'Airflow']);
-  // Without the job, fall back to the lists recorded at apply time.
-  assert.equal(employerPage.profileMatch(application, null).percent, 83);
-  // No evidence recorded: no number, rather than 0%.
-  const empty = employerPage.profileMatch({ matchedSkills: [], missingSkills: [] }, job);
-  assert.equal(empty.percent, null);
+  assert.equal(employerPage.profileMatchLabel(match), 'SQL, excel, Python +2');
+  assert.equal(employerPage.matchScoreLabel(match), 'Match 89%');
+  // The saved evidence is the source; the job's current wording does not change it.
+  assert.deepEqual(employerPage.profileMatch(application, { requiredSkills: [...job.requiredSkills, 'dbt'] }), match);
+  assert.deepEqual(employerPage.profileMatch(application, null), match);
+  // A skill listed as both found and missing counts once, as found.
+  assert.deepEqual(employerPage.profileMatch({ matchedSkills: ['SQL'], missingSkills: ['sql', 'R'] }, null).notFound, ['R']);
+  // No score saved: no number, rather than 0%, though the skills are still listed.
+  const unscored = employerPage.profileMatch({ ...application, applyTimeRankingScore: null }, job);
+  assert.equal(unscored.percent, null);
+  assert.equal(employerPage.matchScoreLabel(unscored), 'Match n/a');
+  assert.deepEqual(unscored.found, match.found);
+  // No evidence recorded: the skills are unknown, but the score still shows.
+  const empty = employerPage.profileMatch({ applyTimeRankingScore: 40, matchedSkills: [], missingSkills: [] }, job);
+  assert.equal(empty.percent, 40);
   assert.equal(employerPage.profileMatchLabel(empty), 'No skill evidence recorded');
+  assert.deepEqual(empty.found, []);
   assert.deepEqual(empty.notFound, []);
-  assert.equal(employerPage.profileMatch(application, { requiredSkills: [] }).percent, 83);
+});
+
+// Regression for the expert test: the candidate's screen showed "You have HTML
+// And CSS, Javascript Programming" (89% fit) while the employer's showed "0 of 3
+// required skills found" (0%) because the job's own wording ("HTML", "CSS",
+// "JavaScript") was compared with the matching service's canonical names.
+test('the employer sees the same 89% and the same matched skills the candidate saw when applying', () => {
+  const row = { id: 'app-1', job_id: 'emp-1', status: 'pending', match_score: 89, matched_skills: ['HTML And CSS', 'Javascript Programming'], missing_skills: ['React'] };
+  const application = employerPage.toCandidateApplication(row, []);
+  const job = { requiredSkills: ['HTML', 'CSS', 'JavaScript', 'React'] };
+  const match = employerPage.profileMatch(application, job);
+  assert.equal(match.percent, 89);
+  assert.equal(employerPage.matchScoreLabel(match), 'Match 89%');
+  assert.deepEqual(match.found, ['HTML And CSS', 'Javascript Programming']);
+  assert.deepEqual(match.notFound, ['React']);
+  assert.notEqual(match.percent, 0);
+});
+
+test('an application saves the candidate-side fit score and matched and missing skills verbatim', () => {
+  const dashboardSource = readCandidateSource();
+  assert.match(dashboardSource, /match_score: job\.hasMatchScore \? Math\.round\(job\.matchScore\) : null,/);
+  assert.match(dashboardSource, /matched_skills: job\.matchedSkills,\s*missing_skills: job\.missingSkills,/);
 });
 
 test('starter assessment drafts read naturally and vary per question', () => {
@@ -306,11 +335,11 @@ test('next action never advances or rejects on a score', () => {
 });
 
 test('applicant lists stay within one job and never rank missing scores as zero', () => {
-  const app = (id, jobId, appliedDate, matched, status = 'Pending') => ({
-    id, jobId, appliedDate, lastActivity: `${appliedDate}T00:00:00Z`, status, publicId: id, fullName: id, matchedSkills: matched, missingSkills: [], messageRequestState: 'none',
+  const app = (id, jobId, appliedDate, matched, status = 'Pending', score = null) => ({
+    id, jobId, appliedDate, lastActivity: `${appliedDate}T00:00:00Z`, status, publicId: id, fullName: id, matchedSkills: matched, missingSkills: [], applyTimeRankingScore: score, messageRequestState: 'none',
   });
   const jobs = [{ id: 'J1', requiredSkills: ['SQL', 'Excel'] }, { id: 'J2', requiredSkills: ['SQL'] }];
-  const applications = [app('A', 'J1', '2026-09-03', ['SQL']), app('B', 'J1', '2026-09-01', ['SQL', 'Excel']), app('C', 'J1', '2026-09-02', []), app('D', 'J2', '2026-09-01', ['SQL'], 'Shortlisted')];
+  const applications = [app('A', 'J1', '2026-09-03', ['SQL'], 'Pending', 50), app('B', 'J1', '2026-09-01', ['SQL', 'Excel'], 'Pending', 100), app('C', 'J1', '2026-09-02', []), app('D', 'J2', '2026-09-01', ['SQL'], 'Shortlisted', 80)];
   const filters = { ...employerPage.DEFAULT_CANDIDATE_FILTERS, jobId: 'J1' };
   const ids = (list) => list.map((item) => item.id);
   assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, filters, new Map())), ['B', 'C', 'A']);
@@ -321,18 +350,18 @@ test('applicant lists stay within one job and never rank missing scores as zero'
   assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, { ...filters, jobId: 'J2', status: 'Shortlisted' }, new Map())), ['D']);
 });
 
-test('applicant rows state both measures in words, with the next step', () => {
+test('applicant rows show the fit score and the skills found, with the next step', () => {
   const candidate = employerPage.toCandidateApplication({ id: 'app-1', job_id: 'J1', status: 'pending', applied_at: '2026-09-01T00:00:00Z', matched_skills: ['SQL'], missing_skills: ['Excel'], match_score: 57 }, [], [], 'KR-001');
   const html = renderToStaticMarkup(React.createElement(employerPage.ApplicantRow, { candidate, job: { id: 'J1', requiredSkills: ['SQL', 'Excel'] }, hasRubric: false, onReview: () => {} }));
-  assert.match(html, /Profile match: <\/span>1 of 2 required skills/);
+  assert.match(html, /Skills found: <\/span>SQL/);
   assert.match(html, /Reviewed evaluation: <\/span>No rubric/);
   assert.match(html, /Next: Set up the assessment/);
-  assert.match(html, /Match 50%/);
-  assert.doesNotMatch(html, /57%/);
+  assert.match(html, /Match 57%/);
+  assert.doesNotMatch(html, /Match 50%/);
 });
 
 test('applicant rows point at the assessment before a scorecard can start', () => {
-  const candidate = employerPage.toCandidateApplication({ id: 'app-1', job_id: 'J1', status: 'shortlisted', applied_at: '2026-09-01T00:00:00Z', matched_skills: ['SQL'], missing_skills: [] }, [], [], 'KR-001');
+  const candidate = employerPage.toCandidateApplication({ id: 'app-1', job_id: 'J1', status: 'shortlisted', applied_at: '2026-09-01T00:00:00Z', matched_skills: ['SQL'], missing_skills: [], match_score: 100 }, [], [], 'KR-001');
   const job = { id: 'J1', requiredSkills: ['SQL'] };
   const row = (assessment) => renderToStaticMarkup(React.createElement(employerPage.ApplicantRow, { candidate, job, assessment, hasRubric: true, onReview: () => {} }));
   assert.match(row(null), /Next: Send Assessment/);
@@ -342,9 +371,11 @@ test('applicant rows point at the assessment before a scorecard can start', () =
 });
 
 test('the high-match quick filter keeps applicants at 75% or more', () => {
-  const app = (id, matched) => ({ id, jobId: 'J1', appliedDate: '2026-09-01', lastActivity: '', status: 'Pending', publicId: id, fullName: id, matchedSkills: matched, missingSkills: ['X'], messageRequestState: 'none' });
-  const jobs = [{ id: 'J1', requiredSkills: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] }];
-  const applications = [app('eight', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']), app('seven', ['A', 'B', 'C', 'D', 'E', 'F', 'G']), app('none', [])];
+  const required = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+  // The saved evidence covers every required skill: found, or listed as missing.
+  const app = (id, matched, score = null) => ({ id, jobId: 'J1', appliedDate: '2026-09-01', lastActivity: '', status: 'Pending', publicId: id, fullName: id, applyTimeRankingScore: score, matchedSkills: matched, missingSkills: required.filter((skill) => !matched.includes(skill)), messageRequestState: 'none' });
+  const jobs = [{ id: 'J1', requiredSkills: required }];
+  const applications = [app('eight', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], 80), app('seven', ['A', 'B', 'C', 'D', 'E', 'F', 'G'], 70), app('none', [])];
   const filters = { ...employerPage.DEFAULT_CANDIDATE_FILTERS, jobId: 'J1', highMatch: true };
   assert.deepEqual(employerPage.visibleApplicants(applications, jobs, filters, new Map()).map((item) => item.id), ['eight']);
 });
@@ -573,4 +604,17 @@ test('contact numbers keep digits only, up to 11', async () => {
   assert.equal(contactNumberInput('0912-345-6789'), '09123456789');
   assert.equal(contactNumberInput('0912 345 678912345'), '09123456789');
   assert.equal(contactNumberInput('abc'), '');
+});
+
+test('declining for no response is open only once the assessment deadline has passed', () => {
+  const blocker = employerPage.candidateActionBlocker;
+  const shortlisted = { status: 'Shortlisted' };
+  const open = { status: 'pending', dueAt: new Date(Date.now() + 3 * 86400000).toISOString() };
+  const overdue = { status: 'pending', dueAt: new Date(Date.now() - 3600000).toISOString() };
+  assert.match(blocker('rejected', shortlisted, open, true), /the candidate has until/);
+  assert.equal(blocker('rejected', shortlisted, overdue, true), null);
+  // Moving someone to Interviewing still needs a reviewed assessment, deadline or not.
+  assert.ok(blocker('interviewing', shortlisted, overdue, true));
+  assert.equal(employerPage.assessmentAwareAction('Shortlisted', 'none', null, true, false, overdue).label, 'Deadline passed');
+  assert.equal(employerPage.assessmentAwareAction('Shortlisted', 'none', null, true, false, open).label, 'Awaiting candidate response');
 });

@@ -5,7 +5,7 @@ export const MATCH_SCORE_DISCLAIMER =
   'Match percentages show how closely your skills and experience line up with a job. They are not your chance of being hired — the employer makes the hiring decision.';
 
 export const EMPLOYER_MATCH_DISCLAIMER =
-  "Profile match is the share of a job's required skills found in an application. It is not a hiring probability or a prediction of job performance — read the evidence before deciding.";
+  "Match is the candidate's fit score for this job when they applied, the same number they saw. It combines how closely their resume reads like the job with the required skills found. It is not a hiring probability or a prediction of job performance — read the evidence before deciding.";
 
 /** For PDFs and other text-only exports. */
 export const MATCH_SCORE_DISCLAIMER_PLAIN =
