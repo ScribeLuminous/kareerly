@@ -231,7 +231,7 @@ export function AccountSettingsPage({
             ))}
           </ul>
         )}
-        <p className="k-meta mt-2">Upload a PDF or add a certificate link. Uploads stay pending until reviewed; Kareerly checks that Credly links point to a real badge but does not confirm that the badge is yours or that the issuer is genuine.</p>
+        <p className="k-meta mt-2">Upload a PDF or add a certificate link. PDF uploads stay pending until reviewed. A Credly badge link is verified automatically when the badge is issued to the name on your profile; Kareerly does not confirm that the issuer is genuine.</p>
       </section>
 
       <section className="k-section" aria-labelledby="profile-security">

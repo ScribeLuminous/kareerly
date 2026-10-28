@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import html
 import re
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -170,8 +171,30 @@ def fetch_page(url: str) -> tuple[int, str]:
         return exc.code, ""
 
 
-def check_credential_link(value: str, fetch: Callable[[str], tuple[int, str]] = fetch_page) -> dict:
-    """Normalises the link and, for Credly, checks that it is a real badge page."""
+def _name_tokens(name: str) -> set[str]:
+    folded = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()
+    return {token for token in re.findall(r"[a-z]+", folded) if len(token) > 1}
+
+
+def names_match(recipient: str, candidate: str) -> bool:
+    """Whether the name on a badge is the candidate's name.
+
+    Case, accents, punctuation, word order and middle names or initials are
+    ignored, but at least two name parts must be shared and every part of the
+    shorter name must appear in the longer one. This is a convenience check, not
+    identity proof: anyone can type another person's name on their profile."""
+    a, b = _name_tokens(recipient), _name_tokens(candidate)
+    if len(a) < 2 or len(b) < 2:
+        return False
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    return shorter <= longer
+
+
+def check_credential_link(value: str, fetch: Callable[[str], tuple[int, str]] = fetch_page, candidate_name: str = "") -> dict:
+    """Normalises the link and, for Credly, checks that it is a real badge page.
+
+    When ``candidate_name`` is given, a found badge also reports ``recipient_match``:
+    whether the recipient named on the badge is that person."""
     try:
         url = normalize_credential_url(value)
     except CredentialLinkError as exc:
@@ -195,6 +218,8 @@ def check_credential_link(value: str, fetch: Callable[[str], tuple[int, str]] = 
         details = read_badge_page(page)
         if details is None:
             return {"status": NOT_FOUND, "url": url, "provider": provider, "message": "That page doesn't look like a Credly badge."}
-        return {"status": VERIFIED, "url": url, "provider": provider, "message": "Credly badge found.", **details}
+        match = names_match(details["recipient"], candidate_name)
+        message = "Credly badge found and issued to your name." if match else "Credly badge found."
+        return {"status": VERIFIED, "url": url, "provider": provider, "message": message, "recipient_match": match, **details}
     return {"status": NOT_CHECKED, "url": url, "provider": provider,
             "message": f"Link saved. Kareerly can only check Credly badges, so {provider} links are shown as unchecked."}

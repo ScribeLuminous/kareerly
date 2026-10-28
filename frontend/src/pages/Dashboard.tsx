@@ -1945,7 +1945,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     try {
       // A certificate link is checked first (Credly badges are looked up), so a made-up link never becomes proof.
       if (draft.credentialUrl?.trim()) {
-        draft = { ...draft, credentialCheck: await checkCredentialLink(draft.credentialUrl.trim()) };
+        draft = { ...draft, credentialCheck: await checkCredentialLink(draft.credentialUrl.trim(), accountIdentity.name) };
       }
       const nextRecord = await prepareEvidenceUpload(draft, existingRecord, validateCertificateFile);
 
