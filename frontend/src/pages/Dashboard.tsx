@@ -16,7 +16,7 @@ import { assessSavedResume, extractionWarnings, staleResumeMessage, type SavedRe
 import type { GapGroupBy, GapScope, ParsedResume, ResumeSummary, SelectedSkill, SkillGapReport, SurveyAnswers } from '../types';
 import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
-import { classifySkillCategory, cleanSkillDisplayName, skillRecordKey, type ClaimedSkill, externalJobUrl, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
+import { FIT_NOW_MATCH_PERCENT, classifySkillCategory, cleanSkillDisplayName, skillRecordKey, type ClaimedSkill, externalJobUrl, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDownload } from '@fortawesome/free-solid-svg-icons';
@@ -2415,7 +2415,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               salary: 'Salary not specified',
               matchScore: application.matchScore ?? 0,
               hasMatchScore: application.matchScore !== null,
-              matchCategory: (application.matchScore ?? 0) >= 60 ? 'fit-now' : 'aspiration',
+              matchCategory: (application.matchScore ?? 0) >= FIT_NOW_MATCH_PERCENT ? 'fit-now' : 'aspiration',
               sourceType: 'internal',
               requiredSkills: [],
               preferredSkills: [],

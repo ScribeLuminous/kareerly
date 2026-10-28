@@ -370,14 +370,14 @@ test('applicant rows point at the assessment before a scorecard can start', () =
   assert.match(row(null), /Match 100%/);
 });
 
-test('the high-match quick filter keeps applicants at 75% or more', () => {
+test('the high-match quick filter keeps applicants at 70% or more', () => {
   const required = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
   // The saved evidence covers every required skill: found, or listed as missing.
   const app = (id, matched, score = null) => ({ id, jobId: 'J1', appliedDate: '2026-09-01', lastActivity: '', status: 'Pending', publicId: id, fullName: id, applyTimeRankingScore: score, matchedSkills: matched, missingSkills: required.filter((skill) => !matched.includes(skill)), messageRequestState: 'none' });
   const jobs = [{ id: 'J1', requiredSkills: required }];
   const applications = [app('eight', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], 80), app('seven', ['A', 'B', 'C', 'D', 'E', 'F', 'G'], 70), app('none', [])];
   const filters = { ...employerPage.DEFAULT_CANDIDATE_FILTERS, jobId: 'J1', highMatch: true };
-  assert.deepEqual(employerPage.visibleApplicants(applications, jobs, filters, new Map()).map((item) => item.id), ['eight']);
+  assert.deepEqual(employerPage.visibleApplicants(applications, jobs, filters, new Map()).map((item) => item.id), ['eight', 'seven']);
 });
 
 test('bulk stage changes follow the same rules as the database', () => {

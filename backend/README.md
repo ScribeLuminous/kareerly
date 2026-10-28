@@ -499,7 +499,7 @@ are shared by the catalogue and pasted-job paths:
 - `score = (0.45·cosine + 0.45·required coverage + 0.10·preferred coverage) /
   (weights of the components present) − 0.10 per missing critical skill (max 0.20)`
 - **Fit-Now** (resume only): required skills are listed, the resume skills
-  cover at least 75% of them, cosine ≥ 0.30, and no critical skill is missing.
+  cover at least 70% of them, cosine ≥ 0.30, and no critical skill is missing.
   A critical skill is a must-have singled out from the required list.
   Preferences never affect Fit-Now. The list is never empty while there are
   jobs: when no job the candidate may be shown passes these rules, the job
