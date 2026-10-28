@@ -93,6 +93,12 @@ export async function saveAssessment(assessmentId: string, responses: Record<str
   assert(error);
 }
 
+/** Records that a reviewer opened a link from a candidate's answer. It records the click, not what was concluded. */
+export async function logAssessmentLinkOpened(assessmentId: string, url: string): Promise<void> {
+  const { error } = await supabase.rpc('log_assessment_link_opened', { target_assessment_id: assessmentId, opened_url: url });
+  assert(error);
+}
+
 export function assessmentStatusLabel(assessment: CandidateAssessment | null): string {
   if (!assessment) return 'Not sent';
   if (assessment.status === 'pending') {
