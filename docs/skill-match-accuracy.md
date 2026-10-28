@@ -19,7 +19,7 @@ bi-encoder and every score threshold are unchanged.
 | Requirement resolution | `matching_service._skill_key`, `canonical_skill_lookup` | Canonical ID, label, curated aliases, ESCO labels of `mapped` rows, reviewed variants; otherwise a named `CUSTOM:` requirement |
 | Similarity | `matching_service.bi_encoder_score_jobs` → `bi_encoder_service.score_jobs` | Fine-tuned all-MiniLM-L6-v2 cosine, max over resume sections (offset 0.125) |
 | Skill possession per requirement | `matching_service.compute_skill_coverage` | Held skill ID → reviewed resume-text names → upper-case abbreviations → reviewed one-way relations (`data/skill_evidence_relations.csv`). **No embeddings** |
-| Fit-Now / Aspiration | `match_scoring.score_match` / `classify` | Fit-Now: required coverage ≥ 0.75, cosine ≥ 0.30 (or the resume names the role), no critical skill missing. Aspiration: chosen career area, else cosine ≥ 0.20 and a shared skill |
+| Fit-Now / Aspiration | `match_scoring.score_match` / `classify` | Fit-Now: required coverage ≥ 0.70, cosine ≥ 0.30 (or the resume names the role), no critical skill missing. Aspiration: chosen career area, else cosine ≥ 0.20 and a shared skill |
 | Matched / missing / evidence | `_score_single_normalized_job`, `_matched_skill_evidence`, `_missing_skill_status` | From the one coverage result |
 | Skill gaps | `matching_service.prioritize_skill_gaps` (returned jobs only) | Missing skills of returned jobs |
 | Learning, explanation | `learning_recommender`, `grounded_explanation` (Gemma may reword a pasted job's explanation; never the score) | Reviewed skill-ID mappings |

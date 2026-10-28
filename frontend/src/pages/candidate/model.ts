@@ -673,9 +673,12 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
   };
 }
 
+/** Match score at or above which a job counts as Fit-Now; mirrors the backend FIT_NOW_MIN_REQUIRED_COVERAGE and the employer Match filter. */
+export const FIT_NOW_MATCH_PERCENT = 70;
+
 export function mapModelMatch(match: JobMatch): DashboardJob {
   const score = Math.max(0, Math.min(100, Math.round(match.matchScore)));
-  const category: 'fit-now' | 'aspiration' = score >= 75 ? 'fit-now' : 'aspiration';
+  const category: 'fit-now' | 'aspiration' = score >= FIT_NOW_MATCH_PERCENT ? 'fit-now' : 'aspiration';
   const matchedSkills = cleanSkillList((match.requiredSkills || []).filter((skill) => !(match.missingSkills || []).includes(skill)));
   const missingSkills = cleanSkillList(match.missingSkills || []);
   const requiredSkills = Array.from(new Set([...matchedSkills, ...missingSkills]));
