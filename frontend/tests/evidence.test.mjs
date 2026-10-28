@@ -37,7 +37,7 @@ test('dashboard has no resume-driven evidence setter or alternate unvalidated up
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  assert.equal(calls.length, 2, 'Only explicit save and delete may update evidence; re-analysis must leave it intact');
+  assert.equal(calls.length, 3, 'Only explicit save, delete and loading the saved records may update evidence; re-analysis must leave it intact');
   for (const call of calls) assert.doesNotMatch(call.getText(ast), /certifications|Indicators|candidate_profile/);
   assert.match(dashboard, /await prepareEvidenceUpload\(draft, existingRecord, validateCertificateFile\)/);
   // Skill proof opens the same validated evidence modal (course or skill prefilled).
