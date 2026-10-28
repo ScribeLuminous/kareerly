@@ -149,6 +149,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+  const [evidenceMode, setEvidenceMode] = useState<'file' | 'link' | undefined>(undefined);
   const [editingEvidence, setEditingEvidence] = useState<EvidenceUploadRecord | null>(null);
   const [deleteEvidenceTarget, setDeleteEvidenceTarget] = useState<EvidenceUploadRecord | null>(null);
   const [resumeStep, setResumeStep] = useState<'upload' | 'decision' | 'review'>('upload');
@@ -2009,7 +2010,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
-  const openEvidenceUploadModal = () => {
+  const openEvidenceUploadModal = (mode?: 'file' | 'link') => {
+    setEvidenceMode(mode);
     setEvidenceSkillTarget(null);
     setEvidenceCourseTarget(null);
     setEditingEvidence(null);
@@ -2621,6 +2623,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           loading={state.isLoading}
           record={editingEvidence}
           prefill={evidencePrefill}
+          mode={editingEvidence || evidencePrefill ? undefined : evidenceMode}
           onClose={() => {
             setEvidenceModalOpen(false);
             setEditingEvidence(null);
