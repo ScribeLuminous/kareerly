@@ -184,6 +184,7 @@ export function EvidenceFormModal({
     category: string;
     notes?: string;
     file: File | null;
+    credentialUrl?: string;
   }) => void;
 }) {
   const [title, setTitle] = useState(record?.title || prefill?.title || '');
@@ -193,6 +194,8 @@ export function EvidenceFormModal({
   const category = record?.category || prefill?.category || '';
   const [notes, setNotes] = useState(record?.notes || '');
   const [file, setFile] = useState<File | null>(null);
+  const [credentialUrl, setCredentialUrl] = useState(record?.credentialUrl || '');
+  const hasProof = Boolean(file || credentialUrl.trim() || record?.fileName || record?.credentialUrl);
   return (
     <Modal
       title={record ? 'Replace proof' : prefill ? 'Add proof (optional)' : 'Upload proof'}
@@ -205,8 +208,8 @@ export function EvidenceFormModal({
           <button
             className="k-btn k-btn-primary"
             type="button"
-            disabled={loading || !title.trim() || !relatedSkill.trim()}
-            onClick={() => onSave({ id: record?.id, title, evidenceType, relatedSkill, category, notes, file })}
+            disabled={loading || !title.trim() || !relatedSkill.trim() || !hasProof}
+            onClick={() => onSave({ id: record?.id, title, evidenceType, relatedSkill, category, notes, file, credentialUrl })}
           >
             {loading ? 'Saving…' : record ? 'Replace' : 'Upload'}
           </button>
@@ -234,7 +237,7 @@ export function EvidenceFormModal({
           <input className="k-input" value={relatedSkill} onChange={(event) => setRelatedSkill(event.target.value)} />
         </FormField>
         <div className="k-field k-span-2">
-          <span className="k-label">PDF file</span>
+          <span className="k-label">PDF file (optional if you add a link)</span>
           <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-[8px] border border-dashed border-soft bg-bg px-3 py-2 hover:border-rust">
             <FontAwesomeIcon icon={faUpload} className="text-rust" aria-hidden="true" />
             <span className="k-secondary min-w-0 flex-1 [overflow-wrap:anywhere]">{file?.name || record?.fileName || 'Choose a PDF'}</span>
@@ -242,6 +245,13 @@ export function EvidenceFormModal({
           </label>
           <span className="k-help block">PDF only. Stays pending until reviewed.</span>
         </div>
+        <FormField
+          label="Certificate or badge link"
+          help="Most certificates are shared as a link, for example a Credly badge (credly.com/badges/…). We check that Credly badge links point to a real badge. We can't confirm the badge is yours or that the issuer is genuine."
+          className="k-span-2"
+        >
+          <input className="k-input" type="url" inputMode="url" autoComplete="off" value={credentialUrl} onChange={(event) => setCredentialUrl(event.target.value)} placeholder="https://www.credly.com/badges/…" />
+        </FormField>
         <FormField label="Notes (optional)" className="k-span-2">
           <textarea className="k-textarea min-h-[88px]" value={notes} onChange={(event) => setNotes(event.target.value)} />
         </FormField>

@@ -42,6 +42,7 @@ from .services.matching_service import MatchingModelUnavailable, career_area_ski
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
 from .services.education import normalize_education_level
+from .services.credential_links import check_credential_link
 from .services.skill_gap_aggregation import build_gap_report
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
@@ -585,6 +586,18 @@ def get_employer_application_documents(application_id: str, authorization: Annot
                     "download_url": path if path.startswith("http") else f"{SUPABASE_URL}/storage/v1{path}",
                 }
     return {"available": True, "reason": None, "resume": resume, "portfolio_url": shared.get("portfolio_url") or None}
+
+
+class CredentialLinkRequest(BaseModel):
+    url: str
+
+
+@app.post("/api/candidate/credential-links/check")
+def check_candidate_credential_link(payload: CredentialLinkRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    """Cleans up a certificate link and, for Credly, checks that it is a real badge (services/credential_links.py)."""
+    if not _get_authenticated_user_id(authorization):
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    return check_credential_link(payload.url)
 
 
 def _set_application_stage_as_employer(authorization: str | None, application_id: str, status: str, reason: Optional[str]) -> object | None:
