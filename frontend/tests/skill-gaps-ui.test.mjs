@@ -216,7 +216,7 @@ test('By Job lists Fit-Now cards, marks shared skills with +N and collapses Aspi
   const html = renderGaps({ groupBy: 'job', jobReport });
   assert.match(html, /Data Encoder/);
   assert.match(html, /\+2/);
-  assert.match(html, /3 Fit-Now matches have no skill gaps and are hidden\./);
+  assert.match(html, /3 Fit-Now jobs have no gaps \(hidden\)\./);
   assert.match(html, /aria-expanded="false" aria-controls="gap-aspiration-list"[^>]*>Show 1 Aspiration match</);
   assert.match(html, /id="gap-aspiration-list" class="mt-2 space-y-3" hidden=""/);
 });
@@ -237,7 +237,7 @@ test('Learning groups courses by skill, shows 3 per skill and collapses skills w
   }));
   assert.doesNotMatch(html, /For job/);
   assert.doesNotMatch(html, /<select/);
-  assert.match(html, /Helps 2 matches · Required by Required job 0, Required job 1/);
+  assert.match(html, /2 jobs · Required: Required job 0, Required job 1/);
   assert.equal((html.match(/class="k-label">SQL course \d/g) || []).length, 3);
   assert.match(html, /aria-expanded="false"[^>]*>Show 2 more courses</);
   assert.match(html, /No course yet for 1 skill/);
@@ -284,4 +284,18 @@ test('Learning shows 5 skills with courses before "Show N more skills"', () => {
   }));
   assert.equal((html.match(/<h2 id="learn-sk4\d\d-title"/g) || []).length, 5);
   assert.match(html, /aria-expanded="false" aria-controls="learn-skill-groups">Show 3 more skills</);
+});
+
+test('skill progress labels follow the thesis ranges (0 / 1-25 / 26-50 / 51-75)', () => {
+  const source = readFileSync(new URL('../src/pages/candidate/model.ts', import.meta.url), 'utf8');
+  const body = source.slice(source.indexOf('export function skillProgressLabel'));
+  const fn = new Function(`${ts.transpileModule(body.slice(0, body.indexOf('\n}\n') + 3).replace('export ', ''), { compilerOptions: { target: 'es2020' } }).outputText}; return skillProgressLabel;`)();
+  assert.equal(fn(0), 'Not Started / Missing');
+  assert.equal(fn(1), 'Foundation Progress');
+  assert.equal(fn(25), 'Foundation Progress');
+  assert.equal(fn(26), 'Intermediate Progress');
+  assert.equal(fn(50), 'Intermediate Progress');
+  assert.equal(fn(51), 'Advanced Progress');
+  assert.equal(fn(75), 'Advanced Progress');
+  assert.equal(fn(76), 'Skill Covered');
 });
