@@ -1,9 +1,9 @@
 // Two separate measures for an applicant, never merged into one number:
 //
-// Profile match: what the application itself shows about the job's required
-//   skills. Required skills found = the job's current required skills that
-//   appear in the skills matched from the candidate's resume when they
-//   applied. Percent = found / required, rounded. Nothing else goes in.
+// Match: the candidate's own fit score for the job, saved when they applied,
+//   the same number the candidate saw. The skills found and not found sit
+//   beside it as named evidence from the same application, not as a second
+//   percentage.
 //
 // Reviewed evaluation: the team's structured scorecards against the job's
 //   rubric, calculated on the server (see the migration
