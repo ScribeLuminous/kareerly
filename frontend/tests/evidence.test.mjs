@@ -37,7 +37,7 @@ test('dashboard has no resume-driven evidence setter or alternate unvalidated up
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  assert.equal(calls.length, 2, 'Only explicit save and delete may update evidence; re-analysis must leave it intact');
+  assert.equal(calls.length, 3, 'Only explicit save, delete and loading the saved records may update evidence; re-analysis must leave it intact');
   for (const call of calls) assert.doesNotMatch(call.getText(ast), /certifications|Indicators|candidate_profile/);
   assert.match(dashboard, /await prepareEvidenceUpload\(draft, existingRecord, validateCertificateFile\)/);
   // Skill proof opens the same validated evidence modal (course or skill prefilled).
@@ -57,8 +57,18 @@ test('a checked certificate link is enough proof without a PDF, and stays pendin
   assert.equal(record.badgeName, 'Data Analytics Certificate');
   assert.equal(record.issuer, 'Example Academy');
   assert.equal(record.fileName, undefined);
-  // "Verified" is reserved for a human review; finding the badge page is not that.
+  // Finding the badge page is not enough: it must name this candidate.
   assert.equal(record.status, 'Pending Verification');
+});
+
+test('a Credly badge issued to the candidate is verified automatically, unless a PDF rides along', async () => {
+  const mine = { ...verified, recipient: 'Juan Dela Cruz', recipient_match: true };
+  const record = await prepareEvidenceUpload({ ...draft, credentialUrl: verified.url, credentialCheck: mine }, undefined, validate);
+  assert.equal(record.status, 'Verified');
+  const other = await prepareEvidenceUpload({ ...draft, credentialUrl: verified.url, credentialCheck: { ...mine, recipient_match: false } }, undefined, validate);
+  assert.equal(other.status, 'Pending Verification');
+  const withPdf = await prepareEvidenceUpload({ ...draft, file: new File(['%PDF-1.4'], 'c.pdf', { type: 'application/pdf' }), credentialUrl: verified.url, credentialCheck: mine }, undefined, validate);
+  assert.equal(withPdf.status, 'Pending Verification');
 });
 
 test('a link that does not point to a real badge is refused and the old record is kept', async () => {
