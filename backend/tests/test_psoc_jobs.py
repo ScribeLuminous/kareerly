@@ -45,3 +45,34 @@ class JobOccupationTests(TestCase):
             rows = supabase_jobs._fetch_jobs_table("internal_jobs", limit=1)
         self.assertEqual(len(rows), 1)
         self.assertEqual(len(requests), 2)
+
+
+class JobPagingTests(TestCase):
+    """The catalogue loads in pages of 500; every job must arrive exactly once."""
+
+    @staticmethod
+    def _api(total, fail_once_at_offset=None):
+        jobs = [{"job_id": f"JOB-{n:04d}", "job_title": "Role", "created_at": "2026-09-01T00:00:00Z"} for n in range(total)]
+        calls = []
+
+        def reply(request, timeout):
+            query = dict(item.split("=", 1) for item in request.full_url.split("?", 1)[1].split("&"))
+            calls.append(query)
+            offset, limit = int(query["offset"]), int(query["limit"])
+            if offset == fail_once_at_offset and sum(1 for c in calls if c["offset"] == query["offset"]) == 1:
+                raise TimeoutError("slow page")
+            return io.BytesIO(json.dumps(jobs[offset:offset + limit]).encode())
+
+        return reply, calls
+
+    def test_ties_on_created_at_are_broken_by_job_id(self):
+        reply, calls = self._api(10)
+        with mock.patch.object(supabase_jobs, "urlopen", side_effect=reply):
+            supabase_jobs._fetch_jobs_table("internal_jobs", limit=10)
+        self.assertEqual(calls[0]["order"], "created_at.desc%2Cjob_id.asc")
+
+    def test_a_slow_page_is_retried_instead_of_cutting_the_list_short(self):
+        reply, _ = self._api(1000, fail_once_at_offset=500)
+        with mock.patch.object(supabase_jobs, "urlopen", side_effect=reply):
+            rows = supabase_jobs._fetch_jobs_table("internal_jobs", limit=5000)
+        self.assertEqual(len({row["job_id"] for row in rows}), 1000)
