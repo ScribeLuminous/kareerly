@@ -73,12 +73,12 @@ export default function SignUp({ onAuthenticated, onSignIn, onHome }: SignUpProp
             </FormField>
           </div>
 
-          <FormField label="Email" className="mt-4">
-            <input id="signup-email" name="email" className="k-input" required type="email" inputMode="email" autoComplete="email" />
+          <FormField label="Birthday" help="You need to be 18 or older." className="mt-4">
+            <input id="signup-birthday" name="birthday" className="k-input" required type="date" autoComplete="bday" max={maxBirthdayDate(MIN_SIGNUP_AGE)} />
           </FormField>
 
-          <FormField label="Birthday" help="You need to be 18 or older.">
-            <input id="signup-birthday" name="birthday" className="k-input" required type="date" autoComplete="bday" max={maxBirthdayDate(MIN_SIGNUP_AGE)} />
+          <FormField label="Email">
+            <input id="signup-email" name="email" className="k-input" required type="email" inputMode="email" autoComplete="email" />
           </FormField>
 
           <div className="k-field">

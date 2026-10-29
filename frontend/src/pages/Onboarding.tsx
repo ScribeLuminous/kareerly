@@ -7,10 +7,12 @@ type OnboardingProps = {
   onHome: () => void;
   onLogin: () => void;
   onSignUp: () => void;
+  // A candidate who has their report is a job seeker, so skip the role picker.
+  onCandidateSignUp: () => void;
   onViewDashboard: () => void;
 };
 
-export default function Onboarding({ isLoggedIn, onHome, onLogin, onSignUp, onViewDashboard }: OnboardingProps) {
+export default function Onboarding({ isLoggedIn, onHome, onLogin, onSignUp, onCandidateSignUp, onViewDashboard }: OnboardingProps) {
   const { state } = useOnboarding();
 
   useEffect(() => {
@@ -29,14 +31,14 @@ export default function Onboarding({ isLoggedIn, onHome, onLogin, onSignUp, onVi
 
   return (
     <div className="min-h-screen bg-bg">
-      <Header onHome={onHome} onLogin={onLogin} onSignUp={onSignUp} rightContent={rightContent} />
+      <Header onHome={onHome} onLogin={onLogin} onSignUp={state.step === 4 ? onCandidateSignUp : onSignUp} rightContent={rightContent} />
       <StepProgress currentStep={state.step} />
       {/* viewport-fit=cover lets the page run under the iOS home indicator and toolbar; keep the last buttons clear of it. */}
       <main className="pb-[env(safe-area-inset-bottom)]">
         {state.step === 1 && <Hero />}
         {state.step === 1 && <UploadZone />}
         {(state.step === 2 || state.step === 3) && <SurveyStep isLoggedIn={isLoggedIn} />}
-        {state.step === 4 && <SnapshotStep isLoggedIn={isLoggedIn} onSignUp={onSignUp} onViewDashboard={onViewDashboard} />}
+        {state.step === 4 && <SnapshotStep isLoggedIn={isLoggedIn} onSignUp={onCandidateSignUp} onViewDashboard={onViewDashboard} />}
       </main>
 
       <LoadingOverlay />

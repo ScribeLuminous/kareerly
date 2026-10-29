@@ -515,6 +515,7 @@ function AppContent() {
           onHome={showHome}
           onLogin={showCandidateSignIn}
           onSignUp={showSignUpDefault}
+          onCandidateSignUp={showCandidateSignUp}
           onViewDashboard={showDashboard}
         />
       )}

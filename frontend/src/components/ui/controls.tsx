@@ -1,9 +1,10 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { faCircleInfo, faMagnifyingGlass, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { rovingKeyDown, useDismiss } from './hooks';
+import { placeTooltip } from './placement';
 
 export type TabItem<T extends string> = { id: T; label: ReactNode; count?: number; alert?: boolean };
 
@@ -109,26 +110,62 @@ export function SearchField({ value, onChange, label, placeholder }: {
   );
 }
 
-/** An ⓘ button that reveals secondary explanation on tap or click. */
+/**
+ * An ⓘ button that reveals secondary explanation on tap or click. The panel is
+ * positioned against the viewport, not its parent, so a dialog's edge or its
+ * scrolling area never clips it.
+ */
 export function InfoTip({ label, children, align = 'right' }: { label: string; children: ReactNode; align?: 'left' | 'right' }) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLSpanElement>(null);
   const id = useId();
   useDismiss(ref, open, () => setOpen(false));
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const button = buttonRef.current;
+      const panel = panelRef.current;
+      if (!button || !panel) return;
+      const box = button.getBoundingClientRect();
+      const size = panel.getBoundingClientRect();
+      setPosition(placeTooltip(box, { width: size.width, height: size.height }, { width: window.innerWidth, height: window.innerHeight }, align));
+    };
+    place();
+    // Scrolling or resizing moves the button away from a fixed panel, so it closes instead.
+    const close = () => setOpen(false);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [open, align]);
+
   return (
     <span ref={ref} className="k-popover-anchor inline-flex align-middle">
       <button
+        ref={buttonRef}
         className="k-icon-btn k-infotip-btn"
         type="button"
         aria-label={label}
         aria-expanded={open}
         aria-controls={id}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => { setPosition(null); setOpen((current) => !current); }}
       >
         <FontAwesomeIcon icon={faCircleInfo} aria-hidden="true" />
       </button>
       {open && (
-        <span id={id} role="note" className="k-popover k-infotip-panel" style={align === 'left' ? { left: 0, right: 'auto' } : undefined}>
+        <span
+          ref={panelRef}
+          id={id}
+          role="note"
+          className="k-popover k-infotip-panel"
+          style={{ position: 'fixed', right: 'auto', ...(position ? { top: position.top, left: position.left } : { top: 0, left: 0, visibility: 'hidden' }) }}
+        >
           {children}
         </span>
       )}

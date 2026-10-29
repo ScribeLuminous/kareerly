@@ -152,6 +152,19 @@ def career_preference_alignment_score(job: pd.Series, preferences: Optional[dict
     return round(sum(weight * score for weight, score in signals), 4)
 
 
+def progress_label(score: float) -> str:
+    """Skill Development Progress Labels (thesis table), by 0-100 score."""
+    if score <= 0:
+        return "Not Started / Missing"
+    if score <= 25:
+        return "Foundation Progress"
+    if score <= 50:
+        return "Intermediate Progress"
+    if score <= 75:
+        return "Advanced Progress"
+    return "Skill Covered"
+
+
 def build_development_progress(skill_gaps: list[dict]) -> list[dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
 
@@ -162,7 +175,7 @@ def build_development_progress(skill_gaps: list[dict]) -> list[dict[str, Any]]:
             {
                 "category_name": category_name,
                 "progress_score": 0,
-                "progress_label": "Not Started / Missing",
+                "progress_label": progress_label(0),
                 "skill_records": [],
                 "related_skill_records": [],
                 "missing_skills": [],

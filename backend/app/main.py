@@ -41,6 +41,8 @@ from .services.ph_regions import region_name, region_options, resolve_single_reg
 from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, job_level_thresholds, learning_by_skill_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
+from .services.education import normalize_education_level
+from .services.credential_links import check_credential_link
 from .services.skill_gap_aggregation import build_gap_report
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
@@ -586,6 +588,19 @@ def get_employer_application_documents(application_id: str, authorization: Annot
     return {"available": True, "reason": None, "resume": resume, "portfolio_url": shared.get("portfolio_url") or None}
 
 
+class CredentialLinkRequest(BaseModel):
+    url: str
+    candidate_name: str = ""
+
+
+@app.post("/api/candidate/credential-links/check")
+def check_candidate_credential_link(payload: CredentialLinkRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    """Cleans up a certificate link and, for Credly, checks that it is a real badge (services/credential_links.py)."""
+    if not _get_authenticated_user_id(authorization):
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    return check_credential_link(payload.url, candidate_name=payload.candidate_name)
+
+
 def _set_application_stage_as_employer(authorization: str | None, application_id: str, status: str, reason: Optional[str]) -> object | None:
     """Change the stage through ``set_application_stage`` with the employer's own
     token, so the audit trail records who decided. Returns None when the
@@ -798,7 +813,8 @@ def _require_candidate_settings(user_id: str) -> dict:
         "full_name": f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip(), "email": user.get("email"),
         "public_id": candidate.get("public_id"), "birthday": metadata.get("birthday"), "location": candidate.get("location") or metadata.get("location"),
         "contact_number": metadata.get("contact_number"), "address": metadata.get("address"),
-        "highest_educational_attainment": metadata.get("highest_educational_attainment"),
+        # Older accounts may hold free text; it reads back as the matching list entry.
+        "highest_educational_attainment": normalize_education_level(metadata.get("highest_educational_attainment")),
         "degree_program": metadata.get("degree_program"),
         "school_university": metadata.get("school_university"),
         "year_graduated": metadata.get("year_graduated"),
@@ -826,6 +842,11 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
         raise HTTPException(status_code=400, detail="Full name is required.")
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
         raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    attainment_input = str(values.get("highest_educational_attainment") or "").strip()
+    attainment = normalize_education_level(attainment_input)
+    if attainment_input and not attainment:
+        raise HTTPException(status_code=400, detail="Choose your highest educational attainment from the list.")
+    values["highest_educational_attainment"] = attainment
     name_parts = full_name.split(None, 1)
     first_name, last_name = name_parts[0], name_parts[1] if len(name_parts) > 1 else ""
     profile_body = {"first_name": first_name, "last_name": last_name, "email": email, "updated_at": _safe_timestamp()}
@@ -897,7 +918,7 @@ def _sync_match_results_to_supabase(
         auth_user = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", service_role=True)
         existing_metadata = auth_user.get("user_metadata") if isinstance(auth_user, dict) and isinstance(auth_user.get("user_metadata"), dict) else {}
         education_metadata = {
-            key: str(education.get(key) or "")
+            key: (normalize_education_level(education.get(key)) if key == "highest_educational_attainment" else str(education.get(key) or ""))
             for key in ("highest_educational_attainment", "degree_program", "school_university", "year_graduated")
         }
         _supabase_request(

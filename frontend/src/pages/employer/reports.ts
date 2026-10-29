@@ -48,7 +48,7 @@ export const APPLICANT_EXPORT_COLUMNS: Array<{ key: keyof ApplicantExportRow; la
   { key: 'stage', label: 'Stage' },
   { key: 'appliedDate', label: 'Applied' },
   { key: 'lastActivity', label: 'Last activity' },
-  { key: 'matchPercent', label: 'Profile match %' },
+  { key: 'matchPercent', label: 'Match % (at application)' },
   { key: 'requiredFound', label: 'Required skills found' },
   { key: 'skillsFound', label: 'Skills found' },
   { key: 'skillsNotFound', label: 'Skills not found' },
@@ -80,7 +80,7 @@ export function applicantExportRows(
       appliedDate: candidate.appliedDate ? candidate.appliedDate.slice(0, 10) : '',
       lastActivity: candidate.lastActivity ? candidate.lastActivity.slice(0, 10) : '',
       matchPercent: profile.percent,
-      requiredFound: profile.percent === null ? '' : `${profile.found.length} of ${profile.required.length}`,
+      requiredFound: profile.hasEvidence ? `${profile.found.length} of ${profile.required.length}` : '',
       skillsFound: profile.found,
       skillsNotFound: profile.notFound,
       assessment: assessmentStatusLabel(assessments.get(candidate.id) || null),
@@ -227,7 +227,7 @@ export function buildApplicantReportPdf(JsPdf: JsPdfConstructor, content: Applic
 
   write(content.title, { size: 18, bold: true, gap: 1 });
   write(`${content.scopeLabel}  |  Generated ${content.generatedAt.toLocaleString()}`, { size: 9, color: COLORS.soft, gap: 1 });
-  write('Names and locations are shown only for applicants at Interviewing or later, as on screen. Profile match is the share of the job\'s required skills found in the application; it is one input, not a ranking, and not a probability of being hired.', { size: 9, color: COLORS.soft });
+  write('Names and locations are shown only for applicants at Interviewing or later, as on screen. Match is the candidate\'s own fit score for the job when they applied; it is one input, not a ranking, and not a probability of being hired.', { size: 9, color: COLORS.soft });
 
   heading('Match insights by job');
   if (content.insights.length === 0) write('No applicants in this report.', { color: COLORS.soft });

@@ -10,7 +10,9 @@ import {
   knownValue,
   learningResourceUrl,
   mapRunLearningRecommendation,
+  SKILL_PROGRESS_PERCENT,
   skillNextStep,
+  skillProgressLabel,
   type ClaimedSkill,
   type CourseCompletion,
   type DashboardCourse,
@@ -56,7 +58,7 @@ export function SkillsHeader({ tab, onTab, gapCount }: { tab: SkillsTab; onTab: 
   );
 }
 
-const PROGRESS_NOTE = 'Progress is a guide you update yourself. It is not a verified skill score. Kareerly does not verify course completion. Skills you add with "I already have this skill" are added to your skill list and your matches are refreshed.';
+const PROGRESS_NOTE = 'Progress is a guide you update yourself, not a verified score. Kareerly does not check course completion.';
 
 /** Skill rows, with the course the progress control drives. */
 type SkillRow = {
@@ -111,9 +113,9 @@ function ImpactMeter({ bars, label }: { bars: number; label: string }) {
   );
 }
 
-function ProgressBadge({ value }: { value: GapProgress }) {
-  if (value === 'in_progress') return <span className="k-badge k-badge-info">In progress</span>;
-  return <span className="k-badge k-badge-outline">Not started</span>;
+function ProgressBadge({ status }: { status: SkillProgressStatus }) {
+  const label = skillProgressLabel(SKILL_PROGRESS_PERCENT[status]);
+  return <span className={`k-badge ${gapProgress(status) === 'in_progress' ? 'k-badge-info' : 'k-badge-outline'}`}>{label}</span>;
 }
 
 /** A "Show N more" / "Show less" toggle that stays the focused element when the list grows or shrinks. */
@@ -199,9 +201,6 @@ export function SkillGapsPage({
   const visibleRows = visibleSections.flatMap((section) => section.visible.map((skill) => rowByKey.get(gapRecordKey(skill))!));
   const selected = (isDesktop ? rowByKey.get(selectedKey) || visibleRows[0] : rowByKey.get(mobileKey)) || null;
 
-  const notStarted = openRows.filter((row) => gapProgress(row.status) === 'missing').length;
-  const inProgress = openRows.filter((row) => gapProgress(row.status) === 'in_progress').length;
-
   // Back from the phone detail view: return to the row that opened it.
   useEffect(() => {
     if (mobileKey || !returnFocusKey.current) return;
@@ -270,7 +269,7 @@ export function SkillGapsPage({
             <span className="k-label block">{skill.skill_name}</span>
             <span className="k-meta mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span>{requirementSummary(skill)}</span>
-              <ProgressBadge value={gapProgress(row.status)} />
+              <ProgressBadge status={row.status} />
             </span>
             <span className="k-meta mt-0.5 block truncate" title={titles.join(', ')}>{titles.join(', ')}</span>
           </span>
@@ -289,7 +288,6 @@ export function SkillGapsPage({
   const detail = selected && (
     <GapDetail
       row={selected}
-      courseTaken={Boolean(selected.courses[0] && courseCompletions[selected.courses[0].id])}
       searchUrl={report?.courses_by_skill?.[selected.skill.skill_id]?.search_url}
       busy={busy}
       showTitle={isDesktop}
@@ -405,13 +403,8 @@ export function SkillGapsPage({
     }
     return (
       <>
-        <p className="k-secondary mb-1">Skills your jobs ask for that your resume doesn't show yet, grouped so one skill lists every job it helps.</p>
-        <p className="k-meta mb-4 flex flex-wrap items-center gap-x-1">
-          <span><strong className="k-num text-dark">{notStarted}</strong> not started</span>
-          <span aria-hidden="true">·</span>
-          <span><strong className="k-num text-dark">{inProgress}</strong> in progress</span>
-          <span aria-hidden="true">·</span>
-          <span><strong className="k-num text-dark">{completed.length}</strong> completed</span>
+        <p className="k-secondary mb-4 flex flex-wrap items-center gap-x-1">
+          <span>Pick a skill, learn it, then track your progress.</span>
           <InfoTip label="About skill progress">{PROGRESS_NOTE}</InfoTip>
         </p>
         <div className={isDesktop ? 'k-split' : undefined}>
@@ -498,7 +491,7 @@ export function SkillGapsPage({
         {hasMatches && controls}
         {showUnmatchedNote && (
           <p className="k-meta mb-4">
-            {report!.totals.unmatched_saved_jobs} saved or applied job{report!.totals.unmatched_saved_jobs === 1 ? ' is' : 's are'} not among your matches, so {report!.totals.unmatched_saved_jobs === 1 ? 'it is' : 'they are'} left out.
+            {report!.totals.unmatched_saved_jobs} saved or applied job{report!.totals.unmatched_saved_jobs === 1 ? ' is' : 's are'} not in your matches and left out.
           </p>
         )}
         {body()}
@@ -553,14 +546,14 @@ function ByJobView({ cards, gapFreeFitNow, completedKeys, aspirationOpen, onTogg
   };
   return (
     <div className="space-y-5">
-      <p className="k-secondary">Each card lists the skills one job still needs: outlined in orange if required, in grey if nice to have. A "+N" badge means N other jobs need the same skill.</p>
+      <p className="k-meta">Orange = required · grey = nice to have · +N = N other jobs need it too</p>
       {fitNow.length > 0 ? (
         <ul className="space-y-3" aria-label="Fit-Now jobs with skill gaps">{fitNow.map(renderCard)}</ul>
       ) : (
         <p className="k-secondary">No Fit-Now job in this view has a skill gap.</p>
       )}
       {gapFreeFitNow > 0 && (
-        <p className="k-meta">{gapFreeFitNow} Fit-Now match{gapFreeFitNow === 1 ? ' has' : 'es have'} no skill gaps and {gapFreeFitNow === 1 ? 'is' : 'are'} hidden.</p>
+        <p className="k-meta">{gapFreeFitNow} Fit-Now job{gapFreeFitNow === 1 ? ' has' : 's have'} no gaps (hidden).</p>
       )}
       {aspiration.length > 0 && (
         <section aria-labelledby="gap-aspiration-title">
@@ -582,9 +575,8 @@ function gapKeyOf(gap: { skill_id: string; skill_name: string }): string {
   return gapRecordKey({ taxonomy_skill_id: taxonomyIdOf(gap.skill_id), skill_name: gap.skill_name });
 }
 
-function GapDetail({ row, courseTaken, searchUrl, busy, showTitle, onProgress, onClaim, onOpenLearning }: {
+function GapDetail({ row, searchUrl, busy, showTitle, onProgress, onClaim, onOpenLearning }: {
   row: SkillRow;
-  courseTaken: boolean;
   searchUrl?: string;
   busy: boolean;
   showTitle: boolean;
@@ -634,7 +626,7 @@ function GapDetail({ row, courseTaken, searchUrl, busy, showTitle, onProgress, o
 
       <div className="k-card mt-5">
         <p className="k-label">Already know {name}?</p>
-        <p className="k-meta mt-1">Add it to your skills instead of taking a course. It is added once, and every match that needs it is refreshed.</p>
+        <p className="k-meta mt-1">Add it to your skills and skip the course.</p>
         <button className="k-btn k-btn-secondary mt-3" type="button" disabled={busy} onClick={onClaim}>
           <FontAwesomeIcon icon={faUserCheck} aria-hidden="true" />I already have this skill
         </button>
@@ -701,9 +693,7 @@ function GapDetail({ row, courseTaken, searchUrl, busy, showTitle, onProgress, o
               </button>
             ))}
           </div>
-          <p className="k-meta mt-2">{value === 'missing' && courses.length === 0 ? 'Set this to In progress when you start learning it.' : skillNextStep(status, name)}</p>
-          {value !== 'completed' && <p className="k-meta mt-1">Done moves the skill to Completed. You can undo it there.</p>}
-          {courseTaken && courses[0] && <p className="k-meta mt-1">The course is marked done in Learning too.</p>}
+          <p className="k-meta mt-2">{skillProgressLabel(SKILL_PROGRESS_PERCENT[status])} · {skillNextStep(status, name)}</p>
         </>
       ))}
     </div>

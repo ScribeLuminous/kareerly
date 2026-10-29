@@ -65,7 +65,7 @@ export const FILIPINO_UI: Record<string, string> = {
   'Enter degree or program': 'Ilagay ang degree o programa', 'Enter school or university': 'Ilagay ang paaralan o unibersidad',
   'Enter graduation year': 'Ilagay ang taon ng pagtatapos', 'Save Education': 'I-save ang Edukasyon',
   'User-Uploaded Evidence': 'Mga Sertipikasyon at Na-upload na Katibayan',
-  'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Delete: 'Tanggalin',
+  'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Edit: 'I-edit', Delete: 'Tanggalin',
   'Delete Profile': 'Tanggalin ang Profile',
   'Update resume': 'I-update ang resume', 'Upload proof': 'Mag-upload ng katibayan', 'Personal details': 'Personal na detalye',
   'Password and security': 'Password at seguridad', 'Delete profile': 'Tanggalin ang profile', 'Request deletion': 'Humiling na tanggalin',
@@ -268,6 +268,16 @@ export const SKILL_PROGRESS_PERCENT: Record<SkillProgressStatus, number> = {
   evidenced: 90,
   covered: 100,
 };
+
+// Skill Development Progress Labels (thesis table): the label for a 0-100 score.
+// The paper lists four ranges up to 75%; 76-100% is labelled "Skill Covered".
+export function skillProgressLabel(percent: number): string {
+  if (percent <= 0) return 'Not Started / Missing';
+  if (percent <= 25) return 'Foundation Progress';
+  if (percent <= 50) return 'Intermediate Progress';
+  if (percent <= 75) return 'Advanced Progress';
+  return 'Skill Covered';
+}
 
 export type ResumeAnalyzeResponse = Awaited<ReturnType<typeof analyzeResume>>;
 
@@ -573,10 +583,10 @@ export const SKILL_STATUS_LABEL: Record<SkillProgressStatus, string> = {
 };
 
 export function skillNextStep(status: SkillProgressStatus, skill: string): string {
-  if (status === 'missing') return `Open a course above. Set this to In progress when you start.`;
-  if (status === 'started' || status === 'in_progress') return `Set this to Done when you finish the course.`;
-  if (status === 'completed') return 'Done. Adding proof is optional.';
-  if (status === 'evidenced') return 'Done. Your proof is on file and pending review.';
+  if (status === 'missing') return 'Set to In progress when you start.';
+  if (status === 'started' || status === 'in_progress') return 'Set to Done when you finish.';
+  if (status === 'completed') return 'Proof is optional.';
+  if (status === 'evidenced') return 'Proof added, pending review.';
   return `${skill} no longer appears as a gap in your current matches.`;
 }
 
@@ -673,9 +683,12 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
   };
 }
 
+/** Match score at or above which a job counts as Fit-Now; mirrors the backend FIT_NOW_MIN_REQUIRED_COVERAGE and the employer Match filter. */
+export const FIT_NOW_MATCH_PERCENT = 70;
+
 export function mapModelMatch(match: JobMatch): DashboardJob {
   const score = Math.max(0, Math.min(100, Math.round(match.matchScore)));
-  const category: 'fit-now' | 'aspiration' = score >= 75 ? 'fit-now' : 'aspiration';
+  const category: 'fit-now' | 'aspiration' = score >= FIT_NOW_MATCH_PERCENT ? 'fit-now' : 'aspiration';
   const matchedSkills = cleanSkillList((match.requiredSkills || []).filter((skill) => !(match.missingSkills || []).includes(skill)));
   const missingSkills = cleanSkillList(match.missingSkills || []);
   const requiredSkills = Array.from(new Set([...matchedSkills, ...missingSkills]));

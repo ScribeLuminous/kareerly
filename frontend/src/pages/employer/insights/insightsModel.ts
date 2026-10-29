@@ -52,9 +52,12 @@ export function buildJobInsights(applications: CandidateApplication[], jobs: Emp
       forJob.forEach((candidate) => {
         const profile = profileMatch(candidate, job);
         counts[getTier(profile.percent)] += 1;
-        if (profile.percent === null) return;
-        scored += 1;
-        matchSum += profile.percent;
+        // The match figure is the candidate's fit score at application; skill gaps need saved skill evidence.
+        if (profile.percent !== null) {
+          scored += 1;
+          matchSum += profile.percent;
+        }
+        if (!profile.hasEvidence) return;
         profile.required.forEach((skill) => {
           const key = skill.trim().toLowerCase();
           const stat = stats.get(key) || { skill, missing: 0, assessed: 0 };
@@ -101,7 +104,7 @@ export function sortJobs(jobs: JobInsight[]): JobInsight[] {
 export type Kpis = {
   applicants: number;
   jobs: number;
-  /** Across applicants with skill evidence only; null when there are none. */
+  /** Across applicants with a saved match score only; null when there are none. */
   avgMatch: number | null;
   scored: number;
   strong: number;
