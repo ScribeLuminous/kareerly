@@ -43,9 +43,9 @@ type LearningPageProps = CourseCompletionActions & {
 type SkillGroup = { skill: GapSkill; key: string; courses: DashboardCourse[]; searchUrl?: string; helps: number; requiredBy: string[]; niceFor: string[] };
 
 function helpsLine(group: SkillGroup): string {
-  const parts = [`Helps ${group.helps} match${group.helps === 1 ? '' : 'es'}`];
-  if (group.requiredBy.length) parts.push(`Required by ${titleList(group.requiredBy)}`);
-  else if (group.niceFor.length) parts.push(`Nice to have for ${titleList(group.niceFor)}`);
+  const parts = [`${group.helps} job${group.helps === 1 ? '' : 's'}`];
+  if (group.requiredBy.length) parts.push(`Required: ${titleList(group.requiredBy)}`);
+  else if (group.niceFor.length) parts.push(`Nice to have: ${titleList(group.niceFor)}`);
   return parts.join(' · ');
 }
 
@@ -118,7 +118,7 @@ export function UpskillingPage({
     }
     return (
       <>
-        <p className="k-secondary mb-4">Courses for your open skill gaps, starting with the skills that help the most jobs.</p>
+        <p className="k-secondary mb-4">Courses for your skill gaps, most useful first.</p>
         {withCourses.length > 1 && (
           <div className="k-chip-scroller mb-5" role="group" aria-label="Filter by skill">
             <button className="k-chip" type="button" aria-pressed={activeKey === 'all'} onClick={() => selectChip('all')}>All skills</button>
@@ -190,7 +190,7 @@ export function UpskillingPage({
         {withoutCourses.length > 0 && activeKey === 'all' && (
           <section className="k-card mt-7" aria-labelledby="learn-no-course">
             <h2 id="learn-no-course" className="k-label">No course yet for {withoutCourses.length} skill{withoutCourses.length === 1 ? '' : 's'}</h2>
-            <p className="k-meta mt-1">Kareerly has no reviewed course for these yet. A web search can help you find one.</p>
+            <p className="k-meta mt-1">No reviewed course yet. Try a web search.</p>
             <ul id="learn-no-course-list" className="mt-2">
               {(allNoCourseShown ? withoutCourses : withoutCourses.slice(0, visibleSkills)).map((group) => (
                 <li key={group.key} className="k-no-course-row">
@@ -231,7 +231,7 @@ export function UpskillingPage({
         <p className="k-meta mt-6 flex items-center gap-1">
           Resources open on the provider's website.
           <InfoTip label="About learning resources">
-            Kareerly suggests resources for your skill gaps. Providers manage enrolment and certificates; Kareerly does not verify completion, and taking a course does not change your match scores. Adding proof is optional. {EMPLOYER_CHECK_REMINDER}
+            Providers manage enrolment and certificates. Kareerly does not verify completion, and a course does not change your match scores. Proof is optional. {EMPLOYER_CHECK_REMINDER}
           </InfoTip>
         </p>
       </div>

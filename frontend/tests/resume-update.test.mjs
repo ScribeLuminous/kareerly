@@ -46,3 +46,34 @@ test('resume decision actions have concise labels and accessible icon-only back'
   assert.match(modal, /aria-label="Back to upload"/);
   assert.doesNotMatch(modal, />Back to Upload</);
 });
+
+test('a resume that is analysed but not saved leaves the profile education alone', () => {
+  const analyze = dashboard.slice(
+    dashboard.indexOf('const analyzeResumeForModal'),
+    dashboard.indexOf('const addSkillToReview'),
+  );
+  assert.doesNotMatch(analyze, /saveCandidateAccountSettings/);
+  assert.doesNotMatch(analyze, /setProfileForm/);
+  const save = dashboard.slice(
+    dashboard.indexOf('const savePendingResume'),
+    dashboard.indexOf('const confirmSkillsAndRefresh'),
+  );
+  assert.ok(save.indexOf('await saveResumeAnalysis') < save.indexOf('await applyExtractedEducation'));
+});
+
+test('replacing the confirmed skills writes the new set before removing the old one', () => {
+  const replace = dashboard.slice(
+    dashboard.indexOf('The new set is written before the old one is removed'),
+    dashboard.indexOf('Unable to save confirmed skills'),
+  );
+  assert.ok(replace.indexOf(".insert(") < replace.indexOf(".delete()"));
+  assert.doesNotMatch(replace, /delete\(\)\.eq\('user_id', currentUser\.id\);/);
+});
+
+test('the resume preview fills the dialog, offers a download and explains a failed load', () => {
+  assert.match(dashboard, /size="xl"/);
+  assert.match(dashboard, /headerActions=/);
+  assert.match(dashboard, /download=\{resumePreview\.name\}/);
+  assert.match(dashboard, /could not be found\. It may have been moved or deleted/);
+  assert.match(dashboard, /Try again/);
+});

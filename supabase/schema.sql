@@ -886,3 +886,35 @@ begin
   end loop;
 end;
 $$;
+
+-- ---------- 5. Anonymous clients reach only public catalogs ----------
+declare
+  public_read_tables constant text[] := array[
+    'internal_jobs', 'employer_job_posts', 'learning_resources',
+    'skill_taxonomy_additions', 'reference_datasets', 'psoc_groups',
+    'esco_occupations', 'esco_skills', 'esco_occupation_skills',
+    'psoc_esco_occupation_links', 'kareerly_skill_esco_links'
+  ];
+  tbl record;
+begin
+  for tbl in
+    select c.relname, c.relkind
+    from pg_class c
+    where c.relnamespace = 'public'::regnamespace
+      and c.relkind in ('r', 'p', 'v', 'm', 'f')
+  loop
+    execute format('revoke all on public.%I from anon', tbl.relname);
+    if tbl.relname = any (public_read_tables) then
+      execute format('grant select on public.%I to anon', tbl.relname);
+    end if;
+  end loop;
+end;
+$$;
+
+revoke all on all sequences in schema public from anon;
+
+-- Tables and sequences created later start without anon access; a migration
+-- that needs a public table grants SELECT explicitly (and adds it to the list
+-- above and to supabase/tests/anon_table_access_tests.sql).
+alter default privileges in schema public revoke all on tables from anon;
+alter default privileges in schema public revoke all on sequences from anon;

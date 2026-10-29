@@ -1,4 +1,5 @@
 import type { CandidateAssessment } from '../../lib/assessmentApi';
+import { linksIn, splitAnswerLinks } from '../../lib/answerLinks';
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faCircleQuestion, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
@@ -29,23 +30,26 @@ export function CoverageMeter({ percent, label }: { percent: number; label: stri
   );
 }
 
-export function ProfileMatchPanel({ match, applyTimeRankingScore }: { match: ProfileMatch; applyTimeRankingScore: number | null }) {
+export function ProfileMatchPanel({ match }: { match: ProfileMatch; applyTimeRankingScore?: number | null }) {
   return (
     <section className="k-detail-section" aria-labelledby="profile-match-heading">
       <h3 id="profile-match-heading" className="k-label mb-1 flex items-center gap-1">
-        Profile match
-        <InfoTip label="How profile match is worked out">
-          Profile match comes only from the application: the job's required skills that were found in the candidate's resume when they applied, divided by the number of required skills. It says nothing about skills the resume didn't mention, and it is not a hiring probability or a prediction of job performance.
+        Match at application
+        <InfoTip label="How the match is worked out">
+          This is the candidate's own fit score for the job, saved when they applied, so you see the same number they saw. It combines how closely their resume reads like the job with the required skills found. It is not a hiring probability or a prediction of job performance.
         </InfoTip>
       </h3>
       {match.percent === null ? (
-        <p className="k-secondary">{match.required.length === 0 ? 'This job lists no required skills, so there is nothing to compare.' : 'The application recorded no skill evidence.'}</p>
+        <p className="k-secondary">No fit score was saved with this application.</p>
+      ) : (
+        <p className="k-body"><strong>{match.percent}%</strong> fit when they applied.</p>
+      )}
+      {!match.hasEvidence ? (
+        <p className="k-secondary mt-2">{match.required.length === 0 ? 'This job lists no required skills, so there is nothing to compare.' : 'The application recorded no skill evidence.'}</p>
       ) : (
         <>
-          <p className="k-body">
-            <strong>{match.found.length} of {match.required.length}</strong> required skills found in the application ({match.percent}%).
-          </p>
-          <ul className="mt-2 space-y-1" aria-label="Required skills">
+          <p className="k-meta mt-3">Required skills</p>
+          <ul className="mt-1 space-y-1" aria-label="Required skills">
             {match.required.map((skill) => {
               const found = match.found.includes(skill);
               return (
@@ -59,11 +63,6 @@ export function ProfileMatchPanel({ match, applyTimeRankingScore }: { match: Pro
           </ul>
           {match.notFound.length > 0 && <p className="k-meta mt-2">"Not found" means the resume didn't show it, not that the candidate lacks it. Ask about it in the interview.</p>}
         </>
-      )}
-      {applyTimeRankingScore !== null && (
-        <p className="k-meta mt-2">
-          The candidate's own match list ranked this job at {applyTimeRankingScore}% when they applied. That figure mixes resume text similarity with skill coverage and isn't used here.
-        </p>
       )}
     </section>
   );
@@ -161,10 +160,43 @@ type ScorecardFormProps = {
   saving: boolean;
   disabled: boolean;
   onSave: (ratings: Record<string, RatingDraft>, summary: string, submit: boolean) => void;
+  /** Links already opened by anyone on the team, from the activity history. */
+  openedLinks?: Set<string>;
+  /** Called when a reviewer opens a link in an answer. */
+  onLinkOpened?: (url: string) => void;
 };
 
+/** A candidate's answer with its links clickable. Opening one is reported so the team can see which links were looked at. */
+function AnswerText({ text, openedLinks, onLinkOpened }: { text: string; openedLinks: Set<string>; onLinkOpened?: (url: string) => void }) {
+  const links = linksIn([text]);
+  return (
+    <>
+      <p className="k-body whitespace-pre-wrap rounded-[10px] bg-bg p-3 [overflow-wrap:anywhere]">
+        {splitAnswerLinks(text).map((part, index) => part.type === 'link' ? (
+          <a
+            key={index}
+            className="k-link"
+            href={part.value}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            onClick={() => onLinkOpened?.(part.value)}
+            onAuxClick={(event) => { if (event.button === 1) onLinkOpened?.(part.value); }}
+          >{part.value}</a>
+        ) : <span key={index}>{part.value}</span>)}
+      </p>
+      {links.length > 0 && (
+        <ul className="k-meta mt-1 space-y-0.5" aria-label="Links in this answer">
+          {links.map((link) => (
+            <li key={link}>{openedLinks.has(link) ? 'Opened' : 'Not opened yet'}: <span className="[overflow-wrap:anywhere]">{link}</span></li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
 /** One reviewer's ratings for one applicant on one rubric version. Key it by scorecard so it resets after a save. */
-export function ScorecardForm({ rubric, assessment, existing, saving, disabled, onSave }: ScorecardFormProps) {
+export function ScorecardForm({ rubric, assessment, existing, saving, disabled, onSave, openedLinks = new Set(), onLinkOpened }: ScorecardFormProps) {
   const initial = useMemo(() => {
     const ratings: Record<string, RatingDraft> = {};
     rubric.criteria.forEach((criterion) => {
@@ -210,7 +242,7 @@ export function ScorecardForm({ rubric, assessment, existing, saving, disabled, 
                 {criterion.description && <p className="k-secondary mt-1">{criterion.description}</p>}
                 <div className="mt-3 space-y-2">
                   <div><p className="k-meta">Assessment Question</p><p className="k-secondary">{answer?.question || criterion.prompts[0] || 'No question recorded'}</p></div>
-                  <div><p className="k-meta">Candidate Response</p><p className="k-body whitespace-pre-wrap rounded-[10px] bg-bg p-3">{answer?.response || 'No response provided.'}</p></div>
+                  <div><p className="k-meta">Candidate Response</p>{answer?.response ? <AnswerText text={answer.response} openedLinks={openedLinks} onLinkOpened={onLinkOpened} /> : <p className="k-body rounded-[10px] bg-bg p-3">No response provided.</p>}</div>
                 </div>
                 <p className="k-label mt-3">Your Rating</p>
                 <div className="k-rating-group mt-3" role="radiogroup" aria-label={`Rating for ${criterion.name}`}>
@@ -264,6 +296,8 @@ const AUDIT_LABEL: Record<string, string> = {
   scorecard_submitted: 'Scorecard submitted',
   rubric_saved: 'Rubric saved',
   rubric_versioned: 'Rubric changed (new version)',
+  assessment_link_opened: 'Opened a link in the candidate\'s answer',
+  assessment_deadline_extended: 'Assessment deadline extended',
 };
 
 export function AuditTrail({ entries, status, currentUserId }: { entries: AuditEntry[]; status: 'loading' | 'ready' | 'error'; currentUserId: string }) {
@@ -276,11 +310,12 @@ export function AuditTrail({ entries, status, currentUserId }: { entries: AuditE
         const who = entry.details.actor_is_candidate ? 'Candidate' : !entry.actorUserId ? 'System' : entry.actorUserId === currentUserId ? 'You' : 'Another reviewer';
         const detail = entry.eventType === 'stage_changed'
           ? `${String(entry.details.from || '—')} → ${String(entry.details.to || '—')}${entry.details.rejection_reason && entry.details.to === 'rejected' ? ` · ${String(entry.details.rejection_reason)}` : ''}`
+          : entry.eventType === 'assessment_link_opened' ? String(entry.details.url || '')
           : entry.details.created ? 'First version' : '';
         return (
           <li key={entry.id} className="border-l-2 border-bdr pl-3">
             <p className="k-label">{AUDIT_LABEL[entry.eventType] || entry.eventType}</p>
-            {detail && <p className="k-secondary">{detail}</p>}
+            {detail && <p className="k-secondary [overflow-wrap:anywhere]">{detail}</p>}
             <p className="k-meta">{who} · {new Date(entry.createdAt).toLocaleString()}</p>
           </li>
         );

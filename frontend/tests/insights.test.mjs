@@ -27,7 +27,7 @@ const job = (id, title, requiredSkills, status = 'open') => ({
   niceToHaveSkills: [], workSetup: '', employmentType: '', city: '', province: '', salaryRange: '', deadline: '', status, postedDate: '',
 });
 const applicant = (id, jobId, status, matchedSkills, missingSkills, extra = {}) => ({
-  id, publicId: `KR-${id}`, fullName: `Person ${id}`, role: '', jobId, applyTimeRankingScore: null, matchedSkills, missingSkills,
+  id, publicId: `KR-${id}`, fullName: `Person ${id}`, role: '', jobId, applyTimeRankingScore: (matchedSkills.length + missingSkills.length) ? Math.round(100 * matchedSkills.length / (matchedSkills.length + missingSkills.length)) : null, matchedSkills, missingSkills,
   status, appliedDate: '2026-09-01', lastActivity: '2026-09-10T08:00:00Z', location: 'Cebu City', messageRequestState: 'none', messages: [], ...extra,
 });
 
@@ -40,7 +40,7 @@ test('tiers change at exactly the thresholds in matchTiers', () => {
   assert.equal(tiers.getTier(good - 1), 'partial');
   assert.equal(tiers.getTier(0), 'partial');
   assert.equal(tiers.getTier(null), 'none');
-  assert.equal([top, good].join(), '90,75');
+  assert.equal([top, good].join(), '90,70');
 });
 
 const jobs = [
@@ -178,7 +178,7 @@ test('the PDF prints aggregates and the disclaimer on every page, and no applica
   assert.ok(text.includes('Kareerly Insights Report'));
   assert.ok(text.includes('Acme Corp'));
   assert.ok(text.includes('Skills most often missing'));
-  assert.ok(text.includes('match 75% or more of the skills asked for'));
+  assert.ok(text.includes('match 70% or more of the skills asked for'));
   for (const gone of ['Top', 'Partial', 'Avg match']) assert.equal(text.includes(gone), false, gone);
   assert.equal((text.match(/decision-support information/g) || []).length, doc.getNumberOfPages());
   assert.equal(text.includes('Person'), false);
