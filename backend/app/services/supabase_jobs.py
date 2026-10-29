@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import datetime
@@ -26,6 +27,7 @@ SUPABASE_ANON_KEY = (
     or "sb_publishable_Z77o41ry4seJ7opnojlbaA_aiNUFo6B"
 )
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
+logger = logging.getLogger(__name__)
 
 SKILL_ID_ALIASES = {
     "SK_PYTHON": "SK001",
@@ -192,7 +194,9 @@ def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool =
             {
                 "select": selected_fields,
                 "posting_status": "in.(active,open)",
-                "order": "created_at.desc",
+                # Bulk imports give many jobs the same created_at. job_id breaks
+                # the tie so pages never overlap or skip jobs.
+                "order": "created_at.desc,job_id.asc",
                 "limit": str(current_limit),
                 "offset": str(len(rows)),
             }
@@ -207,17 +211,25 @@ def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool =
             method="GET",
         )
 
-        try:
-            with urlopen(request, timeout=12) as response:
-                payload = response.read().decode("utf-8")
-        except HTTPError as error:
-            # During rollout the API can start before the nullable column's
-            # migration has run. Keep the job catalogue available in that case.
-            detail = error.read().decode("utf-8", errors="replace") if error.code == 400 else ""
-            if include_psoc and error.code == 400 and "psoc_unit_code" in detail:
-                return _fetch_jobs_table(table_name, limit, include_psoc=False)
-            return rows
-        except (URLError, TimeoutError, OSError):
+        payload = None
+        for attempt in range(2):
+            try:
+                with urlopen(request, timeout=20) as response:
+                    payload = response.read().decode("utf-8")
+                break
+            except HTTPError as error:
+                # During rollout the API can start before the nullable column's
+                # migration has run. Keep the job catalogue available in that case.
+                detail = error.read().decode("utf-8", errors="replace") if error.code == 400 else ""
+                if include_psoc and error.code == 400 and "psoc_unit_code" in detail:
+                    return _fetch_jobs_table(table_name, limit, include_psoc=False)
+                if error.code < 500 or attempt:
+                    break
+            except (URLError, TimeoutError, OSError):
+                if attempt:
+                    break
+        if payload is None:
+            logger.warning("Stopped loading %s after %d rows: a page request failed", table_name, len(rows))
             return rows
 
         try:
