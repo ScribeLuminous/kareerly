@@ -81,6 +81,9 @@ async function authenticatedMessageRequest(path: string, options: RequestInit = 
   return payload;
 }
 
+/** Calls the backend with the signed-in user's token (refreshing it once if stale). */
+export const authenticatedRequest = authenticatedMessageRequest;
+
 const MATCH_FEEDBACK_PATH = '/api/candidate/match-feedback';
 
 export async function loadMatchFeedback(): Promise<MatchFeedbackRow[]> {
@@ -271,18 +274,6 @@ async function waitForBackend(): Promise<boolean> {
     await new Promise((resolve) => window.setTimeout(resolve, BACKEND_WAKE_POLL_MS));
   }
   return false;
-}
-
-/** The backend's /api/health/config payload, or null when it cannot be read. Never throws. */
-export async function loadBackendHealthConfig(): Promise<unknown> {
-  try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/api/health/config`, { cache: 'no-store' }, 'Health check timed out.', REACHABILITY_PROBE_TIMEOUT_MS);
-    // A backend too old to have the endpoint answers 404: reachable, but no version.
-    if (response.status === 404) return {};
-    return response.ok ? await response.json() : null;
-  } catch {
-    return null;
-  }
 }
 
 /** fetchWithTimeout for the hosted backend: waits out a cold start once, then explains the failure. */
@@ -730,6 +721,7 @@ export type RunJobMatchesPayload = {
     role_level?: string;
     role?: string;
     work_setup: string;
+    employment_type?: string;
     salary?: string;
     salary_expectation?: string;
     skill_to_develop: string;
@@ -752,6 +744,7 @@ type MatchFromResumePayload = {
     target_role?: string;
     role_level?: string;
     work_setup?: string;
+    employment_type?: string;
     salary_expectation?: string;
     skill_to_develop?: string;
     location_scope?: string;
@@ -876,6 +869,7 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
       role_level: payload.preferences.role_level || payload.preferences.job_level || '',
       role: payload.preferences.role || payload.preferences.job_level || '',
       work_setup: payload.preferences.work_setup || '',
+      employment_type: payload.preferences.employment_type || '',
       salary: payload.preferences.salary || '',
       salary_expectation: payload.preferences.salary_expectation || payload.preferences.salary || '',
       skill_to_develop: payload.preferences.skill_to_develop || '',
@@ -1008,6 +1002,7 @@ export async function runMatchesFromResume(payload: MatchFromResumePayload): Pro
       target_role: payload.preferences.target_role || '',
       role_level: payload.preferences.role_level || '',
       work_setup: payload.preferences.work_setup || '',
+      employment_type: payload.preferences.employment_type || '',
       salary_expectation: payload.preferences.salary_expectation || '',
       skill_to_develop: payload.preferences.skill_to_develop || '',
       location_scope: payload.preferences.location_scope || 'anywhere',
@@ -1395,6 +1390,7 @@ export function buildMatchPayloadFromAnalysis(params: {
       target_role: answers.role,
       role: answers.role,
       work_setup: answers.setup,
+      employment_type: answers.employmentType || '',
       salary: answers.salary,
       salary_expectation: answers.salary,
       skill_to_develop: answers.skill,

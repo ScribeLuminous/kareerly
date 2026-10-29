@@ -1,9 +1,9 @@
 // Two separate measures for an applicant, never merged into one number:
 //
-// Profile match: what the application itself shows about the job's required
-//   skills. Required skills found = the job's current required skills that
-//   appear in the skills matched from the candidate's resume when they
-//   applied. Percent = found / required, rounded. Nothing else goes in.
+// Match: the candidate's own fit score for the job, saved when they applied,
+//   the same number the candidate saw. The skills found and not found sit
+//   beside it as named evidence from the same application, not as a second
+//   percentage.
 //
 // Reviewed evaluation: the team's structured scorecards against the job's
 //   rubric, calculated on the server (see the migration
@@ -11,6 +11,7 @@
 //   figure and a score; the score stays empty until every required
 //   criterion has been rated at least once.
 
+import { assessmentDueState, formatAssessmentDue } from '../../lib/assessmentDeadline';
 import { candidateDisplayName, type CandidateApplication, type CandidateStatus, type EmployerJob } from './model';
 import { STRONG_MATCH_PERCENT } from './insights/matchTiers';
 
@@ -21,7 +22,7 @@ export type ProfileMatch = {
   required: string[];
   found: string[];
   notFound: string[];
-  /** found / required, 0-100; null when the job lists no required skills. */
+  /** The candidate's fit score for this job when they applied (0-100), or null when none was saved. */
   percent: number | null;
   /** The application recorded skill evidence at all. */
   hasEvidence: boolean;
@@ -30,29 +31,37 @@ export type ProfileMatch = {
 const skillKey = (skill: string) => skill.trim().toLowerCase();
 
 /**
- * Required-skill coverage from the application. When the job's list is not
- * available (an old or deleted job), falls back to the skills recorded on
- * the application at apply time, which were checked against the same job.
+ * The one match figure an employer sees: the candidate's own fit score for the
+ * job, saved when they applied. It is the same number the candidate saw (for
+ * example "89% Fit Now"), so the two sides never show different percentages.
+ * It is null when the application did not record a score.
+ *
+ * Beside it, the skills found and not found come from the evidence saved with
+ * the application: the same matched and missing lists behind the candidate's
+ * "You have ..." chips. They are listed by name, not turned into a second
+ * percentage, and they are not re-derived by comparing the job's own wording
+ * with the saved names, which showed a strong match as 0 of 3 because the
+ * matching service records canonical names ("HTML And CSS") that rarely equal
+ * what an employer typed ("HTML", "CSS").
+ *
+ * With no saved evidence nothing is "found" or "not found"; it is unknown, and
+ * the job's own list is returned only so the screen can say what was required.
  */
-export function profileMatch(candidate: Pick<CandidateApplication, 'matchedSkills' | 'missingSkills'>, job: Pick<EmployerJob, 'requiredSkills'> | null): ProfileMatch {
-  const recordedMatched = new Set(candidate.matchedSkills.map(skillKey));
+export function profileMatch(candidate: Pick<CandidateApplication, 'matchedSkills' | 'missingSkills'> & { applyTimeRankingScore?: number | null }, job: Pick<EmployerJob, 'requiredSkills'> | null): ProfileMatch {
+  const unique = (skills: string[]) => Array.from(new Map(skills.map((skill) => [skillKey(skill), skill])).values());
+  const score = candidate.applyTimeRankingScore;
+  const percent = typeof score === 'number' && Number.isFinite(score) ? Math.round(score) : null;
   const hasEvidence = candidate.matchedSkills.length + candidate.missingSkills.length > 0;
-  const required = job && job.requiredSkills.length > 0
-    ? Array.from(new Map(job.requiredSkills.map((skill) => [skillKey(skill), skill])).values())
-    : [...candidate.matchedSkills, ...candidate.missingSkills];
-  // With no recorded evidence nothing is "found" or "not found"; it is unknown.
-  const found = hasEvidence ? required.filter((skill) => recordedMatched.has(skillKey(skill))) : [];
-  const notFound = hasEvidence ? required.filter((skill) => !recordedMatched.has(skillKey(skill))) : [];
-  return {
-    required,
-    found,
-    notFound,
-    percent: required.length > 0 && hasEvidence ? Math.round((100 * found.length) / required.length) : null,
-    hasEvidence,
-  };
+  if (!hasEvidence) {
+    return { required: unique(job?.requiredSkills || []), found: [], notFound: [], percent, hasEvidence: false };
+  }
+  const found = unique(candidate.matchedSkills);
+  const foundKeys = new Set(found.map(skillKey));
+  const notFound = unique(candidate.missingSkills).filter((skill) => !foundKeys.has(skillKey(skill)));
+  return { required: [...found, ...notFound], found, notFound, percent, hasEvidence: true };
 }
 
-/** The quick filter on the Candidates page: applicants at or above this profile match. */
+/** The quick filter on the Candidates page: applicants at or above this match score. */
 export const HIGH_MATCH_PERCENT = STRONG_MATCH_PERCENT;
 
 /** Short match figure for lists, e.g. "Match 80%". */
@@ -66,9 +75,12 @@ export function matchScoreBadgeClass(match: ProfileMatch): string {
   return 'k-badge k-badge-warn';
 }
 
+/** The required skills found in the application, by name (a count would read as a second percentage). */
 export function profileMatchLabel(match: ProfileMatch): string {
-  if (match.percent === null) return match.required.length === 0 ? 'No required skills listed' : 'No skill evidence recorded';
-  return `${match.found.length} of ${match.required.length} required skills`;
+  if (!match.hasEvidence) return match.required.length === 0 ? 'No required skills listed' : 'No skill evidence recorded';
+  if (match.found.length === 0) return 'None found';
+  const shown = match.found.slice(0, 3).join(', ');
+  return match.found.length > 3 ? `${shown} +${match.found.length - 3}` : shown;
 }
 
 // ---------- Rubrics ----------
@@ -428,7 +440,7 @@ export const APPLICANT_SORTS: Array<{ value: ApplicantSort; label: string }> = [
   { value: 'applied-oldest', label: 'Applied, oldest first' },
   { value: 'applied-newest', label: 'Applied, newest first' },
   { value: 'activity', label: 'Last activity' },
-  { value: 'profile-match', label: 'Profile match' },
+  { value: 'profile-match', label: 'Match score' },
   { value: 'reviewed', label: 'Reviewed evaluation' },
 ];
 
@@ -476,7 +488,7 @@ export function nextAction(status: CandidateStatus, messageState: CandidateAppli
   return { label: 'Record the outcome', detail: 'Mark as hired or decline when the team has decided.' };
 }
 
-type AssessmentState = { status: 'pending' | 'submitted' | 'reviewed' } | null;
+type AssessmentState = { status: 'pending' | 'submitted' | 'reviewed'; dueAt?: string | null } | null;
 
 /**
  * The next step once the Candidate Assessment is part of the flow: a scorecard
@@ -488,7 +500,11 @@ export function assessmentAwareAction(status: CandidateStatus, messageState: Can
   if (!hasRubric) return { label: 'Set up the assessment', detail: 'Add the questions and criteria for this job.' };
   if (status === 'Pending') return { label: 'Shortlist to send the assessment', detail: 'Shortlisting sends the Candidate Assessment.' };
   if (!assessment) return { label: 'Send Assessment', detail: 'The candidate has not received the assessment yet.' };
-  if (assessment.status === 'pending') return { label: 'Awaiting candidate response', detail: 'The candidate can save a draft and submit when ready.' };
+  if (assessment.status === 'pending') {
+    return assessmentDueState(assessment) === 'overdue'
+      ? { label: 'Deadline passed', detail: 'The candidate did not submit in time. Extend the deadline or decline.' }
+      : { label: 'Awaiting candidate response', detail: assessment.dueAt ? `The candidate can answer until ${formatAssessmentDue(assessment.dueAt)}.` : 'The candidate can save a draft and submit when ready.' };
+  }
   if (assessment.status === 'submitted' && !reviewedByMe) return { label: 'Review the assessment', detail: 'Rate the submitted answers on your scorecard.' };
   return nextAction(status, messageState, evaluation, hasRubric, reviewedByMe);
 }
@@ -519,6 +535,8 @@ export function candidateActionBlocker(action: CandidateBulkAction, candidate: P
     if (assessment) return 'assessment already sent';
     return status === 'Pending' || status === 'Shortlisted' || status === 'Interviewing' ? null : 'not eligible';
   }
+  // Declining for no response is allowed once the deadline has passed with nothing submitted.
+  const unansweredPastDeadline = assessment?.status === 'pending' && assessmentDueState(assessment) === 'overdue';
   if (action === 'interviewing') {
     if (status === 'Interviewing') return 'already interviewing';
     if (status === 'Pending') return 'shortlist first';
@@ -526,6 +544,8 @@ export function candidateActionBlocker(action: CandidateBulkAction, candidate: P
   }
   if (action === 'hired') return status === 'Interviewing' ? null : 'not interviewing yet';
   if (status === 'Interviewing') return null;
+  if (unansweredPastDeadline) return null;
+  if (assessment?.status === 'pending' && assessment.dueAt) return `the candidate has until ${formatAssessmentDue(assessment.dueAt)}`;
   return assessment?.status === 'reviewed' ? null : 'assessment not reviewed yet';
 }
 
@@ -536,7 +556,7 @@ export type CandidateFilters = {
   status: 'all' | CandidateStatus;
   search: string;
   sort: ApplicantSort;
-  /** Only applicants with a profile match of at least HIGH_MATCH_PERCENT. */
+  /** Only applicants with a match score of at least HIGH_MATCH_PERCENT. */
   highMatch: boolean;
 };
 

@@ -27,15 +27,16 @@ score built from it.
 Categories (a job is in at most one; either list may be empty):
 
 * Fit-Now     - decided by the resume alone: required skills are listed, the
-                candidate holds at least 75% of them
+                candidate holds at least 70% of them
                 (FIT_NOW_MIN_REQUIRED_COVERAGE), every skill the employer
                 explicitly marked must-have is held, and the role is
                 meaningfully related to the resume (FIT_NOW_MIN_SEMANTIC).
                 Step 3 preferences never affect it.
-                When no job the candidate may be shown passes these rules, the
-                job closest to the resume is still listed as Fit-Now, marked
-                ``fit_now_fallback`` (see matching_service), so the list is
-                never empty while there are jobs to compare.
+                When no job the candidate may be shown passes these rules, one
+                job near Fit-Now (related, 50% or more of its required skills
+                held, no must-have missing, not an Aspiration job) may still be
+                listed, marked ``fit_now_fallback`` (see matching_service).
+                Otherwise the Fit-Now list is empty.
 * Aspiration  - decided by the Step 3 preferences: a job that is not Fit-Now
                 and sits in the career area the candidate chose. The other
                 answers (job level, work setup, salary) never remove a job;
@@ -74,13 +75,13 @@ MATCH_WEIGHT_PREFERRED_SKILLS = 0.10
 CRITICAL_MISSING_PENALTY = 0.10
 MAX_CRITICAL_PENALTY = 0.20
 
-# Fit-Now: "at least 75% of the required skills" is a product definition of
+# Fit-Now: "at least 70% of the required skills" is a product definition of
 # readiness. Most jobs list three required skills, so in practice the resume
 # must hold all of them. On the mock-resume diagnostic (floor 0.30) this keeps
 # 81 of 179 strong pairs and 1 of 4,841 weak ones as Fit-Now (50% kept 123 and
 # 8), and 3 of 33 resumes have no Fit-Now job. Skill coverage decides Fit-Now;
 # the semantic floor only rules out unrelated roles.
-FIT_NOW_MIN_REQUIRED_COVERAGE = 0.75
+FIT_NOW_MIN_REQUIRED_COVERAGE = 0.70
 FIT_NOW_MIN_SEMANTIC = 0.30
 # Aspiration: new floor, the development-split F1 optimum for separating
 # related roles from unrelated ones; about 3% of unrelated pairs pass it.

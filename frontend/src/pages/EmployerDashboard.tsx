@@ -9,7 +9,8 @@ import { normalizeEmployerIndustry } from '../lib/employerOptions';
 import { joinLocation, splitLocation } from '../lib/phProvinces';
 import { joinJobContent, toListItems } from '../lib/jobDescription';
 import { applyAssessmentTemplate, deleteAssessmentTemplates, isEvaluationUnavailable, isTemplatesUnavailable, loadAssessmentTemplates, loadJobEvaluationSummaries, loadRubrics, rubricHasScorecards, saveAssessmentTemplate, saveJobAssessment, type EvaluationSummary } from '../lib/evaluationApi';
-import { loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
+import { assessmentDueDateProblem, defaultAssessmentDueDate, dueDateToTimestamp, loadAssessments, sendAssessment, type CandidateAssessment } from '../lib/assessmentApi';
+import { AssessmentDeadlineField } from './employer/AssessmentDeadlineField';
 import { ApplicantReviewModal } from './employer/ApplicantReviewModal';
 import { AssessmentTemplatesPage, type JobsSection } from './employer/AssessmentTemplatesPage';
 import { EmployerAccountPage, type EmployerAccountForm } from './employer/EmployerAccountPage';
@@ -144,6 +145,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const [reportTarget, setReportTarget] = useState<CandidateApplication | null>(null);
   const [blockTarget, setBlockTarget] = useState<CandidateApplication | null>(null);
   const [reviewModalId, setReviewModalId] = useState<string | null>(null);
+  // The day the Candidate Assessment is due, for the shortlist confirmation. Starts at the 7 day default.
+  const [assessmentDueDate, setAssessmentDueDate] = useState(() => defaultAssessmentDueDate());
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; action: ReviewAction | null; candidateId: string | null }>({
     open: false,
     action: null,
@@ -183,11 +186,16 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         .order('created_at', { ascending: false })
         .limit(30);
       if (error || !mounted) return;
-      const assessmentNotices: NotificationItem[] = (data || []).map((row) => ({
-        id: `assessment-${row.id}`, title: row.title, message: row.message,
-        time: new Date(row.created_at).toLocaleString(), type: 'app', unread: !row.read_at,
-      }));
-      setNotifications((current) => [...assessmentNotices, ...current.filter((row) => !row.id.startsWith('assessment-'))]);
+      setNotifications((current) => {
+        // A poll can land before a read is saved; keep what the employer already read.
+        const readLocally = new Set(current.filter((row) => !row.unread).map((row) => row.id));
+        const assessmentNotices: NotificationItem[] = (data || []).map((row) => ({
+          id: `assessment-${row.id}`, title: row.title, message: row.message,
+          time: new Date(row.created_at).toLocaleString(), type: 'app',
+          unread: !row.read_at && !readLocally.has(`assessment-${row.id}`),
+        }));
+        return [...assessmentNotices, ...current.filter((row) => !row.id.startsWith('assessment-'))];
+      });
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 10000);
@@ -593,10 +601,26 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     return () => { isMounted = false; window.clearInterval(timer); };
   }, [applicationIdsKey, assessmentVersion]);
 
-  const markNotificationsRead = () => {
-    const ids = notifications.filter((item) => item.id.startsWith('assessment-') && item.unread).map((item) => item.id.slice('assessment-'.length));
-    if (ids.length) void supabase.from('candidate_notifications').update({ read_at: new Date().toISOString() }).in('id', ids);
-    setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
+  // Supabase queries only run when awaited, so `void supabase...update()` never
+  // reached the database and the badge came back on the next refresh.
+  const markNotificationsRead = async (itemIds?: string[]) => {
+    const targets = notifications.filter((item) => item.unread && (!itemIds || itemIds.includes(item.id)));
+    if (!targets.length) return;
+    const targetIds = new Set(targets.map((item) => item.id));
+    setNotifications((current) => current.map((item) => (targetIds.has(item.id) ? { ...item, unread: false } : item)));
+    const storedIds = targets.filter((item) => item.id.startsWith('assessment-')).map((item) => item.id.slice('assessment-'.length));
+    if (!storedIds.length) return;
+    const { data, error } = await supabase.from('candidate_notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('recipient_user_id', employer.id)
+      .in('id', storedIds)
+      .select('id');
+    // A blocked update returns no error and no rows, so check what was saved.
+    if (error || (data?.length ?? 0) < storedIds.length) {
+      console.warn('Unable to save notification read state:', error ?? 'no rows updated');
+      setNotifications((current) => current.map((item) => (targetIds.has(item.id) ? { ...item, unread: true } : item)));
+      showToast("Couldn't mark notifications as read. Try again.", 'danger');
+    }
   };
 
   const startEditJobForm = (job: EmployerJob) => {
@@ -895,11 +919,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const openConfirmStatus = (action: ReviewAction, candidateId: string) => {
     setRejectionReason('');
+    setAssessmentDueDate(defaultAssessmentDueDate());
     setConfirmModal({ open: true, action, candidateId });
   };
 
   const closeConfirm = () => {
     setRejectionReason('');
+    setAssessmentDueDate(defaultAssessmentDueDate());
     setConfirmModal({ open: false, action: null, candidateId: null });
   };
 
@@ -916,6 +942,12 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     const dbStatus = nextStatus.toLowerCase();
     if (nextStatus === 'Rejected' && !rejectionReason) {
       showToast('Please select a short rejection reason.', 'warn');
+      return;
+    }
+    const shortlistedCandidate = nextStatus === 'Shortlisted' ? applications.find((candidate) => candidate.id === confirmModal.candidateId) : undefined;
+    const sendsAssessment = Boolean(shortlistedCandidate && rubricsByJob.has(shortlistedCandidate.jobId));
+    if (sendsAssessment && assessmentDueDateProblem(assessmentDueDate)) {
+      showToast(assessmentDueDateProblem(assessmentDueDate), 'warn');
       return;
     }
     try {
@@ -944,7 +976,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       showToast(`${label} moved to Interviewing. You can now send a message request.`, 'success');
     } else if (nextStatus === 'Shortlisted' && target && rubricsByJob.has(target.jobId)) {
       // Shortlisting is when the Candidate Assessment goes out.
-      const { sent, errors } = await sendAssessments([target.id]);
+      const { sent, errors } = await sendAssessments([target.id], assessmentDueDate);
       if (sent > 0) showToast(`${label} shortlisted and sent the Candidate Assessment.`, 'success');
       else showToast(`${label} shortlisted, but the assessment wasn't sent: ${errors[0] || 'try Send Assessment again.'}`, 'warn');
     } else if (nextStatus === 'Shortlisted') {
@@ -955,8 +987,9 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   };
 
   /** Sends the Candidate Assessment to each applicant; returns how many went out and why others didn't. */
-  const sendAssessments = async (candidateIds: string[]) => {
-    const results = await Promise.all(candidateIds.map((id) => sendAssessment(id)
+  const sendAssessments = async (candidateIds: string[], dueDate: string) => {
+    const dueAt = dueDateToTimestamp(dueDate);
+    const results = await Promise.all(candidateIds.map((id) => sendAssessment(id, dueAt)
       .then(() => null)
       .catch((error: unknown) => (error instanceof Error ? error.message : 'Unable to send the assessment.'))));
     setAssessmentVersion((value) => value + 1);
@@ -982,7 +1015,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     return { moved, firstError };
   };
 
-  const bulkCandidateAction = async (action: CandidateBulkAction, candidateIds: string[], reason: string) => {
+  const bulkCandidateAction = async (action: CandidateBulkAction, candidateIds: string[], reason: string, dueDate: string = defaultAssessmentDueDate()) => {
     // Re-check against the latest data; the list may have refreshed since selecting.
     const eligible = candidateIds.filter((id) => {
       const candidate = applications.find((item) => item.id === id);
@@ -994,11 +1027,15 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     }
     const people = (count: number) => `${count} applicant${count === 1 ? '' : 's'}`;
     if (action === 'shortlisted' || action === 'send-assessment') {
+      if (assessmentDueDateProblem(dueDate)) {
+        showToast(assessmentDueDateProblem(dueDate), 'warn');
+        return;
+      }
       const pendingIds = eligible.filter((id) => applications.find((item) => item.id === id)?.status === 'Pending');
       const { moved, firstError } = pendingIds.length > 0 ? await moveApplicants(pendingIds, 'Shortlisted') : { moved: new Set<string>(), firstError: '' };
       const readyIds = eligible.filter((id) => !pendingIds.includes(id) || moved.has(id));
       const withRubric = readyIds.filter((id) => rubricsByJob.has(applications.find((item) => item.id === id)?.jobId || ''));
-      const { sent, errors } = withRubric.length > 0 ? await sendAssessments(withRubric) : { sent: 0, errors: [] as string[] };
+      const { sent, errors } = withRubric.length > 0 ? await sendAssessments(withRubric, dueDate) : { sent: 0, errors: [] as string[] };
       const parts = [
         moved.size > 0 ? `${people(moved.size)} shortlisted` : '',
         sent > 0 ? `Candidate Assessment sent to ${people(sent)}` : '',
@@ -1204,7 +1241,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
   const nextSteps: NextStep[] = [
     ...(!isLoadingJobs && jobs.length === 0 ? [{ id: 'first-job', title: 'Post your first job', detail: 'Kareerly matches applicants to your required skills as soon as it is live.', actionLabel: 'Post a job', onAction: postJob }] : []),
     ...(submittedAssessments.length > 0 ? [{ id: 'assessments', title: `Review ${plural(submittedAssessments.length, 'submitted assessment')}`, detail: 'Candidates answered your questions. Rate their answers on your scorecard, then decide on an interview.', actionLabel: 'Open applicant', onAction: () => openReview(submittedAssessments[0].id) }] : []),
-    ...(pendingApplicants.length > 0 ? [{ id: 'pending', title: `Review ${pendingApplicants.length} new applicant${pendingApplicants.length === 1 ? '' : 's'}`, detail: 'Shortlisting sends the Candidate Assessment. Use the Match ≥ 70% filter to start with the strongest matches.', actionLabel: 'Review applicants', onAction: () => goPage('candidates') }] : []),
+    ...(pendingApplicants.length > 0 ? [{ id: 'pending', title: `Review ${pendingApplicants.length} new applicant${pendingApplicants.length === 1 ? '' : 's'}`, detail: `Shortlisting sends the Candidate Assessment. Use the Match ≥ ${HIGH_MATCH_PERCENT}% filter to start with the strongest matches.`, actionLabel: 'Review applicants', onAction: () => goPage('candidates') }] : []),
     ...(shortlistedWithoutAssessment.length > 0 ? [{ id: 'send-assessments', title: `Send the assessment to ${plural(shortlistedWithoutAssessment.length, 'shortlisted applicant')}`, detail: "They're shortlisted but haven't received the Candidate Assessment yet.", actionLabel: 'Open applicants', onAction: () => { setCandidateFilters((current) => ({ ...current, jobId: shortlistedWithoutAssessment[0].jobId, status: 'Shortlisted', search: '', highMatch: false })); goPage('candidates'); } }] : []),
     ...(awaitingRequest ? [{ id: 'request', title: `Message ${awaitingRequest.publicId || 'your interviewing candidate'}`, detail: `Interviewing for ${awaitingRequest.role}. Send a message request to set up next steps.`, actionLabel: 'Open applicant', onAction: () => openReview(awaitingRequest.id) }] : []),
     ...(closingSoon ? [{ id: 'closing', title: `${closingSoon.title} ${closingDays === 0 ? 'closes today' : `closes in ${closingDays} day${closingDays === 1 ? '' : 's'}`}`, detail: 'Extend the deadline if you need more applicants.', actionLabel: 'Edit job', onAction: () => startEditJobForm(closingSoon) }] : []),
@@ -1300,14 +1337,12 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           unread: item.unread,
           icon: notificationIcon[item.type],
           onOpen: () => goPage(item.type === 'msg' ? 'messages' : item.type === 'job' ? 'jobs' : 'candidates'),
-          onMarkRead: () => {
-            if (item.id.startsWith('assessment-')) void supabase.from('candidate_notifications').update({ read_at: new Date().toISOString() }).eq('id', item.id.slice('assessment-'.length));
-            setNotifications((current) => current.map((row) => (row.id === item.id ? { ...row, unread: false } : row)));
-          },
+          onMarkRead: () => void markNotificationsRead([item.id]),
         })),
         status: 'ready',
         unreadCount,
-        onMarkAllRead: markNotificationsRead,
+        onOpen: () => void markNotificationsRead(),
+        onMarkAllRead: () => void markNotificationsRead(),
       }}
       account={{
         name: companyName,
@@ -1515,10 +1550,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           message={statusActionMessage(confirmModal.action, confirmCandidate?.publicId || 'this candidate')}
           confirmLabel={confirmModal.action === 'rejected' ? 'Reject' : 'Confirm'}
           danger={confirmModal.action === 'rejected'}
-          confirmDisabled={confirmModal.action === 'rejected' && !rejectionReason}
+          confirmDisabled={(confirmModal.action === 'rejected' && !rejectionReason) || (confirmModal.action === 'shortlisted' && Boolean(confirmCandidate && rubricsByJob.has(confirmCandidate.jobId)) && Boolean(assessmentDueDateProblem(assessmentDueDate)))}
           onCancel={closeConfirm}
           onConfirm={applyStatusChange}
         >
+          {confirmModal.action === 'shortlisted' && confirmCandidate && rubricsByJob.has(confirmCandidate.jobId) && (
+            <AssessmentDeadlineField className="mt-4" value={assessmentDueDate} onChange={setAssessmentDueDate} />
+          )}
           {confirmModal.action === 'rejected' && (
             <FormField label="Reason *" help="Use an objective, job-related reason. It is saved with the application." className="mt-4">
               <select className="k-select" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} required>

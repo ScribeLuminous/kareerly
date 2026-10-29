@@ -47,6 +47,17 @@ const setupKey = (value: string) => {
   return '';
 };
 
+// The employer form's employment types; imported jobs word them differently.
+const employmentKey = (value: string) => {
+  const text = value.toLowerCase();
+  if (/full[\s-]?time|permanent|regular/.test(text)) return 'Full-time';
+  if (/part[\s-]?time/.test(text)) return 'Part-time';
+  if (/contract|freelance|project[\s-]based/.test(text)) return 'Contract';
+  if (/temporary|\btemp\b|seasonal/.test(text)) return 'Temporary';
+  if (/intern|\bojt\b/.test(text)) return 'Internship';
+  return '';
+};
+
 export function JobMatchesPage({
   fitNowJobs,
   aspirationJobs,
@@ -77,21 +88,25 @@ export function JobMatchesPage({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [source, setSource] = useState<'' | 'internal' | 'external'>('');
   const [setup, setSetup] = useState('');
+  const [employment, setEmployment] = useState('');
   const [level, setLevel] = useState('');
   const [sort, setSort] = useState<SortOrder>('recommended');
 
   const pool = view === 'fit-now' ? fitNowJobs : view === 'aspiration' ? aspirationJobs : savedJobRows;
   const levels = useMemo(() => Array.from(new Set(pool.map((job) => knownValue(job.jobLevel)).filter(Boolean))).sort(), [pool]);
   const setups = useMemo(() => Array.from(new Set(pool.map((job) => setupKey(job.setup)).filter(Boolean))).sort(), [pool]);
+  const employmentTypes = useMemo(() => Array.from(new Set(pool.map((job) => employmentKey(job.employmentType || '')).filter(Boolean))).sort(), [pool]);
   const hasExternal = pool.some((job) => job.sourceType === 'external');
   const activeFilters = [
     source ? { label: source === 'internal' ? 'Kareerly jobs' : 'External sites', clear: () => setSource('') } : null,
     setup ? { label: setup, clear: () => setSetup('') } : null,
+    employment ? { label: employment, clear: () => setEmployment('') } : null,
     level ? { label: level, clear: () => setLevel('') } : null,
   ].filter((item): item is { label: string; clear: () => void } => Boolean(item));
   const resetFilters = () => {
     setSource('');
     setSetup('');
+    setEmployment('');
     setLevel('');
   };
 
@@ -100,6 +115,7 @@ export function JobMatchesPage({
     const list = pool.filter((job) => {
       if (source && job.sourceType !== source) return false;
       if (setup && setupKey(job.setup) !== setup) return false;
+      if (employment && employmentKey(job.employmentType || '') !== employment) return false;
       if (level && knownValue(job.jobLevel) !== level) return false;
       if (!query) return true;
       return [job.title, job.company, job.location, job.category || '', job.jobLevel || '', job.matchedSkills.join(' '), job.missingSkills.join(' ')]
@@ -110,7 +126,7 @@ export function JobMatchesPage({
     if (sort === 'score') return [...list].sort((a, b) => b.matchScore - a.matchScore);
     if (sort === 'title') return [...list].sort((a, b) => a.title.localeCompare(b.title));
     return list;
-  }, [level, pool, search, setup, sort, source]);
+  }, [employment, level, pool, search, setup, sort, source]);
 
   const isFiltered = Boolean(search.trim()) || activeFilters.length > 0;
   const limit = view === 'saved' || showAll || isFiltered ? filtered.length : TOP_MATCHES_PER_CATEGORY;
@@ -165,6 +181,9 @@ export function JobMatchesPage({
             {setups.length > 1 && (
               <FilterChoice legend="Work setup" name="match-setup" value={setup} onChange={setSetup} options={[{ value: '', label: 'Any' }, ...setups.map((value) => ({ value, label: value }))]} />
             )}
+            {employmentTypes.length > 1 && (
+              <FilterChoice legend="Employment type" name="match-employment" value={employment} onChange={setEmployment} options={[{ value: '', label: 'Any' }, ...employmentTypes.map((value) => ({ value, label: value }))]} />
+            )}
             {levels.length > 1 && (
               <FilterChoice legend="Level" name="match-level" value={level} onChange={setLevel} options={[{ value: '', label: 'Any' }, ...levels.map((value) => ({ value, label: value }))]} />
             )}
@@ -177,7 +196,7 @@ export function JobMatchesPage({
                 options={[{ value: '', label: 'Anywhere' }, { value: 'internal', label: 'On Kareerly' }, { value: 'external', label: 'External sites' }]}
               />
             )}
-            {setups.length <= 1 && levels.length <= 1 && !hasExternal && <p className="k-secondary">These matches don't differ by setup, level or source.</p>}
+            {setups.length <= 1 && employmentTypes.length <= 1 && levels.length <= 1 && !hasExternal && <p className="k-secondary">These matches don't differ by setup, employment type, level or source.</p>}
           </FilterPanel>
           <label className="k-sort">
             <span className="sr-only">Sort matches</span>

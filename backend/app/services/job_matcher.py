@@ -1,5 +1,7 @@
 from pathlib import Path
 import re
+import threading
+import time
 from typing import Any, Optional
 
 import joblib
@@ -13,7 +15,7 @@ from .learning_recommender import (
     prioritize_skill_gaps,
     recommend_learning_resources,
 )
-from .supabase_jobs import load_internal_jobs_dataframe
+from .supabase_jobs import JobCatalogueIncomplete, load_internal_jobs_dataframe
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -152,6 +154,19 @@ def career_preference_alignment_score(job: pd.Series, preferences: Optional[dict
     return round(sum(weight * score for weight, score in signals), 4)
 
 
+def progress_label(score: float) -> str:
+    """Skill Development Progress Labels (thesis table), by 0-100 score."""
+    if score <= 0:
+        return "Not Started / Missing"
+    if score <= 25:
+        return "Foundation Progress"
+    if score <= 50:
+        return "Intermediate Progress"
+    if score <= 75:
+        return "Advanced Progress"
+    return "Skill Covered"
+
+
 def build_development_progress(skill_gaps: list[dict]) -> list[dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
 
@@ -162,7 +177,7 @@ def build_development_progress(skill_gaps: list[dict]) -> list[dict[str, Any]]:
             {
                 "category_name": category_name,
                 "progress_score": 0,
-                "progress_label": "Not Started / Missing",
+                "progress_label": progress_label(0),
                 "skill_records": [],
                 "related_skill_records": [],
                 "missing_skills": [],
@@ -470,9 +485,35 @@ def match_jobs(
     )
 
 
+# Every open Kareers page re-reads the list every 30 seconds. Reading ~2,000
+# jobs takes several Supabase pages, so one complete list is shared for a short
+# while, and a read that comes back short never replaces it.
+JOB_LIST_CACHE_SECONDS = 30.0
+_job_list_cache: dict[str, Any] = {"limit": 0, "loaded_at": 0.0, "results": None}
+_job_list_lock = threading.Lock()
+
+
 def list_available_jobs(limit: int = 5000) -> list[dict[str, Any]]:
+    """Every open job, or the last complete list when a fresh read is cut short.
+    With no complete list yet, the jobs that could be read: one table that
+    cannot be read must not empty the whole page."""
     safe_limit = max(1, min(limit, 5000))
-    jobs = load_internal_jobs_dataframe(limit=safe_limit)
+    with _job_list_lock:
+        cached = _job_list_cache["results"]
+        if cached is not None and _job_list_cache["limit"] == safe_limit and time.monotonic() - _job_list_cache["loaded_at"] < JOB_LIST_CACHE_SECONDS:
+            return cached
+        try:
+            results = _read_available_jobs(safe_limit)
+        except JobCatalogueIncomplete:
+            if cached is not None and _job_list_cache["limit"] == safe_limit:
+                return cached
+            return _read_available_jobs(safe_limit, strict=False)
+        _job_list_cache.update(limit=safe_limit, loaded_at=time.monotonic(), results=results)
+        return results
+
+
+def _read_available_jobs(safe_limit: int, *, strict: bool = True) -> list[dict[str, Any]]:
+    jobs = load_internal_jobs_dataframe(limit=safe_limit, strict=strict)
 
     if jobs.empty:
         return []

@@ -38,7 +38,7 @@ class MatchingRegressionTests(unittest.TestCase):
         ])
 
     def test_refresh_reloads_jobs_only_once_the_list_is_old_enough(self):
-        with patch.object(matching, "_load_reference_jobs_uncached", return_value=self.jobs) as load:
+        with patch.object(matching, "_load_reference_jobs_uncached", return_value=(self.jobs, frozenset(self.jobs["job_id"]))) as load:
             matching.load_reference_jobs()
             # Just loaded: a refresh keeps the list, so repeated presses don't reload.
             self.assertFalse(matching.expire_stale_reference_jobs(min_age_seconds=60))
@@ -164,16 +164,13 @@ class MatchingRegressionTests(unittest.TestCase):
         self.assertIn("critical_skill_missing", analyst["match_breakdown"]["failed_fit_now_rules"])
         self.assertEqual(analyst["match_breakdown"]["penalty"], 0.1)
         empty = self.run_match([])
-        # Without a single held skill no job passes Fit-Now; the job closest to
-        # the resume is still listed, marked as such, and its rules are not overridden.
-        self.assertEqual(len(empty["fit_now_matches"]), 1)
-        closest = empty["fit_now_matches"][0]
-        self.assertTrue(closest["fit_now_fallback"])
-        self.assertEqual(closest["match_breakdown"]["match_category"], "Low Match")
-        self.assertIn("required_skill_coverage", closest["match_breakdown"]["failed_fit_now_rules"])
+        # Without a single held skill no job passes Fit-Now or comes near it,
+        # so nothing is listed as the closest job.
+        self.assertEqual(empty["fit_now_matches"], [])
+        self.assertIsNone(empty["debug_summary"]["fit_now_fallback"])
         # Without a single held skill there is no learnable path, so nothing is forced into Aspiration.
         self.assertEqual(empty["aspiration_matches"], [])
-        self.assertEqual(empty["debug_summary"]["low_match_count"], 1)
+        self.assertEqual(empty["debug_summary"]["low_match_count"], 2)
 
     def test_text_route_extracts_resume_skills_when_ids_are_missing(self):
         with patch.object(matching, "extract_skills_from_text", return_value=[{
@@ -346,6 +343,23 @@ class MatchingRegressionTests(unittest.TestCase):
                 matching.load_reference_jobs()
             self.assertEqual(load.call_count, 2)
         self.assertEqual(matching.get_jobs_source(), "supabase_internal_and_employer_jobs")
+
+    def test_a_newly_listed_job_drops_the_cached_job_list(self):
+        matching.clear_reference_jobs_cache()
+        known = list(self.jobs["job_id"])
+        with patch.object(matching, "load_internal_jobs_dataframe", return_value=self.jobs) as load:
+            # Nothing cached yet: nothing to drop.
+            self.assertFalse(matching.refresh_jobs_cache_for(known + ["EMP-new"]))
+            matching.load_reference_jobs()
+            # The listing shows only jobs already scored: the cache is kept.
+            self.assertFalse(matching.refresh_jobs_cache_for(known))
+            matching.load_reference_jobs()
+            self.assertEqual(load.call_count, 1)
+            # A new employer post is in the listing: the next run reloads.
+            self.assertTrue(matching.refresh_jobs_cache_for([*known, "EMP-new"]))
+            matching.load_reference_jobs()
+            self.assertEqual(load.call_count, 2)
+        matching.clear_reference_jobs_cache()
 
     def test_repeat_resume_upload_skips_parsing(self):
         with patch.object(matching, "extract_resume_text", return_value="Python developer " * 10) as parse:

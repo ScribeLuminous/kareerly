@@ -1,7 +1,12 @@
-import { prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } from '../lib/evidence';
+import { inferRelatedSkills, prepareEvidenceUpload, type EvidenceUploadRecord, type EvidenceType } from '../lib/evidence';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { validateResumeFile } from '../lib/fileUtils';
+import { normalizeEducationLevel } from '../lib/education';
+import { deleteEvidence, loadEvidence, saveEvidence } from '../lib/evidenceStore';
+import { checkCredentialLink } from '../lib/credentialLinks';
+import type { CredentialLinkCheck } from '../lib/evidence';
+import { assessmentDueState, formatAssessmentDue, loadAssessments, type CandidateAssessment } from '../lib/assessmentApi';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
@@ -14,15 +19,17 @@ import { assessSavedResume, extractionWarnings, staleResumeMessage, type SavedRe
 import type { GapGroupBy, GapScope, ParsedResume, ResumeSummary, SelectedSkill, SkillGapReport, SurveyAnswers } from '../types';
 import ExternalJobAnalysisPage from './ExternalJobAnalysisPage';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
-import { classifySkillCategory, cleanSkillDisplayName, skillRecordKey, type ClaimedSkill, externalJobUrl, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
+import { FIT_NOW_MATCH_PERCENT, classifySkillCategory, cleanSkillDisplayName, skillRecordKey, type ClaimedSkill, externalJobUrl, knownValue, type MatchView, SKILL_PROGRESS_PERCENT, defaultSurveyAnswers, deriveEvidenceCategory, extractResumeText, extractSkillsFromResume, getCourseSkillLabels, getInitials, getPreferenceLabel, legacySalaryLabels, loadProfilePreferences, mapApplicationRow, mapAvailableJob, mapCourse, mapModelGap, mapModelMatch, mapRunGap, mapRunLearningRecommendation, mapRunMatch, mergeSupabaseJobDetails, normalizeSavedResumeAnalysis, normalizeSkill, orderByBackendRank, persistMatchVote, salaryLabels, setupLabels, type ApplicationStatus, type CourseCompletion, type DashboardApplication, type DashboardCourse, type DashboardGap, type DashboardJob, type DashboardPage, type EvidencePrefill, type JobApplicationRow, type MessageRequestState, type ResumeAnalyzeResponse, type SkillProgressRecord, type SkillProgressStatus, type ToastType, type UiLanguage, withExtractedEducation, withMatchVote } from './candidate/model';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDownload } from '@fortawesome/free-solid-svg-icons';
 import { Banner, ConfirmDialog, DESKTOP_QUERY, Modal, ToastRegion, useMediaQuery, type ToastState } from '../components/ui';
 import { CandidateShell } from './candidate/Shell';
 import { PAGE_PATHS, pageFromPath } from './candidate/routes';
 import { HomePage, type HomeGap, type NextStep, type ProfileTask } from './candidate/HomePage';
 import { JobMatchesPage } from './candidate/MatchesPage';
 import { SkillGapsPage, type GapLoadStatus } from './candidate/SkillGapsPage';
-import { appliedJobRefs, gapJobInputs, gapRecordKey, openAndCompleted, provenSkills, requirementSummary, savedJobRefs, taxonomyIdOf, withoutProof, withSkillProof } from './candidate/skillGaps';
+import { appliedJobRefs, gapJobInputs, gapRecordKey, openAndCompleted, provenSkills, requirementSummary, savedJobRefs, taxonomyIdOf, proofOf, withoutProof, withSkillProof } from './candidate/skillGaps';
 import { ResumeSummaryCard, type ResumeSummaryVote } from './candidate/ResumeSummaryCard';
 import { ApplicationsPage } from './candidate/ApplicationsPage';
 import { PreferencesPage } from './candidate/PreferencesPage';
@@ -33,6 +40,7 @@ import { MessagesPage } from './candidate/MessagesPage';
 import { JobDetailModal } from './candidate/JobDetailModal';
 import { EvidenceFormModal, ResumeUpdateModal } from './candidate/modals';
 import { ReportConversationModal } from '../components/ReportConversationModal';
+import { isMatchRunStale } from '../lib/matchFreshness';
 import './candidate-dashboard-v5.css';
 
 type DashboardProps = {
@@ -142,6 +150,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+  const [evidenceMode, setEvidenceMode] = useState<'file' | 'link' | undefined>(undefined);
   const [editingEvidence, setEditingEvidence] = useState<EvidenceUploadRecord | null>(null);
   const [deleteEvidenceTarget, setDeleteEvidenceTarget] = useState<EvidenceUploadRecord | null>(null);
   const [resumeStep, setResumeStep] = useState<'upload' | 'decision' | 'review'>('upload');
@@ -161,7 +170,10 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   // Set while the modal re-scans the stored original, so saving reuses that file.
   const reusedResumeFile = useRef<ExistingResumeFile | null>(null);
   const [resumePreview, setResumePreview] = useState<{ url: string; name: string; mimeType: string; local: boolean } | null>(null);
-  const [docxPreviewResult, setDocxPreviewResult] = useState<{ url: string; html: string; error: string } | null>(null);
+  // What loading the previewed file produced, keyed by its URL: rendered HTML for
+  // Word, an in-memory blob for PDF (also the source of the Download link), or why it failed.
+  const [docxPreviewResult, setDocxPreviewResult] = useState<{ url: string; html: string; blobUrl: string; error: string } | null>(null);
+  const [resumePreviewAttempt, setResumePreviewAttempt] = useState(0);
   const [candidatePublicId, setCandidatePublicId] = useState('');
   // Gap skills the candidate says they already have. Saved to the account
   // (with skill progress and course completions, below) so they stay in the
@@ -251,34 +263,50 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   }, [state.resume?.skills]);
 
   useEffect(() => {
-    const isDocx = resumePreview
-      && (resumePreview.mimeType.includes('wordprocessingml') || resumePreview.name.toLowerCase().endsWith('.docx'));
-
-    if (!isDocx || !resumePreview) return;
+    if (!resumePreview) return;
+    const name = resumePreview.name.toLowerCase();
+    const isPdf = resumePreview.mimeType.includes('pdf') || name.endsWith('.pdf');
+    const isDocx = resumePreview.mimeType.includes('wordprocessingml') || name.endsWith('.docx');
+    if (!isPdf && !isDocx) return;
 
     let cancelled = false;
+    let blobUrl = '';
+    const failed = (message: string) => {
+      if (!cancelled) setDocxPreviewResult({ url: resumePreview.url, html: '', blobUrl: '', error: message });
+    };
 
-    const renderDocx = async () => {
+    const loadPreview = async () => {
       try {
         const response = await fetch(resumePreview.url);
-        if (!response.ok) throw new Error(`Unable to load resume (${response.status}).`);
+        if (!response.ok) {
+          failed(response.status === 400 || response.status === 404
+            ? 'This resume file could not be found. It may have been moved or deleted; upload it again.'
+            : `The resume could not be loaded (error ${response.status}). Please try again.`);
+          return;
+        }
+        if (isPdf) {
+          const blob = await response.blob();
+          blobUrl = URL.createObjectURL(blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' }));
+          if (cancelled) { URL.revokeObjectURL(blobUrl); return; }
+          setDocxPreviewResult({ url: resumePreview.url, html: '', blobUrl, error: '' });
+          return;
+        }
         // Loaded only when a Word resume is previewed; it is large.
         const mammoth = await import('mammoth');
         const result = await mammoth.convertToHtml({ arrayBuffer: await response.arrayBuffer() });
-        if (!cancelled) setDocxPreviewResult({ url: resumePreview.url, html: DOMPurify.sanitize(result.value), error: '' });
+        if (!cancelled) setDocxPreviewResult({ url: resumePreview.url, html: DOMPurify.sanitize(result.value), blobUrl: '', error: '' });
       } catch (error) {
-        console.warn('Unable to render DOCX resume preview:', error);
-        if (!cancelled) setDocxPreviewResult({
-          url: resumePreview.url,
-          html: '',
-          error: 'Unable to preview this DOCX file. Please try again or upload a new copy.',
-        });
+        console.warn('Unable to load resume preview:', error);
+        failed('Unable to preview this resume. Please try again, download it, or upload a new copy.');
       }
     };
 
-    void renderDocx();
-    return () => { cancelled = true; };
-  }, [resumePreview]);
+    void loadPreview();
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [resumePreview, resumePreviewAttempt]);
 
   // Load the account's claimed skills, skill progress and course completions.
   // Data an older version kept in this browser is imported once: it fills in
@@ -390,7 +418,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         address: data.address || current.address,
         birthday: data.birthday || current.birthday,
         location: data.location || current.location,
-        highestEducationalAttainment: data.highest_educational_attainment || current.highestEducationalAttainment,
+        highestEducationalAttainment: normalizeEducationLevel(data.highest_educational_attainment) || current.highestEducationalAttainment,
         degreeProgram: data.degree_program || current.degreeProgram,
         schoolUniversity: data.school_university || current.schoolUniversity,
         yearGraduated: data.year_graduated || current.yearGraduated,
@@ -490,6 +518,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   // so instead of showing an empty "upload your resume" state.
   const [restoreError, setRestoreError] = useState('');
   const [restoreAttempt, setRestoreAttempt] = useState(0);
+  // When the restored matches were saved, and the last one checked against the job list.
+  const [restoredRunAt, setRestoredRunAt] = useState<string | null>(null);
+  const checkedRunAt = useRef<string | null>(null);
   useEffect(() => {
     const userId = currentUser.id;
     const restoreKey = `${userId}:${restoreAttempt}`;
@@ -503,6 +534,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const latestResume = await loadLatestResume({ userId });
       if (cancelled) return;
       let savedPreferences: SurveyAnswers | null = null;
+      let savedRunAt: string | null = null;
 
       if (latestResume) {
         setSavedResumeFileName(latestResume.original_filename || 'Saved resume');
@@ -533,15 +565,22 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
             if (cancelled) return;
             if (savedRun) setMatchResults(savedRun.results);
             savedPreferences = savedRun?.preferences || null;
+            savedRunAt = savedRun?.savedAt || null;
           }
         }
       }
 
-      if (hasSessionPreferences) return;
+      if (hasSessionPreferences) {
+        setRestoredRunAt(savedRunAt);
+        return;
+      }
       // Preferences saved without a match run (no resume yet, or a failed
       // refresh) only live on the candidate profile.
       if (!savedPreferences) savedPreferences = await loadProfilePreferences(userId);
-      if (!cancelled && savedPreferences) setSurveyAnswers(savedPreferences);
+      if (cancelled) return;
+      if (savedPreferences) setSurveyAnswers(savedPreferences);
+      // Set with the preferences, so a stale run is refreshed with them, not the defaults.
+      setRestoredRunAt(savedRunAt);
     })().catch((error: unknown) => {
       if (cancelled) return;
       console.warn('Unable to restore the saved resume and matches:', error);
@@ -604,12 +643,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const loadKareers = useCallback(async (silent = false) => {
     if (!silent) setIsLoadingKareers(true);
-    setKareersError(null);
     try {
       const response = await fetchAvailableJobs();
       setAvailableJobs(response.results || []);
+      setKareersError(null);
     } catch (error) {
-      if (!silent) setAvailableJobs([]);
+      // A failed background refresh keeps the jobs already on screen.
+      if (silent) return;
+      setAvailableJobs([]);
       setKareersError(error instanceof Error ? error.message : 'Unable to load jobs.');
     } finally {
       if (!silent) setIsLoadingKareers(false);
@@ -850,6 +891,28 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     // against the current gaps too.
   }, [gapReport, progressLoad.status]);
 
+  // Candidate Assessments waiting for an answer, so the Home page can show what is due and when.
+  const [pendingAssessments, setPendingAssessments] = useState<CandidateAssessment[]>([]);
+  const assessmentApplicationKey = applications.map((application) => application.id).join(',');
+  useEffect(() => {
+    if (!assessmentApplicationKey) return undefined;
+    let mounted = true;
+    const refresh = () => void loadAssessments(assessmentApplicationKey.split(','))
+      .then((rows) => { if (mounted) setPendingAssessments(Array.from(rows.values()).filter((item) => item.status === 'pending')); })
+      .catch(() => { if (mounted) setPendingAssessments([]); });
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, [assessmentApplicationKey]);
+  const assessmentsDue = useMemo(() => [...pendingAssessments]
+    .sort((a, b) => Date.parse(a.dueAt || '9999') - Date.parse(b.dueAt || '9999'))
+    .map((item) => ({
+      applicationId: item.applicationId,
+      jobTitle: applications.find((application) => application.id === item.applicationId)?.jobTitle || 'your application',
+      dueText: item.dueAt ? formatAssessmentDue(item.dueAt) : 'soon',
+      overdue: assessmentDueState(item) === 'overdue',
+    })), [pendingAssessments, applications]);
+
   const recentApplications = useMemo(
     () =>
       applications
@@ -864,15 +927,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   })), [openGapSkills]);
 
   const unreadNotificationCount = useMemo(() => notifications.filter((row) => !row.read_at).length, [notifications]);
-  const loadNotifications = useCallback(async () => {
-    if (!currentUser.id) return;
+  const loadNotifications = useCallback(async (): Promise<CandidateNotification[] | null> => {
+    if (!currentUser.id) return null;
     try {
       const rows = await listCandidateNotifications();
       setNotifications(rows);
       setNotificationLoadStatus('ready');
+      return rows;
     } catch (notificationError) {
       console.warn('Unable to load notifications:', notificationError);
       setNotificationLoadStatus('error');
+      return null;
     }
   }, [currentUser.id]);
 
@@ -1097,6 +1162,22 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     toastTimeoutRef.current = window.setTimeout(() => setToast(null), action ? 6000 : 4000);
   };
 
+  // Certificates and proof saved to the account. A record added while this loads is kept.
+  useEffect(() => {
+    const userId = currentUser.id;
+    if (!userId) return;
+    let cancelled = false;
+    loadEvidence(userId).then((saved) => {
+      if (cancelled) return;
+      setEvidenceRecords((current) => [...current.filter((record) => !saved.some((item) => item.id === record.id)), ...saved]);
+    }, (error: unknown) => {
+      if (cancelled) return;
+      console.warn('Unable to load certificates:', error);
+      showToast(error instanceof Error ? error.message : 'Unable to load your saved certificates.', 'danger');
+    });
+    return () => { cancelled = true; };
+  }, [currentUser.id]);
+
   const showInlineNotice = (message: string, type: ToastType = 'success') => {
     setInlineNotice({ message, type });
   };
@@ -1114,19 +1195,25 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
-  const markAllNotificationsRead = async () => {
-    if (notifications.length === 0 || unreadNotificationCount === 0) return;
-    const previous = notifications;
+  const markAllNotificationsRead = async ({ quiet = false } = {}) => {
     const readAt = new Date().toISOString();
     setNotifications((current) => current.map((row) => row.read_at ? row : { ...row, read_at: readAt }));
     try {
       await markAllCandidateNotificationsRead();
-      showToast('All notifications marked as read.', 'success');
+      if (!quiet) showToast('All notifications marked as read.', 'success');
     } catch (notificationError) {
       console.warn('Unable to persist all notification read states:', notificationError);
-      setNotifications(previous);
+      // Show the server's state again so the badge is honest.
+      void loadNotifications();
       showToast('Unable to mark all notifications as read.', 'danger');
     }
+  };
+
+  // Opening the bell counts as reading: refresh first so newly arrived
+  // notifications are included, then save them all as read.
+  const openNotifications = async () => {
+    const rows = await loadNotifications();
+    if (rows?.some((row) => !row.read_at)) await markAllNotificationsRead({ quiet: true });
   };
 
   const applyAnalysisResult = (data: ResumeAnalyzeResponse) => {
@@ -1143,7 +1230,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     if (extractedEducation) {
       setProfileForm((current) => ({
         ...current,
-        highestEducationalAttainment: extractedEducation.highest_educational_attainment || current.highestEducationalAttainment,
+        highestEducationalAttainment: normalizeEducationLevel(extractedEducation.highest_educational_attainment) || current.highestEducationalAttainment,
         degreeProgram: extractedEducation.degree_program || current.degreeProgram,
         schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
         yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
@@ -1232,6 +1319,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       target_role: answers.role,
       role_level: answers.role,
       work_setup: getPreferenceLabel(setupLabels, answers.setup),
+      // Sent as its key; the backend reads keys and labels alike.
+      employment_type: answers.employmentType || '',
       salary_expectation: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
       skill_to_develop: answers.skill,
     };
@@ -1253,6 +1342,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         role_level: preferencePayload.role_level,
         role: preferencePayload.target_role,
         work_setup: preferencePayload.work_setup,
+        employment_type: preferencePayload.employment_type,
         salary_expectation: preferencePayload.salary_expectation,
         skill_to_develop: preferencePayload.skill_to_develop,
         // The saved region choice; "current" also sends the profile location so
@@ -1265,18 +1355,28 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setMatchResults(result);
     if (currentUser?.id) {
       // The confirmed skills are what External Job Analysis and other features read.
-      const { error: deleteSkillsError } = await supabase.from('user_skills').delete().eq('user_id', currentUser.id);
-      const { error: insertSkillsError } = deleteSkillsError
-        ? { error: deleteSkillsError }
+      // The new set is written before the old one is removed, so a failed write
+      // leaves the skills the candidate already had.
+      const { data: previousSkills, error: readSkillsError } = await supabase.from('user_skills').select('id').eq('user_id', currentUser.id);
+      const { data: insertedSkills, error: insertSkillsError } = readSkillsError
+        ? { data: null, error: readSkillsError }
         : confirmedSkillRecords.length === 0
-        ? { error: null }
+        ? { data: [], error: null }
         : await supabase.from('user_skills').insert(confirmedSkillRecords.map((skill) => ({
           user_id: currentUser.id,
           skill_id: skill.skill_id,
           skill_name: skill.skill_name,
           confidence: 1,
           source: 'confirmed_skill',
-        })));
+        }))).select('id');
+      if (!insertSkillsError) {
+        const keep = new Set((insertedSkills || []).map((row) => String(row.id)));
+        const staleIds = (previousSkills || []).map((row) => String(row.id)).filter((id) => !keep.has(id));
+        if (staleIds.length > 0) {
+          const { error: deleteSkillsError } = await supabase.from('user_skills').delete().in('id', staleIds).eq('user_id', currentUser.id);
+          if (deleteSkillsError) console.warn('Unable to remove replaced skills:', deleteSkillsError);
+        }
+      }
       if (insertSkillsError) {
         console.warn('Unable to save confirmed skills:', insertSkillsError);
         showToast("Matches refreshed, but your skills weren't saved.", 'warn');
@@ -1305,6 +1405,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         preferredIndustry: getCareerAreaLabel(answers.industry),
         targetRole: answers.role,
         preferredWorkSetup: getPreferenceLabel(setupLabels, answers.setup),
+        preferredEmploymentType: answers.employmentType || '',
         expectedSalary: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
         skillToDevelop: answers.skill,
         preferredLocationScope: normalizeLocationScope(answers.locationScope),
@@ -1701,32 +1802,6 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const prefs = state.surveyAnswers || defaultSurveyAnswers;
       const data = withExtractedEducation(await analyzeResume(resumeFileToAnalyze, prefs));
       setResumeAnalyzeData(data);
-      const extractedEducation = data.candidate_profile?.education?.[0];
-      if (extractedEducation) {
-        setProfileForm((current) => ({
-          ...current,
-          highestEducationalAttainment: extractedEducation.highest_educational_attainment || current.highestEducationalAttainment,
-          degreeProgram: extractedEducation.degree_program || current.degreeProgram,
-          schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
-          yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
-        }));
-        // Saving the extracted education is a convenience; a failure here must not
-        // discard the resume analysis the user is waiting on.
-        await saveCandidateAccountSettings({
-          full_name: accountIdentity.name,
-          email: accountIdentity.email,
-          birthday: profileForm.birthday,
-          location: profileForm.location,
-          contact_number: profileForm.contactNumber,
-          address: profileForm.address,
-          highest_educational_attainment: extractedEducation.highest_educational_attainment || profileForm.highestEducationalAttainment,
-          degree_program: extractedEducation.degree_program || profileForm.degreeProgram,
-          school_university: extractedEducation.school_university || profileForm.schoolUniversity,
-          year_graduated: extractedEducation.year_graduated || profileForm.yearGraduated,
-        }).catch((saveError) => {
-          console.warn('Unable to save extracted education to account settings', saveError);
-        });
-      }
       const extracted = extractSkillsFromResume(data.parsedResume);
       const baseline = extracted.length > 0 ? extracted : skillNames;
       const unique = Array.from(new Set(baseline.map((item) => item.trim()).filter(Boolean)));
@@ -1760,6 +1835,37 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
+
+  // The education a resume carries is applied to the profile only once that
+  // resume is saved, so analysing a file the candidate then abandons (or that
+  // fails to save) leaves their existing profile as it was.
+  const applyExtractedEducation = async (data: ResumeAnalyzeResponse) => {
+    const extractedEducation = data.candidate_profile?.education?.[0];
+    if (!extractedEducation) return;
+    setProfileForm((current) => ({
+      ...current,
+      highestEducationalAttainment: normalizeEducationLevel(extractedEducation.highest_educational_attainment) || current.highestEducationalAttainment,
+      degreeProgram: extractedEducation.degree_program || current.degreeProgram,
+      schoolUniversity: extractedEducation.school_university || current.schoolUniversity,
+      yearGraduated: extractedEducation.year_graduated || current.yearGraduated,
+    }));
+    // A failure here must not discard the resume that was just saved.
+    await saveCandidateAccountSettings({
+      full_name: accountIdentity.name,
+      email: accountIdentity.email,
+      birthday: profileForm.birthday,
+      location: profileForm.location,
+      contact_number: profileForm.contactNumber,
+      address: profileForm.address,
+      highest_educational_attainment: normalizeEducationLevel(extractedEducation.highest_educational_attainment) || profileForm.highestEducationalAttainment,
+      degree_program: extractedEducation.degree_program || profileForm.degreeProgram,
+      school_university: extractedEducation.school_university || profileForm.schoolUniversity,
+      year_graduated: extractedEducation.year_graduated || profileForm.yearGraduated,
+    }).catch((saveError) => {
+      console.warn('Unable to save extracted education to account settings', saveError);
+    });
+  };
+
   const savePendingResume = async (): Promise<string | null> => {
     if (!resumeUploadFile || !resumeAnalyzeData) return null;
     if (savedResumeUploadId.current) return savedResumeUploadId.current;
@@ -1776,6 +1882,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       savedResumeUploadId.current = resumeId;
       setSavedResumeFileName(resumeUploadFile.name);
       setSavedResumeFile(null);
+      await applyExtractedEducation(resumeAnalyzeData);
     }
     // A resume analyzed just now was read by the live reader; uploading it again
     // would not change anything, so it is never flagged as an older analysis.
@@ -1889,13 +1996,27 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     category: string;
     notes?: string;
     file: File | null;
+    credentialUrl?: string;
+    credentialCheck?: CredentialLinkCheck;
   }) => {
     const existingRecord = draft.id ? evidenceRecords.find((record) => record.id === draft.id) : undefined;
-    draft = { ...draft, category: draft.category.trim() || deriveEvidenceCategory(draft.relatedSkill, gaps, evidenceCourseTarget) };
     setLoading(true);
     setError(null);
     try {
+      // A certificate link is checked first (Credly badges are looked up), so a made-up link never becomes proof.
+      if (draft.credentialUrl?.trim()) {
+        draft = { ...draft, credentialCheck: await checkCredentialLink(draft.credentialUrl.trim(), accountIdentity.name) };
+      }
+      // The related skill is optional: when left empty it is read from the title, notes and badge details. It can be edited on the record afterwards.
+      if (!draft.relatedSkill.trim()) {
+        const vocabulary = [...skillNames, ...gaps.map((gap) => gap.skill), ...courses.flatMap(getCourseSkillLabels)];
+        const details = [draft.title, draft.notes, draft.credentialCheck?.badge_name, draft.credentialCheck?.issuer].filter(Boolean).join(' ');
+        draft = { ...draft, relatedSkill: inferRelatedSkills(details, vocabulary) };
+      }
+      draft = { ...draft, category: draft.category.trim() || deriveEvidenceCategory(draft.relatedSkill, gaps, evidenceCourseTarget) };
       const nextRecord = await prepareEvidenceUpload(draft, existingRecord, validateCertificateFile);
+      // Saved to the account first, so a failure keeps the form open and nothing looks saved that is not.
+      if (currentUser.id) await saveEvidence(currentUser.id, nextRecord);
 
       setEvidenceRecords((current) => {
         if (draft.id) {
@@ -1906,7 +2027,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
       setEvidenceModalOpen(false);
       setEditingEvidence(null);
-      const proof = { fileName: nextRecord.fileName, uploadedAt: nextRecord.uploadedAt };
+      const proof = proofOf(nextRecord);
       // The skills this proof covers count toward matches from now on.
       let refreshed = false;
       if (evidenceCourseTarget) {
@@ -1926,10 +2047,11 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           : await commitSkillProgress(withSkillProof(current, nextRecord.relatedSkill, proof));
       } else {
         // Proof added from the profile names its skill; editing proof replaces what the old file proved.
-        const withoutOld = existingRecord ? withoutProof(skillProgressRef.current, { fileName: existingRecord.fileName, uploadedAt: existingRecord.uploadedAt }) : skillProgressRef.current;
+        const withoutOld = existingRecord ? withoutProof(skillProgressRef.current, proofOf(existingRecord)) : skillProgressRef.current;
         refreshed = await commitSkillProgress(withSkillProof(withoutOld, nextRecord.relatedSkill, proof));
       }
-      showToast(refreshed ? 'Proof uploaded and pending verification. Your matches now count this skill.' : 'Proof saved. Pending verification.', 'success');
+      const saved = nextRecord.status === 'Verified' ? 'Proof saved and verified.' : 'Proof saved. Pending verification.';
+      showToast(refreshed ? `${saved} Your matches now count this skill.` : saved, 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to validate certificate upload.';
       setError(message);
@@ -1939,7 +2061,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
-  const openEvidenceUploadModal = () => {
+  const openEvidenceUploadModal = (mode?: 'file' | 'link') => {
+    setEvidenceMode(mode);
     setEvidenceSkillTarget(null);
     setEvidenceCourseTarget(null);
     setEditingEvidence(null);
@@ -2079,6 +2202,20 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
   };
 
+  // Saved matches are a snapshot: a job posted or edited after they ran is
+  // missing from them. Re-run once, with the saved resume, skills (claims
+  // loaded first, since a run re-saves the skill list) and preferences.
+  useEffect(() => {
+    if (!restoredRunAt || checkedRunAt.current === restoredRunAt) return;
+    if (state.isLoading || progressLoad.status === 'loading' || availableJobs.length === 0) return;
+    checkedRunAt.current = restoredRunAt;
+    if (progressLoad.status !== 'ready' || !isMatchRunStale(restoredRunAt, availableJobs)) return;
+    void refreshMatchesWithSkills(skillNames, claimedSkillsRef.current).then((refreshed) => {
+      if (refreshed) showToast('New jobs were posted, so your matches were refreshed.', 'success');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per restored run
+  }, [restoredRunAt, availableJobs, progressLoad.status, state.isLoading]);
+
   const unclaimSkill = (key: string) => {
     const latestClaimed = claimedSkillsRef.current;
     const item = latestClaimed[key];
@@ -2143,14 +2280,17 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   } : undefined;
 
   const handleViewEvidence = (record: EvidenceUploadRecord) => {
-    if (!record.fileUrl) {
-      showToast('No viewable PDF is attached to this evidence record yet.', 'warn');
+    const target = record.fileUrl || record.credentialUrl;
+    if (!target) {
+      showToast(record.fileName
+        ? 'The PDF itself is not kept after you leave this page. Add a certificate link or upload it again to open it.'
+        : 'No viewable PDF or link is attached to this evidence record yet.', 'warn');
       return;
     }
-    window.open(record.fileUrl, '_blank', 'noopener,noreferrer');
+    window.open(target, '_blank', 'noopener,noreferrer');
   };
 
-  const handleReplaceEvidence = (record: EvidenceUploadRecord) => {
+  const handleEditEvidence = (record: EvidenceUploadRecord) => {
     setEditingEvidence(record);
     setEvidenceModalOpen(true);
   };
@@ -2159,21 +2299,27 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setDeleteEvidenceTarget(record);
   };
 
-  const confirmDeleteEvidence = () => {
+  const confirmDeleteEvidence = async () => {
     if (!deleteEvidenceTarget) return;
-    const deleted = deleteEvidenceTarget;
-    setEvidenceRecords((current) => current.filter((record) => record.id !== deleted.id));
+    const target = deleteEvidenceTarget;
+    try {
+      if (currentUser.id) await deleteEvidence(currentUser.id, target.id);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to delete this certificate.', 'danger');
+      return;
+    }
+    setEvidenceRecords((current) => current.filter((record) => record.id !== target.id));
     setDeleteEvidenceTarget(null);
     // Courses it proved stay taken, without proof.
     setCourseCompletions((current) => {
-      const proved = Object.keys(current).filter((id) => current[id].evidenceId === deleted.id);
+      const proved = Object.keys(current).filter((id) => current[id].evidenceId === target.id);
       if (proved.length === 0) return current;
       const next = { ...current };
       proved.forEach((id) => { next[id] = { status: 'completed', markedAt: current[id].markedAt }; });
       return next;
     });
     // The skills it proved stop counting toward matches.
-    void commitSkillProgress(withoutProof(skillProgressRef.current, { fileName: deleted.fileName, uploadedAt: deleted.uploadedAt })).then((refreshed) => {
+    void commitSkillProgress(withoutProof(skillProgressRef.current, proofOf(target))).then((refreshed) => {
       showToast(refreshed ? 'Evidence record deleted. Your matches were refreshed.' : 'Evidence record deleted.', 'success');
     });
   };
@@ -2252,7 +2398,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       notifications={notifications}
       notificationStatus={notificationLoadStatus}
       unreadCount={unreadNotificationCount}
-      onOpenNotifications={() => void loadNotifications()}
+      onOpenNotifications={() => void openNotifications()}
       onMarkAllRead={() => void markAllNotificationsRead()}
       onMarkRead={(row) => void markNotificationRead(row)}
       applicationsBadge={pendingMessageCount}
@@ -2335,6 +2481,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           activeApplicationCount={applications.filter((app) => ['Pending', 'Shortlisted', 'Interviewing'].includes(app.status)).length}
           onOpenApplications={() => setActivePage('applications')}
           profileTasks={profileTasks}
+          assessmentsDue={assessmentsDue}
         />
       )}
 
@@ -2398,6 +2545,32 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           isDesktop={isDesktop}
           hasMatches={matchesExist}
           onOpenMatches={() => setActivePage('jobmatches')}
+          onOpenJob={(gapJob) => {
+            const knownJob = jobs.find((item) => item.id === gapJob.job_id && item.jobSource === gapJob.job_source)
+              || kareersList.find((item) => item.id === gapJob.job_id && item.jobSource === gapJob.job_source);
+            // selectJob fills in the rest from the job details request.
+            const job: DashboardJob = knownJob || {
+              id: gapJob.job_id,
+              jobSource: gapJob.job_source,
+              title: gapJob.title,
+              company: gapJob.company,
+              location: 'Location not specified',
+              setup: 'Work setup not specified',
+              employmentType: 'Not specified',
+              salary: 'Salary not specified',
+              matchScore: Math.round(gapJob.match_pct),
+              hasMatchScore: true,
+              matchCategory: gapJob.match_type === 'fit_now' ? 'fit-now' : 'aspiration',
+              sourceType: 'internal',
+              requiredSkills: [],
+              preferredSkills: [],
+              responsibilities: [],
+              matchedSkills: [],
+              missingSkills: [],
+              explanation: '',
+            };
+            void selectJob(job, true);
+          }}
         />
       )}
 
@@ -2441,7 +2614,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
               salary: 'Salary not specified',
               matchScore: application.matchScore ?? 0,
               hasMatchScore: application.matchScore !== null,
-              matchCategory: (application.matchScore ?? 0) >= 60 ? 'fit-now' : 'aspiration',
+              matchCategory: (application.matchScore ?? 0) >= FIT_NOW_MATCH_PERCENT ? 'fit-now' : 'aspiration',
               sourceType: 'internal',
               requiredSkills: [],
               preferredSkills: [],
@@ -2537,7 +2710,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           onViewResume={() => void viewSavedResume()}
           onOpenEvidenceUpload={openEvidenceUploadModal}
           onViewEvidence={handleViewEvidence}
-          onReplaceEvidence={handleReplaceEvidence}
+          onEditEvidence={handleEditEvidence}
           onDeleteEvidence={handleDeleteEvidence}
           onProfileChange={setProfileForm}
           onIdentityChange={setAccountIdentity}
@@ -2604,6 +2777,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           loading={state.isLoading}
           record={editingEvidence}
           prefill={evidencePrefill}
+          mode={editingEvidence || evidencePrefill ? undefined : evidenceMode}
           onClose={() => {
             setEvidenceModalOpen(false);
             setEditingEvidence(null);
@@ -2675,27 +2849,49 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         />
       )}
 
-      {resumePreview && (
-        <Modal title="Resume" subtitle={<span className="[overflow-wrap:anywhere]">{resumePreview.name}</span>} onClose={closeResumePreview} size="lg" fullOnMobile>
-          {resumePreview.mimeType.includes('pdf') || resumePreview.name.toLowerCase().endsWith('.pdf') ? (
-            <iframe className="cand-resume-preview-frame" src={resumePreview.url} title={`Preview of ${resumePreview.name}`} />
-          ) : resumePreview.mimeType.includes('msword') || resumePreview.name.toLowerCase().endsWith('.doc') ? (
-            <Banner>
-              Older Word (.doc) files can't be previewed here. <a className="k-link" href={resumePreview.url} download={resumePreview.name}>Download the resume</a>
-            </Banner>
-          ) : docxPreviewResult?.url !== resumePreview.url ? (
-            <p className="k-secondary py-8 text-center" role="status">Preparing preview…</p>
-          ) : docxPreviewResult.error ? (
-            <Banner>{docxPreviewResult.error}</Banner>
-          ) : (
-            <div
-              className="cand-resume-preview-document"
-              aria-label={`Preview of ${resumePreview.name}`}
-              dangerouslySetInnerHTML={{ __html: docxPreviewResult.html }}
-            />
-          )}
-        </Modal>
-      )}
+      {resumePreview && (() => {
+        const previewName = resumePreview.name.toLowerCase();
+        const isPdf = resumePreview.mimeType.includes('pdf') || previewName.endsWith('.pdf');
+        const isLegacyWord = resumePreview.mimeType.includes('msword') || previewName.endsWith('.doc');
+        const loaded = docxPreviewResult?.url === resumePreview.url ? docxPreviewResult : null;
+        const downloadHref = loaded?.blobUrl || resumePreview.url;
+        const downloadLink = <a className="k-link" href={downloadHref} download={resumePreview.name}>Download the resume</a>;
+        return (
+          <Modal
+            title="Resume"
+            subtitle={<span className="[overflow-wrap:anywhere]">{resumePreview.name}</span>}
+            onClose={closeResumePreview}
+            size="xl"
+            fullOnMobile
+            fill
+            headerActions={(
+              <a className="k-btn k-btn-secondary k-btn-sm" href={downloadHref} download={resumePreview.name}>
+                <FontAwesomeIcon icon={faDownload} aria-hidden="true" />Download
+              </a>
+            )}
+          >
+            {isLegacyWord ? (
+              <Banner>Older Word (.doc) files can't be previewed here. {downloadLink}</Banner>
+            ) : !loaded ? (
+              <p className="k-secondary py-8 text-center" role="status">Preparing preview…</p>
+            ) : loaded.error ? (
+              <Banner>
+                {loaded.error}{' '}
+                <button className="k-link" type="button" onClick={() => { setDocxPreviewResult(null); setResumePreviewAttempt((attempt) => attempt + 1); }}>Try again</button>
+                {' · '}{downloadLink}
+              </Banner>
+            ) : isPdf ? (
+              <iframe className="cand-resume-preview-frame" src={loaded.blobUrl} title={`Preview of ${resumePreview.name}`} />
+            ) : (
+              <div
+                className="cand-resume-preview-document"
+                aria-label={`Preview of ${resumePreview.name}`}
+                dangerouslySetInnerHTML={{ __html: loaded.html }}
+              />
+            )}
+          </Modal>
+        );
+      })()}
 
       <ToastRegion toast={toast} onClose={() => setToast(null)} />
     </CandidateShell>

@@ -85,7 +85,7 @@ JOBS_SOURCE = "reference_jobs.csv"
 # is called; the bi-encoder vector cache keys on job text, so it follows along.
 JOBS_CACHE_SECONDS = float(os.getenv("KAREERLY_JOBS_CACHE_SECONDS", "300"))
 _jobs_cache_lock = threading.Lock()
-_jobs_cache: Dict[str, Any] = {"jobs": None, "source": JOBS_SOURCE, "loaded_at": 0.0}
+_jobs_cache: Dict[str, Any] = {"jobs": None, "source": JOBS_SOURCE, "loaded_at": 0.0, "job_ids": frozenset()}
 # "Refresh matches" reloads job posts only when the list is at least this old,
 # so repeated presses don't reload every job from Supabase each time.
 JOBS_REFRESH_MIN_SECONDS = float(os.getenv("KAREERLY_JOBS_REFRESH_MIN_SECONDS", "30"))
@@ -612,8 +612,8 @@ def load_reference_jobs() -> pd.DataFrame:
     with _jobs_cache_lock:
         cached = _jobs_cache["jobs"]
         if cached is None or time.monotonic() - _jobs_cache["loaded_at"] >= JOBS_CACHE_SECONDS:
-            cached = _load_reference_jobs_uncached()
-            _jobs_cache.update(jobs=cached, source=JOBS_SOURCE, loaded_at=time.monotonic())
+            cached, job_ids = _load_reference_jobs_uncached()
+            _jobs_cache.update(jobs=cached, source=JOBS_SOURCE, loaded_at=time.monotonic(), job_ids=job_ids)
         JOBS_SOURCE = _jobs_cache["source"]
     # Callers add columns to the frame, so never hand out the cached object itself.
     return cached.copy()
@@ -621,7 +621,7 @@ def load_reference_jobs() -> pd.DataFrame:
 
 def clear_reference_jobs_cache() -> None:
     with _jobs_cache_lock:
-        _jobs_cache.update(jobs=None, loaded_at=0.0)
+        _jobs_cache.update(jobs=None, loaded_at=0.0, job_ids=frozenset())
 
 
 def expire_stale_reference_jobs(min_age_seconds: Optional[float] = None) -> bool:
@@ -634,11 +634,28 @@ def expire_stale_reference_jobs(min_age_seconds: Optional[float] = None) -> bool
     with _jobs_cache_lock:
         if _jobs_cache["jobs"] is None or time.monotonic() - _jobs_cache["loaded_at"] < min_age:
             return False
-        _jobs_cache.update(jobs=None, loaded_at=0.0)
+        _jobs_cache.update(jobs=None, loaded_at=0.0, job_ids=frozenset())
         return True
 
 
-def _load_reference_jobs_uncached() -> pd.DataFrame:
+def refresh_jobs_cache_for(job_ids: Sequence[Any]) -> bool:
+    """Drop the cached catalogue when it lacks a job the job listing just read.
+
+    The listing reads Supabase directly, so a new employer post shows there at
+    once. Without this, matching would skip that post until the cache expires,
+    and a candidate refreshing their matches right after it was posted would
+    not see it. True when the cache was dropped.
+    """
+    listed = {clean_text(value) for value in job_ids} - {""}
+    with _jobs_cache_lock:
+        if _jobs_cache["jobs"] is None or listed <= _jobs_cache["job_ids"]:
+            return False
+        _jobs_cache.update(jobs=None, loaded_at=0.0, job_ids=frozenset())
+        return True
+
+
+def _load_reference_jobs_uncached() -> Tuple[pd.DataFrame, frozenset]:
+    """The prepared catalogue and the IDs of every job read, prepared or not."""
     global JOBS_SOURCE
 
     supabase_jobs = load_internal_jobs_dataframe()
@@ -648,7 +665,9 @@ def _load_reference_jobs_uncached() -> pd.DataFrame:
     else:
         jobs = safe_read_csv(REFERENCE_JOBS_PATH)
         JOBS_SOURCE = "reference_jobs.csv"
-    return prepare_jobs(jobs)
+    # Every ID read, so a job prepare_jobs drops never looks new to refresh_jobs_cache_for.
+    job_ids = frozenset(clean_text(value) for value in jobs["job_id"]) if "job_id" in jobs.columns else frozenset()
+    return prepare_jobs(jobs), job_ids
 
 
 def prepare_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
@@ -1297,6 +1316,20 @@ def _work_setups(value: str) -> set:
     return {"hybrid"} if "hybrid" in setups and "remote" in setups and "/" not in value else setups
 
 
+EMPLOYMENT_TYPE_PATTERNS = {
+    "full-time": r"\bfull[\s-]?time\b|\bpermanent\b|\bregular\b",
+    "part-time": r"\bpart[\s-]?time\b",
+    "contract": r"\bcontract|\bfreelance|\bproject[\s-]based\b",
+    "temporary": r"\btemporary\b|\btemp\b|\bseasonal\b",
+    "internship": r"\bintern(ship)?s?\b|\bojt\b|\bon[\s-]the[\s-]job training\b",
+}
+
+
+def _employment_types(value: str) -> set:
+    """Canonical employment types named in a preference answer or a job's employment type."""
+    return {name for name, pattern in EMPLOYMENT_TYPE_PATTERNS.items() if re.search(pattern, value)}
+
+
 def _salary_range(value: str) -> Optional[Tuple[float, float]]:
     """Monthly PHP range from "35-50", "50+", "PHP 50,001 - more" or "₱18,000-₱30,000"."""
     numbers = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", value.replace(",", ""))]
@@ -1314,7 +1347,7 @@ def _salary_range(value: str) -> Optional[Tuple[float, float]]:
 # saved as labels or typed differently in the dashboard.
 UNRESTRICTED_PREFERENCE_VALUES = {"", "any", "anything", "flexible", "unsure", "none", "n/a", "na", "open"}
 UNRESTRICTED_PREFERENCE_PHRASES = ("not sure", "no preference", "flexible", "open to any", "any setup", "any level")
-PREFERENCE_FIELDS = ("role_level", "work_setup", "salary_expectation")
+PREFERENCE_FIELDS = ("role_level", "work_setup", "salary_expectation", "employment_type")
 
 
 def is_unrestricted_preference(value: Any) -> bool:
@@ -1329,7 +1362,7 @@ def is_unrestricted_preference(value: Any) -> bool:
 
 
 def unrestricted_preference_fields(preferences: Dict[str, Any]) -> List[str]:
-    """The Step 3 fields (job level, work setup, salary) the candidate left open."""
+    """The Step 3 fields (job level, work setup, salary, employment type) the candidate left open."""
     preferences = preferences or {}
     return [field for field in PREFERENCE_FIELDS if is_unrestricted_preference(preferences.get(field, ""))]
 
@@ -1366,6 +1399,7 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
     role_level = normalize_for_match(preferences.get("role_level", ""))
     target_role = normalize_for_match(preferences.get("target_role", ""))
     work_setup = normalize_for_match(preferences.get("work_setup", ""))
+    employment_type = normalize_for_match(preferences.get("employment_type", ""))
     salary_expectation = normalize_for_match(preferences.get("salary_expectation", ""))
     skill_to_develop = normalize_for_match(preferences.get("skill_to_develop", ""))
 
@@ -1405,6 +1439,12 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
         if (wanted_setups and wanted_setups & _work_setups(work_type)) or (not wanted_setups and work_setup in work_type):
             score += 0.20
 
+    if specified(employment_type):
+        total += 0.10
+        wanted_types = _employment_types(employment_type)
+        if wanted_types & _employment_types(normalize_for_match(job.get("employment_type", ""))):
+            score += 0.10
+
     if specified(salary_expectation):
         total += 0.10
         # Parsed from the raw text: normalizing turns "PHP 60,000" into "php 60 000",
@@ -1429,7 +1469,7 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
 
 
 def preference_conflicts(job: Dict[str, Any], preferences: Dict[str, Any]) -> List[str]:
-    """Step 3 answers the job clearly fails: "job_level", "work_setup", "salary".
+    """Step 3 answers the job clearly fails: "job_level", "work_setup", "salary", "employment_type".
 
     Only a stated answer and a job that states the same field can conflict:
     "I'm not sure" or "Flexible" answers, and jobs with no level, setup or
@@ -1456,6 +1496,12 @@ def preference_conflicts(job: Dict[str, Any], preferences: Dict[str, Any]) -> Li
         job_salary = _salary_range(clean_text(job.get("salary_range_monthly_php", "")).lower())
         if wanted_salary and job_salary and not (wanted_salary[0] <= job_salary[1] and job_salary[0] <= wanted_salary[1]):
             conflicts.append("salary")
+    employment_type = normalize_for_match(preferences.get("employment_type", ""))
+    if employment_type and not is_unrestricted_preference(employment_type):
+        wanted_types = _employment_types(employment_type)
+        job_types = _employment_types(normalize_for_match(job.get("employment_type", "")))
+        if wanted_types and job_types and not wanted_types & job_types:
+            conflicts.append("employment_type")
     return conflicts
 
 
@@ -1495,7 +1541,7 @@ def apply_region_filter(
 
     Only Fit-Now and Aspiration jobs are counted. Excluded jobs are never
     brought back to fill a short list; only an empty Fit-Now list may take
-    one, the job closest to the resume (closest_fit_now_job).
+    one job near Fit-Now (closest_fit_now_job).
     """
     counts = {REGION_IN_REGION: 0, REGION_REMOTE: 0, REGION_OUT: 0, REGION_UNKNOWN: 0}
     if not region.active:
@@ -1512,23 +1558,65 @@ def apply_region_filter(
     return kept, counts
 
 
-PREFERENCE_NOUNS = {"job_level": "level", "work_setup": "work setup", "salary": "salary"}
+PREFERENCE_NOUNS = {"job_level": "level", "work_setup": "work setup", "salary": "salary",
+                    "employment_type": "employment type"}
 
 
-def preference_mismatch_notes(job: Dict[str, Any], preferences: Dict[str, Any], conflicts: List[str]) -> List[str]:
-    """Each conflicting Step 3 answer in words: what the job offers, what was chosen."""
+def preference_mismatches(job: Dict[str, Any], preferences: Dict[str, Any], conflicts: List[str]) -> List[Dict[str, str]]:
+    """Each conflicting Step 3 answer: the field, what the job offers, what was chosen.
+
+    Shown on every job that has one, Fit-Now included: a mismatch never moves
+    or hides a job; the candidate sees it and decides.
+    """
     preferences = preferences or {}
     values = {
         "job_level": (job.get("experience_level_required", ""), preferences.get("role_level", "")),
         "work_setup": (job.get("work_type", ""), preferences.get("work_setup", "")),
         "salary": (job.get("salary_range_monthly_php", ""),
                    preferences.get("salary_expectation", "") or preferences.get("salary", "")),
+        "employment_type": (job.get("employment_type", ""), preferences.get("employment_type", "")),
     }
-    notes = []
+    mismatches = []
     for name in conflicts:
         offered, chosen = (clean_text(value) for value in values[name])
-        notes.append(f"{PREFERENCE_NOUNS[name]} {offered} (you chose {chosen})")
-    return notes
+        mismatches.append({"field": name, "label": PREFERENCE_NOUNS[name], "job_value": offered,
+                           "chosen_value": preference_display(name, chosen)})
+    return mismatches
+
+
+PREFERENCE_DISPLAY = {
+    "job_level": {"entry": "Entry-level", "mid": "Mid-level", "senior": "Senior"},
+    "work_setup": {"remote": "Remote", "hybrid": "Hybrid", "onsite": "On-site"},
+    "employment_type": {"full-time": "Full-time", "part-time": "Part-time", "contract": "Contract",
+                        "temporary": "Temporary", "internship": "Internship"},
+}
+
+
+def preference_display(name: str, value: str) -> str:
+    """A Step 3 answer as the candidate would say it, whether it was sent as a
+    key ("entry", "hybrid", "15-35") or as an option label."""
+    if name == "job_level":
+        return PREFERENCE_DISPLAY[name].get(_role_level(normalize_for_match(value)), value)
+    if name == "work_setup":
+        setups = _work_setups(normalize_for_match(value))
+        return PREFERENCE_DISPLAY[name][next(iter(setups))] if len(setups) == 1 else value
+    if name == "employment_type":
+        types = _employment_types(normalize_for_match(value))
+        return PREFERENCE_DISPLAY[name][next(iter(types))] if len(types) == 1 else value
+    if name == "salary":
+        salary = _salary_range(value.lower())
+        if salary:
+            low, high = salary
+            if high == float("inf"):
+                return f"PHP {low:,.0f}+"
+            return f"PHP {low:,.0f}" if low == high else f"PHP {low:,.0f} - {high:,.0f}"
+    return value
+
+
+def preference_mismatch_notes(job: Dict[str, Any], preferences: Dict[str, Any], conflicts: List[str]) -> List[str]:
+    """Each conflicting Step 3 answer in words: what the job offers, what was chosen."""
+    return [f"{item['label']} {item['job_value']} (you chose {item['chosen_value']})"
+            for item in preference_mismatches(job, preferences, conflicts)]
 
 
 def compute_evidence_strength(resume_text: str, matched_skills: List[str]) -> float:
@@ -2021,6 +2109,7 @@ def _score_single_normalized_job(
         # and the same in words ("On-site work (you chose remote)").
         "preference_conflicts": conflicts,
         "preference_mismatch_notes": preference_mismatch_notes(job, preferences, conflicts),
+        "preference_mismatches": preference_mismatches(job, preferences, conflicts),
         "location": job.get("location", ""), "work_type": job.get("work_type", ""),
         "employment_type": job.get("employment_type", ""), "experience_level_required": job.get("experience_level_required", ""),
         "salary_range_monthly_php": job.get("salary_range_monthly_php", ""), "job_description": job.get("job_description", ""),
@@ -2137,18 +2226,39 @@ def catalog_status(state: str, jobs_available: int = 0, source: str = "") -> Dic
     return {"state": state, "jobs_available": int(jobs_available), "source": source, "message": messages[state]}
 
 
+# A job one step short of Fit-Now: related to the resume, no must-have skill
+# missing, and at least half of its required skills held (2 of the usual 3).
+# Below that, "closest to your resume" would overstate the fit.
+FIT_NOW_FALLBACK_MIN_REQUIRED_COVERAGE = 0.5
+
+
+def is_near_fit_now(item: Dict[str, Any]) -> bool:
+    """True for a Fit-Now job, or a Low Match job that only misses the coverage rule by a little.
+
+    An Aspiration job is never near Fit-Now: it stays in the Aspiration list.
+    """
+    if item["match_type"] == FIT_NOW:
+        return True
+    if item["match_type"] != LOW_MATCH:
+        return False
+    failed = set(item["match_breakdown"]["failed_fit_now_rules"])
+    coverage = float(item.get("required_skill_coverage") or 0.0)
+    return failed == {"required_skill_coverage"} and coverage >= FIT_NOW_FALLBACK_MIN_REQUIRED_COVERAGE
+
+
 def closest_fit_now_job(
     results: List[Dict[str, Any]], region: RegionPreference, preferences: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
     """The job to list as Fit-Now when no allowed job passes the Fit-Now rules.
 
-    Fit-Now reads the resume, so the candidate always sees the job closest to
-    it, whatever the Step 3 answers: one that passes every Fit-Now rule first,
-    then one the region filter allows, then the highest match score (resume
-    similarity and skill coverage only), required coverage and similarity.
-    It is marked ``fit_now_fallback``; its failed rules stay in the breakdown
-    and its explanation says it is the closest rather than a full Fit-Now.
-    None only when there is no job to compare.
+    Only a job near Fit-Now (is_near_fit_now) can be listed: a full Fit-Now job
+    outside the chosen region first, then a related job that holds at least
+    half of its required skills. Among those, one the region filter allows
+    comes first, then the highest match score, required coverage and
+    similarity. It is marked ``fit_now_fallback``; its failed rules stay in
+    the breakdown and its explanation says it is the closest rather than a
+    full Fit-Now. None when no job is near Fit-Now: the Fit-Now list is then
+    empty, and Aspiration jobs stay in the Aspiration list.
     """
     def region_status(item: Dict[str, Any]) -> str:
         return job_region_status(item, region, preferences) if region.active else ""
@@ -2162,10 +2272,11 @@ def closest_fit_now_job(
             float(item.get("semantic_score") or 0.0),
         )
 
-    if not results:
+    candidates = [item for item in results if is_near_fit_now(item)]
+    if not candidates:
         return None
     # Highest key first; the job ID breaks a full tie so the choice is stable.
-    best = sorted(sorted(results, key=lambda item: str(item.get("job_id", ""))), key=key, reverse=True)[0]
+    best = sorted(sorted(candidates, key=lambda item: str(item.get("job_id", ""))), key=key, reverse=True)[0]
     closest = best["match_type"] != FIT_NOW
     status = region_status(best)
     item = {**best, "match_type": FIT_NOW, "match_category": FIT_NOW, "aspiration_gap_skills": [],
@@ -2283,8 +2394,8 @@ def match_text_to_jobs(
     # Fit-Now by match score, Aspiration by preference alignment then match
     # score (shared tie-breakers after). An active feedback model adds a
     # bounded adjustment to that primary key; see learning/ranking_model.py.
-    # Aspiration may be empty; Fit-Now is never empty while there are jobs
-    # (see closest_fit_now_job). Nothing else is moved between lists.
+    # Either list may be empty. An empty Fit-Now list takes at most one job
+    # near Fit-Now (see closest_fit_now_job). Nothing else is moved between lists.
     # The region filter narrows which jobs may be recommended before the top
     # Fit-Now and Aspiration jobs are chosen; it never changes a score.
     eligible_results, region_counts = apply_region_filter(results, region, preferences)
@@ -2298,8 +2409,8 @@ def match_text_to_jobs(
     }
     ranker = active_ranker()
     fit_now_pool = [item for item in eligible_results if item["match_type"] == FIT_NOW]
-    # Fit-Now reads the resume: whatever the Step 3 answers, it lists at least
-    # the job closest to the resume. That job is not listed again as Aspiration.
+    # Fit-Now reads the resume: whatever the Step 3 answers, an empty list takes
+    # the job nearest to Fit-Now, if one is close. It is never an Aspiration job.
     fallback = None if fit_now_pool else closest_fit_now_job(results, region, preferences)
     if fallback:
         fit_now_pool = [fallback]
@@ -2435,11 +2546,11 @@ def match_text_to_jobs(
                 "min_cosine": thresholds.fit_now_min_semantic,
                 "min_skill_coverage": thresholds.fit_now_min_required_coverage,
                 "max_critical_missing_skills": 0,
-                "fallback": "when no allowed job passes, the job closest to the resume is listed, whatever the preferences",
+                "fallback": "when no allowed job passes, a job near Fit-Now (related, 50% or more of its required skills held, no must-have missing) is listed, whatever the preferences; Aspiration jobs stay Aspiration",
             },
             "aspiration_rules": {
                 "basis": "Step 3 career area",
-                "ordering": "preference alignment (job level, work setup, salary fit first), then match score",
+                "ordering": "preference alignment (job level, work setup, salary, employment type fit first), then match score",
                 "resume_role": "score, order and skill gaps only",
                 # Used only when no career area is known for the candidate or the job.
                 "fallback_min_cosine": thresholds.aspiration_min_semantic,
