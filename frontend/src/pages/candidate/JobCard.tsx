@@ -35,7 +35,7 @@ export function JobCard({ job, applicationStatus, isSaved, selected = false, onO
   const Heading = headingLevel;
   const showApply = job.sourceType === 'internal' && !applicationStatus && onApply;
   return (
-    <article className="k-job-card" aria-current={selected ? 'true' : undefined}>
+    <article className="k-job-card k-match-card" aria-current={selected ? 'true' : undefined}>
       <div className="k-job-top">
         <div className="min-w-0">
           <Heading className="k-item-title">

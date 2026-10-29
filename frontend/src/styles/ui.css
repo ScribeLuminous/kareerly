@@ -1746,23 +1746,24 @@ a.k-row:hover {
   gap: 10px;
 }
 
-/* One job per row; from tablet up the row lays its parts out across the width. */
+/* Candidate match cards: one job per row; from tablet up the row lays its parts out across the width.
+   Scoped to .k-match-card so cards with other parts (employer jobs, templates) keep the stacked layout. */
 @media (min-width: 768px) {
-  .k-job-grid .k-job-card {
+  .k-job-grid .k-match-card {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 84px auto;
     align-items: center;
     column-gap: 20px;
   }
 
-  .k-job-grid .k-job-top {
+  .k-job-grid .k-match-card .k-job-top {
     display: contents;
   }
 
-  .k-job-grid .k-job-top > div:first-child { grid-column: 1; grid-row: 1; }
-  .k-job-grid .k-job-card > .k-job-fit { grid-column: 2; grid-row: 1; }
-  .k-job-grid .k-job-score { grid-column: 3; grid-row: 1; align-items: center; }
-  .k-job-grid .k-job-card-actions { grid-column: 4; grid-row: 1; margin-top: 0; justify-content: flex-end; }
+  .k-job-grid .k-match-card .k-job-top > div:first-child { grid-column: 1; grid-row: 1; }
+  .k-job-grid .k-match-card > .k-job-fit { grid-column: 2; grid-row: 1; }
+  .k-job-grid .k-match-card .k-job-score { grid-column: 3; grid-row: 1; align-items: center; }
+  .k-job-grid .k-match-card .k-job-card-actions { grid-column: 4; grid-row: 1; margin-top: 0; justify-content: flex-end; }
 }
 
 .k-job-card {
