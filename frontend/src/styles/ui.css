@@ -1018,6 +1018,13 @@ a.k-row:hover {
   pointer-events: none;
 }
 
+/* The field has its own clear button; hide the browser's. */
+.k-search .k-input::-webkit-search-cancel-button,
+.k-search .k-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .k-search .k-input {
   padding-left: 38px;
   padding-right: 40px;
