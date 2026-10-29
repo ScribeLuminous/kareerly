@@ -86,6 +86,9 @@ JOBS_SOURCE = "reference_jobs.csv"
 JOBS_CACHE_SECONDS = float(os.getenv("KAREERLY_JOBS_CACHE_SECONDS", "300"))
 _jobs_cache_lock = threading.Lock()
 _jobs_cache: Dict[str, Any] = {"jobs": None, "source": JOBS_SOURCE, "loaded_at": 0.0, "job_ids": frozenset()}
+# "Refresh matches" reloads job posts only when the list is at least this old,
+# so repeated presses don't reload every job from Supabase each time.
+JOBS_REFRESH_MIN_SECONDS = float(os.getenv("KAREERLY_JOBS_REFRESH_MIN_SECONDS", "30"))
 
 # Fit-Now / Aspiration thresholds and score weights live in match_scoring.py.
 
@@ -619,6 +622,20 @@ def load_reference_jobs() -> pd.DataFrame:
 def clear_reference_jobs_cache() -> None:
     with _jobs_cache_lock:
         _jobs_cache.update(jobs=None, loaded_at=0.0, job_ids=frozenset())
+
+
+def expire_stale_reference_jobs(min_age_seconds: Optional[float] = None) -> bool:
+    """Drop the cached job list if it is older than ``min_age_seconds``; True when dropped.
+
+    The next load_reference_jobs() then reads current posts, so new or edited
+    jobs show up without waiting for JOBS_CACHE_SECONDS.
+    """
+    min_age = JOBS_REFRESH_MIN_SECONDS if min_age_seconds is None else min_age_seconds
+    with _jobs_cache_lock:
+        if _jobs_cache["jobs"] is None or time.monotonic() - _jobs_cache["loaded_at"] < min_age:
+            return False
+        _jobs_cache.update(jobs=None, loaded_at=0.0, job_ids=frozenset())
+        return True
 
 
 def refresh_jobs_cache_for(job_ids: Sequence[Any]) -> bool:

@@ -60,6 +60,8 @@ class RunMatchesRequest(BaseModel):
     # Skills shown in Step 2 that the candidate removed; never credited from the resume.
     removed_skill_ids: Optional[List[str]] = None
     preferences: MatchPreferences = Field(default_factory=MatchPreferences)
+    # "Refresh matches": reload job posts instead of using the cached list.
+    refresh_jobs: bool = False
 
 
 class ExternalJobAnalysisRequest(BaseModel):

@@ -37,6 +37,17 @@ class MatchingRegressionTests(unittest.TestCase):
                 work_type="Remote", salary_range_monthly_php="", job_text_for_matching=""),
         ])
 
+    def test_refresh_reloads_jobs_only_once_the_list_is_old_enough(self):
+        with patch.object(matching, "_load_reference_jobs_uncached", return_value=(self.jobs, frozenset(self.jobs["job_id"]))) as load:
+            matching.load_reference_jobs()
+            # Just loaded: a refresh keeps the list, so repeated presses don't reload.
+            self.assertFalse(matching.expire_stale_reference_jobs(min_age_seconds=60))
+            matching.load_reference_jobs()
+            self.assertEqual(load.call_count, 1)
+            self.assertTrue(matching.expire_stale_reference_jobs(min_age_seconds=0))
+            matching.load_reference_jobs()
+            self.assertEqual(load.call_count, 2)
+
     def run_match(self, skills, scores=(0.7, 0.9), preferences=None):
         with patch.object(matching, "load_internal_jobs_dataframe", return_value=self.jobs), \
              patch.object(matching, "score_jobs", return_value=np.asarray(scores)), \

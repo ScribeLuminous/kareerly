@@ -38,7 +38,7 @@ from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.skill_variants import load_skill_variants
 from .services.ph_regions import region_name, region_options, resolve_single_region, regions_in_location
-from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, job_level_thresholds, learning_by_skill_for, refresh_jobs_cache_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, expire_stale_reference_jobs, job_level_thresholds, learning_by_skill_for, refresh_jobs_cache_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
 from .services.education import normalize_education_level
@@ -2357,6 +2357,8 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
     candidate_skill_ids = _normalize_candidate_skill_ids(payload.candidate_skill_ids)
     confirmed_skill_records = _normalize_confirmed_skills_payload(payload.confirmed_skills)
     removed_skill_ids = _normalize_removed_skill_ids(payload.removed_skill_ids)
+    if payload.refresh_jobs:
+        expire_stale_reference_jobs()
 
     try:
         # Onboarding and the dashboard both land here; the upload route uses
