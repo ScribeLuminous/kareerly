@@ -34,9 +34,14 @@ create table if not exists public.candidate_profiles (
 alter table public.candidate_profiles add column if not exists public_id text;
 alter table public.candidate_profiles add column if not exists preferred_location_scope text;
 alter table public.candidate_profiles add column if not exists preferred_region text;
+alter table public.candidate_profiles add column if not exists preferred_employment_type text;
 alter table public.candidate_profiles drop constraint if exists candidate_profiles_preferred_location_scope_check;
 alter table public.candidate_profiles add constraint candidate_profiles_preferred_location_scope_check
   check (preferred_location_scope is null or preferred_location_scope in ('anywhere', 'current', 'region'));
+alter table public.candidate_profiles drop constraint if exists candidate_profiles_preferred_employment_type_check;
+alter table public.candidate_profiles add constraint candidate_profiles_preferred_employment_type_check
+  check (preferred_employment_type is null
+    or preferred_employment_type in ('full-time', 'part-time', 'contract', 'temporary', 'internship', 'any'));
 create unique index if not exists candidate_profiles_public_id_key on public.candidate_profiles(public_id) where public_id is not null;
 
 create table if not exists public.employer_profiles (
@@ -430,7 +435,7 @@ create policy "Anyone can read active employer job posts" on public.employer_job
 );
 
 drop policy if exists "Employers can manage own job posts" on public.employer_job_posts;
-create policy "Employers can manage own job posts" on public.employer_job_posts for all using (
+create policy "Employers can manage own job posts" on public.employer_job_posts for all to authenticated using (
   exists (
     select 1
     from public.employer_profiles
@@ -886,3 +891,35 @@ begin
   end loop;
 end;
 $$;
+
+-- ---------- 5. Anonymous clients reach only public catalogs ----------
+declare
+  public_read_tables constant text[] := array[
+    'internal_jobs', 'employer_job_posts', 'learning_resources',
+    'skill_taxonomy_additions', 'reference_datasets', 'psoc_groups',
+    'esco_occupations', 'esco_skills', 'esco_occupation_skills',
+    'psoc_esco_occupation_links', 'kareerly_skill_esco_links'
+  ];
+  tbl record;
+begin
+  for tbl in
+    select c.relname, c.relkind
+    from pg_class c
+    where c.relnamespace = 'public'::regnamespace
+      and c.relkind in ('r', 'p', 'v', 'm', 'f')
+  loop
+    execute format('revoke all on public.%I from anon', tbl.relname);
+    if tbl.relname = any (public_read_tables) then
+      execute format('grant select on public.%I to anon', tbl.relname);
+    end if;
+  end loop;
+end;
+$$;
+
+revoke all on all sequences in schema public from anon;
+
+-- Tables and sequences created later start without anon access; a migration
+-- that needs a public table grants SELECT explicitly (and adds it to the list
+-- above and to supabase/tests/anon_table_access_tests.sql).
+alter default privileges in schema public revoke all on tables from anon;
+alter default privileges in schema public revoke all on sequences from anon;

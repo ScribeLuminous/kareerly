@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import datetime
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
@@ -26,6 +27,7 @@ SUPABASE_ANON_KEY = (
     or "sb_publishable_Z77o41ry4seJ7opnojlbaA_aiNUFo6B"
 )
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
+logger = logging.getLogger(__name__)
 
 SKILL_ID_ALIASES = {
     "SK_PYTHON": "SK001",
@@ -177,7 +179,13 @@ def _format_salary_range(record: dict[str, Any]) -> str:
     return ""
 
 
-def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool = True) -> list[dict[str, Any]]:
+class JobCatalogueIncomplete(RuntimeError):
+    """A page of jobs could not be read, so the list would be cut short."""
+
+
+def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool = True, strict: bool = False) -> list[dict[str, Any]]:
+    """Active jobs from one table, newest first. With strict, a page that cannot
+    be read raises JobCatalogueIncomplete instead of returning the rows so far."""
     safe_limit = max(1, min(limit, 5000))
     common_fields = "job_id,category_code,category_name,job_subcategory,job_title,company_name,location,work_setup,employment_type,job_level,salary_min_php,salary_max_php,job_description,required_skills,preferred_skills,must_have_skill_ids,posting_status,created_at,updated_at"
     selected_fields = f"{common_fields},source_platform,source_url,source_note" if table_name == "internal_jobs" else f"{common_fields},application_deadline"
@@ -192,7 +200,9 @@ def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool =
             {
                 "select": selected_fields,
                 "posting_status": "in.(active,open)",
-                "order": "created_at.desc",
+                # Bulk imports give many jobs the same created_at. job_id breaks
+                # the tie so pages never overlap or skip jobs.
+                "order": "created_at.desc,job_id.asc",
                 "limit": str(current_limit),
                 "offset": str(len(rows)),
             }
@@ -207,25 +217,33 @@ def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool =
             method="GET",
         )
 
-        try:
-            with urlopen(request, timeout=12) as response:
-                payload = response.read().decode("utf-8")
-        except HTTPError as error:
-            # During rollout the API can start before the nullable column's
-            # migration has run. Keep the job catalogue available in that case.
-            detail = error.read().decode("utf-8", errors="replace") if error.code == 400 else ""
-            if include_psoc and error.code == 400 and "psoc_unit_code" in detail:
-                return _fetch_jobs_table(table_name, limit, include_psoc=False)
-            return rows
-        except (URLError, TimeoutError, OSError):
-            return rows
-
-        try:
-            data = json.loads(payload)
-        except json.JSONDecodeError:
-            return rows
-
+        payload = None
+        for attempt in range(2):
+            try:
+                with urlopen(request, timeout=20) as response:
+                    payload = response.read().decode("utf-8")
+                break
+            except HTTPError as error:
+                # During rollout the API can start before the nullable column's
+                # migration has run. Keep the job catalogue available in that case.
+                detail = error.read().decode("utf-8", errors="replace") if error.code == 400 else ""
+                if include_psoc and error.code == 400 and "psoc_unit_code" in detail:
+                    return _fetch_jobs_table(table_name, limit, include_psoc=False, strict=strict)
+                if error.code < 500 or attempt:
+                    break
+            except (URLError, TimeoutError, OSError):
+                if attempt:
+                    break
+        data = None
+        if payload is not None:
+            try:
+                data = json.loads(payload)
+            except json.JSONDecodeError:
+                data = None
         if not isinstance(data, list):
+            logger.warning("Stopped loading %s after %d rows: a page request failed", table_name, len(rows))
+            if strict:
+                raise JobCatalogueIncomplete(f"{table_name} stopped after {len(rows)} rows")
             return rows
 
         page = [item for item in data if isinstance(item, dict)]
@@ -239,17 +257,44 @@ def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool =
     return rows
 
 
-def fetch_internal_jobs(limit: int = 500) -> list[dict[str, Any]]:
-    return _fetch_jobs_table("internal_jobs", limit=limit)
+def catalogue_counts() -> dict[str, Any]:
+    """What the job list can see: the Supabase project, and per table the open
+    jobs readable with the public key, or the error Supabase returned."""
+    tables: dict[str, Any] = {}
+    for table_name in ("internal_jobs", "employer_job_posts"):
+        query = urlencode({"select": "job_id", "posting_status": "in.(active,open)"})
+        request = Request(
+            f"{SUPABASE_URL}/rest/v1/{table_name}?{query}",
+            headers={
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+                "Prefer": "count=exact",
+                "Range": "0-0",
+            },
+            method="GET",
+        )
+        try:
+            with urlopen(request, timeout=20) as response:
+                total = (response.headers.get("Content-Range") or "").rpartition("/")[2]
+            tables[table_name] = {"open_jobs": int(total) if total.isdigit() else None}
+        except HTTPError as error:
+            tables[table_name] = {"error": f"HTTP {error.code}: {error.read().decode('utf-8', errors='replace')[:300]}"}
+        except (URLError, TimeoutError, OSError) as error:
+            tables[table_name] = {"error": f"{type(error).__name__}: {error}"[:300]}
+    return {"supabase_host": urlparse(SUPABASE_URL).netloc, "tables": tables}
 
 
-def fetch_employer_jobs(limit: int = 500) -> list[dict[str, Any]]:
-    return _fetch_jobs_table("employer_job_posts", limit=limit)
+def fetch_internal_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[str, Any]]:
+    return _fetch_jobs_table("internal_jobs", limit=limit, strict=strict)
 
 
-def load_internal_jobs_dataframe(limit: int = 5000) -> pd.DataFrame:
-    internal_rows = [_map_internal_job(record) for record in fetch_internal_jobs(limit=limit)]
-    employer_rows = [_map_employer_job(record) for record in fetch_employer_jobs(limit=limit)]
+def fetch_employer_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[str, Any]]:
+    return _fetch_jobs_table("employer_job_posts", limit=limit, strict=strict)
+
+
+def load_internal_jobs_dataframe(limit: int = 5000, *, strict: bool = False) -> pd.DataFrame:
+    internal_rows = [_map_internal_job(record) for record in fetch_internal_jobs(limit=limit, strict=strict)]
+    employer_rows = [_map_employer_job(record) for record in fetch_employer_jobs(limit=limit, strict=strict)]
     rows = [*internal_rows, *employer_rows]
     rows = [row for row in rows if row.get("job_id") and row.get("job_title")]
     if not rows:

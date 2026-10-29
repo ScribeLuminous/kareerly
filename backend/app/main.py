@@ -32,15 +32,17 @@ from pydantic import BaseModel, ValidationError
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, ResumeSummaryRequest, RunMatchesRequest, SkillGapsRequest
 from .services.admin_stats import summarize_match_feedback
 from .services.job_matcher import list_available_jobs
-from .services.supabase_jobs import split_job_sections
+from .services.supabase_jobs import catalogue_counts, split_job_sections
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.skill_variants import load_skill_variants
 from .services.ph_regions import region_name, region_options, resolve_single_region, regions_in_location
-from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, expire_stale_reference_jobs, job_level_thresholds, learning_by_skill_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, expire_stale_reference_jobs, job_level_thresholds, learning_by_skill_for, refresh_jobs_cache_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
+from .services.education import normalize_education_level
+from .services.credential_links import check_credential_link
 from .services.skill_gap_aggregation import build_gap_report
 from .services.resume_analyzer import analyze_resume_bytes
 from .services.doc_conversion import antiword_path, soffice_path
@@ -66,12 +68,9 @@ load_dotenv(BACKEND_DIR / ".env")
 
 app = FastAPI(title="Kareerly ML Backend")
 
-# Reported by /api/health/config. The website expects this exact value
-# (EXPECTED_BACKEND_VERSION in frontend/src/lib/backendVersion.ts) and warns
-# that results may be out of date when the running backend reports another
-# one or none. Change both together whenever matching, reports or learning
-# recommendations change in a way the website relies on; a test checks they match.
-BACKEND_VERSION = "2026.10.14-job-level-cap"
+# Reported by /api/health/config and /api/health/jobs, so a site admin can see
+# which backend code is deployed. Change it when the backend changes.
+BACKEND_VERSION = "2026.10.29-employer-posts-read"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -586,6 +585,19 @@ def get_employer_application_documents(application_id: str, authorization: Annot
     return {"available": True, "reason": None, "resume": resume, "portfolio_url": shared.get("portfolio_url") or None}
 
 
+class CredentialLinkRequest(BaseModel):
+    url: str
+    candidate_name: str = ""
+
+
+@app.post("/api/candidate/credential-links/check")
+def check_candidate_credential_link(payload: CredentialLinkRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    """Cleans up a certificate link and, for Credly, checks that it is a real badge (services/credential_links.py)."""
+    if not _get_authenticated_user_id(authorization):
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    return check_credential_link(payload.url, candidate_name=payload.candidate_name)
+
+
 def _set_application_stage_as_employer(authorization: str | None, application_id: str, status: str, reason: Optional[str]) -> object | None:
     """Change the stage through ``set_application_stage`` with the employer's own
     token, so the audit trail records who decided. Returns None when the
@@ -798,7 +810,8 @@ def _require_candidate_settings(user_id: str) -> dict:
         "full_name": f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip(), "email": user.get("email"),
         "public_id": candidate.get("public_id"), "birthday": metadata.get("birthday"), "location": candidate.get("location") or metadata.get("location"),
         "contact_number": metadata.get("contact_number"), "address": metadata.get("address"),
-        "highest_educational_attainment": metadata.get("highest_educational_attainment"),
+        # Older accounts may hold free text; it reads back as the matching list entry.
+        "highest_educational_attainment": normalize_education_level(metadata.get("highest_educational_attainment")),
         "degree_program": metadata.get("degree_program"),
         "school_university": metadata.get("school_university"),
         "year_graduated": metadata.get("year_graduated"),
@@ -826,6 +839,11 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
         raise HTTPException(status_code=400, detail="Full name is required.")
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
         raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    attainment_input = str(values.get("highest_educational_attainment") or "").strip()
+    attainment = normalize_education_level(attainment_input)
+    if attainment_input and not attainment:
+        raise HTTPException(status_code=400, detail="Choose your highest educational attainment from the list.")
+    values["highest_educational_attainment"] = attainment
     name_parts = full_name.split(None, 1)
     first_name, last_name = name_parts[0], name_parts[1] if len(name_parts) > 1 else ""
     profile_body = {"first_name": first_name, "last_name": last_name, "email": email, "updated_at": _safe_timestamp()}
@@ -841,6 +859,10 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
     query = urllib.parse.urlencode({"on_conflict": "user_id"})
     _supabase_request(f"/rest/v1/candidate_profiles?{query}", method="POST", service_role=True, body=candidate_body, prefer="resolution=merge-duplicates")
     return _require_candidate_settings(user_id)
+
+
+# The values candidate_profiles.preferred_employment_type accepts.
+EMPLOYMENT_TYPE_PREFERENCES = {"full-time", "part-time", "contract", "temporary", "internship", "any"}
 
 
 def _sync_match_results_in_background(**kwargs) -> None:
@@ -885,19 +907,36 @@ def _sync_match_results_to_supabase(
     if preferences.get("location_scope"):
         candidate_profile_payload["preferred_location_scope"] = str(preferences.get("location_scope")) or None
         candidate_profile_payload["preferred_region"] = str(preferences.get("region") or "") or None
-    _supabase_request(
-        "/rest/v1/candidate_profiles?on_conflict=user_id",
-        method="POST",
-        token=access_token,
-        body=candidate_profile_payload,
-        prefer="resolution=merge-duplicates",
-    )
+    employment_type = str(preferences.get("employment_type") or "").strip().lower()
+    if employment_type in EMPLOYMENT_TYPE_PREFERENCES:
+        candidate_profile_payload["preferred_employment_type"] = employment_type
+    try:
+        _supabase_request(
+            "/rest/v1/candidate_profiles?on_conflict=user_id",
+            method="POST",
+            token=access_token,
+            body=candidate_profile_payload,
+            prefer="resolution=merge-duplicates",
+        )
+    except HTTPException as exc:
+        # The employment type column comes from a migration; until it has run,
+        # keep saving the other answers.
+        if "preferred_employment_type" not in candidate_profile_payload or "preferred_employment_type" not in str(exc.detail):
+            raise
+        candidate_profile_payload.pop("preferred_employment_type")
+        _supabase_request(
+            "/rest/v1/candidate_profiles?on_conflict=user_id",
+            method="POST",
+            token=access_token,
+            body=candidate_profile_payload,
+            prefer="resolution=merge-duplicates",
+        )
 
     if education:
         auth_user = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", service_role=True)
         existing_metadata = auth_user.get("user_metadata") if isinstance(auth_user, dict) and isinstance(auth_user.get("user_metadata"), dict) else {}
         education_metadata = {
-            key: str(education.get(key) or "")
+            key: (normalize_education_level(education.get(key)) if key == "highest_educational_attainment" else str(education.get(key) or ""))
             for key in ("highest_educational_attainment", "degree_program", "school_university", "year_graduated")
         }
         _supabase_request(
@@ -1375,6 +1414,18 @@ def health_config() -> dict:
         # Local file only; the PSA API is never called while serving requests.
         "psoc_reference": psoc_reference.reference_status(),
     }
+
+
+@app.get("/api/health/jobs")
+def health_jobs() -> dict:
+    """Which Supabase project the job list reads, and how many open jobs each
+    table shows it. Compare with the counts in the Supabase SQL editor."""
+    listed = list_available_jobs()
+    list_status = {"total": len(listed), "by_source": {
+        "kareerly": sum(1 for job in listed if not job.get("external_job_link_optional")),
+        "external_site": sum(1 for job in listed if job.get("external_job_link_optional")),
+    }}
+    return {"backend_version": BACKEND_VERSION, **catalogue_counts(), "job_list": list_status}
 
 
 @app.get("/api/admin/overview")
@@ -2030,7 +2081,11 @@ def admin_reject_deletion_request(request_id: str, payload: AdminDecisionRequest
 
 @app.get("/api/jobs/list")
 def jobs_list(limit: int = 5000) -> dict:
-    return {"results": list_available_jobs(limit=limit)}
+    results = list_available_jobs(limit=limit)
+    # A job listed here but not yet in the matching cache (a new employer post)
+    # is scored by the next match run instead of after the cache expires.
+    refresh_jobs_cache_for([item.get("job_id") for item in results])
+    return {"results": results}
 
 
 def _split_detail_list(value: object) -> list[str]:

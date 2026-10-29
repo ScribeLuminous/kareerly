@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { OnboardingProvider } from './context/OnboardingContext';
 import { useOnboarding } from './hooks/useOnboarding';
-import BackendVersionBanner from './components/BackendVersionBanner';
 import CandidateLogin from './pages/CandidateLogin';
 import EmployerLogin from './pages/EmployerLogin';
 import EmployerSignUp from './pages/EmployerSignUp';
@@ -420,7 +419,6 @@ function AppContent() {
 
   return (
     <Suspense fallback={<WorkspaceLoading />}>
-      <BackendVersionBanner />
       {view === 'landing' && (
         <Landing
           onHome={showHome}

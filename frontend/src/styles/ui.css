@@ -550,6 +550,17 @@
   color: var(--mid);
 }
 
+/* A job detail that differs from the candidate's preferences. */
+.k-skill-mismatch {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--bdr);
+  color: var(--dark);
+}
+
+.k-skill-mismatch svg {
+  color: var(--rust);
+}
+
 /* ---------- Tabs & segmented control ---------- */
 
 .k-tabs {
@@ -1018,6 +1029,13 @@ a.k-row:hover {
   pointer-events: none;
 }
 
+/* The field has its own clear button; hide the browser's. */
+.k-search .k-input::-webkit-search-cancel-button,
+.k-search .k-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .k-search .k-input {
   padding-left: 38px;
   padding-right: 40px;
@@ -1157,6 +1175,13 @@ a.k-row:hover {
   padding: 8px 16px 16px;
 }
 
+.k-modal-body-fill {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-height: 0;
+}
+
 .k-modal-footer {
   display: flex;
   flex-direction: column-reverse;
@@ -1183,6 +1208,14 @@ a.k-row:hover {
 
   .k-modal-lg {
     max-width: 760px;
+  }
+
+  /* Previews take most of the screen: wide enough to read a page, tall enough
+     to show most of it without scrolling the dialog. */
+  .k-modal.k-modal-xl {
+    max-width: min(1100px, calc(100vw - 48px));
+    height: min(92dvh, 1100px);
+    max-height: none;
   }
 
   .k-modal-full {
@@ -1713,23 +1746,24 @@ a.k-row:hover {
   gap: 10px;
 }
 
-/* One job per row; from tablet up the row lays its parts out across the width. */
+/* Candidate match cards: one job per row; from tablet up the row lays its parts out across the width.
+   Scoped to .k-match-card so cards with other parts (employer jobs, templates) keep the stacked layout. */
 @media (min-width: 768px) {
-  .k-job-grid .k-job-card {
+  .k-job-grid .k-match-card {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 84px auto;
     align-items: center;
     column-gap: 20px;
   }
 
-  .k-job-grid .k-job-top {
+  .k-job-grid .k-match-card .k-job-top {
     display: contents;
   }
 
-  .k-job-grid .k-job-top > div:first-child { grid-column: 1; grid-row: 1; }
-  .k-job-grid .k-job-card > .k-secondary { grid-column: 2; grid-row: 1; margin: 0; }
-  .k-job-grid .k-job-score { grid-column: 3; grid-row: 1; align-items: center; }
-  .k-job-grid .k-job-card-actions { grid-column: 4; grid-row: 1; margin-top: 0; justify-content: flex-end; }
+  .k-job-grid .k-match-card .k-job-top > div:first-child { grid-column: 1; grid-row: 1; }
+  .k-job-grid .k-match-card > .k-job-fit { grid-column: 2; grid-row: 1; }
+  .k-job-grid .k-match-card .k-job-score { grid-column: 3; grid-row: 1; align-items: center; }
+  .k-job-grid .k-match-card .k-job-card-actions { grid-column: 4; grid-row: 1; margin-top: 0; justify-content: flex-end; }
 }
 
 .k-job-card {
@@ -1807,6 +1841,18 @@ a.k-row:hover {
 .k-score-lg {
   font-size: 26px;
   line-height: 30px;
+}
+
+/* Skill fit and preference mismatches, one short line each. */
+.k-job-fit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.k-job-fit > p {
+  margin: 0;
 }
 
 .k-job-card-actions {

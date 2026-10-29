@@ -65,7 +65,7 @@ export const FILIPINO_UI: Record<string, string> = {
   'Enter degree or program': 'Ilagay ang degree o programa', 'Enter school or university': 'Ilagay ang paaralan o unibersidad',
   'Enter graduation year': 'Ilagay ang taon ng pagtatapos', 'Save Education': 'I-save ang Edukasyon',
   'User-Uploaded Evidence': 'Mga Sertipikasyon at Na-upload na Katibayan',
-  'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Delete: 'Tanggalin',
+  'Upload Evidence': 'Mag-upload ng Katibayan', View: 'Tingnan', Replace: 'Palitan', Edit: 'I-edit', Delete: 'Tanggalin',
   'Delete Profile': 'Tanggalin ang Profile',
   'Update resume': 'I-update ang resume', 'Upload proof': 'Mag-upload ng katibayan', 'Personal details': 'Personal na detalye',
   'Password and security': 'Password at seguridad', 'Delete profile': 'Tanggalin ang profile', 'Request deletion': 'Humiling na tanggalin',
@@ -96,6 +96,8 @@ export type DashboardJob = {
   closestMatch?: boolean;
   /** Listed as Fit-Now because no job passes every Fit-Now rule: the job closest to the resume. */
   closestFitNow?: boolean;
+  /** Preferences the job does not fit, e.g. work setup "On-site" when the candidate chose "Hybrid". */
+  preferenceMismatches?: PreferenceMismatch[];
   sourceType: 'internal' | 'external';
   requiredSkills: string[];
   preferredSkills: string[];
@@ -269,6 +271,16 @@ export const SKILL_PROGRESS_PERCENT: Record<SkillProgressStatus, number> = {
   covered: 100,
 };
 
+// Skill Development Progress Labels (thesis table): the label for a 0-100 score.
+// The paper lists four ranges up to 75%; 76-100% is labelled "Skill Covered".
+export function skillProgressLabel(percent: number): string {
+  if (percent <= 0) return 'Not Started / Missing';
+  if (percent <= 25) return 'Foundation Progress';
+  if (percent <= 50) return 'Intermediate Progress';
+  if (percent <= 75) return 'Advanced Progress';
+  return 'Skill Covered';
+}
+
 export type ResumeAnalyzeResponse = Awaited<ReturnType<typeof analyzeResume>>;
 
 export const defaultSurveyAnswers: SurveyAnswers = {
@@ -279,6 +291,15 @@ export const defaultSurveyAnswers: SurveyAnswers = {
   skill: '',
   locationScope: 'anywhere',
   region: '',
+};
+
+export const employmentTypeLabels: Record<string, string> = {
+  'full-time': 'Full-time',
+  'part-time': 'Part-time',
+  contract: 'Contract',
+  temporary: 'Temporary',
+  internship: 'Internship',
+  any: 'No preference',
 };
 
 export const setupLabels: Record<string, string> = {
@@ -573,10 +594,10 @@ export const SKILL_STATUS_LABEL: Record<SkillProgressStatus, string> = {
 };
 
 export function skillNextStep(status: SkillProgressStatus, skill: string): string {
-  if (status === 'missing') return `Open a course above. Set this to In progress when you start.`;
-  if (status === 'started' || status === 'in_progress') return `Set this to Done when you finish the course.`;
-  if (status === 'completed') return 'Done. Adding proof is optional.';
-  if (status === 'evidenced') return 'Done. Your proof is on file and pending review.';
+  if (status === 'missing') return 'Set to In progress when you start.';
+  if (status === 'started' || status === 'in_progress') return 'Set to Done when you finish.';
+  if (status === 'completed') return 'Proof is optional.';
+  if (status === 'evidenced') return 'Proof added, pending review.';
   return `${skill} no longer appears as a gap in your current matches.`;
 }
 
@@ -611,6 +632,20 @@ export function persistMatchVote(job: DashboardJob, vote: MatchVote | null): Pro
 export function matchCategoryBadge(job: Pick<DashboardJob, 'matchCategory' | 'closestMatch' | 'closestFitNow'>, fitNowLabel = 'Fit Now'): string {
   if (job.matchCategory === 'fit-now') return job.closestFitNow ? 'Closest Fit' : fitNowLabel;
   return job.closestMatch ? 'Closest Match' : 'Aspiration';
+}
+
+export interface PreferenceMismatch {
+  /** "work setup", "level" or "salary". */
+  label: string;
+  jobValue: string;
+  chosenValue: string;
+}
+
+export function mapPreferenceMismatches(value: MatchResultItem['preference_mismatches']): PreferenceMismatch[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item.job_value === 'string' && item.job_value.trim())
+    .map((item) => ({ label: String(item.label || ''), jobValue: item.job_value.trim(), chosenValue: String(item.chosen_value || '').trim() }));
 }
 
 export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration'): DashboardJob {
@@ -649,6 +684,7 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
     matchCategory: category,
     closestMatch: match.is_closest_match === true,
     closestFitNow: category === 'fit-now' && match.fit_now_fallback === true && match.fit_now_fallback_reason !== 'outside_region_filter',
+    preferenceMismatches: mapPreferenceMismatches(match.preference_mismatches),
     sourceType,
     requiredSkills,
     preferredSkills,
@@ -673,9 +709,12 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
   };
 }
 
+/** Match score at or above which a job counts as Fit-Now; mirrors the backend FIT_NOW_MIN_REQUIRED_COVERAGE and the employer Match filter. */
+export const FIT_NOW_MATCH_PERCENT = 70;
+
 export function mapModelMatch(match: JobMatch): DashboardJob {
   const score = Math.max(0, Math.min(100, Math.round(match.matchScore)));
-  const category: 'fit-now' | 'aspiration' = score >= 75 ? 'fit-now' : 'aspiration';
+  const category: 'fit-now' | 'aspiration' = score >= FIT_NOW_MATCH_PERCENT ? 'fit-now' : 'aspiration';
   const matchedSkills = cleanSkillList((match.requiredSkills || []).filter((skill) => !(match.missingSkills || []).includes(skill)));
   const missingSkills = cleanSkillList(match.missingSkills || []);
   const requiredSkills = Array.from(new Set([...matchedSkills, ...missingSkills]));
@@ -1039,12 +1078,20 @@ export function preferenceKeyForLabel(table: Record<string, string>, label: stri
 }
 
 // The Preferences page saves labels to the candidate profile; map them back to answers.
+const PROFILE_PREFERENCE_COLUMNS = 'preferred_industry,target_role,preferred_work_setup,expected_salary,skill_to_develop,preferred_location_scope,preferred_region';
+type ProfilePreferenceRow = Record<string, string | null>;
+type ProfilePreferenceRead = { data: ProfilePreferenceRow | null; error: { message: string } | null };
+
 export async function loadProfilePreferences(userId: string): Promise<SurveyAnswers | null> {
-  const { data, error } = await supabase
-    .from('candidate_profiles')
-    .select('preferred_industry,target_role,preferred_work_setup,expected_salary,skill_to_develop,preferred_location_scope,preferred_region')
-    .eq('user_id', userId)
-    .maybeSingle();
+  const select = async (columns: string): Promise<ProfilePreferenceRead> => {
+    const { data, error } = await supabase.from('candidate_profiles').select(columns).eq('user_id', userId).maybeSingle();
+    return { data: (data as unknown as ProfilePreferenceRow | null) ?? null, error };
+  };
+  let { data, error } = await select(`${PROFILE_PREFERENCE_COLUMNS},preferred_employment_type`);
+  if (error && /preferred_employment_type/i.test(error.message || '')) {
+    // The column comes from a migration; until it runs, load the other answers.
+    ({ data, error } = await select(PROFILE_PREFERENCE_COLUMNS));
+  }
   if (error) {
     console.warn('Unable to load saved preferences:', error.message);
     return null;
@@ -1056,6 +1103,7 @@ export async function loadProfilePreferences(userId: string): Promise<SurveyAnsw
     setup: preferenceKeyForLabel(setupLabels, data.preferred_work_setup),
     salary: preferenceKeyForLabel({ ...legacySalaryLabels, ...salaryLabels }, data.expected_salary),
     skill: data.skill_to_develop || '',
+    employmentType: data.preferred_employment_type || '',
     locationScope: normalizeLocationScope(data.preferred_location_scope),
     region: data.preferred_region || '',
   };

@@ -39,6 +39,8 @@ class MatchPreferences(BaseModel):
     role_level: str = ""
     role: str = ""
     work_setup: str = ""
+    # "full-time", "part-time", "contract", "temporary", "internship", or open ("any").
+    employment_type: str = ""
     salary: str = ""
     salary_expectation: str = ""
     skill_to_develop: str = ""

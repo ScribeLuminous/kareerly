@@ -216,5 +216,5 @@ test('the dashboard keeps this data in the account, not only in the browser', ()
   assert.match(dashboard, /if \(failure\) showToast\(/);
   // Claimed skills are always matched on and saved as confirmed skills.
   assert.match(dashboard, /skills = withClaimedSkillNames\(skills, claimed\);/);
-  assert.match(dashboard, /source: 'confirmed_skill',\s*\}\)\)\);/);
+  assert.match(dashboard, /source: 'confirmed_skill',\s*\}\)\)\)\.select\('id'\);/);
 });

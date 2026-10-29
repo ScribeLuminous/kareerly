@@ -3,6 +3,7 @@ import unicodedata
 from typing import Dict, List
 
 from .skill_extractor import MAX_CONFIRMED_SKILLS, SkillExtractor
+from .education import normalize_education_level
 from .resume_parser import (
     MAX_RESUME_BYTES,
     ResumeExtraction,
@@ -362,7 +363,7 @@ def extract_education(resume_text: str, sections: Dict[str, str]) -> List[Dict[s
                 maxsplit=1,
                 flags=re.IGNORECASE,
             )[0].strip()
-            attainment = label
+            attainment = normalize_education_level(label) or normalize_education_level(degree_program)
             break
 
     year = ""

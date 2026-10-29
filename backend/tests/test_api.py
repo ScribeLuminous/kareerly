@@ -180,6 +180,36 @@ class ApiRegressionTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertEqual(order, ['response', ('sync', 3)])
 
+    def sync_profile(self, preferences, fail_on=None):
+        """The candidate profile bodies the match sync sends; the first fails when it holds ``fail_on``."""
+        profiles = []
+        def request(path, **kwargs):
+            if path.startswith('/rest/v1/candidate_profiles'):
+                profiles.append(dict(kwargs['body']))
+                if fail_on and fail_on in kwargs['body']:
+                    raise main.HTTPException(status_code=400, detail=f"Could not find the '{fail_on}' column")
+                return []
+            # Stop after the profile: the rest of the sync is not under test.
+            raise main.HTTPException(status_code=500, detail='stop')
+        with patch('backend.app.main._get_authenticated_user_id', return_value='user-1'), \
+             patch('backend.app.main._supabase_request', side_effect=request):
+            with self.assertRaises(main.HTTPException):
+                main._sync_match_results_to_supabase(authorization='Bearer t', result={}, filename='r.pdf', preferences=preferences)
+        return profiles
+
+    def test_employment_type_is_saved_to_the_profile(self):
+        profiles = self.sync_profile({'industry': 'education', 'employment_type': 'Full-time'})
+        self.assertEqual(profiles[0]['preferred_employment_type'], 'full-time')
+        # Anything the column's check would reject is left out.
+        self.assertNotIn('preferred_employment_type', self.sync_profile({'employment_type': 'weekends'})[0])
+
+    def test_profile_saves_without_the_employment_type_column(self):
+        profiles = self.sync_profile({'industry': 'education', 'employment_type': 'contract'},
+                                     fail_on='preferred_employment_type')
+        self.assertEqual(len(profiles), 2)
+        self.assertNotIn('preferred_employment_type', profiles[1])
+        self.assertEqual(profiles[1]['preferred_industry'], 'education')
+
     def test_failed_background_sync_does_not_fail_the_report(self):
         with patch('backend.app.main.run_matching', return_value={}), \
              patch('backend.app.main._apply_report_access_control', return_value={}), \

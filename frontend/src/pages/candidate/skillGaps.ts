@@ -60,8 +60,20 @@ export function provenSkills(progress: Record<string, SkillProgressRecord>): Rec
 
 type ProofFile = { fileName?: string; uploadedAt?: string };
 
-/** Records proof for the skill an upload names, adding a progress record when the skill has none. */
-export function withSkillProof(progress: Record<string, SkillProgressRecord>, skillName: string, proof: ProofFile): Record<string, SkillProgressRecord> {
+/** How skill progress names a proof: its PDF, or its link when there is no PDF. */
+export function proofOf(record: { fileName?: string; credentialProvider?: string; uploadedAt?: string }): ProofFile {
+  return { fileName: record.fileName || `${record.credentialProvider || 'Certificate'} link`, uploadedAt: record.uploadedAt };
+}
+
+/**
+ * Records proof for the skills an upload names (one, or several separated by
+ * commas), adding a progress record for a skill that has none.
+ */
+export function withSkillProof(progress: Record<string, SkillProgressRecord>, skillNames: string, proof: ProofFile): Record<string, SkillProgressRecord> {
+  return skillNames.split(',').reduce((current, name) => withOneSkillProof(current, name, proof), progress);
+}
+
+function withOneSkillProof(progress: Record<string, SkillProgressRecord>, skillName: string, proof: ProofFile): Record<string, SkillProgressRecord> {
   const name = skillName.trim().slice(0, 200);
   if (!name) return progress;
   const wanted = normalizeSkill(name);

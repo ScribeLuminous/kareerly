@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCompass, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { Banner, EmptyState, FilterChoice, FilterPanel, SearchField, SkeletonRows } from '../../components/ui';
+import { sortKareers, type KareersSortOrder } from '../../lib/kareersSort';
 import { JobCard } from './JobCard';
 import { PageHeader } from './common';
 import type { ApplicationStatus, DashboardJob } from './model';
 
-type SortOrder = 'newest' | 'oldest' | 'salary-high' | 'salary-low' | 'az' | 'za';
+type SortOrder = KareersSortOrder;
 const PAGE_SIZE = 20;
 
 type KareersPageProps = {
@@ -49,13 +50,7 @@ export function KareersPage({ kareers, isLoading, error, onRetry, savedJobs, get
         .toLowerCase()
         .includes(query);
     });
-    return filtered.sort((left, right) => {
-      if (sortOrder === 'az' || sortOrder === 'za') return (sortOrder === 'az' ? 1 : -1) * left.title.localeCompare(right.title);
-      if (sortOrder === 'salary-high' || sortOrder === 'salary-low') return (sortOrder === 'salary-high' ? -1 : 1) * ((left.salaryMax || left.salaryMin || 0) - (right.salaryMax || right.salaryMin || 0));
-      const leftDate = new Date(left.createdAt || 0).getTime();
-      const rightDate = new Date(right.createdAt || 0).getTime();
-      return sortOrder === 'oldest' ? leftDate - rightDate : rightDate - leftDate;
-    });
+    return sortKareers(filtered, sortOrder);
   }, [alignFilter, categoryFilter, employmentFilter, kareers, levelFilter, locationFilter, searchValue, setupFilter, sortOrder, sourceFilter]);
 
   const categories = useMemo(() => Array.from(new Set(kareers.map((job) => job.category).filter(Boolean) as string[])).filter((value) => !/not specified/i.test(value)).sort(), [kareers]);

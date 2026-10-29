@@ -15,7 +15,9 @@ type ModalProps = {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'md' | 'lg';
+  size?: 'md' | 'lg' | 'xl';
+  /** The body fills the dialog (previews): no padding, children take the remaining height. */
+  fill?: boolean;
   /** Full screen on phones (long forms and detail views); a bottom sheet otherwise. */
   fullOnMobile?: boolean;
   /** Show a back arrow instead of ✕ (detail views opened from a list). */
@@ -32,6 +34,7 @@ export default function Modal({
   children,
   footer,
   size = 'md',
+  fill = false,
   fullOnMobile = false,
   closeStyle = 'close',
   closeLabel,
@@ -95,7 +98,7 @@ export default function Modal({
     >
       <div
         ref={panelRef}
-        className={`k-modal ${size === 'lg' ? 'k-modal-lg' : ''} ${fullOnMobile ? 'k-modal-full' : ''}`}
+        className={`k-modal ${size === 'lg' ? 'k-modal-lg' : size === 'xl' ? 'k-modal-xl' : ''} ${fullOnMobile ? 'k-modal-full' : ''}`}
         role={role}
         aria-modal="true"
         aria-labelledby={titleId}
@@ -118,7 +121,7 @@ export default function Modal({
             </button>
           )}
         </div>
-        <div className="k-modal-body">{children}</div>
+        <div className={`k-modal-body ${fill ? 'k-modal-body-fill' : ''}`}>{children}</div>
         {footer && <div className="k-modal-footer">{footer}</div>}
       </div>
     </div>
