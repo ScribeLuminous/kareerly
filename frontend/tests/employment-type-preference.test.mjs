@@ -51,6 +51,7 @@ test('the Matches page filters by employment type and job cards show mismatches'
   assert.match(matches, /legend="Employment type"/);
   assert.match(matches, /employmentKey\(job\.employmentType \|\| ''\) !== employment/);
   const card = readCandidateFile('JobCard.tsx');
-  assert.match(card, /Not what you chose: /);
+  assert.match(card, /faXmark/);
+  assert.doesNotMatch(card, /Not what you chose/);
   assert.match(card, /job\.preferenceMismatches/);
 });

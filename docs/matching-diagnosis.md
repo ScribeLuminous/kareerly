@@ -703,7 +703,8 @@ Changes:
   job cache when it lists a job the cache lacks, so that re-run scores it.
 - **Preference mismatches shown, not filtered.** Every job carries
   `preference_mismatches` (field, job value, chosen value). The job detail
-  lists them under "Not what you chose" with an ✕; the job keeps its list.
+  shows each as an ✕ chip ("✕ On-site · you chose Hybrid") and the job card
+  as one ✕ line ("✕ On-site"); the job keeps its list.
 
 ## 2026-10-29: employment type preference
 

@@ -70,7 +70,7 @@ export function JobCard({ job, applicationStatus, isSaved, selected = false, onO
           {mismatches.length > 0 && (
             <p className="k-secondary">
               <FontAwesomeIcon icon={faXmark} className="mr-1.5 text-rust" aria-hidden="true" />
-              <span className="text-soft-text">Not what you chose: </span>
+              <span className="sr-only">Does not match your preferences: </span>
               {mismatches.map((item) => item.jobValue).join(' · ')}
             </p>
           )}
