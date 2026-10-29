@@ -2455,6 +2455,32 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
           isDesktop={isDesktop}
           hasMatches={matchesExist}
           onOpenMatches={() => setActivePage('jobmatches')}
+          onOpenJob={(gapJob) => {
+            const knownJob = jobs.find((item) => item.id === gapJob.job_id && item.jobSource === gapJob.job_source)
+              || kareersList.find((item) => item.id === gapJob.job_id && item.jobSource === gapJob.job_source);
+            // selectJob fills in the rest from the job details request.
+            const job: DashboardJob = knownJob || {
+              id: gapJob.job_id,
+              jobSource: gapJob.job_source,
+              title: gapJob.title,
+              company: gapJob.company,
+              location: 'Location not specified',
+              setup: 'Work setup not specified',
+              employmentType: 'Not specified',
+              salary: 'Salary not specified',
+              matchScore: Math.round(gapJob.match_pct),
+              hasMatchScore: true,
+              matchCategory: gapJob.match_type === 'fit_now' ? 'fit-now' : 'aspiration',
+              sourceType: 'internal',
+              requiredSkills: [],
+              preferredSkills: [],
+              responsibilities: [],
+              matchedSkills: [],
+              missingSkills: [],
+              explanation: '',
+            };
+            void selectJob(job, true);
+          }}
         />
       )}
 
