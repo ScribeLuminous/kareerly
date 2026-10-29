@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUpRightFromSquare, faCheck, faCircleCheck, faGraduationCap, faUpload } from '@fortawesome/free-solid-svg-icons';
-import { Banner, EmptyState, InfoTip, SkeletonRows } from '../../components/ui';
+import { Banner, EmptyState, InfoTip, SearchField, SkeletonRows } from '../../components/ui';
 import { SkillsHeader, type GapLoadStatus, type SkillsTab } from './SkillGapsPage';
 import {
   EMPLOYER_CHECK_REMINDER,
@@ -61,6 +61,7 @@ export function UpskillingPage({
   const visibleSkills = report?.rules.display.learning_skills_visible ?? 5;
   const [allSkillsShown, setAllSkillsShown] = useState(false);
   const [allNoCourseShown, setAllNoCourseShown] = useState(false);
+  const [query, setQuery] = useState('');
 
   // Open skills only, in the Gaps tab's tier order; completed and owned skills get no courses.
   const { open } = openAndCompleted(report, claimedSkills, skillProgressRecords);
@@ -80,7 +81,15 @@ export function UpskillingPage({
   const withoutCourses = groups.filter((group) => group.courses.length === 0);
   const focusKey = focusSkill ? withCourses.find((group) => normalizeSkill(group.skill.skill_name) === normalizeSkill(focusSkill))?.key : undefined;
   const activeKey = selectedKey ?? focusKey ?? 'all';
-  const filtered = activeKey === 'all' ? withCourses : withCourses.filter((group) => group.key === activeKey);
+  // Search matches the skill name, or a course's title or provider.
+  const search = query.trim().toLowerCase();
+  const searching = search.length > 0;
+  const bySkill = activeKey === 'all' ? withCourses : withCourses.filter((group) => group.key === activeKey);
+  const filtered = !searching ? bySkill : bySkill.flatMap((group) => {
+    if (group.skill.skill_name.toLowerCase().includes(search)) return [group];
+    const courses = group.courses.filter((course) => [course.title, course.provider].some((text) => text?.toLowerCase().includes(search)));
+    return courses.length ? [{ ...group, courses }] : [];
+  });
   const shown = allSkillsShown ? filtered : filtered.slice(0, visibleSkills);
   const hiddenSkills = filtered.length - Math.min(filtered.length, visibleSkills);
 
@@ -116,12 +125,11 @@ export function UpskillingPage({
     }
     return (
       <>
-        <div className="k-learn-controls mb-5">
-          <p className="k-secondary">Courses for your skill gaps, most useful first.</p>
-          {withCourses.length > 1 && (
-            <label className="k-field block min-w-0">
-              <span className="k-label">Show courses for</span>
-              <select className="k-select mt-1.5" value={activeKey} onChange={(event) => setSelectedKey(event.target.value)}>
+        {withCourses.length > 0 && (
+          <div className="k-learn-controls mb-5">
+            <SearchField value={query} onChange={setQuery} label="Search courses" placeholder="Search courses or skills" />
+            {withCourses.length > 1 && (
+              <select className="k-select" aria-label="Show courses for" value={activeKey} onChange={(event) => setSelectedKey(event.target.value)}>
                 <option value="all">All skills ({withCourses.length})</option>
                 {withCourses.map((group) => (
                   <option key={group.key} value={group.key}>
@@ -129,11 +137,14 @@ export function UpskillingPage({
                   </option>
                 ))}
               </select>
-            </label>
-          )}
-        </div>
+            )}
+          </div>
+        )}
+        {searching && filtered.length === 0 && (
+          <p className="k-secondary" role="status">No courses match "{query.trim()}".</p>
+        )}
 
-        {continuing.length > 0 && activeKey === 'all' && (
+        {continuing.length > 0 && activeKey === 'all' && !searching && (
           <section className="mb-7" aria-labelledby="learn-continue">
             <h2 id="learn-continue" className="k-section-title mb-3">Continue learning</h2>
             <ul className="k-list">
@@ -185,7 +196,7 @@ export function UpskillingPage({
           </button>
         )}
 
-        {withoutCourses.length > 0 && activeKey === 'all' && (
+        {withoutCourses.length > 0 && activeKey === 'all' && !searching && (
           <section className="k-card mt-7" aria-labelledby="learn-no-course">
             <h2 id="learn-no-course" className="k-label">No course yet for {withoutCourses.length} skill{withoutCourses.length === 1 ? '' : 's'}</h2>
             <p className="k-meta mt-1">No reviewed course yet. Try a web search.</p>
@@ -254,15 +265,15 @@ export function CourseRow({ course, note, courseCompletions, onMarkCourseTaken, 
         {completion?.status === 'evidenced' && (
           <p className="k-badge k-badge-info mt-1.5"><FontAwesomeIcon icon={faCircleCheck} aria-hidden="true" />Proof added · pending review</p>
         )}
-        {completion?.status === 'completed' && (
-          <p className="k-meta mt-1.5">
-            Done without proof.{' '}
-            <button className="k-link text-[13px]" type="button" onClick={() => onUploadCourseEvidence(course)}>
-              <FontAwesomeIcon icon={faUpload} aria-hidden="true" />Add proof (optional)
-            </button>
-          </p>
-        )}
       </div>
+      {completion?.status === 'completed' && (
+        <p className="k-meta k-course-proof">
+          <span className="k-course-proof-note">Done without proof.{' '}</span>
+          <button className="k-link text-[13px]" type="button" onClick={() => onUploadCourseEvidence(course)}>
+            <FontAwesomeIcon icon={faUpload} aria-hidden="true" />Add proof (optional)
+          </button>
+        </p>
+      )}
       <div className="k-course-actions">
         <button
           className="k-btn k-btn-ghost k-btn-sm k-course-done"

@@ -292,6 +292,10 @@ test('Learning shows 5 skills with courses before "Show N more skills"', () => {
   assert.match(html, /<option value="all" selected="">All skills \(8\)<\/option>/);
   assert.equal((html.match(/<option /g) || []).length, 9);
   assert.doesNotMatch(html, /k-chip-scroller/);
+  // Search on the left, dropdown on the right; no intro or "Show courses for" text.
+  assert.match(html, /<div class="k-learn-controls mb-5"><div class="k-search" role="search">[\s\S]*?<\/div><select class="k-select" aria-label="Show courses for"/);
+  assert.doesNotMatch(html, /most useful first/);
+  assert.doesNotMatch(html, />Show courses for</);
 });
 
 test('skill progress labels follow the thesis ranges (0 / 1-25 / 26-50 / 51-75)', () => {
