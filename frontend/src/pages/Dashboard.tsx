@@ -40,6 +40,7 @@ import { MessagesPage } from './candidate/MessagesPage';
 import { JobDetailModal } from './candidate/JobDetailModal';
 import { EvidenceFormModal, ResumeUpdateModal } from './candidate/modals';
 import { ReportConversationModal } from '../components/ReportConversationModal';
+import { isMatchRunStale } from '../lib/matchFreshness';
 import './candidate-dashboard-v5.css';
 
 type DashboardProps = {
@@ -513,6 +514,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   // so instead of showing an empty "upload your resume" state.
   const [restoreError, setRestoreError] = useState('');
   const [restoreAttempt, setRestoreAttempt] = useState(0);
+  // When the restored matches were saved, and the last one checked against the job list.
+  const [restoredRunAt, setRestoredRunAt] = useState<string | null>(null);
+  const checkedRunAt = useRef<string | null>(null);
   useEffect(() => {
     const userId = currentUser.id;
     const restoreKey = `${userId}:${restoreAttempt}`;
@@ -526,6 +530,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       const latestResume = await loadLatestResume({ userId });
       if (cancelled) return;
       let savedPreferences: SurveyAnswers | null = null;
+      let savedRunAt: string | null = null;
 
       if (latestResume) {
         setSavedResumeFileName(latestResume.original_filename || 'Saved resume');
@@ -556,15 +561,22 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
             if (cancelled) return;
             if (savedRun) setMatchResults(savedRun.results);
             savedPreferences = savedRun?.preferences || null;
+            savedRunAt = savedRun?.savedAt || null;
           }
         }
       }
 
-      if (hasSessionPreferences) return;
+      if (hasSessionPreferences) {
+        setRestoredRunAt(savedRunAt);
+        return;
+      }
       // Preferences saved without a match run (no resume yet, or a failed
       // refresh) only live on the candidate profile.
       if (!savedPreferences) savedPreferences = await loadProfilePreferences(userId);
-      if (!cancelled && savedPreferences) setSurveyAnswers(savedPreferences);
+      if (cancelled) return;
+      if (savedPreferences) setSurveyAnswers(savedPreferences);
+      // Set with the preferences, so a stale run is refreshed with them, not the defaults.
+      setRestoredRunAt(savedRunAt);
     })().catch((error: unknown) => {
       if (cancelled) return;
       console.warn('Unable to restore the saved resume and matches:', error);
@@ -1289,6 +1301,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       target_role: answers.role,
       role_level: answers.role,
       work_setup: getPreferenceLabel(setupLabels, answers.setup),
+      // Sent as its key; the backend reads keys and labels alike.
+      employment_type: answers.employmentType || '',
       salary_expectation: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
       skill_to_develop: answers.skill,
     };
@@ -1310,6 +1324,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         role_level: preferencePayload.role_level,
         role: preferencePayload.target_role,
         work_setup: preferencePayload.work_setup,
+        employment_type: preferencePayload.employment_type,
         salary_expectation: preferencePayload.salary_expectation,
         skill_to_develop: preferencePayload.skill_to_develop,
         // The saved region choice; "current" also sends the profile location so
@@ -1371,6 +1386,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         preferredIndustry: getCareerAreaLabel(answers.industry),
         targetRole: answers.role,
         preferredWorkSetup: getPreferenceLabel(setupLabels, answers.setup),
+        preferredEmploymentType: answers.employmentType || '',
         expectedSalary: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
         skillToDevelop: answers.skill,
         preferredLocationScope: normalizeLocationScope(answers.locationScope),
@@ -2107,6 +2123,20 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       setLoading(false);
     }
   };
+
+  // Saved matches are a snapshot: a job posted or edited after they ran is
+  // missing from them. Re-run once, with the saved resume, skills (claims
+  // loaded first, since a run re-saves the skill list) and preferences.
+  useEffect(() => {
+    if (!restoredRunAt || checkedRunAt.current === restoredRunAt) return;
+    if (state.isLoading || progressLoad.status === 'loading' || availableJobs.length === 0) return;
+    checkedRunAt.current = restoredRunAt;
+    if (progressLoad.status !== 'ready' || !isMatchRunStale(restoredRunAt, availableJobs)) return;
+    void refreshMatchesWithSkills(skillNames, claimedSkillsRef.current).then((refreshed) => {
+      if (refreshed) showToast('New jobs were posted, so your matches were refreshed.', 'success');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per restored run
+  }, [restoredRunAt, availableJobs, progressLoad.status, state.isLoading]);
 
   const unclaimSkill = (key: string) => {
     const latestClaimed = claimedSkillsRef.current;

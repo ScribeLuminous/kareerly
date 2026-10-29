@@ -6,7 +6,7 @@ import type { SurveyAnswers } from '../../types';
 import LocationPreferenceQuestion from '../../components/LocationPreferenceQuestion';
 import type { LocationPreferenceValue } from '../../components/LocationPreferenceQuestion';
 import { isLocationPreferenceComplete } from '../../lib/regionPreference';
-import { normalizeSkill, salaryLabels, setupLabels } from './model';
+import { employmentTypeLabels, normalizeSkill, salaryLabels, setupLabels } from './model';
 import { FormField, PageHeader } from './common';
 
 type PreferencesPageProps = {
@@ -117,6 +117,13 @@ export function PreferencesPage({
                 ))}
               </select>
             </FormField>
+            <FormField label="Employment type">
+              <select className="k-select" value={draft.employmentType || 'any'} onChange={(event) => setDraft((current) => ({ ...current, employmentType: event.target.value }))}>
+                {Object.entries(employmentTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </FormField>
             <FormField label="Salary expectation">
               <select className="k-select" value={draft.salary} onChange={(event) => setDraft((current) => ({ ...current, salary: event.target.value }))}>
                 {Object.entries(salaryLabels).map(([value, label]) => (
@@ -135,7 +142,7 @@ export function PreferencesPage({
               name="dashboard-location-scope"
             />
           </div>
-          <p className="k-help mt-3">Job level, work setup and salary order your Aspiration matches. Fit Now matches use only your resume and skills.</p>
+          <p className="k-help mt-3">Job level, work setup, employment type and salary order your Aspiration matches. Fit Now matches use only your resume and skills; a job that doesn't match a preference is marked, not hidden.</p>
         </section>
 
         <section className="k-section" aria-labelledby="pref-skills">

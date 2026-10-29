@@ -96,6 +96,8 @@ export type DashboardJob = {
   closestMatch?: boolean;
   /** Listed as Fit-Now because no job passes every Fit-Now rule: the job closest to the resume. */
   closestFitNow?: boolean;
+  /** Preferences the job does not fit, e.g. work setup "On-site" when the candidate chose "Hybrid". */
+  preferenceMismatches?: PreferenceMismatch[];
   sourceType: 'internal' | 'external';
   requiredSkills: string[];
   preferredSkills: string[];
@@ -289,6 +291,15 @@ export const defaultSurveyAnswers: SurveyAnswers = {
   skill: '',
   locationScope: 'anywhere',
   region: '',
+};
+
+export const employmentTypeLabels: Record<string, string> = {
+  'full-time': 'Full-time',
+  'part-time': 'Part-time',
+  contract: 'Contract',
+  temporary: 'Temporary',
+  internship: 'Internship',
+  any: 'No preference',
 };
 
 export const setupLabels: Record<string, string> = {
@@ -623,6 +634,20 @@ export function matchCategoryBadge(job: Pick<DashboardJob, 'matchCategory' | 'cl
   return job.closestMatch ? 'Closest Match' : 'Aspiration';
 }
 
+export interface PreferenceMismatch {
+  /** "work setup", "level" or "salary". */
+  label: string;
+  jobValue: string;
+  chosenValue: string;
+}
+
+export function mapPreferenceMismatches(value: MatchResultItem['preference_mismatches']): PreferenceMismatch[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item.job_value === 'string' && item.job_value.trim())
+    .map((item) => ({ label: String(item.label || ''), jobValue: item.job_value.trim(), chosenValue: String(item.chosen_value || '').trim() }));
+}
+
 export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration'): DashboardJob {
   const scoreContext = category === 'fit-now' ? 'fit_now' : 'aspiration';
   const normalizedScore = extractMatchPercent(match, scoreContext);
@@ -659,6 +684,7 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
     matchCategory: category,
     closestMatch: match.is_closest_match === true,
     closestFitNow: category === 'fit-now' && match.fit_now_fallback === true && match.fit_now_fallback_reason !== 'outside_region_filter',
+    preferenceMismatches: mapPreferenceMismatches(match.preference_mismatches),
     sourceType,
     requiredSkills,
     preferredSkills,
@@ -1052,12 +1078,20 @@ export function preferenceKeyForLabel(table: Record<string, string>, label: stri
 }
 
 // The Preferences page saves labels to the candidate profile; map them back to answers.
+const PROFILE_PREFERENCE_COLUMNS = 'preferred_industry,target_role,preferred_work_setup,expected_salary,skill_to_develop,preferred_location_scope,preferred_region';
+type ProfilePreferenceRow = Record<string, string | null>;
+type ProfilePreferenceRead = { data: ProfilePreferenceRow | null; error: { message: string } | null };
+
 export async function loadProfilePreferences(userId: string): Promise<SurveyAnswers | null> {
-  const { data, error } = await supabase
-    .from('candidate_profiles')
-    .select('preferred_industry,target_role,preferred_work_setup,expected_salary,skill_to_develop,preferred_location_scope,preferred_region')
-    .eq('user_id', userId)
-    .maybeSingle();
+  const select = async (columns: string): Promise<ProfilePreferenceRead> => {
+    const { data, error } = await supabase.from('candidate_profiles').select(columns).eq('user_id', userId).maybeSingle();
+    return { data: (data as unknown as ProfilePreferenceRow | null) ?? null, error };
+  };
+  let { data, error } = await select(`${PROFILE_PREFERENCE_COLUMNS},preferred_employment_type`);
+  if (error && /preferred_employment_type/i.test(error.message || '')) {
+    // The column comes from a migration; until it runs, load the other answers.
+    ({ data, error } = await select(PROFILE_PREFERENCE_COLUMNS));
+  }
   if (error) {
     console.warn('Unable to load saved preferences:', error.message);
     return null;
@@ -1069,6 +1103,7 @@ export async function loadProfilePreferences(userId: string): Promise<SurveyAnsw
     setup: preferenceKeyForLabel(setupLabels, data.preferred_work_setup),
     salary: preferenceKeyForLabel({ ...legacySalaryLabels, ...salaryLabels }, data.expected_salary),
     skill: data.skill_to_develop || '',
+    employmentType: data.preferred_employment_type || '',
     locationScope: normalizeLocationScope(data.preferred_location_scope),
     region: data.preferred_region || '',
   };

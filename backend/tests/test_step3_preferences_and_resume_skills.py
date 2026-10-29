@@ -116,8 +116,9 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
                 # Same jobs, same categories, same scores, same order as choosing only the area.
                 self.assertEqual(recommended(result), area_only)
         result = report({"industry": AREA, **UNRESTRICTED_LEVEL, **UNRESTRICTED_SALARY, **UNRESTRICTED_SETUP})
+        # Employment type was not answered, so it is open too.
         self.assertEqual(result["debug_summary"]["unrestricted_preferences"],
-            ["role_level", "work_setup", "salary_expectation"])
+            ["role_level", "work_setup", "salary_expectation", "employment_type"])
         # Stated answers the jobs do not meet never remove a job; they lower its
         # alignment, and the job says which answers it does not fit.
         # Three confirmed skills in the area (all already in the resume) keep "senior" open under the job-level lock.
@@ -129,8 +130,8 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
         crm = restricted["all_aspiration_matches"][0]
         self.assertEqual(crm["preference_conflicts"], ["job_level", "work_setup", "salary"])
         self.assertIn("It differs from your Step 3 choices", crm["explanation"])
-        self.assertIn("(you chose remote)", crm["explanation"])
-        self.assertEqual(restricted["debug_summary"]["unrestricted_preferences"], [])
+        self.assertIn("(you chose Remote)", crm["explanation"])
+        self.assertEqual(restricted["debug_summary"]["unrestricted_preferences"], ["employment_type"])
 
     def test_jobs_that_fit_the_other_answers_come_first(self):
         jobs = pd.DataFrame([
@@ -149,7 +150,7 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
         self.assertEqual([item["job_id"] for item in result["all_aspiration_matches"]], ["remote", "onsite"])
         onsite = result["all_aspiration_matches"][1]
         self.assertEqual(onsite["preference_conflicts"], ["work_setup"])
-        self.assertEqual(onsite["preference_mismatch_notes"], ["work setup Onsite (you chose remote)"])
+        self.assertEqual(onsite["preference_mismatch_notes"], ["work setup Onsite (you chose Remote)"])
 
     def test_unstated_job_fields_and_open_answers_never_conflict(self):
         job_row = JOBS.iloc[2].to_dict() | {"experience_level_required": "", "work_type": "", "salary_range_monthly_php": ""}

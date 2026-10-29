@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowRight, faArrowUpRightFromSquare, faBookmark, faCheck, faCircleCheck, faBullseye } from '@fortawesome/free-solid-svg-icons';
+import { faArrowRight, faArrowUpRightFromSquare, faBookmark, faCheck, faCircleCheck, faBullseye, faXmark } from '@fortawesome/free-solid-svg-icons';
 import MatchFeedbackControls from '../../components/MatchFeedbackControls';
 import { InfoTip, Modal, useMediaQuery, DESKTOP_QUERY } from '../../components/ui';
 import { MatchScoreNotice } from '../../components/MatchScoreNotice';
@@ -123,6 +123,8 @@ export function JobDetailBody({ job, courses, onOpenLearning, feedback }: Pick<J
   const required = splitSkillList(job.requiredSkills);
   const preferred = splitSkillList([...job.preferredSkills, ...(job.niceToHaveSkills || [])]);
   const hasFit = job.hasMatchScore && (matched.length > 0 || missing.length > 0 || missingNice.length > 0);
+  // Shown, never filtered on: a job that fits the resume stays in its list.
+  const mismatches = job.preferenceMismatches ?? [];
   const reasons = buildMatchReasons(job, job.requiredSkills.length > 0 ? job.requiredSkills : [...job.matchedSkills, ...job.missingSkills]);
   const learning = getLearningForJob(job, courses).slice(0, 2);
   const facts = [
@@ -178,6 +180,20 @@ export function JobDetailBody({ job, courses, onOpenLearning, feedback }: Pick<J
                 <div className="k-chip-row gap-1.5">{preferred.map((skill) => <span key={`pref-${skill}`} className="k-skill k-skill-nice">{skill}</span>)}</div>
               </div>
             )}
+          </div>
+        )}
+        {mismatches.length > 0 && (
+          <div className="mt-3">
+            <div className="k-chip-row gap-1.5" role="list" aria-label="Preferences this job does not match">
+              {mismatches.map((item) => (
+                <span key={`pref-${item.label}`} className="k-skill k-skill-mismatch" role="listitem">
+                  <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
+                  <span className="sr-only">Does not match your {item.label} preference: </span>
+                  {item.jobValue}
+                  {item.chosenValue && <span className="k-meta">· you chose {item.chosenValue}</span>}
+                </span>
+              ))}
+            </div>
           </div>
         )}
         <details className="mt-3">
