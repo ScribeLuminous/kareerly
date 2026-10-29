@@ -179,7 +179,13 @@ def _format_salary_range(record: dict[str, Any]) -> str:
     return ""
 
 
-def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool = True) -> list[dict[str, Any]]:
+class JobCatalogueIncomplete(RuntimeError):
+    """A page of jobs could not be read, so the list would be cut short."""
+
+
+def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool = True, strict: bool = False) -> list[dict[str, Any]]:
+    """Active jobs from one table, newest first. With strict, a page that cannot
+    be read raises JobCatalogueIncomplete instead of returning the rows so far."""
     safe_limit = max(1, min(limit, 5000))
     common_fields = "job_id,category_code,category_name,job_subcategory,job_title,company_name,location,work_setup,employment_type,job_level,salary_min_php,salary_max_php,job_description,required_skills,preferred_skills,must_have_skill_ids,posting_status,created_at,updated_at"
     selected_fields = f"{common_fields},source_platform,source_url,source_note" if table_name == "internal_jobs" else f"{common_fields},application_deadline"
@@ -222,22 +228,22 @@ def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool =
                 # migration has run. Keep the job catalogue available in that case.
                 detail = error.read().decode("utf-8", errors="replace") if error.code == 400 else ""
                 if include_psoc and error.code == 400 and "psoc_unit_code" in detail:
-                    return _fetch_jobs_table(table_name, limit, include_psoc=False)
+                    return _fetch_jobs_table(table_name, limit, include_psoc=False, strict=strict)
                 if error.code < 500 or attempt:
                     break
             except (URLError, TimeoutError, OSError):
                 if attempt:
                     break
-        if payload is None:
-            logger.warning("Stopped loading %s after %d rows: a page request failed", table_name, len(rows))
-            return rows
-
-        try:
-            data = json.loads(payload)
-        except json.JSONDecodeError:
-            return rows
-
+        data = None
+        if payload is not None:
+            try:
+                data = json.loads(payload)
+            except json.JSONDecodeError:
+                data = None
         if not isinstance(data, list):
+            logger.warning("Stopped loading %s after %d rows: a page request failed", table_name, len(rows))
+            if strict:
+                raise JobCatalogueIncomplete(f"{table_name} stopped after {len(rows)} rows")
             return rows
 
         page = [item for item in data if isinstance(item, dict)]
@@ -251,17 +257,17 @@ def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool =
     return rows
 
 
-def fetch_internal_jobs(limit: int = 500) -> list[dict[str, Any]]:
-    return _fetch_jobs_table("internal_jobs", limit=limit)
+def fetch_internal_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[str, Any]]:
+    return _fetch_jobs_table("internal_jobs", limit=limit, strict=strict)
 
 
-def fetch_employer_jobs(limit: int = 500) -> list[dict[str, Any]]:
-    return _fetch_jobs_table("employer_job_posts", limit=limit)
+def fetch_employer_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[str, Any]]:
+    return _fetch_jobs_table("employer_job_posts", limit=limit, strict=strict)
 
 
-def load_internal_jobs_dataframe(limit: int = 5000) -> pd.DataFrame:
-    internal_rows = [_map_internal_job(record) for record in fetch_internal_jobs(limit=limit)]
-    employer_rows = [_map_employer_job(record) for record in fetch_employer_jobs(limit=limit)]
+def load_internal_jobs_dataframe(limit: int = 5000, *, strict: bool = False) -> pd.DataFrame:
+    internal_rows = [_map_internal_job(record) for record in fetch_internal_jobs(limit=limit, strict=strict)]
+    employer_rows = [_map_employer_job(record) for record in fetch_employer_jobs(limit=limit, strict=strict)]
     rows = [*internal_rows, *employer_rows]
     rows = [row for row in rows if row.get("job_id") and row.get("job_title")]
     if not rows:
