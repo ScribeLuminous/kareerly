@@ -96,6 +96,8 @@ export type DashboardJob = {
   closestMatch?: boolean;
   /** Listed as Fit-Now because no job passes every Fit-Now rule: the job closest to the resume. */
   closestFitNow?: boolean;
+  /** Preferences the job does not fit, e.g. work setup "On-site" when the candidate chose "Hybrid". */
+  preferenceMismatches?: PreferenceMismatch[];
   sourceType: 'internal' | 'external';
   requiredSkills: string[];
   preferredSkills: string[];
@@ -623,6 +625,20 @@ export function matchCategoryBadge(job: Pick<DashboardJob, 'matchCategory' | 'cl
   return job.closestMatch ? 'Closest Match' : 'Aspiration';
 }
 
+export interface PreferenceMismatch {
+  /** "work setup", "level" or "salary". */
+  label: string;
+  jobValue: string;
+  chosenValue: string;
+}
+
+export function mapPreferenceMismatches(value: MatchResultItem['preference_mismatches']): PreferenceMismatch[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item.job_value === 'string' && item.job_value.trim())
+    .map((item) => ({ label: String(item.label || ''), jobValue: item.job_value.trim(), chosenValue: String(item.chosen_value || '').trim() }));
+}
+
 export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspiration'): DashboardJob {
   const scoreContext = category === 'fit-now' ? 'fit_now' : 'aspiration';
   const normalizedScore = extractMatchPercent(match, scoreContext);
@@ -659,6 +675,7 @@ export function mapRunMatch(match: MatchResultItem, category: 'fit-now' | 'aspir
     matchCategory: category,
     closestMatch: match.is_closest_match === true,
     closestFitNow: category === 'fit-now' && match.fit_now_fallback === true && match.fit_now_fallback_reason !== 'outside_region_filter',
+    preferenceMismatches: mapPreferenceMismatches(match.preference_mismatches),
     sourceType,
     requiredSkills,
     preferredSkills,
