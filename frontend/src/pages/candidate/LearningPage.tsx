@@ -245,8 +245,8 @@ export function CourseRow({ course, note, courseCompletions, onMarkCourseTaken, 
     .map((value) => knownValue(value))
     .filter((value) => value && !/unknown/i.test(value));
   return (
-    <li className="k-row flex-wrap items-start gap-y-3 sm:flex-nowrap">
-      <div className="k-row-main basis-full sm:basis-auto">
+    <li className="k-row k-course-row">
+      <div className="k-row-main k-course-main">
         <div className="k-label">{course.title}</div>
         <div className="k-meta k-dot-sep mt-0.5">{meta.map((item) => <span key={item}>{item}</span>)}</div>
         {note && <p className="k-meta mt-1">{note}</p>}
@@ -263,9 +263,9 @@ export function CourseRow({ course, note, courseCompletions, onMarkCourseTaken, 
           </p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="k-course-actions">
         <button
-          className="k-btn k-btn-ghost k-btn-sm"
+          className="k-btn k-btn-ghost k-btn-sm k-course-done"
           type="button"
           aria-pressed={Boolean(completion)}
           aria-label={completion ? `${course.title} is done. Mark as not done` : `Mark ${course.title} as done`}
@@ -275,10 +275,10 @@ export function CourseRow({ course, note, courseCompletions, onMarkCourseTaken, 
           {completion ? 'Done' : 'Mark as done'}
         </button>
         {url ? (
-          <a className="k-btn k-btn-secondary k-btn-sm" href={url} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel || 'Open'}: ${course.title} (opens in a new tab)`}>
+          <a className="k-btn k-btn-secondary k-btn-sm k-course-open" href={url} target="_blank" rel="noopener noreferrer" aria-label={`${course.urlLabel || 'Open'}: ${course.title} (opens in a new tab)`}>
             Open<FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" />
           </a>
-        ) : <span className="k-meta">No link</span>}
+        ) : <span className="k-meta k-course-open">No link</span>}
       </div>
     </li>
   );
