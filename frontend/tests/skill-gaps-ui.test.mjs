@@ -195,8 +195,12 @@ test('a row shows its requirement, progress, job titles, job count and impact; t
   assert.match(html, /aria-current="true"/);
   // Detail panel: explanation, needed-by list, the claim box, learning and progress.
   assert.match(html, /Required by 2 of your jobs, and nice to have for 1 more, so learning it once helps all 3 at the same time\./);
-  assert.match(html, /Needed by/);
+  assert.match(html, /Needed by 3 jobs/);
   assert.match(html, /I already have this skill/);
+  // Needed by shows 2 jobs, then "Show all"; the claim button sits beside the title.
+  assert.equal((html.match(/<section class="mt-6" aria-label="Needed by[^"]*">[\s\S]*?<\/section>/)[0].match(/<li/g) || []).length, 2);
+  assert.match(html, /aria-expanded="false" aria-controls="needed-by-SK1"[^>]*>Show all 3 jobs</);
+  assert.match(html, /<h2 id="gap-detail-title"[^>]*>Business Analytics<\/h2><button[^>]*>.*I already have this skill/);
   assert.match(html, /No course yet\./);
   assert.match(html, /Track your progress/);
   assert.doesNotMatch(html, /type="search"/);
@@ -284,6 +288,14 @@ test('Learning shows 5 skills with courses before "Show N more skills"', () => {
   }));
   assert.equal((html.match(/<h2 id="learn-sk4\d\d-title"/g) || []).length, 5);
   assert.match(html, /aria-expanded="false" aria-controls="learn-skill-groups">Show 3 more skills</);
+  // The skill filter is a dropdown with every skill that has courses.
+  assert.match(html, /<option value="all" selected="">All skills \(8\)<\/option>/);
+  assert.equal((html.match(/<option /g) || []).length, 9);
+  assert.doesNotMatch(html, /k-chip-scroller/);
+  // Search on the left, dropdown on the right; no intro or "Show courses for" text.
+  assert.match(html, /<div class="k-learn-controls mb-5"><div class="k-search" role="search">[\s\S]*?<\/div><select class="k-select" aria-label="Show courses for"/);
+  assert.doesNotMatch(html, /most useful first/);
+  assert.doesNotMatch(html, />Show courses for</);
 });
 
 test('skill progress labels follow the thesis ranges (0 / 1-25 / 26-50 / 51-75)', () => {

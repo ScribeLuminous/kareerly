@@ -650,6 +650,93 @@
   }
 }
 
+/* Learning: search on the left, skill dropdown on the right. */
+.k-learn-controls {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .k-learn-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+    align-items: center;
+  }
+}
+
+/* Course rows: actions on the right, the proof note under the title.
+   On phones "Open" sits beside the title, and "Done" shares a line with "Add proof". */
+.k-course-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'main actions' 'proof proof';
+  align-items: start;
+  row-gap: 0;
+}
+
+.k-course-main { grid-area: main; }
+.k-course-proof { grid-area: proof; margin-top: 6px; }
+
+.k-course-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 639px) {
+  .k-course-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'main main open' 'done proof proof';
+    column-gap: 12px;
+    align-items: center;
+  }
+
+  .k-course-main { align-self: start; }
+  .k-course-actions { display: contents; }
+  .k-course-open { grid-area: open; align-self: start; }
+
+  .k-course-done {
+    grid-area: done;
+    justify-self: start;
+    margin-left: -12px;
+    margin-bottom: -8px;
+  }
+
+  .k-course-proof {
+    margin: 0 0 -8px;
+  }
+
+  .k-course-proof-note {
+    display: none;
+  }
+}
+
+/* "Needed by" rows: badge and match % sit right; on phones they drop under the title. */
+.k-needed-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.k-needed-body > :first-child {
+  flex: 1 1 auto;
+}
+
+.k-needed-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .k-needed-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
 /* The selected skill is tinted only; no left accent bar. */
 .k-gap-row[aria-current='true'] {
   box-shadow: none;
