@@ -45,3 +45,12 @@ test('every match request sends the answer', () => {
   assert.match(api, /employment_type: answers\.employmentType/);
   assert.match(candidate, /employment_type: preferencePayload\.employment_type/);
 });
+
+test('the Matches page filters by employment type and job cards show mismatches', () => {
+  const matches = readCandidateFile('MatchesPage.tsx');
+  assert.match(matches, /legend="Employment type"/);
+  assert.match(matches, /employmentKey\(job\.employmentType \|\| ''\) !== employment/);
+  const card = readCandidateFile('JobCard.tsx');
+  assert.match(card, /Not what you chose: /);
+  assert.match(card, /job\.preferenceMismatches/);
+});

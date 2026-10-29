@@ -1753,7 +1753,7 @@ a.k-row:hover {
   }
 
   .k-job-grid .k-job-top > div:first-child { grid-column: 1; grid-row: 1; }
-  .k-job-grid .k-job-card > .k-secondary { grid-column: 2; grid-row: 1; margin: 0; }
+  .k-job-grid .k-job-card > .k-job-fit { grid-column: 2; grid-row: 1; }
   .k-job-grid .k-job-score { grid-column: 3; grid-row: 1; align-items: center; }
   .k-job-grid .k-job-card-actions { grid-column: 4; grid-row: 1; margin-top: 0; justify-content: flex-end; }
 }
@@ -1833,6 +1833,18 @@ a.k-row:hover {
 .k-score-lg {
   font-size: 26px;
   line-height: 30px;
+}
+
+/* Skill fit and preference mismatches, one short line each. */
+.k-job-fit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.k-job-fit > p {
+  margin: 0;
 }
 
 .k-job-card-actions {
