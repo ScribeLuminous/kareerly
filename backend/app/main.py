@@ -68,11 +68,8 @@ load_dotenv(BACKEND_DIR / ".env")
 
 app = FastAPI(title="Kareerly ML Backend")
 
-# Reported by /api/health/config. The website expects this exact value
-# (EXPECTED_BACKEND_VERSION in frontend/src/lib/backendVersion.ts) and warns
-# that results may be out of date when the running backend reports another
-# one or none. Change both together whenever matching, reports or learning
-# recommendations change in a way the website relies on; a test checks they match.
+# Reported by /api/health/config and /api/health/jobs, so a site admin can see
+# which backend code is deployed. Change it when the backend changes.
 BACKEND_VERSION = "2026.10.29-full-job-list"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
