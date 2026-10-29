@@ -1533,8 +1533,33 @@ def preference_mismatches(job: Dict[str, Any], preferences: Dict[str, Any], conf
     mismatches = []
     for name in conflicts:
         offered, chosen = (clean_text(value) for value in values[name])
-        mismatches.append({"field": name, "label": PREFERENCE_NOUNS[name], "job_value": offered, "chosen_value": chosen})
+        mismatches.append({"field": name, "label": PREFERENCE_NOUNS[name], "job_value": offered,
+                           "chosen_value": preference_display(name, chosen)})
     return mismatches
+
+
+PREFERENCE_DISPLAY = {
+    "job_level": {"entry": "Entry-level", "mid": "Mid-level", "senior": "Senior"},
+    "work_setup": {"remote": "Remote", "hybrid": "Hybrid", "onsite": "On-site"},
+}
+
+
+def preference_display(name: str, value: str) -> str:
+    """A Step 3 answer as the candidate would say it, whether it was sent as a
+    key ("entry", "hybrid", "15-35") or as an option label."""
+    if name == "job_level":
+        return PREFERENCE_DISPLAY[name].get(_role_level(normalize_for_match(value)), value)
+    if name == "work_setup":
+        setups = _work_setups(normalize_for_match(value))
+        return PREFERENCE_DISPLAY[name][next(iter(setups))] if len(setups) == 1 else value
+    if name == "salary":
+        salary = _salary_range(value.lower())
+        if salary:
+            low, high = salary
+            if high == float("inf"):
+                return f"PHP {low:,.0f}+"
+            return f"PHP {low:,.0f}" if low == high else f"PHP {low:,.0f} - {high:,.0f}"
+    return value
 
 
 def preference_mismatch_notes(job: Dict[str, Any], preferences: Dict[str, Any], conflicts: List[str]) -> List[str]:
