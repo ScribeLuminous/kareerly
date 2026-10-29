@@ -129,7 +129,7 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
         crm = restricted["all_aspiration_matches"][0]
         self.assertEqual(crm["preference_conflicts"], ["job_level", "work_setup", "salary"])
         self.assertIn("It differs from your Step 3 choices", crm["explanation"])
-        self.assertIn("(you chose remote)", crm["explanation"])
+        self.assertIn("(you chose Remote)", crm["explanation"])
         self.assertEqual(restricted["debug_summary"]["unrestricted_preferences"], [])
 
     def test_jobs_that_fit_the_other_answers_come_first(self):
@@ -149,7 +149,7 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
         self.assertEqual([item["job_id"] for item in result["all_aspiration_matches"]], ["remote", "onsite"])
         onsite = result["all_aspiration_matches"][1]
         self.assertEqual(onsite["preference_conflicts"], ["work_setup"])
-        self.assertEqual(onsite["preference_mismatch_notes"], ["work setup Onsite (you chose remote)"])
+        self.assertEqual(onsite["preference_mismatch_notes"], ["work setup Onsite (you chose Remote)"])
 
     def test_unstated_job_fields_and_open_answers_never_conflict(self):
         job_row = JOBS.iloc[2].to_dict() | {"experience_level_required": "", "work_type": "", "salary_range_monthly_php": ""}
