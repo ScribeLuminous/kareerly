@@ -296,7 +296,37 @@ class PreferenceMismatchTests(unittest.TestCase):
                 self.assertNotIn("fit_now_fallback", item)
                 self.assertEqual(item["preference_conflicts"], ["work_setup"])
                 self.assertEqual(item["preference_mismatches"], [{"field": "work_setup", "label": "work setup",
-                    "job_value": "Onsite", "chosen_value": setup}])
+                    "job_value": "Onsite", "chosen_value": {"Hybrid": "Hybrid", "100% Work from Home": "Remote"}[setup]}])
+
+    def test_every_preference_is_flagged_in_plain_words(self):
+        # The employer form's options against Step 3 answers, sent as keys or labels.
+        cases = [
+            ("job_level", {"experience_level_required": "Senior (5+ yrs)"}, {"role_level": "entry"}, "Entry-level"),
+            ("job_level", {"experience_level_required": "Junior (1-2 yrs)"}, {"role_level": "Mid-level (2-5 years experience)"}, "Mid-level"),
+            ("work_setup", {"work_type": "Remote"}, {"work_setup": "onsite"}, "On-site"),
+            ("work_setup", {"work_type": "On-site"}, {"work_setup": "Hybrid (mix of remote & office)"}, "Hybrid"),
+            ("salary", {"salary_range_monthly_php": "₱40,000 - 45,000"}, {"salary_expectation": "15-35"}, "PHP 15,000 - 35,000"),
+            ("salary", {"salary_range_monthly_php": "₱40,000 - 45,000"}, {"salary_expectation": "PHP 50,001 - more"}, "PHP 50,001+"),
+        ]
+        for field, posting, preferences, chosen in cases:
+            with self.subTest(posting=posting, preferences=preferences):
+                conflicts = matching.preference_conflicts(posting, preferences)
+                self.assertEqual(conflicts, [field])
+                self.assertEqual(matching.preference_mismatches(posting, preferences, conflicts)[0]["chosen_value"], chosen)
+
+    def test_matching_or_open_answers_are_not_flagged(self):
+        cases = [
+            ({"experience_level_required": "Junior (1-2 yrs)"}, {"role_level": "entry"}),
+            ({"experience_level_required": "Senior (5+ yrs)"}, {"role_level": "unsure"}),
+            ({"work_type": "On-site"}, {"work_setup": "Flexible - no preference"}),
+            ({"salary_range_monthly_php": "₱20,000 - 30,000"}, {"salary_expectation": "15-35"}),
+            # Nothing listed on the job: nothing to compare.
+            ({"experience_level_required": "", "work_type": "", "salary_range_monthly_php": ""},
+             {"role_level": "senior", "work_setup": "remote", "salary_expectation": "50+"}),
+        ]
+        for posting, preferences in cases:
+            with self.subTest(posting=posting, preferences=preferences):
+                self.assertEqual(matching.preference_conflicts(posting, preferences), [])
 
     def test_a_matching_setup_has_no_mismatch(self):
         jobs = pd.DataFrame([job("support", "Customer Support Specialist", "K09",
