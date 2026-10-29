@@ -317,8 +317,17 @@ function AccountMenu({ name, email, initials, items, logoutLabel = 'Log out', on
 
 function NotificationsMenu({ items, status, unreadCount, onOpen, onMarkAllRead }: AppShellProps['notifications']) {
   const [open, setOpen] = useState(false);
+  // Opening the bell marks everything read, so remember which items were
+  // unread while the panel is open and keep highlighting them as new.
+  const [newIds, setNewIds] = useState<ReadonlySet<string>>(() => new Set());
   const ref = useRef<HTMLDivElement>(null);
-  useDismiss(ref, open, () => setOpen(false));
+  const close = () => {
+    setOpen(false);
+    setNewIds(new Set());
+  };
+  useDismiss(ref, open, close);
+  const unseen = open ? items.filter((item) => item.unread && !newIds.has(item.id)) : [];
+  if (unseen.length) setNewIds(new Set([...newIds, ...unseen.map((item) => item.id)]));
   return (
     <div ref={ref} className="k-popover-anchor">
       <button
@@ -327,8 +336,13 @@ function NotificationsMenu({ items, status, unreadCount, onOpen, onMarkAllRead }
         aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={open}
         onClick={() => {
-          if (!open) onOpen?.();
-          setOpen((value) => !value);
+          if (open) {
+            close();
+            return;
+          }
+          setNewIds(new Set(items.filter((item) => item.unread).map((item) => item.id)));
+          setOpen(true);
+          onOpen?.();
         }}
       >
         <FontAwesomeIcon icon={faBell} aria-hidden="true" />
@@ -352,20 +366,20 @@ function NotificationsMenu({ items, status, unreadCount, onOpen, onMarkAllRead }
             ) : (
               <ul className="divide-y divide-bdr">
                 {items.map((item) => (
-                  <li key={item.id} className={`flex items-start gap-2 py-2 pl-4 pr-1 ${item.unread ? 'bg-rust-l/60' : ''}`}>
+                  <li key={item.id} className={`flex items-start gap-2 py-2 pl-4 pr-1 ${item.unread || newIds.has(item.id) ? 'bg-rust-l/60' : ''}`}>
                     <button
                       className="min-w-0 flex-1 py-1 text-left"
                       type="button"
                       onClick={() => {
                         if (item.unread) item.onMarkRead?.();
-                        setOpen(false);
+                        close();
                         item.onOpen?.();
                       }}
                     >
                       <span className="flex items-center gap-2">
                         <FontAwesomeIcon className="text-soft-text" icon={item.icon} aria-hidden="true" />
                         <span className="k-label">{item.title}</span>
-                        {item.unread && <span className="sr-only">(unread)</span>}
+                        {(item.unread || newIds.has(item.id)) && <span className="sr-only">(new)</span>}
                       </span>
                       <span className="k-secondary mt-0.5 block">{item.message}</span>
                       <span className="k-meta mt-1 block">{item.time}</span>
