@@ -53,7 +53,7 @@ export function UpskillingPage({
   report, status, error, onRetry, claimedSkills, skillProgressRecords, focusSkill, hasMatches,
   courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence, onTab, onOpenJobMatches,
 }: LearningPageProps) {
-  // null until the candidate picks a chip: the focused skill (from a gap or job) is shown first.
+  // null until the candidate picks a skill: the focused skill (from a gap or job) is shown first.
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const actions: CourseCompletionActions = { courseCompletions, onMarkCourseTaken, onUnmarkCourseTaken, onUploadCourseEvidence };
@@ -92,8 +92,6 @@ export function UpskillingPage({
     return course && !courseCompletions[course.id] ? [{ group, course }] : [];
   });
 
-  const selectChip = (key: string) => setSelectedKey(key);
-
   const body = () => {
     if (!hasMatches) {
       return (
@@ -118,22 +116,22 @@ export function UpskillingPage({
     }
     return (
       <>
-        <p className="k-secondary mb-4">Courses for your skill gaps, most useful first.</p>
-        {withCourses.length > 1 && (
-          <div className="k-chip-scroller mb-5" role="group" aria-label="Filter by skill">
-            <button className="k-chip" type="button" aria-pressed={activeKey === 'all'} onClick={() => selectChip('all')}>All skills</button>
-            {(allSkillsShown ? withCourses : withCourses.slice(0, visibleSkills)).map((group) => (
-              <button key={group.key} className="k-chip" type="button" aria-pressed={activeKey === group.key} onClick={() => selectChip(group.key)}>
-                {group.skill.skill_name}
-              </button>
-            ))}
-            {withCourses.length > visibleSkills && (
-              <button className="k-chip" type="button" aria-expanded={allSkillsShown} aria-controls="learn-skill-groups" onClick={() => setAllSkillsShown((current) => !current)}>
-                {allSkillsShown ? 'Fewer skills' : `+${withCourses.length - visibleSkills} more`}
-              </button>
-            )}
-          </div>
-        )}
+        <div className="k-learn-controls mb-5">
+          <p className="k-secondary">Courses for your skill gaps, most useful first.</p>
+          {withCourses.length > 1 && (
+            <label className="k-field block min-w-0">
+              <span className="k-label">Show courses for</span>
+              <select className="k-select mt-1.5" value={activeKey} onChange={(event) => setSelectedKey(event.target.value)}>
+                <option value="all">All skills ({withCourses.length})</option>
+                {withCourses.map((group) => (
+                  <option key={group.key} value={group.key}>
+                    {group.skill.skill_name} ({group.courses.length} course{group.courses.length === 1 ? '' : 's'})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
 
         {continuing.length > 0 && activeKey === 'all' && (
           <section className="mb-7" aria-labelledby="learn-continue">

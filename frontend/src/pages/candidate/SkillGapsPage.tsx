@@ -34,7 +34,7 @@ import {
   toDashboardGap,
   type GapProgress,
 } from './skillGaps';
-import type { GapGroupBy, GapJobCard, GapScope, GapSkill, GapTier, SkillGapReport } from '../../types';
+import type { GapGroupBy, GapJobCard, GapScope, GapSkill, GapSkillJob, GapTier, SkillGapReport } from '../../types';
 
 export type SkillsTab = 'gaps' | 'learning';
 export type GapLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -103,6 +103,8 @@ export type SkillGapsPageProps = {
   /** A match refresh is running (after "I already have this skill"). */
   busy?: boolean;
   onOpenMatches: () => void;
+  /** Opens a job's details from "Needed by". */
+  onOpenJob?: (job: GapSkillJob) => void;
 };
 
 function ImpactMeter({ bars, label }: { bars: number; label: string }) {
@@ -152,6 +154,7 @@ export function SkillGapsPage({
   hasMatches,
   busy = false,
   onOpenMatches,
+  onOpenJob,
 }: SkillGapsPageProps) {
   const [selectedKey, setSelectedKey] = useState('');
   // Phone width: the detail is its own view; this is the skill it shows.
@@ -287,13 +290,14 @@ export function SkillGapsPage({
 
   const detail = selected && (
     <GapDetail
+      key={selected.key}
       row={selected}
       searchUrl={report?.courses_by_skill?.[selected.skill.skill_id]?.search_url}
       busy={busy}
-      showTitle={isDesktop}
       onProgress={(value) => changeProgress(selected, value)}
       onClaim={() => setClaimTarget(selected.skill)}
       onOpenLearning={() => onOpenLearning(selected.skill.skill_name)}
+      onOpenJob={onOpenJob}
     />
   );
 
@@ -350,14 +354,13 @@ export function SkillGapsPage({
   // Phone width: the selected skill's detail replaces the list, with a way back.
   if (!isDesktop && mobileKey && selected) {
     return (
-      <div className="k-page">
+      <div className="k-page k-skills-page">
         <SkillsHeader tab="gaps" onTab={onTab} gapCount={open.length} />
         <div id="skills-panel" role="tabpanel" aria-labelledby="skills-tab-gaps">
           <button className="k-btn k-btn-ghost -ml-3 mt-1" type="button" onClick={closeMobileDetail}>
             <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />Back to skills
           </button>
           <article className="mt-2" aria-labelledby="gap-detail-title">
-            <h2 id="gap-detail-title" className="k-section-title mb-3">{selected.skill.skill_name}</h2>
             {detail}
           </article>
         </div>
@@ -575,16 +578,55 @@ function gapKeyOf(gap: { skill_id: string; skill_name: string }): string {
   return gapRecordKey({ taxonomy_skill_id: taxonomyIdOf(gap.skill_id), skill_name: gap.skill_name });
 }
 
-function GapDetail({ row, searchUrl, busy, showTitle, onProgress, onClaim, onOpenLearning }: {
+// "Needed by" shows this many jobs before "Show all".
+const NEEDED_BY_VISIBLE = 2;
+
+function GapDetail({ row, searchUrl, busy, onProgress, onClaim, onOpenLearning, onOpenJob }: {
   row: SkillRow;
   searchUrl?: string;
   busy: boolean;
-  showTitle: boolean;
   onProgress: (value: GapProgress) => void;
   onClaim: () => void;
   onOpenLearning: () => void;
+  onOpenJob?: (job: GapSkillJob) => void;
 }) {
   const { skill, courses, status } = row;
+  const [jobsOpen, setJobsOpen] = useState(false);
+  const hiddenJobs = Math.max(0, skill.jobs.length - NEEDED_BY_VISIBLE);
+  const visibleJobs = jobsOpen ? skill.jobs : skill.jobs.slice(0, NEEDED_BY_VISIBLE);
+  const neededById = `needed-by-${skill.skill_id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+  const renderJob = (job: GapSkillJob) => {
+    // On phones the badge and match % drop under the title so long titles keep one line.
+    const content = (
+      <>
+        <span className="k-row-main k-needed-body">
+          <span className="min-w-0">
+            <span className="k-label block">{job.title}</span>
+            <span className="k-meta k-dot-sep mt-0.5 block">
+              {knownValue(job.company) && <span>{job.company}</span>}
+              <span>{matchTypeLabel(job.match_type)}</span>
+            </span>
+          </span>
+          <span className="k-needed-stats">
+            <span className={`k-badge ${job.requirement === 'required' ? 'k-badge-warn' : 'k-badge-outline'}`}>
+              {job.requirement === 'required' ? 'Required' : 'Nice'}
+            </span>
+            <span className="k-num k-meta">{Math.round(job.match_pct)}%<span className="sr-only"> match</span></span>
+          </span>
+        </span>
+        {onOpenJob && <FontAwesomeIcon className="k-row-chevron" icon={faChevronRight} aria-hidden="true" />}
+      </>
+    );
+    return (
+      <li key={`${job.job_source}-${job.job_id}`}>
+        {onOpenJob ? (
+          <button className="k-row" type="button" onClick={() => onOpenJob(job)}>{content}</button>
+        ) : (
+          <div className="k-row">{content}</div>
+        )}
+      </li>
+    );
+  };
   const name = skill.skill_name;
   const value = gapProgress(status);
   const section = (title: string, body: ReactNode) => (
@@ -595,42 +637,34 @@ function GapDetail({ row, searchUrl, busy, showTitle, onProgress, onClaim, onOpe
   );
   return (
     <div>
-      {showTitle && <h2 className="k-section-title mb-3">{name}</h2>}
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <h2 id="gap-detail-title" className="k-section-title min-w-0">{name}</h2>
+        <button
+          className="k-btn k-btn-secondary k-btn-sm shrink-0"
+          type="button"
+          disabled={busy}
+          onClick={onClaim}
+          title="Add it to your skills and skip the course"
+        >
+          <FontAwesomeIcon icon={faUserCheck} aria-hidden="true" />I already have this skill
+        </button>
+      </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="k-badge k-badge-info"><ImpactMeter bars={skill.impact_bars} label={skill.impact_label} />{skill.impact_label}</span>
         <span className="k-badge">{requirementSummary(skill)}</span>
       </div>
       <p className="k-secondary">{gapExplanation(skill)}</p>
 
-      {section('Needed by', (
-        <ul className="k-list">
-          {skill.jobs.map((job) => (
-            <li key={`${job.job_source}-${job.job_id}`} className="k-row">
-              <span className="k-row-main">
-                <span className="k-label block">{job.title}</span>
-                <span className="k-meta k-dot-sep mt-0.5 block">
-                  {knownValue(job.company) && <span>{job.company}</span>}
-                  <span>{matchTypeLabel(job.match_type)}</span>
-                </span>
-              </span>
-              <span className="k-row-end">
-                <span className={`k-badge ${job.requirement === 'required' ? 'k-badge-warn' : 'k-badge-outline'}`}>
-                  {job.requirement === 'required' ? 'Required' : 'Nice'}
-                </span>
-                <span className="k-num k-meta">{Math.round(job.match_pct)}%</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+      {section(`Needed by ${skill.jobs.length} job${skill.jobs.length === 1 ? '' : 's'}`, (
+        <>
+          <ul id={neededById} className="k-list">{visibleJobs.map(renderJob)}</ul>
+          {hiddenJobs > 0 && (
+            <ShowMoreButton expanded={jobsOpen} controls={neededById} onToggle={() => setJobsOpen((open) => !open)}>
+              {jobsOpen ? 'Show less' : `Show all ${skill.jobs.length} jobs`}
+            </ShowMoreButton>
+          )}
+        </>
       ))}
-
-      <div className="k-card mt-5">
-        <p className="k-label">Already know {name}?</p>
-        <p className="k-meta mt-1">Add it to your skills and skip the course.</p>
-        <button className="k-btn k-btn-secondary mt-3" type="button" disabled={busy} onClick={onClaim}>
-          <FontAwesomeIcon icon={faUserCheck} aria-hidden="true" />I already have this skill
-        </button>
-      </div>
 
       {section('Learn it', (
         <>

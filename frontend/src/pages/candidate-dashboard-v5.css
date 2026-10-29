@@ -650,6 +650,42 @@
   }
 }
 
+/* Learning: intro text, then the skill dropdown under it. */
+.k-learn-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.k-learn-controls .k-field {
+  max-width: 360px;
+}
+
+/* "Needed by" rows: badge and match % sit right; on phones they drop under the title. */
+.k-needed-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.k-needed-body > :first-child {
+  flex: 1 1 auto;
+}
+
+.k-needed-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .k-needed-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
 /* The selected skill is tinted only; no left accent bar. */
 .k-gap-row[aria-current='true'] {
   box-shadow: none;
