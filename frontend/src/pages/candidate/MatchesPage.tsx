@@ -132,10 +132,11 @@ export function JobMatchesPage({
                 onClick={onRefresh}
                 disabled={isBusy}
                 aria-busy={isBusy}
+                aria-label={isBusy ? 'Refreshing matches' : 'Refresh matches'}
                 title="Check for new jobs and update your matches with your latest resume, skills, certificates and preferences"
               >
                 <FontAwesomeIcon icon={faArrowsRotate} className={isBusy ? 'fa-spin' : undefined} aria-hidden="true" />
-                {isBusy ? 'Refreshing…' : 'Refresh matches'}
+                {isBusy ? 'Refreshing…' : 'Refresh'}
               </button>
             )}
             <button className="k-btn k-btn-secondary lg:hidden" type="button" onClick={onAnalyze}>
