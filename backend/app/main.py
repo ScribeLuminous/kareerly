@@ -32,7 +32,7 @@ from pydantic import BaseModel, ValidationError
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, ResumeSummaryRequest, RunMatchesRequest, SkillGapsRequest
 from .services.admin_stats import summarize_match_feedback
 from .services.job_matcher import list_available_jobs
-from .services.supabase_jobs import JobCatalogueIncomplete, catalogue_counts, split_job_sections
+from .services.supabase_jobs import catalogue_counts, split_job_sections
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
@@ -70,7 +70,7 @@ app = FastAPI(title="Kareerly ML Backend")
 
 # Reported by /api/health/config and /api/health/jobs, so a site admin can see
 # which backend code is deployed. Change it when the backend changes.
-BACKEND_VERSION = "2026.10.29-full-job-list"
+BACKEND_VERSION = "2026.10.29-employer-posts-read"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -1420,14 +1420,11 @@ def health_config() -> dict:
 def health_jobs() -> dict:
     """Which Supabase project the job list reads, and how many open jobs each
     table shows it. Compare with the counts in the Supabase SQL editor."""
-    try:
-        listed = list_available_jobs()
-        list_status: dict = {"total": len(listed), "by_source": {
-            "kareerly": sum(1 for job in listed if not job.get("external_job_link_optional")),
-            "external_site": sum(1 for job in listed if job.get("external_job_link_optional")),
-        }}
-    except JobCatalogueIncomplete as exc:
-        list_status = {"error": str(exc)}
+    listed = list_available_jobs()
+    list_status = {"total": len(listed), "by_source": {
+        "kareerly": sum(1 for job in listed if not job.get("external_job_link_optional")),
+        "external_site": sum(1 for job in listed if job.get("external_job_link_optional")),
+    }}
     return {"backend_version": BACKEND_VERSION, **catalogue_counts(), "job_list": list_status}
 
 
@@ -2084,10 +2081,7 @@ def admin_reject_deletion_request(request_id: str, payload: AdminDecisionRequest
 
 @app.get("/api/jobs/list")
 def jobs_list(limit: int = 5000) -> dict:
-    try:
-        results = list_available_jobs(limit=limit)
-    except JobCatalogueIncomplete as exc:
-        raise HTTPException(status_code=503, detail="Jobs couldn't load. Please try again.") from exc
+    results = list_available_jobs(limit=limit)
     # A job listed here but not yet in the matching cache (a new employer post)
     # is scored by the next match run instead of after the cache expires.
     refresh_jobs_cache_for([item.get("job_id") for item in results])

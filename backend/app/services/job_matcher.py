@@ -495,7 +495,8 @@ _job_list_lock = threading.Lock()
 
 def list_available_jobs(limit: int = 5000) -> list[dict[str, Any]]:
     """Every open job, or the last complete list when a fresh read is cut short.
-    Raises JobCatalogueIncomplete when no complete list has been read yet."""
+    With no complete list yet, the jobs that could be read: one table that
+    cannot be read must not empty the whole page."""
     safe_limit = max(1, min(limit, 5000))
     with _job_list_lock:
         cached = _job_list_cache["results"]
@@ -506,13 +507,13 @@ def list_available_jobs(limit: int = 5000) -> list[dict[str, Any]]:
         except JobCatalogueIncomplete:
             if cached is not None and _job_list_cache["limit"] == safe_limit:
                 return cached
-            raise
+            return _read_available_jobs(safe_limit, strict=False)
         _job_list_cache.update(limit=safe_limit, loaded_at=time.monotonic(), results=results)
         return results
 
 
-def _read_available_jobs(safe_limit: int) -> list[dict[str, Any]]:
-    jobs = load_internal_jobs_dataframe(limit=safe_limit, strict=True)
+def _read_available_jobs(safe_limit: int, *, strict: bool = True) -> list[dict[str, Any]]:
+    jobs = load_internal_jobs_dataframe(limit=safe_limit, strict=strict)
 
     if jobs.empty:
         return []
