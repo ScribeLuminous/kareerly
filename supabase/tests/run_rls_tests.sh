@@ -100,6 +100,17 @@ psql_anon -c "create table public.profiles (id uuid primary key); create table p
 psql_anon -f "$here/../migrations/20261028090000_revoke_anon_table_access.sql"
 psql_anon -f "$here/../migrations/20261028090000_revoke_anon_table_access.sql"
 psql_anon -f "$here/anon_table_access_tests.sql"
+psql_run -c "create database employer_job_posts_public_read"
+psql_ejp() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d employer_job_posts_public_read -v ON_ERROR_STOP=1 -q "$@"; }
+psql_ejp -f "$here/supabase_stub.sql"
+# The tables and policies as schema.sql created them before the fix, with the
+# broad default grants Supabase gives anon and authenticated.
+psql_ejp -c "create table public.profiles (id uuid primary key references auth.users(id) on delete cascade); create table public.employer_profiles (id uuid primary key default gen_random_uuid(), user_id uuid not null unique references public.profiles(id) on delete cascade, company_name text not null); create table public.employer_job_posts (id uuid primary key default gen_random_uuid(), job_id text not null unique, employer_id uuid not null references public.employer_profiles(id) on delete cascade, job_title text not null, posting_status text default 'draft', application_deadline date); alter table public.employer_profiles enable row level security; alter table public.employer_job_posts enable row level security; create policy \"Employers can manage own profile\" on public.employer_profiles for all using (auth.uid() = user_id) with check (auth.uid() = user_id); create policy \"Anyone can read active employer job posts\" on public.employer_job_posts for select using (posting_status = 'active' and (application_deadline is null or application_deadline > (now() at time zone 'Asia/Manila')::date)); create policy \"Employers can manage own job posts\" on public.employer_job_posts for all using (exists (select 1 from public.employer_profiles where employer_profiles.id = employer_job_posts.employer_id and employer_profiles.user_id = auth.uid())) with check (exists (select 1 from public.employer_profiles where employer_profiles.id = employer_job_posts.employer_id and employer_profiles.user_id = auth.uid())); grant usage on schema public to anon, authenticated, service_role; grant all on all tables in schema public to anon, authenticated, service_role"
+psql_ejp -f "$here/../migrations/20261028090000_revoke_anon_table_access.sql"
+# Applied twice: the migration must be safe to re-run.
+psql_ejp -f "$here/../migrations/20261029100000_employer_job_posts_public_read.sql"
+psql_ejp -f "$here/../migrations/20261029100000_employer_job_posts_public_read.sql"
+psql_ejp -f "$here/employer_job_posts_public_read_tests.sql"
 psql_run -c "create database education_levels"
 psql_edu() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d education_levels -v ON_ERROR_STOP=1 -q "$@"; }
 psql_edu -f "$here/supabase_stub.sql"

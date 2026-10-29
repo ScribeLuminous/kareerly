@@ -45,10 +45,23 @@ class JobListTests(TestCase):
         with mock.patch.object(supabase_jobs, "urlopen", side_effect=_api(1000, fail_offsets={500})):
             self.assertEqual(len(job_matcher.list_available_jobs()), 1000)
 
-    def test_a_short_read_with_nothing_cached_is_an_error(self):
+    def test_a_short_read_with_nothing_cached_shows_what_could_be_read(self):
         with mock.patch.object(supabase_jobs, "urlopen", side_effect=_api(1000, fail_offsets={500})):
-            with self.assertRaises(supabase_jobs.JobCatalogueIncomplete):
-                job_matcher.list_available_jobs()
+            self.assertEqual(len(job_matcher.list_available_jobs()), 500)
+        # A short list is never kept as the complete one.
+        self.assertIsNone(job_matcher._job_list_cache["results"])
+
+    def test_a_table_that_cannot_be_read_does_not_empty_the_list(self):
+        api = _api(20)
+
+        def reply(request, timeout):
+            if "employer_job_posts" in request.full_url:
+                raise supabase_jobs.HTTPError(request.full_url, 401, "denied", {},
+                                              io.BytesIO(b'{"message":"permission denied for table employer_profiles"}'))
+            return api(request, timeout)
+
+        with mock.patch.object(supabase_jobs, "urlopen", side_effect=reply):
+            self.assertEqual(len(job_matcher.list_available_jobs()), 20)
 
     def test_a_fresh_list_is_shared_instead_of_re_read(self):
         reply = mock.Mock(side_effect=_api(10))
