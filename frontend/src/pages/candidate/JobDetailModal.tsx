@@ -184,10 +184,9 @@ export function JobDetailBody({ job, courses, onOpenLearning, feedback }: Pick<J
         )}
         {mismatches.length > 0 && (
           <div className="mt-3">
-            <div className="k-meta mb-1.5">Not what you chose</div>
-            <div className="k-chip-row gap-1.5">
+            <div className="k-chip-row gap-1.5" role="list" aria-label="Preferences this job does not match">
               {mismatches.map((item) => (
-                <span key={`pref-${item.label}`} className="k-skill k-skill-mismatch">
+                <span key={`pref-${item.label}`} className="k-skill k-skill-mismatch" role="listitem">
                   <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
                   <span className="sr-only">Does not match your {item.label} preference: </span>
                   {item.jobValue}

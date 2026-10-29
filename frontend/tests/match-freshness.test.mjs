@@ -38,7 +38,8 @@ test('the dashboard refreshes a restored run once the jobs and claims are loaded
 
 test('preference mismatches are shown on the job, never used to filter it', () => {
   const modal = readCandidateFile('JobDetailModal.tsx');
-  assert.match(modal, /Not what you chose/);
+  assert.match(modal, /Preferences this job does not match/);
+  assert.doesNotMatch(modal, /Not what you chose/);
   assert.match(modal, /faXmark/);
   assert.match(dashboardSource, /preferenceMismatches: mapPreferenceMismatches\(match\.preference_mismatches\)/);
   assert.doesNotMatch(dashboardSource, /preferenceMismatches[^\n]*\.filter\(\(job/);
