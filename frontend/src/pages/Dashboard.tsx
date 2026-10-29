@@ -1293,6 +1293,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       target_role: answers.role,
       role_level: answers.role,
       work_setup: getPreferenceLabel(setupLabels, answers.setup),
+      // Sent as its key; the backend reads keys and labels alike.
+      employment_type: answers.employmentType || '',
       salary_expectation: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
       skill_to_develop: answers.skill,
     };
@@ -1314,6 +1316,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         role_level: preferencePayload.role_level,
         role: preferencePayload.target_role,
         work_setup: preferencePayload.work_setup,
+        employment_type: preferencePayload.employment_type,
         salary_expectation: preferencePayload.salary_expectation,
         skill_to_develop: preferencePayload.skill_to_develop,
         // The saved region choice; "current" also sends the profile location so
@@ -1375,6 +1378,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         preferredIndustry: getCareerAreaLabel(answers.industry),
         targetRole: answers.role,
         preferredWorkSetup: getPreferenceLabel(setupLabels, answers.setup),
+        preferredEmploymentType: answers.employmentType || '',
         expectedSalary: getPreferenceLabel({ ...legacySalaryLabels, ...salaryLabels }, answers.salary),
         skillToDevelop: answers.skill,
         preferredLocationScope: normalizeLocationScope(answers.locationScope),

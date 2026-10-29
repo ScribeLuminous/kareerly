@@ -89,6 +89,15 @@ export const workSetupOptions: PreferenceOption[] = [
   { value: 'flexible', label: 'Flexible - no preference' },
 ];
 
+export const employmentTypeOptions: PreferenceOption[] = [
+  { value: 'full-time', label: 'Full-time' },
+  { value: 'part-time', label: 'Part-time' },
+  { value: 'contract', label: 'Contract' },
+  { value: 'temporary', label: 'Temporary' },
+  { value: 'internship', label: 'Internship' },
+  { value: 'any', label: 'No preference' },
+];
+
 export const salaryOptions: PreferenceOption[] = [
   { value: '15-35', label: 'PHP 15,000 - PHP 35,000/month' },
   { value: '35-50', label: 'PHP 35,001 - PHP 50,000/month' },
@@ -138,6 +147,9 @@ export function answersFromPreferencesUsed(preferences: unknown): SurveyAnswers 
     salary: text('salary_expectation', 'salary'),
     skill: text('skill_to_develop'),
   };
+  // Present only on reports generated with the employment type question.
+  const employmentType = text('employment_type');
+  if (employmentType) answers.employmentType = employmentType;
   // Present only on reports generated with the region question.
   const locationScope = text('location_scope');
   if (locationScope) {
@@ -154,6 +166,7 @@ export function summarizePreferences(answers: SurveyAnswers | null | undefined):
   if (answers.industry?.trim()) items.push({ label: 'Career area', value: getCareerAreaLabel(answers.industry) });
   if (answers.role?.trim()) items.push({ label: 'Target job level', value: optionLabel(jobLevelOptions, answers.role) });
   if (answers.setup?.trim()) items.push({ label: 'Work setup', value: optionLabel(workSetupOptions, answers.setup) });
+  if (answers.employmentType?.trim()) items.push({ label: 'Employment type', value: optionLabel(employmentTypeOptions, answers.employmentType) });
   if (answers.locationScope?.trim()) items.push({ label: 'Location', value: describeLocationPreference(answers) });
   if (answers.salary?.trim()) items.push({ label: 'Salary expectation', value: optionLabel([...salaryOptions, ...legacySalaryOptions], answers.salary) });
   if (answers.skill?.trim()) items.push({ label: 'Skill to develop', value: answers.skill.trim() });

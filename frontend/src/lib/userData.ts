@@ -239,6 +239,7 @@ export async function loadLatestMatchRun(input: { userId: string; resumeId?: str
           setup: preferences.setup || '',
           salary: preferences.salary || '',
           skill: preferences.skill || '',
+          employmentType: preferences.employmentType || '',
           locationScope: preferences.locationScope || 'anywhere',
           region: preferences.region || '',
         }

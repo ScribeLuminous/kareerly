@@ -12,7 +12,7 @@ import { getCurrentKareerlyUser, updateCandidateProfile } from '../lib/auth';
 import { saveMatchHistory } from '../lib/userData';
 import { careerAreaSkillExamples, confirmedSkillsInCareerArea, getCareerAreaLabel, isLegacyCareerArea, normalizeCareerAreaValue } from '../lib/careerAreas';
 import type { CareerAreaRules, CareerAreaSkillMap } from '../lib/careerAreas';
-import { careerAreaPreferenceOptions, jobLevelLockNote, jobLevelOptions, jobLevelState, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
+import { careerAreaPreferenceOptions, employmentTypeOptions, jobLevelLockNote, jobLevelOptions, jobLevelState, salaryOptions, workSetupOptions } from '../lib/preferenceOptions';
 import { extractionWarnings } from '../lib/resumeFreshness';
 import { isLocationPreferenceComplete, locationPreferencePayload, normalizeLocationScope } from '../lib/regionPreference';
 import LocationPreferenceQuestion from './LocationPreferenceQuestion';
@@ -29,6 +29,7 @@ const defaultAnswers: SurveyAnswers = {
   setup: '',
   salary: '',
   skill: '',
+  employmentType: 'any',
   locationScope: 'anywhere',
   region: '',
 };
@@ -261,6 +262,7 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           role_level: answers.role,
           role: answers.role,
           work_setup: answers.setup,
+          employment_type: answers.employmentType || '',
           salary_expectation: answers.salary,
           skill_to_develop: answers.skill,
           ...locationPreferencePayload(answers, profileLocation),
@@ -616,6 +618,13 @@ export default function SurveyStep({ isLoggedIn }: SurveyStepProps) {
           value={answers.setup}
           onChange={(value) => handleChange('setup', value)}
           options={workSetupOptions}
+        />
+        <Question
+          label="What type of employment are you looking for?"
+          name="employmentType"
+          value={answers.employmentType || 'any'}
+          onChange={(value) => handleChange('employmentType', value)}
+          options={employmentTypeOptions}
         />
         <LocationPreferenceQuestion
           scope={answers.locationScope}

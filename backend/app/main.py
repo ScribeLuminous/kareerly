@@ -864,6 +864,10 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
     return _require_candidate_settings(user_id)
 
 
+# The values candidate_profiles.preferred_employment_type accepts.
+EMPLOYMENT_TYPE_PREFERENCES = {"full-time", "part-time", "contract", "temporary", "internship", "any"}
+
+
 def _sync_match_results_in_background(**kwargs) -> None:
     try:
         _sync_match_results_to_supabase(**kwargs)
@@ -906,13 +910,30 @@ def _sync_match_results_to_supabase(
     if preferences.get("location_scope"):
         candidate_profile_payload["preferred_location_scope"] = str(preferences.get("location_scope")) or None
         candidate_profile_payload["preferred_region"] = str(preferences.get("region") or "") or None
-    _supabase_request(
-        "/rest/v1/candidate_profiles?on_conflict=user_id",
-        method="POST",
-        token=access_token,
-        body=candidate_profile_payload,
-        prefer="resolution=merge-duplicates",
-    )
+    employment_type = str(preferences.get("employment_type") or "").strip().lower()
+    if employment_type in EMPLOYMENT_TYPE_PREFERENCES:
+        candidate_profile_payload["preferred_employment_type"] = employment_type
+    try:
+        _supabase_request(
+            "/rest/v1/candidate_profiles?on_conflict=user_id",
+            method="POST",
+            token=access_token,
+            body=candidate_profile_payload,
+            prefer="resolution=merge-duplicates",
+        )
+    except HTTPException as exc:
+        # The employment type column comes from a migration; until it has run,
+        # keep saving the other answers.
+        if "preferred_employment_type" not in candidate_profile_payload or "preferred_employment_type" not in str(exc.detail):
+            raise
+        candidate_profile_payload.pop("preferred_employment_type")
+        _supabase_request(
+            "/rest/v1/candidate_profiles?on_conflict=user_id",
+            method="POST",
+            token=access_token,
+            body=candidate_profile_payload,
+            prefer="resolution=merge-duplicates",
+        )
 
     if education:
         auth_user = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", service_role=True)

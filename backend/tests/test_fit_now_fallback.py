@@ -307,6 +307,9 @@ class PreferenceMismatchTests(unittest.TestCase):
             ("work_setup", {"work_type": "On-site"}, {"work_setup": "Hybrid (mix of remote & office)"}, "Hybrid"),
             ("salary", {"salary_range_monthly_php": "₱40,000 - 45,000"}, {"salary_expectation": "15-35"}, "PHP 15,000 - 35,000"),
             ("salary", {"salary_range_monthly_php": "₱40,000 - 45,000"}, {"salary_expectation": "PHP 50,001 - more"}, "PHP 50,001+"),
+            ("employment_type", {"employment_type": "Contract"}, {"employment_type": "full-time"}, "Full-time"),
+            ("employment_type", {"employment_type": "Part-time"}, {"employment_type": "Internship"}, "Internship"),
+            ("employment_type", {"employment_type": "Full-time"}, {"employment_type": "temporary"}, "Temporary"),
         ]
         for field, posting, preferences, chosen in cases:
             with self.subTest(posting=posting, preferences=preferences):
@@ -320,13 +323,40 @@ class PreferenceMismatchTests(unittest.TestCase):
             ({"experience_level_required": "Senior (5+ yrs)"}, {"role_level": "unsure"}),
             ({"work_type": "On-site"}, {"work_setup": "Flexible - no preference"}),
             ({"salary_range_monthly_php": "₱20,000 - 30,000"}, {"salary_expectation": "15-35"}),
+            ({"employment_type": "Full-time"}, {"employment_type": "full-time"}),
+            ({"employment_type": "Full Time"}, {"employment_type": "Full-time"}),
+            ({"employment_type": "Contractual"}, {"employment_type": "contract"}),
+            ({"employment_type": "Internship"}, {"employment_type": "any"}),
+            ({"employment_type": "Contract"}, {"employment_type": "No preference"}),
             # Nothing listed on the job: nothing to compare.
             ({"experience_level_required": "", "work_type": "", "salary_range_monthly_php": ""},
              {"role_level": "senior", "work_setup": "remote", "salary_expectation": "50+"}),
+            ({"employment_type": ""}, {"employment_type": "full-time"}),
         ]
         for posting, preferences in cases:
             with self.subTest(posting=posting, preferences=preferences):
                 self.assertEqual(matching.preference_conflicts(posting, preferences), [])
+
+    def test_a_fit_now_job_of_another_employment_type_stays_fit_now(self):
+        jobs = pd.DataFrame([{**job("support", "Customer Support Specialist", "K09",
+            "Customer Service and Retail", "SK029;SK300;SK623"), "employment_type": "Contract"}])
+        result = run(jobs=jobs, scores=[0.5], preferences={**CREATIVE_AREA, "employment_type": "full-time"})
+        item = result["all_fit_now_matches"][0]
+        self.assertEqual(item["job_id"], "support")
+        self.assertEqual(item["preference_mismatches"], [{"field": "employment_type", "label": "employment type",
+            "job_value": "Contract", "chosen_value": "Full-time"}])
+
+    def test_employment_type_orders_aspiration_jobs(self):
+        jobs = pd.DataFrame([
+            {**job("designer-contract", "Graphic Designer", "K11", "Design, Media, and Performing Arts", "SK039"),
+             "employment_type": "Contract"},
+            {**job("designer-full", "Graphic Designer II", "K11", "Design, Media, and Performing Arts", "SK039"),
+             "employment_type": "Full-time"},
+        ])
+        result = run(jobs=jobs, scores=[0.2, 0.2], preferences={**CREATIVE_AREA, "employment_type": "full-time"})
+        self.assertEqual(ids(result["all_aspiration_matches"]), ["designer-full", "designer-contract"])
+        self.assertGreater(result["all_aspiration_matches"][0]["preference_alignment"],
+                           result["all_aspiration_matches"][1]["preference_alignment"])
 
     def test_a_matching_setup_has_no_mismatch(self):
         jobs = pd.DataFrame([job("support", "Customer Support Specialist", "K09",
