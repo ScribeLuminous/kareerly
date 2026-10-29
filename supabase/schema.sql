@@ -435,7 +435,7 @@ create policy "Anyone can read active employer job posts" on public.employer_job
 );
 
 drop policy if exists "Employers can manage own job posts" on public.employer_job_posts;
-create policy "Employers can manage own job posts" on public.employer_job_posts for all using (
+create policy "Employers can manage own job posts" on public.employer_job_posts for all to authenticated using (
   exists (
     select 1
     from public.employer_profiles

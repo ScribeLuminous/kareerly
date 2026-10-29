@@ -18,3 +18,5 @@ Add ordered, reviewed database migrations here. The current consolidated schema 
 `20261028140000_assessment_link_opens.sql` adds `log_assessment_link_opened`, which records (in the review activity history) when a reviewer opens a link from a candidate's assessment answer. Checks are in `tests/assessment_link_open_tests.sql`.
 
 `20261028150000_candidate_evidence.sql` saves a candidate's certificates and proof (badge links, PDF details) in `candidate_evidence`, owner-only, so they survive a reload. The PDF file itself is not stored. Checks are in `tests/candidate_evidence_rls.sql`.
+
+`20261029100000_employer_job_posts_public_read.sql` limits the "Employers can manage own job posts" policy to signed-in users. Without it, anon reads of `employer_job_posts` failed with "permission denied for table employer_profiles" once anon lost access to that table, so the job list showed no employer posts. Checks are in `tests/employer_job_posts_public_read_tests.sql`.
