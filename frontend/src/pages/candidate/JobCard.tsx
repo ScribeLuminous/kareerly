@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBookmark, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faBookmark, faCheck, faXmark } from '@fortawesome/free-solid-svg-icons';
 import {
   categoryBadgeClass,
   jobMetaParts,
@@ -30,6 +30,8 @@ export function JobCard({ job, applicationStatus, isSaved, selected = false, onO
   const meta = jobMetaParts(job);
   const score = jobScore(job);
   const skills = jobSkillSummary(job);
+  const hasSkillLine = job.hasMatchScore && skills.total > 0;
+  const mismatches = job.hasMatchScore ? job.preferenceMismatches ?? [] : [];
   const Heading = headingLevel;
   const showApply = job.sourceType === 'internal' && !applicationStatus && onApply;
   return (
@@ -54,14 +56,25 @@ export function JobCard({ job, applicationStatus, isSaved, selected = false, onO
           )}
         </div>
       </div>
-      {job.hasMatchScore && skills.total > 0 && (
-        <p className="k-secondary">
-          <FontAwesomeIcon icon={faCheck} className="mr-1.5 text-green" aria-hidden="true" />
-          {skills.matched} of {skills.total} skills
-          {skills.missing.length > 0 && (
-            <span className="text-soft-text"> · Needs {skills.missing.slice(0, 2).join(', ')}{skills.missing.length > 2 ? ` +${skills.missing.length - 2}` : ''}</span>
+      {(hasSkillLine || mismatches.length > 0) && (
+        <div className="k-job-fit">
+          {hasSkillLine && (
+            <p className="k-secondary">
+              <FontAwesomeIcon icon={faCheck} className="mr-1.5 text-green" aria-hidden="true" />
+              {skills.matched} of {skills.total} skills
+              {skills.missing.length > 0 && (
+                <span className="text-soft-text"> · Needs {skills.missing.slice(0, 2).join(', ')}{skills.missing.length > 2 ? ` +${skills.missing.length - 2}` : ''}</span>
+              )}
+            </p>
           )}
-        </p>
+          {mismatches.length > 0 && (
+            <p className="k-secondary">
+              <FontAwesomeIcon icon={faXmark} className="mr-1.5 text-rust" aria-hidden="true" />
+              <span className="text-soft-text">Not what you chose: </span>
+              {mismatches.map((item) => item.jobValue).join(' · ')}
+            </p>
+          )}
+        </div>
       )}
       {(showApply || applicationStatus || onSave || job.sourceType === 'external') && (
         <div className="k-job-card-actions">
