@@ -145,10 +145,10 @@ class ClassificationFlowTests(MatchingFlowCase):
             "SK004;SK001;SK005;SK629;SK006;SK670;SK669;SK657", must_have="SK004;SK657")])
         resume = RESUME + "\nBuilt Tableau and Power BI dashboards with data visualization."
         result = self.run_match(resume=resume, jobs=jobs)
-        # Listed only as the job closest to the resume, never as a full Fit-Now.
-        self.assertEqual(result["all_aspiration_matches"], [])
-        item = result["all_fit_now_matches"][0]
-        self.assertTrue(item["fit_now_fallback"])
+        # Never a Fit-Now, not even as the closest job: it stays Aspiration.
+        self.assertEqual(result["all_fit_now_matches"], [])
+        item = result["all_aspiration_matches"][0]
+        self.assertNotIn("fit_now_fallback", item)
         self.assertEqual(item["match_breakdown"]["match_category"], "Aspiration")
         self.assertEqual(item["required_skill_coverage"], 0.875)
         self.assertEqual(item["match_breakdown"]["failed_fit_now_rules"], ["critical_skill_missing"])

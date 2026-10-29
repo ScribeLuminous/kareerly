@@ -550,6 +550,17 @@
   color: var(--mid);
 }
 
+/* A job detail that differs from the candidate's preferences. */
+.k-skill-mismatch {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--bdr);
+  color: var(--dark);
+}
+
+.k-skill-mismatch svg {
+  color: var(--rust);
+}
+
 /* ---------- Tabs & segmented control ---------- */
 
 .k-tabs {

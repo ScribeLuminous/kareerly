@@ -237,6 +237,11 @@ export interface MatchResultItem {
    */
   fit_now_fallback?: boolean;
   fit_now_fallback_reason?: 'closest_to_resume' | 'outside_region_filter';
+  /**
+   * Step 3 answers the job does not fit (job level, work setup, salary). They
+   * never move or hide a job; the job detail shows each one.
+   */
+  preference_mismatches?: Array<{ field: string; label: string; job_value: string; chosen_value: string }>;
   closest_match_strength?: 'related' | 'weak';
   /** The category the scoring rules gave a Closest Match job (Aspiration or Low Match). */
   base_match_category?: string;

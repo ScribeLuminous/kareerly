@@ -675,3 +675,32 @@ chosen region, got an empty Fit-Now list.
 This reverses part of the 2026-09-25 decision not to pad an empty Fit-Now
 list: the padding is now one job, chosen by the resume, and marked as such.
 
+
+## 2026-10-29: only a near miss is listed as Closest Fit
+
+A teacher's resume got Company Nurse as its "Closest Fit", described as "the
+closest to your resume", because it shared one office skill. Two causes:
+
+- **Saved matches went stale.** The dashboard shows the last saved run; the
+  Elementary School Teacher post (an exact Fit-Now, 3 of 3 required skills)
+  was made after it, so it was never scored. With no Fit-Now job in that run,
+  the fallback promoted the nurse job. Fit-Now never read the Hybrid work
+  setup; a run with Hybrid lists the On-site teacher job as Fit-Now.
+- **The fallback took any job.** It picked the highest match score from every
+  scored job, Aspiration jobs included.
+
+Changes:
+
+- **Fallback limited to near misses** (`is_near_fit_now`): a full Fit-Now
+  job outside the region filter, or a Low Match job whose only failed rule is
+  required coverage, holding 50% or more of its required skills
+  (`FIT_NOW_FALLBACK_MIN_REQUIRED_COVERAGE`). An Aspiration job stays
+  Aspiration. With no near miss the Fit-Now list is empty, and the notice
+  points to the Aspiration list.
+- **Stale runs refreshed.** The dashboard compares the saved run's
+  `created_at` with each listed job's `created_at`/`updated_at` and re-runs
+  matching once when a job is newer. `/api/jobs/list` drops the matching
+  job cache when it lists a job the cache lacks, so that re-run scores it.
+- **Preference mismatches shown, not filtered.** Every job carries
+  `preference_mismatches` (field, job value, chosen value). The job detail
+  lists them under "Not what you chose" with an ✕; the job keeps its list.

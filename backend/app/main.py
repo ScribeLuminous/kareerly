@@ -38,7 +38,7 @@ from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.skill_variants import load_skill_variants
 from .services.ph_regions import region_name, region_options, resolve_single_region, regions_in_location
-from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, job_level_thresholds, learning_by_skill_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, job_level_thresholds, learning_by_skill_for, refresh_jobs_cache_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
 from .services.education import normalize_education_level
@@ -2051,7 +2051,11 @@ def admin_reject_deletion_request(request_id: str, payload: AdminDecisionRequest
 
 @app.get("/api/jobs/list")
 def jobs_list(limit: int = 5000) -> dict:
-    return {"results": list_available_jobs(limit=limit)}
+    results = list_available_jobs(limit=limit)
+    # A job listed here but not yet in the matching cache (a new employer post)
+    # is scored by the next match run instead of after the cache expires.
+    refresh_jobs_cache_for([item.get("job_id") for item in results])
+    return {"results": results}
 
 
 def _split_detail_list(value: object) -> list[str]:
