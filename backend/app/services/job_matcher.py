@@ -1,5 +1,7 @@
 from pathlib import Path
 import re
+import threading
+import time
 from typing import Any, Optional
 
 import joblib
@@ -13,7 +15,7 @@ from .learning_recommender import (
     prioritize_skill_gaps,
     recommend_learning_resources,
 )
-from .supabase_jobs import load_internal_jobs_dataframe
+from .supabase_jobs import JobCatalogueIncomplete, load_internal_jobs_dataframe
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -483,9 +485,34 @@ def match_jobs(
     )
 
 
+# Every open Kareers page re-reads the list every 30 seconds. Reading ~2,000
+# jobs takes several Supabase pages, so one complete list is shared for a short
+# while, and a read that comes back short never replaces it.
+JOB_LIST_CACHE_SECONDS = 30.0
+_job_list_cache: dict[str, Any] = {"limit": 0, "loaded_at": 0.0, "results": None}
+_job_list_lock = threading.Lock()
+
+
 def list_available_jobs(limit: int = 5000) -> list[dict[str, Any]]:
+    """Every open job, or the last complete list when a fresh read is cut short.
+    Raises JobCatalogueIncomplete when no complete list has been read yet."""
     safe_limit = max(1, min(limit, 5000))
-    jobs = load_internal_jobs_dataframe(limit=safe_limit)
+    with _job_list_lock:
+        cached = _job_list_cache["results"]
+        if cached is not None and _job_list_cache["limit"] == safe_limit and time.monotonic() - _job_list_cache["loaded_at"] < JOB_LIST_CACHE_SECONDS:
+            return cached
+        try:
+            results = _read_available_jobs(safe_limit)
+        except JobCatalogueIncomplete:
+            if cached is not None and _job_list_cache["limit"] == safe_limit:
+                return cached
+            raise
+        _job_list_cache.update(limit=safe_limit, loaded_at=time.monotonic(), results=results)
+        return results
+
+
+def _read_available_jobs(safe_limit: int) -> list[dict[str, Any]]:
+    jobs = load_internal_jobs_dataframe(limit=safe_limit, strict=True)
 
     if jobs.empty:
         return []

@@ -639,12 +639,14 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const loadKareers = useCallback(async (silent = false) => {
     if (!silent) setIsLoadingKareers(true);
-    setKareersError(null);
     try {
       const response = await fetchAvailableJobs();
       setAvailableJobs(response.results || []);
+      setKareersError(null);
     } catch (error) {
-      if (!silent) setAvailableJobs([]);
+      // A failed background refresh keeps the jobs already on screen.
+      if (silent) return;
+      setAvailableJobs([]);
       setKareersError(error instanceof Error ? error.message : 'Unable to load jobs.');
     } finally {
       if (!silent) setIsLoadingKareers(false);
