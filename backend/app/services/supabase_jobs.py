@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
@@ -255,6 +255,33 @@ def _fetch_jobs_table(table_name: str, limit: int = 500, *, include_psoc: bool =
         today = datetime.now(PHILIPPINE_TIMEZONE).date().isoformat()
         rows = [row for row in rows if not row.get("application_deadline") or str(row.get("application_deadline")) > today]
     return rows
+
+
+def catalogue_counts() -> dict[str, Any]:
+    """What the job list can see: the Supabase project, and per table the open
+    jobs readable with the public key, or the error Supabase returned."""
+    tables: dict[str, Any] = {}
+    for table_name in ("internal_jobs", "employer_job_posts"):
+        query = urlencode({"select": "job_id", "posting_status": "in.(active,open)"})
+        request = Request(
+            f"{SUPABASE_URL}/rest/v1/{table_name}?{query}",
+            headers={
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+                "Prefer": "count=exact",
+                "Range": "0-0",
+            },
+            method="GET",
+        )
+        try:
+            with urlopen(request, timeout=20) as response:
+                total = (response.headers.get("Content-Range") or "").rpartition("/")[2]
+            tables[table_name] = {"open_jobs": int(total) if total.isdigit() else None}
+        except HTTPError as error:
+            tables[table_name] = {"error": f"HTTP {error.code}: {error.read().decode('utf-8', errors='replace')[:300]}"}
+        except (URLError, TimeoutError, OSError) as error:
+            tables[table_name] = {"error": f"{type(error).__name__}: {error}"[:300]}
+    return {"supabase_host": urlparse(SUPABASE_URL).netloc, "tables": tables}
 
 
 def fetch_internal_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[str, Any]]:
