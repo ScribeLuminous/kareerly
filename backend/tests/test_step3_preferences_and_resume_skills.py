@@ -116,8 +116,9 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
                 # Same jobs, same categories, same scores, same order as choosing only the area.
                 self.assertEqual(recommended(result), area_only)
         result = report({"industry": AREA, **UNRESTRICTED_LEVEL, **UNRESTRICTED_SALARY, **UNRESTRICTED_SETUP})
+        # Employment type was not answered, so it is open too.
         self.assertEqual(result["debug_summary"]["unrestricted_preferences"],
-            ["role_level", "work_setup", "salary_expectation"])
+            ["role_level", "work_setup", "salary_expectation", "employment_type"])
         # Stated answers the jobs do not meet never remove a job; they lower its
         # alignment, and the job says which answers it does not fit.
         # Three confirmed skills in the area (all already in the resume) keep "senior" open under the job-level lock.
@@ -130,7 +131,7 @@ class UnrestrictedPreferenceTests(unittest.TestCase):
         self.assertEqual(crm["preference_conflicts"], ["job_level", "work_setup", "salary"])
         self.assertIn("It differs from your Step 3 choices", crm["explanation"])
         self.assertIn("(you chose Remote)", crm["explanation"])
-        self.assertEqual(restricted["debug_summary"]["unrestricted_preferences"], [])
+        self.assertEqual(restricted["debug_summary"]["unrestricted_preferences"], ["employment_type"])
 
     def test_jobs_that_fit_the_other_answers_come_first(self):
         jobs = pd.DataFrame([

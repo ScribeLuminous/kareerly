@@ -704,3 +704,15 @@ Changes:
 - **Preference mismatches shown, not filtered.** Every job carries
   `preference_mismatches` (field, job value, chosen value). The job detail
   lists them under "Not what you chose" with an ✕; the job keeps its list.
+
+## 2026-10-29: employment type preference
+
+Step 3 and the Preferences page ask for an employment type (Full-time,
+Part-time, Contract, Temporary, Internship, or No preference; optional,
+default No preference). It is stored in
+`candidate_profiles.preferred_employment_type` (migration
+`20261029090000_candidate_employment_type_preference.sql`) and sent to
+matching as `employment_type`. Like the other answers it never moves or hides
+a job: a job of another type gets an `employment_type` preference mismatch
+(the ✕ in the job detail) and a lower preference alignment, so it orders
+after matching jobs in the Aspiration list.

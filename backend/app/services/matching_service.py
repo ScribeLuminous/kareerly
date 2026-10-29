@@ -1299,6 +1299,20 @@ def _work_setups(value: str) -> set:
     return {"hybrid"} if "hybrid" in setups and "remote" in setups and "/" not in value else setups
 
 
+EMPLOYMENT_TYPE_PATTERNS = {
+    "full-time": r"\bfull[\s-]?time\b|\bpermanent\b|\bregular\b",
+    "part-time": r"\bpart[\s-]?time\b",
+    "contract": r"\bcontract|\bfreelance|\bproject[\s-]based\b",
+    "temporary": r"\btemporary\b|\btemp\b|\bseasonal\b",
+    "internship": r"\bintern(ship)?s?\b|\bojt\b|\bon[\s-]the[\s-]job training\b",
+}
+
+
+def _employment_types(value: str) -> set:
+    """Canonical employment types named in a preference answer or a job's employment type."""
+    return {name for name, pattern in EMPLOYMENT_TYPE_PATTERNS.items() if re.search(pattern, value)}
+
+
 def _salary_range(value: str) -> Optional[Tuple[float, float]]:
     """Monthly PHP range from "35-50", "50+", "PHP 50,001 - more" or "₱18,000-₱30,000"."""
     numbers = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", value.replace(",", ""))]
@@ -1316,7 +1330,7 @@ def _salary_range(value: str) -> Optional[Tuple[float, float]]:
 # saved as labels or typed differently in the dashboard.
 UNRESTRICTED_PREFERENCE_VALUES = {"", "any", "anything", "flexible", "unsure", "none", "n/a", "na", "open"}
 UNRESTRICTED_PREFERENCE_PHRASES = ("not sure", "no preference", "flexible", "open to any", "any setup", "any level")
-PREFERENCE_FIELDS = ("role_level", "work_setup", "salary_expectation")
+PREFERENCE_FIELDS = ("role_level", "work_setup", "salary_expectation", "employment_type")
 
 
 def is_unrestricted_preference(value: Any) -> bool:
@@ -1331,7 +1345,7 @@ def is_unrestricted_preference(value: Any) -> bool:
 
 
 def unrestricted_preference_fields(preferences: Dict[str, Any]) -> List[str]:
-    """The Step 3 fields (job level, work setup, salary) the candidate left open."""
+    """The Step 3 fields (job level, work setup, salary, employment type) the candidate left open."""
     preferences = preferences or {}
     return [field for field in PREFERENCE_FIELDS if is_unrestricted_preference(preferences.get(field, ""))]
 
@@ -1368,6 +1382,7 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
     role_level = normalize_for_match(preferences.get("role_level", ""))
     target_role = normalize_for_match(preferences.get("target_role", ""))
     work_setup = normalize_for_match(preferences.get("work_setup", ""))
+    employment_type = normalize_for_match(preferences.get("employment_type", ""))
     salary_expectation = normalize_for_match(preferences.get("salary_expectation", ""))
     skill_to_develop = normalize_for_match(preferences.get("skill_to_develop", ""))
 
@@ -1407,6 +1422,12 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
         if (wanted_setups and wanted_setups & _work_setups(work_type)) or (not wanted_setups and work_setup in work_type):
             score += 0.20
 
+    if specified(employment_type):
+        total += 0.10
+        wanted_types = _employment_types(employment_type)
+        if wanted_types & _employment_types(normalize_for_match(job.get("employment_type", ""))):
+            score += 0.10
+
     if specified(salary_expectation):
         total += 0.10
         # Parsed from the raw text: normalizing turns "PHP 60,000" into "php 60 000",
@@ -1431,7 +1452,7 @@ def compute_preference_alignment(job: Dict[str, Any], preferences: Dict[str, Any
 
 
 def preference_conflicts(job: Dict[str, Any], preferences: Dict[str, Any]) -> List[str]:
-    """Step 3 answers the job clearly fails: "job_level", "work_setup", "salary".
+    """Step 3 answers the job clearly fails: "job_level", "work_setup", "salary", "employment_type".
 
     Only a stated answer and a job that states the same field can conflict:
     "I'm not sure" or "Flexible" answers, and jobs with no level, setup or
@@ -1458,6 +1479,12 @@ def preference_conflicts(job: Dict[str, Any], preferences: Dict[str, Any]) -> Li
         job_salary = _salary_range(clean_text(job.get("salary_range_monthly_php", "")).lower())
         if wanted_salary and job_salary and not (wanted_salary[0] <= job_salary[1] and job_salary[0] <= wanted_salary[1]):
             conflicts.append("salary")
+    employment_type = normalize_for_match(preferences.get("employment_type", ""))
+    if employment_type and not is_unrestricted_preference(employment_type):
+        wanted_types = _employment_types(employment_type)
+        job_types = _employment_types(normalize_for_match(job.get("employment_type", "")))
+        if wanted_types and job_types and not wanted_types & job_types:
+            conflicts.append("employment_type")
     return conflicts
 
 
@@ -1514,7 +1541,8 @@ def apply_region_filter(
     return kept, counts
 
 
-PREFERENCE_NOUNS = {"job_level": "level", "work_setup": "work setup", "salary": "salary"}
+PREFERENCE_NOUNS = {"job_level": "level", "work_setup": "work setup", "salary": "salary",
+                    "employment_type": "employment type"}
 
 
 def preference_mismatches(job: Dict[str, Any], preferences: Dict[str, Any], conflicts: List[str]) -> List[Dict[str, str]]:
@@ -1529,6 +1557,7 @@ def preference_mismatches(job: Dict[str, Any], preferences: Dict[str, Any], conf
         "work_setup": (job.get("work_type", ""), preferences.get("work_setup", "")),
         "salary": (job.get("salary_range_monthly_php", ""),
                    preferences.get("salary_expectation", "") or preferences.get("salary", "")),
+        "employment_type": (job.get("employment_type", ""), preferences.get("employment_type", "")),
     }
     mismatches = []
     for name in conflicts:
@@ -1541,6 +1570,8 @@ def preference_mismatches(job: Dict[str, Any], preferences: Dict[str, Any], conf
 PREFERENCE_DISPLAY = {
     "job_level": {"entry": "Entry-level", "mid": "Mid-level", "senior": "Senior"},
     "work_setup": {"remote": "Remote", "hybrid": "Hybrid", "onsite": "On-site"},
+    "employment_type": {"full-time": "Full-time", "part-time": "Part-time", "contract": "Contract",
+                        "temporary": "Temporary", "internship": "Internship"},
 }
 
 
@@ -1552,6 +1583,9 @@ def preference_display(name: str, value: str) -> str:
     if name == "work_setup":
         setups = _work_setups(normalize_for_match(value))
         return PREFERENCE_DISPLAY[name][next(iter(setups))] if len(setups) == 1 else value
+    if name == "employment_type":
+        types = _employment_types(normalize_for_match(value))
+        return PREFERENCE_DISPLAY[name][next(iter(types))] if len(types) == 1 else value
     if name == "salary":
         salary = _salary_range(value.lower())
         if salary:
@@ -2499,7 +2533,7 @@ def match_text_to_jobs(
             },
             "aspiration_rules": {
                 "basis": "Step 3 career area",
-                "ordering": "preference alignment (job level, work setup, salary fit first), then match score",
+                "ordering": "preference alignment (job level, work setup, salary, employment type fit first), then match score",
                 "resume_role": "score, order and skill gaps only",
                 # Used only when no career area is known for the candidate or the job.
                 "fallback_min_cosine": thresholds.aspiration_min_semantic,

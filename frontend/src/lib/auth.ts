@@ -371,6 +371,8 @@ export async function updateCandidateProfile(input: {
   address?: string;
   preferredIndustry?: string;
   preferredWorkSetup?: string;
+  /** A key ('full-time', ... 'any'), as the column's check constraint requires. */
+  preferredEmploymentType?: string;
   expectedSalary?: string;
   targetRole?: string;
   skillToDevelop?: string;
@@ -383,6 +385,7 @@ export async function updateCandidateProfile(input: {
   if (input.certificationsJson !== undefined) payload.certifications_json = input.certificationsJson;
   if (typeof input.preferredIndustry === 'string') payload.preferred_industry = input.preferredIndustry;
   if (typeof input.preferredWorkSetup === 'string') payload.preferred_work_setup = input.preferredWorkSetup;
+  if (typeof input.preferredEmploymentType === 'string') payload.preferred_employment_type = input.preferredEmploymentType || null;
   if (typeof input.expectedSalary === 'string') payload.expected_salary = input.expectedSalary;
   if (typeof input.targetRole === 'string') payload.target_role = input.targetRole;
   if (typeof input.skillToDevelop === 'string') payload.skill_to_develop = input.skillToDevelop;
@@ -392,11 +395,12 @@ export async function updateCandidateProfile(input: {
   let { error } = await supabase
     .from('candidate_profiles')
     .upsert({ user_id: input.userId, ...payload }, { onConflict: 'user_id' });
-  if (error && /preferred_location_scope|preferred_region/i.test(error.message || '')) {
-    // The region columns are added by a migration; until it runs, keep saving the other answers.
-    const { preferred_location_scope: _scope, preferred_region: _region, ...rest } = payload;
+  if (error && /preferred_location_scope|preferred_region|preferred_employment_type/i.test(error.message || '')) {
+    // The region and employment type columns are added by migrations; until they run, keep saving the other answers.
+    const { preferred_location_scope: _scope, preferred_region: _region, preferred_employment_type: _type, ...rest } = payload;
     void _scope;
     void _region;
+    void _type;
     ({ error } = await supabase
       .from('candidate_profiles')
       .upsert({ user_id: input.userId, ...rest }, { onConflict: 'user_id' }));
