@@ -32,7 +32,7 @@ from pydantic import BaseModel, ValidationError
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, ResumeSummaryRequest, RunMatchesRequest, SkillGapsRequest
 from .services.admin_stats import summarize_match_feedback
 from .services.job_matcher import list_available_jobs
-from .services.supabase_jobs import split_job_sections
+from .services.supabase_jobs import JobCatalogueIncomplete, split_job_sections
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
@@ -2072,7 +2072,10 @@ def admin_reject_deletion_request(request_id: str, payload: AdminDecisionRequest
 
 @app.get("/api/jobs/list")
 def jobs_list(limit: int = 5000) -> dict:
-    results = list_available_jobs(limit=limit)
+    try:
+        results = list_available_jobs(limit=limit)
+    except JobCatalogueIncomplete as exc:
+        raise HTTPException(status_code=503, detail="Jobs couldn't load. Please try again.") from exc
     # A job listed here but not yet in the matching cache (a new employer post)
     # is scored by the next match run instead of after the cache expires.
     refresh_jobs_cache_for([item.get("job_id") for item in results])
