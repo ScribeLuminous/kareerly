@@ -27,7 +27,7 @@ test('a backend without a version or with another one is outdated', () => {
   assert.deepEqual(version.assessBackendVersion({}), { status: 'outdated', reported: null, expected: version.EXPECTED_BACKEND_VERSION });
   const older = version.assessBackendVersion({ backend_version: '2026.09.20' });
   assert.equal(older.status, 'outdated');
-  assert.match(version.outdatedBackendMessage(older).detail, /2026\.09\.20.*2026\.10\.14-job-level-cap/);
+  assert.match(version.outdatedBackendMessage(older).detail, /2026\.09\.20.*2026\.10\.29-full-job-list/);
 });
 
 test('an unreadable backend is unknown, never reported as outdated', () => {
