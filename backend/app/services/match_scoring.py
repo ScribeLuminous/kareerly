@@ -32,10 +32,11 @@ Categories (a job is in at most one; either list may be empty):
                 explicitly marked must-have is held, and the role is
                 meaningfully related to the resume (FIT_NOW_MIN_SEMANTIC).
                 Step 3 preferences never affect it.
-                When no job the candidate may be shown passes these rules, the
-                job closest to the resume is still listed as Fit-Now, marked
-                ``fit_now_fallback`` (see matching_service), so the list is
-                never empty while there are jobs to compare.
+                When no job the candidate may be shown passes these rules, one
+                job near Fit-Now (related, 50% or more of its required skills
+                held, no must-have missing, not an Aspiration job) may still be
+                listed, marked ``fit_now_fallback`` (see matching_service).
+                Otherwise the Fit-Now list is empty.
 * Aspiration  - decided by the Step 3 preferences: a job that is not Fit-Now
                 and sits in the career area the candidate chose. The other
                 answers (job level, work setup, salary) never remove a job;

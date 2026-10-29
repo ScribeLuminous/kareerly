@@ -203,11 +203,13 @@ export async function loadLatestMatchHistory(input: { userId: string; resumeId?:
 export async function loadLatestMatchRun(input: { userId: string; resumeId?: string | null }): Promise<{
   results: JobMatchRunResults;
   preferences: SurveyAnswers | null;
+  /** When the run was saved; jobs posted later are not in it. */
+  savedAt: string | null;
 } | null> {
   const latestFor = (resumeId: string | null) => {
     const query = supabase
       .from('match_history')
-      .select('results_json,preferences_json')
+      .select('results_json,preferences_json,created_at')
       .eq('user_id', input.userId);
     return (resumeId ? query.eq('resume_id', resumeId) : query.is('resume_id', null))
       .order('created_at', { ascending: false })
@@ -229,6 +231,7 @@ export async function loadLatestMatchRun(input: { userId: string; resumeId?: str
   const preferences = data?.preferences_json as Partial<SurveyAnswers> | null | undefined;
   return {
     results,
+    savedAt: typeof data?.created_at === 'string' ? data.created_at : null,
     preferences: preferences && typeof preferences.industry === 'string' && preferences.industry
       ? {
           industry: preferences.industry,
@@ -236,6 +239,7 @@ export async function loadLatestMatchRun(input: { userId: string; resumeId?: str
           setup: preferences.setup || '',
           salary: preferences.salary || '',
           skill: preferences.skill || '',
+          employmentType: preferences.employmentType || '',
           locationScope: preferences.locationScope || 'anywhere',
           region: preferences.region || '',
         }
