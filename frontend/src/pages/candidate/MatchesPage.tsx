@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBookmark, faBriefcase, faMagnifyingGlassChart, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faArrowsRotate, faBookmark, faBriefcase, faMagnifyingGlassChart, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { MatchScoreNotice } from '../../components/MatchScoreNotice';
 import RegionFilterNotice from '../../components/RegionFilterNotice';
 import { EmptyState, FilterChoice, FilterPanel, SearchField, Segmented, SkeletonRows } from '../../components/ui';
@@ -35,6 +35,8 @@ type MatchesPageProps = {
   isBusy: boolean;
   onChangeRegion: () => void;
   onRemoveRegionFilter: () => void;
+  /** Runs matching again on the latest jobs, skills and preferences. */
+  onRefresh: () => void;
 };
 
 const setupKey = (value: string) => {
@@ -78,6 +80,7 @@ export function JobMatchesPage({
   isBusy,
   onChangeRegion,
   onRemoveRegionFilter,
+  onRefresh,
 }: MatchesPageProps) {
   // "Show all" applies to the list it was pressed on.
   const [showAllFor, setShowAllFor] = useState<MatchView | null>(null);
@@ -137,9 +140,25 @@ export function JobMatchesPage({
       <PageHeader
         title="Matches"
         actions={(
-          <button className="k-btn k-btn-secondary lg:hidden" type="button" onClick={onAnalyze}>
-            <FontAwesomeIcon icon={faMagnifyingGlassChart} aria-hidden="true" />Analyze a job
-          </button>
+          <>
+            {hasResume && (
+              <button
+                className="k-btn k-btn-secondary"
+                type="button"
+                onClick={onRefresh}
+                disabled={isBusy}
+                aria-busy={isBusy}
+                aria-label={isBusy ? 'Refreshing matches' : 'Refresh matches'}
+                title="Check for new jobs and update your matches with your latest resume, skills, certificates and preferences"
+              >
+                <FontAwesomeIcon icon={faArrowsRotate} className={isBusy ? 'fa-spin' : undefined} aria-hidden="true" />
+                {isBusy ? 'Refreshing…' : 'Refresh'}
+              </button>
+            )}
+            <button className="k-btn k-btn-secondary lg:hidden" type="button" onClick={onAnalyze}>
+              <FontAwesomeIcon icon={faMagnifyingGlassChart} aria-hidden="true" />Analyze a job
+            </button>
+          </>
         )}
       />
       <MatchScoreNotice className="-mt-2 mb-3" />

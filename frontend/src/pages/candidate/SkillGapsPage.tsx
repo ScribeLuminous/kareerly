@@ -27,6 +27,7 @@ import {
   gapRecordKey,
   matchTypeLabel,
   openAndCompleted,
+  provenSkills,
   requirementLabel,
   requirementSummary,
   showSkillSearch,
@@ -193,6 +194,8 @@ export function SkillGapsPage({
       const row = toRow(skill);
       return { key: row.key, name: skill.skill_name, reason: 'done' as const, row };
     }),
+    // Skills with proof count in matching, so they usually leave the gaps.
+    ...Object.entries(provenSkills(skillProgressRecords)).map(([key, item]) => ({ key, name: item.skillName.trim(), reason: 'done' as const })),
   ].filter((item, index, list) => list.findIndex((other) => other.key === item.key) === index)
     .sort((a, b) => a.name.localeCompare(b.name));
   const completedKeys = new Set(completed.map((item) => item.key));
@@ -465,7 +468,9 @@ export function SkillGapsPage({
                         <span className="k-label block">{item.name}</span>
                         <span className="k-meta mt-0.5 flex items-center gap-1.5">
                           <FontAwesomeIcon icon={item.reason === 'owned' ? faUserCheck : faCheck} className="text-green" aria-hidden="true" />
-                          {item.reason === 'owned' ? 'You have this skill' : 'Marked done'}
+                          {item.reason === 'owned'
+                            ? 'You have this skill'
+                            : skillProgressRecords[item.key]?.status === 'evidenced' ? 'Proof uploaded · counts toward your matches' : 'Marked done'}
                         </span>
                       </span>
                       <button className="k-btn k-btn-ghost k-btn-sm" type="button" disabled={busy} onClick={() => undoCompleted(item)} aria-label={`Undo: ${item.name}`}>

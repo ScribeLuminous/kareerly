@@ -713,6 +713,8 @@ export type RunJobMatchesPayload = {
   /** Step 2 skills the candidate removed; the backend never credits them from the resume text. */
   removed_skill_ids?: string[];
   skill_names?: string[];
+  /** Reload job posts first, so new and edited jobs are matched ("Refresh matches"). */
+  refresh_jobs?: boolean;
   preferences: {
     industry: string;
     target_role?: string;
@@ -860,6 +862,7 @@ export async function runJobMatches(payload: RunJobMatchesPayload): Promise<JobM
     confirmed_skills: confirmedSkills,
     // Omitted (not an empty list) when unknown, so the backend removes nothing.
     ...(payload.removed_skill_ids ? { removed_skill_ids: normalizeSkillIds(payload.removed_skill_ids) } : {}),
+    ...(payload.refresh_jobs ? { refresh_jobs: true } : {}),
     preferences: {
       industry: payload.preferences.industry || '',
       target_role: payload.preferences.target_role || payload.preferences.role || payload.preferences.job_level || '',
