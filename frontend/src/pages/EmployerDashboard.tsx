@@ -16,7 +16,7 @@ import { AssessmentTemplatesPage, type JobsSection } from './employer/Assessment
 import { EmployerAccountPage, type EmployerAccountForm } from './employer/EmployerAccountPage';
 import { EmployerCandidatesPage } from './employer/EmployerCandidatesPage';
 import { RubricEditorModal } from './employer/RubricEditorModal';
-import { candidateActionBlocker, combineTemplates, DEFAULT_CANDIDATE_FILTERS, validateRubricDraft, type AssessmentTemplate, HIGH_MATCH_PERCENT, profileMatch, visibleApplicants, type CandidateBulkAction, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
+import { ALL_JOBS, candidateActionBlocker, combineTemplates, DEFAULT_CANDIDATE_FILTERS, validateRubricDraft, type AssessmentTemplate, HIGH_MATCH_PERCENT, profileMatch, visibleApplicants, type CandidateBulkAction, type CandidateFilters, type Rubric, type RubricCriterionDraft } from './employer/evaluation';
 import { EmployerHomePage } from './employer/EmployerHomePage';
 import { InsightsPage } from './employer/insights/InsightsPage';
 import { EmployerJobsPage, type JobBulkAction } from './employer/EmployerJobsPage';
@@ -400,15 +400,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const rubricVersions = useMemo(() => new Map(Array.from(rubricsByJob.entries()).map(([jobId, list]) => [jobId, list[0].version])), [rubricsByJob]);
 
-  // The Candidates page always shows one job; start with the one with the most waiting applicants.
-  const defaultCandidateJobId = useMemo(() => {
-    const pendingCount = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId && candidate.status === 'Pending').length;
-    const total = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId).length;
-    return [...jobs].sort((left, right) => pendingCount(right.id) - pendingCount(left.id) || total(right.id) - total(left.id))[0]?.id || '';
-  }, [jobs, applications]);
+  // The Candidates page starts on every job; a job that no longer exists falls back to all of them.
   const candidateFilters = useMemo<CandidateFilters>(() => (
-    rawCandidateFilters.jobId && jobMap.has(rawCandidateFilters.jobId) ? rawCandidateFilters : { ...rawCandidateFilters, jobId: defaultCandidateJobId }
-  ), [rawCandidateFilters, jobMap, defaultCandidateJobId]);
+    rawCandidateFilters.jobId === ALL_JOBS || jobMap.has(rawCandidateFilters.jobId) ? rawCandidateFilters : { ...rawCandidateFilters, jobId: ALL_JOBS }
+  ), [rawCandidateFilters, jobMap]);
 
   useEffect(() => {
     let isMounted = true;
@@ -423,20 +418,24 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
     return () => { isMounted = false; };
   }, [jobs]);
 
-  const filterJobPostId = jobMap.get(candidateFilters.jobId)?.databaseId || '';
+  // Evaluation summaries for the listed jobs: the one selected, or every job with applicants.
+  const summaryJobPostIds = useMemo(() => {
+    const jobIds = candidateFilters.jobId === ALL_JOBS ? Array.from(new Set(applications.map((candidate) => candidate.jobId))) : [candidateFilters.jobId];
+    return Array.from(new Set(jobIds.map((jobId) => jobMap.get(jobId)?.databaseId).filter((id): id is string => Boolean(id)))).sort().join(',');
+  }, [candidateFilters.jobId, applications, jobMap]);
   useEffect(() => {
     let isMounted = true;
-    if (!filterJobPostId || evaluationUnavailable) return;
-    loadJobEvaluationSummaries(filterJobPostId)
-      .then((rows) => { if (isMounted) setSummaryState({ jobPostId: filterJobPostId, rows }); })
+    if (!summaryJobPostIds || evaluationUnavailable) return;
+    Promise.all(summaryJobPostIds.split(',').map((jobPostId) => loadJobEvaluationSummaries(jobPostId)))
+      .then((maps) => { if (isMounted) setSummaryState({ jobPostId: summaryJobPostIds, rows: new Map(maps.flatMap((rows) => Array.from(rows))) }); })
       .catch((error) => {
         console.warn('Unable to load evaluation summaries:', error);
         if (isMounted && isEvaluationUnavailable(error)) setEvaluationUnavailable(true);
       });
     return () => { isMounted = false; };
-  }, [filterJobPostId, evaluationUnavailable, summaryVersion, rubrics]);
+  }, [summaryJobPostIds, evaluationUnavailable, summaryVersion, rubrics]);
 
-  const summaries = useMemo(() => (summaryState.jobPostId === filterJobPostId && !evaluationUnavailable ? summaryState.rows : new Map<string, EvaluationSummary>()), [summaryState, filterJobPostId, evaluationUnavailable]);
+  const summaries = useMemo(() => (summaryState.jobPostId === summaryJobPostIds && !evaluationUnavailable ? summaryState.rows : new Map<string, EvaluationSummary>()), [summaryState, summaryJobPostIds, evaluationUnavailable]);
   const reviewList = useMemo(() => visibleApplicants(applications, jobs, candidateFilters, summaries), [applications, jobs, candidateFilters, summaries]);
   const reviewIndex = reviewCandidate ? reviewList.findIndex((candidate) => candidate.id === reviewCandidate.id) : -1;
 
@@ -871,8 +870,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
   const openReview = (candidateId: string) => {
     const candidate = applications.find((item) => item.id === candidateId);
-    // Reviews always happen inside one job's list, so moving between applicants stays within that job.
-    if (candidate && candidate.jobId !== candidateFilters.jobId) {
+    // Reviews step through the list on screen; opening someone outside a single-job list switches to their job.
+    if (candidate && candidateFilters.jobId !== ALL_JOBS && candidate.jobId !== candidateFilters.jobId) {
       setCandidateFilters((current) => ({ ...current, jobId: candidate.jobId, status: 'all', search: '', highMatch: false }));
     }
     setReviewModalId(candidateId);
@@ -1452,7 +1451,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
           summaries={summaries}
           assessments={assessments}
           onBulkAction={bulkCandidateAction}
-          hasRubric={rubricsByJob.has(candidateFilters.jobId)}
+          jobHasRubric={(jobId) => rubricsByJob.has(jobId)}
           evaluationUnavailable={evaluationUnavailable}
           onReview={openReview}
           onOpenJobs={() => goPage('jobs')}
