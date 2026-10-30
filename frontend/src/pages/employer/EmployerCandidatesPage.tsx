@@ -10,6 +10,7 @@ import { ApplicantRow } from './ApplicantRow';
 import { AssessmentDeadlineField } from './AssessmentDeadlineField';
 import { ExportApplicantsDialog } from './ApplicantReports';
 import {
+  ALL_JOBS,
   APPLICANT_SORTS,
   CANDIDATE_BULK_LABEL,
   candidateActionBlocker,
@@ -38,7 +39,8 @@ type EmployerCandidatesPageProps = {
   summaries: Map<string, EvaluationSummary>;
   /** Candidate Assessments by application id. */
   assessments: Map<string, CandidateAssessment>;
-  hasRubric: boolean;
+  /** Whether a job has its Candidate Assessment set up. */
+  jobHasRubric: (jobId: string) => boolean;
   evaluationUnavailable: boolean;
   onReview: (candidateId: string) => void;
   onOpenJobs: () => void;
@@ -77,7 +79,7 @@ export function EmployerCandidatesPage({
   onFilters,
   summaries,
   assessments,
-  hasRubric,
+  jobHasRubric,
   evaluationUnavailable,
   onReview,
   onOpenJobs,
@@ -94,17 +96,21 @@ export function EmployerCandidatesPage({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
 
-  const job = jobs.find((item) => item.id === filters.jobId) || null;
-  const forJob = useMemo(() => applications.filter((candidate) => candidate.jobId === filters.jobId), [applications, filters.jobId]);
+  const allJobs = filters.jobId === ALL_JOBS;
+  const job = allJobs ? null : jobs.find((item) => item.id === filters.jobId) || null;
+  const jobById = useMemo(() => new Map(jobs.map((item) => [item.id, item])), [jobs]);
+  const jobFor = (candidate: CandidateApplication) => jobById.get(candidate.jobId) || null;
+  const hasRubric = job ? jobHasRubric(job.id) : false;
+  const forJob = useMemo(() => (allJobs ? applications : applications.filter((candidate) => candidate.jobId === filters.jobId)), [applications, allJobs, filters.jobId]);
   const counts = useMemo(() => {
     const result = new Map<CandidateStatus, number>();
     forJob.forEach((candidate) => result.set(candidate.status, (result.get(candidate.status) || 0) + 1));
     return result;
   }, [forJob]);
   const highMatchCount = useMemo(() => forJob.filter((candidate) => {
-    const percent = profileMatch(candidate, job).percent;
+    const percent = profileMatch(candidate, jobById.get(candidate.jobId) || null).percent;
     return percent !== null && percent >= HIGH_MATCH_PERCENT && (filters.status === 'all' || candidate.status === filters.status);
-  }).length, [forJob, job, filters.status]);
+  }).length, [forJob, jobById, filters.status]);
   const visible = useMemo(() => visibleApplicants(applications, jobs, filters, summaries), [applications, jobs, filters, summaries]);
   const applicantCount = (jobId: string) => applications.filter((candidate) => candidate.jobId === jobId).length;
   const jobOptions = jobs.filter((item) => (item.status !== 'draft' && item.status !== 'archived') || applicantCount(item.id) > 0);
@@ -116,7 +122,7 @@ export function EmployerCandidatesPage({
   const selectedVisible = visible.filter((candidate) => selectedIds.has(candidate.id));
   const allSelected = visible.length > 0 && selectedVisible.length === visible.length;
   const someSelected = selectedVisible.length > 0 && !allSelected;
-  const blocker = (action: CandidateBulkAction, candidate: CandidateApplication) => candidateActionBlocker(action, candidate, assessments.get(candidate.id) || null, hasRubric);
+  const blocker = (action: CandidateBulkAction, candidate: CandidateApplication) => candidateActionBlocker(action, candidate, assessments.get(candidate.id) || null, jobHasRubric(candidate.jobId));
   const eligibleCount = (action: CandidateBulkAction, list: CandidateApplication[]) => list.filter((candidate) => !blocker(action, candidate)).length;
 
   const toggle = (candidateId: string) => setSelectedIds((current) => {
@@ -169,7 +175,7 @@ export function EmployerCandidatesPage({
         ) : undefined}
       >
         <p className="k-secondary mt-1 flex items-center gap-1">
-          Review applicants one job at a time, against that job's criteria.
+          Review applicants across all your jobs, or pick one job to compare them against its criteria.
           <InfoTip label="How applicant privacy works" align="left">
             Identity stays masked while an applicant is Pending or Shortlisted and is shown from Interviewing on. Withdrawn applications are read-only. You can't search or browse candidates who haven't applied to you.
           </InfoTip>
@@ -192,6 +198,7 @@ export function EmployerCandidatesPage({
           <div className="grid gap-3 [&>.k-field+.k-field]:mt-0 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end">
             <FormField label="Job">
               <select className="k-select" value={filters.jobId} onChange={(event) => set({ jobId: event.target.value, status: 'all' })}>
+                <option value={ALL_JOBS}>All jobs · {applications.length} applicant{applications.length === 1 ? '' : 's'}</option>
                 {jobOptions.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.title} · {JOB_STATUS_LABEL[item.status]} · {applicantCount(item.id)} applicant{applicantCount(item.id) === 1 ? '' : 's'}
@@ -254,18 +261,18 @@ export function EmployerCandidatesPage({
 
           {scoreSort && (
             <p className="k-meta mb-3">
-              Sorted within {job?.title || 'this job'} only. Applicants without a figure are listed after the rest, not ranked as zero. A score is one input: read the evidence before deciding.
+              {job ? `Sorted within ${job.title} only.` : 'Sorted across all jobs, each applicant scored against the job they applied to.'} Applicants without a figure are listed after the rest, not ranked as zero. A score is one input: read the evidence before deciding.
             </p>
           )}
 
           {visible.length === 0 ? (
             <EmptyState
               title="No applicants match"
-              text={isFiltered ? (filters.highMatch ? `No applicants here match ${HIGH_MATCH_PERCENT}% or more of the required skills.` : 'Try another search or stage.') : 'No one has applied to this job yet.'}
+              text={isFiltered ? (filters.highMatch ? `No applicants here match ${HIGH_MATCH_PERCENT}% or more of the required skills.` : 'Try another search or stage.') : (allJobs ? 'No one has applied to your jobs yet.' : 'No one has applied to this job yet.')}
               actions={isFiltered ? <button className="k-btn k-btn-secondary" type="button" onClick={() => set({ search: '', status: 'all', highMatch: false })}>Reset</button> : undefined}
             />
           ) : (
-            <section aria-label={`Applicants for ${job?.title || 'this job'}`}>
+            <section aria-label={job ? `Applicants for ${job.title}` : 'Applicants for all jobs'}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <label className="k-select-all k-secondary mb-0">
                   <span className="k-select-box -ml-1.5">
@@ -287,7 +294,7 @@ export function EmployerCandidatesPage({
                       <input type="checkbox" checked={selectedIds.has(candidate.id)} onChange={() => toggle(candidate.id)} aria-label={`Select ${candidate.publicId || 'applicant'}`} />
                     </label>
                     <div className="min-w-0 flex-1">
-                      <ApplicantRow candidate={candidate} job={job} summary={summaries.get(candidate.id)} assessment={assessments.get(candidate.id) || null} hasRubric={hasRubric} onReview={onReview} />
+                      <ApplicantRow candidate={candidate} job={jobFor(candidate)} summary={summaries.get(candidate.id)} assessment={assessments.get(candidate.id) || null} hasRubric={jobHasRubric(candidate.jobId)} onReview={onReview} showRole={allJobs} />
                     </div>
                   </li>
                 ))}
