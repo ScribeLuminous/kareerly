@@ -351,6 +351,21 @@ test('applicant lists stay within one job and never rank missing scores as zero'
   assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, { ...filters, jobId: 'J2', status: 'Shortlisted' }, new Map())), ['D']);
 });
 
+test('the applicant list starts on every job, scoring each applicant against their own job', () => {
+  const app = (id, jobId, appliedDate, matched, missing = [], score = null) => ({
+    id, jobId, appliedDate, lastActivity: '', status: 'Pending', publicId: id, fullName: id, role: jobId, matchedSkills: matched, missingSkills: missing, applyTimeRankingScore: score, messageRequestState: 'none',
+  });
+  const jobs = [{ id: 'J1', requiredSkills: ['SQL', 'Excel'] }, { id: 'J2', requiredSkills: ['SQL'] }];
+  const applications = [app('A', 'J1', '2026-09-03', ['SQL'], ['Excel'], 50), app('B', 'J2', '2026-09-01', ['SQL'], [], 90), app('C', 'J1', '2026-09-02', [])];
+  const filters = employerPage.DEFAULT_CANDIDATE_FILTERS;
+  assert.equal(filters.jobId, employerPage.ALL_JOBS);
+  const ids = (list) => list.map((item) => item.id);
+  assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, filters, new Map())), ['B', 'C', 'A']);
+  // B scored 90% for J2; A scored 50% for J1.
+  assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, { ...filters, highMatch: true }, new Map())), ['B']);
+  assert.deepEqual(ids(employerPage.visibleApplicants(applications, jobs, { ...filters, search: 'j2' }, new Map())), ['B']);
+});
+
 test('applicant rows show the fit score and the skills found, with the next step', () => {
   const candidate = employerPage.toCandidateApplication({ id: 'app-1', job_id: 'J1', status: 'pending', applied_at: '2026-09-01T00:00:00Z', matched_skills: ['SQL'], missing_skills: ['Excel'], match_score: 57 }, [], [], 'KR-001');
   const html = renderToStaticMarkup(React.createElement(employerPage.ApplicantRow, { candidate, job: { id: 'J1', requiredSkills: ['SQL', 'Excel'] }, hasRubric: false, onReview: () => {} }));

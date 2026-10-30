@@ -28,7 +28,12 @@ export function ExportApplicantsDialog({ job, shown, applications, jobs, summari
   const [scope, setScope] = useState<ExportScope>(shown.length > 0 ? 'shown' : 'all');
   const [busy, setBusy] = useState(false);
   const targets = scope === 'shown' ? shown : applications;
-  const scopeJobs = useMemo(() => (scope === 'shown' ? jobs.filter((item) => item.id === job?.id) : jobs), [scope, jobs, job]);
+  // With no single job selected, "shown" covers the jobs of the applicants listed.
+  const scopeJobs = useMemo(() => {
+    if (scope === 'all') return jobs;
+    const shownJobIds = new Set(job ? [job.id] : shown.map((candidate) => candidate.jobId));
+    return jobs.filter((item) => shownJobIds.has(item.id));
+  }, [scope, jobs, job, shown]);
   const scopeLabel = scope === 'shown' ? job?.title || 'Shown applicants' : 'All jobs';
 
   const exportAs = async (format: 'csv' | 'pdf') => {
@@ -76,13 +81,13 @@ export function ExportApplicantsDialog({ job, shown, applications, jobs, summari
         value={scope}
         onChange={setScope}
         options={[
-          { value: 'shown', label: 'This job', count: shown.length },
+          { value: 'shown', label: job ? 'This job' : 'Shown', count: shown.length },
           { value: 'all', label: 'All jobs', count: applications.length },
         ]}
       />
       <p className="k-secondary mt-3">
         {scope === 'shown'
-          ? `Includes the ${job?.title || ''} applicants listed now, with your current search, stage and match filters.`
+          ? `Includes the ${job ? `${job.title} ` : ''}applicants listed now, with your current job, search, stage and match filters.`
           : 'Includes every applicant across all your jobs.'}
         {' '}CSV opens in Excel or Google Sheets; the PDF adds match insights per job.
       </p>
