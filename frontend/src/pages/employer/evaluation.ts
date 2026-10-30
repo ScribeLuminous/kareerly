@@ -551,7 +551,11 @@ export function candidateActionBlocker(action: CandidateBulkAction, candidate: P
 
 // ---------- Candidates page filters ----------
 
+/** Job filter value that lists applicants from every job. */
+export const ALL_JOBS = 'all';
+
 export type CandidateFilters = {
+  /** A job id, or ALL_JOBS. */
   jobId: string;
   status: 'all' | CandidateStatus;
   search: string;
@@ -560,23 +564,23 @@ export type CandidateFilters = {
   highMatch: boolean;
 };
 
-export const DEFAULT_CANDIDATE_FILTERS: CandidateFilters = { jobId: '', status: 'all', search: '', sort: 'applied-oldest', highMatch: false };
+export const DEFAULT_CANDIDATE_FILTERS: CandidateFilters = { jobId: ALL_JOBS, status: 'all', search: '', sort: 'applied-oldest', highMatch: false };
 
 /** Applicants in the order and filter the page shows; the review uses it to step between them. */
 export function visibleApplicants(applications: CandidateApplication[], jobs: EmployerJob[], filters: CandidateFilters, summaries: Map<string, { result: EvaluationResult }>): CandidateApplication[] {
-  const job = jobs.find((item) => item.id === filters.jobId) || null;
+  const jobById = new Map(jobs.map((item) => [item.id, item]));
   const query = filters.search.trim().toLowerCase();
   const rows = applications
-    .filter((candidate) => candidate.jobId === filters.jobId)
+    .filter((candidate) => filters.jobId === ALL_JOBS || candidate.jobId === filters.jobId)
     .filter((candidate) => filters.status === 'all' || candidate.status === filters.status)
     .filter((candidate) => {
       if (!query) return true;
-      return [candidate.publicId, candidateDisplayName(candidate), candidate.status, ...candidate.matchedSkills, ...candidate.missingSkills]
+      return [candidate.publicId, candidateDisplayName(candidate), candidate.status, candidate.role, ...candidate.matchedSkills, ...candidate.missingSkills]
         .join(' ')
         .toLowerCase()
         .includes(query);
     })
-    .map((candidate) => ({ candidate, profile: profileMatch(candidate, job), evaluation: summaries.get(candidate.id)?.result || null }))
+    .map((candidate) => ({ candidate, profile: profileMatch(candidate, jobById.get(candidate.jobId) || null), evaluation: summaries.get(candidate.id)?.result || null }))
     .filter((row) => !filters.highMatch || (row.profile.percent !== null && row.profile.percent >= HIGH_MATCH_PERCENT));
   return sortApplicants(rows, filters.sort).map((row) => row.candidate);
 }
