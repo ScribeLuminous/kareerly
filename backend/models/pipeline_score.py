@@ -1,9 +1,8 @@
 """Legacy 22-feature scoring experiment used only for ablation.
 
-The live Kareerly path is implemented in ``app.services.semantic_matching``:
-the trained bi-encoder is the primary semantic matcher, taxonomy evidence
-controls eligibility/explanation, and the Cross-Encoder is an optional top-K
-reranker. This module is kept so the former GBDT proposal can be compared in
+The live Kareerly path is ``app.services.bi_encoder_service`` (the fine-tuned
+bi-encoder) with deterministic scoring in ``app.services.matching_service``;
+it uses no Cross-Encoder. This module is kept so the former GBDT proposal can be compared in
 Chapter 4 without being confused with the deployed algorithm.
 
 Historical experimental design:
