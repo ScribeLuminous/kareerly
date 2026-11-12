@@ -56,7 +56,14 @@ from .services.resume_parser import (
     resume_extension,
 )
 from .learning import ranking_training, skill_discovery
-from .learning.feedback import HISTORY_ROWS_SEARCHED, HISTORY_SELECT, JOB_SOURCES, VOTES, find_match_context
+from .learning.feedback import (
+    HISTORY_ROWS_SEARCHED,
+    HISTORY_SELECT,
+    JOB_SOURCES,
+    VOTES,
+    fallback_match_context,
+    find_match_context,
+)
 from .learning.jobs import run_all as run_learning_jobs
 from .learning.ranking_model import clear_ranker_cache
 from .learning.supabase_client import SupabaseError, SupabaseRest
