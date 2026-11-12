@@ -51,3 +51,6 @@ precomputed/
 
 # Cloud Run settings file (deploy-time values)
 cloudrun.env.yaml
+
+# Local research corpus (see .gitignore); the service never reads it.
+data/corpus/

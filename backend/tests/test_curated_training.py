@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 
-from pipeline.curated_training import Page, extract, job_nodes, skill_evidence
+from backend.pipeline.curated_training import Page, extract, job_nodes, skill_evidence
 
 
 class CuratedTrainingTests(unittest.TestCase):

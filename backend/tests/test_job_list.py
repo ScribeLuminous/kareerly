@@ -4,7 +4,7 @@ import io
 import json
 from unittest import TestCase, mock
 
-from backend.app.services import job_matcher, supabase_jobs
+from backend.app.services import job_list, supabase_jobs
 
 
 def _api(total, *, fail_offsets=()):
@@ -36,20 +36,20 @@ class StrictLoadingTests(TestCase):
 
 class JobListTests(TestCase):
     def setUp(self):
-        job_matcher._job_list_cache.update(limit=0, loaded_at=0.0, results=None)
+        job_list._job_list_cache.update(limit=0, loaded_at=0.0, results=None)
 
     def test_a_short_read_keeps_the_last_complete_list(self):
         with mock.patch.object(supabase_jobs, "urlopen", side_effect=_api(1000)):
-            self.assertEqual(len(job_matcher.list_available_jobs()), 1000)
-        job_matcher._job_list_cache["loaded_at"] = 0.0  # expired
+            self.assertEqual(len(job_list.list_available_jobs()), 1000)
+        job_list._job_list_cache["loaded_at"] = 0.0  # expired
         with mock.patch.object(supabase_jobs, "urlopen", side_effect=_api(1000, fail_offsets={500})):
-            self.assertEqual(len(job_matcher.list_available_jobs()), 1000)
+            self.assertEqual(len(job_list.list_available_jobs()), 1000)
 
     def test_a_short_read_with_nothing_cached_shows_what_could_be_read(self):
         with mock.patch.object(supabase_jobs, "urlopen", side_effect=_api(1000, fail_offsets={500})):
-            self.assertEqual(len(job_matcher.list_available_jobs()), 500)
+            self.assertEqual(len(job_list.list_available_jobs()), 500)
         # A short list is never kept as the complete one.
-        self.assertIsNone(job_matcher._job_list_cache["results"])
+        self.assertIsNone(job_list._job_list_cache["results"])
 
     def test_a_table_that_cannot_be_read_does_not_empty_the_list(self):
         api = _api(20)
@@ -61,14 +61,14 @@ class JobListTests(TestCase):
             return api(request, timeout)
 
         with mock.patch.object(supabase_jobs, "urlopen", side_effect=reply):
-            self.assertEqual(len(job_matcher.list_available_jobs()), 20)
+            self.assertEqual(len(job_list.list_available_jobs()), 20)
 
     def test_a_fresh_list_is_shared_instead_of_re_read(self):
         reply = mock.Mock(side_effect=_api(10))
         with mock.patch.object(supabase_jobs, "urlopen", reply):
-            job_matcher.list_available_jobs()
+            job_list.list_available_jobs()
             calls = reply.call_count
-            job_matcher.list_available_jobs()
+            job_list.list_available_jobs()
         self.assertEqual(reply.call_count, calls)
 
 

@@ -26,7 +26,6 @@ REQUIRED_BACKEND_FILES = [
     "backend/app/services/resume_analyzer.py",
     "backend/app/services/job_matcher.py",
     "backend/app/services/learning_recommender.py",
-    "backend/app/services/cross_encoder_service.py",
 ]
 
 REQUIRED_DATA_FILES = [
