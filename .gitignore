@@ -19,6 +19,8 @@ backend/.env
 # Cloud Run deploy settings (see backend/README.md)
 backend/cloudrun.env.yaml
 backend/.env.*
+# Re-allow the templates after the folder rules above (last match wins).
+!.env.example
 
 # Python caches and test output
 __pycache__/
@@ -32,6 +34,14 @@ htmlcov/
 
 # Build-time job vectors (python -m app.precompute_job_vectors)
 backend/precomputed/
+
+# Local research corpus (ESCO bulk files, taxonomy workbook, annotation pool).
+# backend/pipeline/config.py and backend/models/config.py create these folders
+# on import; the data stays on the maintainer's machine.
+backend/data/corpus/
+
+# Listing export from: python -m backend.scripts.import_jooble_jobs --csv ...
+jooble_listings*.csv
 
 # Runtime files and private uploads
 uploads/
@@ -93,10 +103,6 @@ backend/transformers_cache/
 backend/models/*.joblib
 backend/models/*.pkl
 backend/models/*.npz
-
-# Keep explicitly required lightweight metadata
-!backend/models/model_metadata.json
-!backend/models/job_index.csv
 
 # Large legacy source data retained locally for evaluation
 backend/evaluation/source_data/jobs_record_source.csv

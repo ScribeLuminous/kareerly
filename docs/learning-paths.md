@@ -36,7 +36,7 @@ The backend reads Supabase when its tables have rows, so apply `supabase/seed_ca
 ## Checks
 
 - `cd backend && .venv/bin/python -m unittest tests.test_learning_paths -v`
-- `cd frontend && node scripts/check-learning-paths.mjs`
+- `cd frontend && npm test` (replaces `scripts/check-learning-paths.mjs`, removed in November 2026 after the Learning code moved out of `Dashboard.tsx`)
 - `cd frontend && npm run build`
 
 All passed on 14 September 2026. The build reports a large bundle warning. Repository-wide ESLint reports 194 errors and 11 warnings in the current working tree; unrelated lint fixes were left out. Targeted `git diff --check` passes; the existing CSV diff has CRLF whitespace reports.

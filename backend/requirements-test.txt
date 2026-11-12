@@ -1,2 +1,4 @@
 -r requirements.txt
 httpx
+# tests/test_external_job_analysis.py is written for pytest (see backend/README.md).
+pytest

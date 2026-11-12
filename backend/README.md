@@ -551,6 +551,7 @@ Regression checks:
 ```bash
 backend/.venv/bin/python -m pip install -r backend/requirements-test.txt
 backend/.venv/bin/python -m unittest discover -s backend/tests -v
+backend/.venv/bin/python -m pytest backend/tests/test_external_job_analysis.py   # pytest-style; unittest skips it
 npm --prefix frontend test
 npm --prefix frontend run build
 bash supabase/tests/run_rls_tests.sh   # RLS checks for the learning migration (needs PostgreSQL)
