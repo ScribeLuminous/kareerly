@@ -31,7 +31,7 @@ from pydantic import BaseModel, ValidationError
 
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, ResumeSummaryRequest, RunMatchesRequest, SkillGapsRequest
 from .services.admin_stats import summarize_match_feedback
-from .services.job_matcher import list_available_jobs
+from .services.job_list import list_available_jobs
 from .services.supabase_jobs import catalogue_counts, split_job_sections
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path

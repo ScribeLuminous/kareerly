@@ -26,7 +26,7 @@ Below are the backend files needed to run the current baseline pipeline in Colab
 
 - `backend/app/services/job_matcher.py`
   - **Purpose:** Loads TF-IDF artifacts, computes cosine similarity, computes Fit-Now/Aspiration, builds skill gaps and recommendations.
-  - **Key functions/classes:** `JobMatcher` (`_load_vectorizer`, `_load_job_matrix`, `_load_jobs`, `match_jobs`), module functions `match_jobs`, `list_available_jobs`, `role_or_industry_preference_score`, `work_setup_preference_score`.
+  - **Key functions/classes:** `JobMatcher` (`_load_vectorizer`, `_load_job_matrix`, `_load_jobs`, `match_jobs`), module functions `match_jobs`, `role_or_industry_preference_score`, `work_setup_preference_score`.
   - **Local imports:** `backend/app/services/learning_recommender.py`.
 
 - `backend/app/services/learning_recommender.py`
