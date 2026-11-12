@@ -58,26 +58,35 @@ class ExtractionTests(unittest.TestCase):
 
 
 class ProposalTests(unittest.TestCase):
+    # Tools these tests treat as new. Tableau, Canva, Figma and Power BI played
+    # this role until they were added to skills_reference.csv.
+    UNKNOWN_EXAMPLES = ("Metabase", "Looker Studio", "Pixlr", "Penpot")
+
+    def test_example_tools_are_not_in_the_taxonomy(self):
+        for label in self.UNKNOWN_EXAMPLES:
+            self.assertFalse(TAXONOMY.exact(sd.normalize_label(label)),
+                f"{label} is now a known skill; pick another unknown tool for these tests")
+
     def test_existing_names_and_aliases_are_not_proposed(self):
         found, stats = proposals_for([job("J1", "Acme", required="SQL; Python; Data Analysis; Sales Techniques")])
         self.assertEqual(found, {})
         self.assertEqual(stats["already_in_taxonomy"], 4)
 
     def test_repeated_new_skill_across_employers_is_a_confident_new_skill(self):
-        jobs = [job(f"J{i}", company, required="Tableau") for i, company in enumerate(["Acme", "Globex", "Initech", "Umbrella"])]
+        jobs = [job(f"J{i}", company, required="Metabase") for i, company in enumerate(["Acme", "Globex", "Initech", "Umbrella"])]
         found, _ = proposals_for(jobs)
-        tableau = found["tableau"]
-        self.assertEqual(tableau.suggested_action, "new_skill")
-        self.assertGreaterEqual(tableau.confidence, 0.85)
-        self.assertEqual(tableau.review_reasons, [])
-        self.assertEqual(len(tableau.job_refs), 4)
+        metabase = found["metabase"]
+        self.assertEqual(metabase.suggested_action, "new_skill")
+        self.assertGreaterEqual(metabase.confidence, 0.85)
+        self.assertEqual(metabase.review_reasons, [])
+        self.assertEqual(len(metabase.job_refs), 4)
 
     def test_variants_are_deduplicated_to_one_proposal(self):
-        jobs = [job("J1", "Acme", required="Power BI"), job("J2", "Globex", required="power-bi"),
-            job("J3", "Initech", description="Proficient in Power BI.")]
+        jobs = [job("J1", "Acme", required="Looker Studio"), job("J2", "Globex", required="looker-studio"),
+            job("J3", "Initech", description="Proficient in Looker Studio.")]
         found, _ = proposals_for(jobs)
-        self.assertEqual(list(found), ["power bi"])
-        self.assertEqual(found["power bi"].display_label, "Power BI")
+        self.assertEqual(list(found), ["looker studio"])
+        self.assertEqual(found["looker studio"].display_label, "Looker Studio")
 
     def test_near_existing_name_is_an_alias_for_review(self):
         found, _ = proposals_for([job("J1", "Acme", required="Payroll Procesing"), job("J2", "Globex", required="Payroll Procesing")])
@@ -87,29 +96,29 @@ class ProposalTests(unittest.TestCase):
         self.assertIn("near_existing_skill", proposal.review_reasons)
 
     def test_user_text_alone_is_low_confidence_and_never_auto_approved(self):
-        rows = [{"user_id": f"user-{i}", "skill_id": None, "skill_name": "Canva"} for i in range(50)]
+        rows = [{"user_id": f"user-{i}", "skill_id": None, "skill_name": "Pixlr"} for i in range(50)]
         found, _ = proposals_for(profile_rows=rows)
-        canva = found["canva"]
-        self.assertLessEqual(canva.confidence, sd.PROFILE_CONFIDENCE_CAP)
-        self.assertIn("profile_only", canva.review_reasons)
-        self.assertEqual(canva.suggested_action, "review")
+        pixlr = found["pixlr"]
+        self.assertLessEqual(pixlr.confidence, sd.PROFILE_CONFIDENCE_CAP)
+        self.assertIn("profile_only", pixlr.review_reasons)
+        self.assertEqual(pixlr.suggested_action, "review")
         with patch.dict(os.environ, {"KAREERLY_SKILL_AUTO_APPROVE": "1"}):
-            self.assertFalse(sd.auto_approvable(canva))
+            self.assertFalse(sd.auto_approvable(pixlr))
 
     def test_single_employer_repetition_is_capped(self):
-        found, _ = proposals_for([job(f"J{i}", "Acme", required="Figma") for i in range(20)])
-        figma = found["figma"]
-        self.assertLessEqual(figma.confidence, sd.SINGLE_COMPANY_CAP)
-        self.assertIn("single_company", figma.review_reasons)
+        found, _ = proposals_for([job(f"J{i}", "Acme", required="Penpot") for i in range(20)])
+        penpot = found["penpot"]
+        self.assertLessEqual(penpot.confidence, sd.SINGLE_COMPANY_CAP)
+        self.assertIn("single_company", penpot.review_reasons)
 
     def test_auto_approval_is_off_by_default_and_strict_when_enabled(self):
-        jobs = [job(f"J{i}", f"Company {i}", required="Tableau") for i in range(6)]
+        jobs = [job(f"J{i}", f"Company {i}", required="Metabase") for i in range(6)]
         found, _ = proposals_for(jobs)
-        self.assertFalse(sd.auto_approvable(found["tableau"]))
+        self.assertFalse(sd.auto_approvable(found["metabase"]))
         with patch.dict(os.environ, {"KAREERLY_SKILL_AUTO_APPROVE": "1"}):
-            self.assertTrue(sd.auto_approvable(found["tableau"]))
+            self.assertTrue(sd.auto_approvable(found["metabase"]))
             few, _ = proposals_for(jobs[:3])
-            self.assertFalse(sd.auto_approvable(few["tableau"]))
+            self.assertFalse(sd.auto_approvable(few["metabase"]))
 
 
 class DiscoveryRunAndReviewTests(unittest.TestCase):
@@ -118,13 +127,13 @@ class DiscoveryRunAndReviewTests(unittest.TestCase):
         self.addCleanup(taxonomy_additions.clear_cache)
         self.client = FakeSupabase({
             "internal_jobs": [
-                {"job_id": f"J{i}", "company_name": c, "job_description": "Experience with Tableau dashboards.",
-                 "responsibilities": "", "required_skills": "Tableau", "preferred_skills": "", "posting_status": "active"}
+                {"job_id": f"J{i}", "company_name": c, "job_description": "Experience with Metabase dashboards.",
+                 "responsibilities": "", "required_skills": "Metabase", "preferred_skills": "", "posting_status": "active"}
                 for i, c in enumerate(["Acme", "Globex", "Initech"])
             ] + [{"job_id": "OLD", "company_name": "Old", "job_description": "", "responsibilities": "",
                   "required_skills": "Cobol", "preferred_skills": "", "posting_status": "closed"}],
             "employer_job_posts": [],
-            "user_skills": [{"user_id": "u1", "skill_id": None, "skill_name": "Canva"},
+            "user_skills": [{"user_id": "u1", "skill_id": None, "skill_name": "Pixlr"},
                             {"user_id": "u2", "skill_id": "SK001", "skill_name": "Python"}],
             "skill_candidates": [], "skill_candidate_evidence": [], "skill_taxonomy_additions": [],
         })
@@ -134,11 +143,11 @@ class DiscoveryRunAndReviewTests(unittest.TestCase):
 
     def test_run_stores_pending_proposals_with_provenance(self):
         result = sd.run_discovery(self.client)
-        self.assertEqual({row["normalized_label"] for row in self.client.rows("skill_candidates")}, {"tableau", "canva"})
+        self.assertEqual({row["normalized_label"] for row in self.client.rows("skill_candidates")}, {"metabase", "pixlr"})
         self.assertTrue(all(row["status"] == "pending" for row in self.client.rows("skill_candidates")))
         evidence = self.client.rows("skill_candidate_evidence")
-        tableau_evidence = [e for e in evidence if e["candidate_id"] == self.candidate("tableau")["id"]]
-        self.assertEqual({e["source_ref"] for e in tableau_evidence}, {"internal_jobs:J0", "internal_jobs:J1", "internal_jobs:J2"})
+        metabase_evidence = [e for e in evidence if e["candidate_id"] == self.candidate("metabase")["id"]]
+        self.assertEqual({e["source_ref"] for e in metabase_evidence}, {"internal_jobs:J0", "internal_jobs:J1", "internal_jobs:J2"})
         profile = [e for e in evidence if e["source_type"] == "user_profile"]
         self.assertEqual(len(profile), 1)
         self.assertIsNone(profile[0]["snippet"])
@@ -148,10 +157,10 @@ class DiscoveryRunAndReviewTests(unittest.TestCase):
 
     def test_rerun_keeps_review_decisions(self):
         sd.run_discovery(self.client)
-        rejected = self.candidate("canva")
+        rejected = self.candidate("pixlr")
         sd.review_candidate(self.client, rejected["id"], "reject", "admin-1", note="too vague")
         sd.run_discovery(self.client)
-        self.assertEqual(self.candidate("canva")["status"], "rejected")
+        self.assertEqual(self.candidate("pixlr")["status"], "rejected")
 
     def test_scan_survives_unmigrated_responsibilities_column(self):
         # Production error before 20261005090000_internal_jobs_responsibilities.sql.
@@ -174,43 +183,43 @@ class DiscoveryRunAndReviewTests(unittest.TestCase):
     def test_dry_run_writes_nothing(self):
         result = sd.run_discovery(self.client, dry_run=True)
         self.assertEqual(self.client.rows("skill_candidates"), [])
-        self.assertEqual(result["top_proposals"][0]["label"], "Tableau")
+        self.assertEqual(result["top_proposals"][0]["label"], "Metabase")
 
     def test_approve_new_skill_alias_and_guards(self):
         sd.run_discovery(self.client)
-        tableau = self.candidate("tableau")
-        approved = sd.review_candidate(self.client, tableau["id"], "approve_new", "admin-1", category_id="K02")
+        metabase = self.candidate("metabase")
+        approved = sd.review_candidate(self.client, metabase["id"], "approve_new", "admin-1", category_id="K02")
         self.assertEqual(approved["skill_id"], "SK5001")
         addition = self.client.rows("skill_taxonomy_additions")[0]
-        self.assertEqual((addition["kind"], addition["label"], addition["category_id"]), ("skill", "Tableau", "K02"))
+        self.assertEqual((addition["kind"], addition["label"], addition["category_id"]), ("skill", "Metabase", "K02"))
         self.assertEqual(addition["skill_category"], "Data, Analytics, and Artificial Intelligence")
-        self.assertEqual(self.candidate("tableau")["status"], "approved")
+        self.assertEqual(self.candidate("metabase")["status"], "approved")
         with self.assertRaises(sd.ReviewError) as already:
-            sd.review_candidate(self.client, tableau["id"], "reject", "admin-1")
+            sd.review_candidate(self.client, metabase["id"], "reject", "admin-1")
         self.assertEqual(already.exception.status, 409)
 
-        canva = self.candidate("canva")
+        pixlr = self.candidate("pixlr")
         with self.assertRaises(sd.ReviewError):
-            sd.review_candidate(self.client, canva["id"], "approve_alias", "admin-1", skill_id="SK99999")
+            sd.review_candidate(self.client, pixlr["id"], "approve_alias", "admin-1", skill_id="SK99999")
         with self.assertRaises(sd.ReviewError):
-            sd.review_candidate(self.client, canva["id"], "approve_new", "admin-1", label="SQL")  # already a skill
+            sd.review_candidate(self.client, pixlr["id"], "approve_new", "admin-1", label="SQL")  # already a skill
         with self.assertRaises(sd.ReviewError):
-            sd.review_candidate(self.client, canva["id"], "approve_new", "admin-1", category_id="bad")
-        alias = sd.review_candidate(self.client, canva["id"], "approve_alias", "admin-1", skill_id="SK038", label="Canva")
+            sd.review_candidate(self.client, pixlr["id"], "approve_new", "admin-1", category_id="bad")
+        alias = sd.review_candidate(self.client, pixlr["id"], "approve_alias", "admin-1", skill_id="SK038", label="Pixlr")
         self.assertEqual((alias["kind"], alias["skill_id"]), ("alias", "SK038"))
 
     def test_listing_hides_profile_references(self):
         sd.run_discovery(self.client)
         listed = {row["normalized_label"]: row for row in sd.list_candidates(self.client)}
-        self.assertEqual(listed["canva"]["evidence"][0]["job"], None)
-        self.assertEqual(listed["tableau"]["evidence"][0]["job"].split(":")[0], "internal_jobs")
+        self.assertEqual(listed["pixlr"]["evidence"][0]["job"], None)
+        self.assertEqual(listed["metabase"]["evidence"][0]["job"].split(":")[0], "internal_jobs")
 
 
 class RuntimeTaxonomyTests(unittest.TestCase):
     """Approved additions reach extraction, coverage and search with no code change."""
 
     ADDITIONS = [
-        {"kind": "skill", "skill_id": "SK5001", "label": "Tableau", "category_id": "K02",
+        {"kind": "skill", "skill_id": "SK5001", "label": "Metabase", "category_id": "K02",
          "skill_category": "Data, Analytics, and Artificial Intelligence"},
         {"kind": "alias", "skill_id": "SK004", "label": "PostgreSQL queries"},
     ]
@@ -227,26 +236,26 @@ class RuntimeTaxonomyTests(unittest.TestCase):
 
     def test_before_approval_the_skill_is_unknown(self):
         self.use_additions([])
-        names = {s["skill_name"] for s in matching.extract_skills_from_text("Built Tableau dashboards for sales.")}
-        self.assertNotIn("Tableau", names)
+        names = {s["skill_name"] for s in matching.extract_skills_from_text("Built Metabase dashboards for sales.")}
+        self.assertNotIn("Metabase", names)
         self.assertNotIn("SK5001", matching.canonical_skill_lookup()[0])
 
     def test_after_approval_extraction_coverage_and_search_use_it(self):
         self.use_additions(self.ADDITIONS)
         skills = {s["skill_id"]: s["skill_name"] for s in matching.extract_skills_from_text(
-            "Built Tableau dashboards and wrote PostgreSQL queries for reporting.")}
-        self.assertEqual(skills.get("SK5001"), "Tableau")
+            "Built Metabase dashboards and wrote PostgreSQL queries for reporting.")}
+        self.assertEqual(skills.get("SK5001"), "Metabase")
         self.assertIn("SK004", skills)
         labels, aliases = matching.canonical_skill_lookup()
-        self.assertEqual(labels["SK5001"], "Tableau")
+        self.assertEqual(labels["SK5001"], "Metabase")
         self.assertEqual(aliases["postgresql queries"], "SK004")
-        coverage = matching.compute_skill_coverage(["SK5001", "PostgreSQL queries"], ["Tableau", "SQL"])
+        coverage = matching.compute_skill_coverage(["SK5001", "PostgreSQL queries"], ["Metabase", "SQL"])
         self.assertEqual(coverage["skill_coverage"], 1.0)
         # Confirmed skill IDs of approved skills are accepted by matching.
-        _, records, _, _ = matching._prepare_candidate_context("Analyst", [{"skill_id": "SK5001"}])
-        self.assertEqual(records[0]["skill_name"], "Tableau")
+        records = matching._prepare_candidate_context("Analyst", [{"skill_id": "SK5001"}]).skill_records
+        self.assertEqual(records[0]["skill_name"], "Metabase")
         with patch.object(matching.taxonomy_additions, "active_additions", return_value=self.ADDITIONS):
-            results = TestClient(main.app).get("/api/skills/search", params={"q": "tableau"}).json()["results"]
+            results = TestClient(main.app).get("/api/skills/search", params={"q": "metabase"}).json()["results"]
         self.assertEqual(results[0]["skill_id"], "SK5001")
 
     def test_retired_or_conflicting_additions_cannot_override_csv(self):
