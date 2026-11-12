@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VENV_PYTHON="${KAREERLY_BACKEND_PYTHON:-$ROOT_DIR/backend/.venv/bin/python}"
-VENV_PYTHON="${BACKEND_PYTHON:-$ROOT_DIR/backend/.venv/bin/python}"
+# BACKEND_PYTHON (documented in backend/README.md) wins; KAREERLY_BACKEND_PYTHON
+# is the older name and still works.
+VENV_PYTHON="${BACKEND_PYTHON:-${KAREERLY_BACKEND_PYTHON:-$ROOT_DIR/backend/.venv/bin/python}}"
 PID_FILE="$ROOT_DIR/backend/.uvicorn.pid"
 LOG_FILE="$ROOT_DIR/backend/.uvicorn.log"
 BACKEND_PORT="8000"
