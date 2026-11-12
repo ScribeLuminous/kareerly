@@ -14,35 +14,33 @@ named features; each feature is arithmetic over the K13 taxonomy; each required
 skill carries a trace saying whether it was met exactly, met by a related skill
 in the same parent group, or not met at all.
 
-The live application uses the trained semantic bi-encoder in
-``semantic_matching.py`` and applies taxonomy evidence as deterministic
-eligibility and explanation. This module remains available only for ablation.
+The live application uses the fine-tuned bi-encoder in
+``app/services/bi_encoder_service.py`` with deterministic scoring in
+``app/services/matching_service.py``. This module remains available only for
+ablation; it moved here from ``app/services/`` because the service never used it.
 """
 
 from __future__ import annotations
 
 import json
 import re
-import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
-
-from models import taxonomy as tx  # noqa: E402
-from models.alias_expansion import apply_supplement  # noqa: E402
-from models.features import (  # noqa: E402
+from . import taxonomy as tx
+from .alias_expansion import apply_supplement
+from .features import (
     CandidateProfile,
     FeatureExtractor,
     JobPosting,
     RequirementTrace,
     gaps_from_traces,
 )
-from models.crosswalk import Crosswalk, load_crosswalk  # noqa: E402
-from models.train_ranker import RANKER_OUT, TaxonomyRanker  # noqa: E402
+from .crosswalk import Crosswalk, load_crosswalk
+from .train_ranker import RANKER_OUT, TaxonomyRanker
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 REFERENCE_DIR = BACKEND_DIR / "data" / "corpus" / "reference"
 DERIVED_ALIASES = REFERENCE_DIR / "derived_aliases_accepted.csv"
