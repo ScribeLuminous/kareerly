@@ -170,6 +170,8 @@ export type EmployerAccountSettings = {
   contact_role: string | null;
   contact_number: string | null;
   account_email: string | null;
+  /** A new login email waiting for the user to open its confirmation link. */
+  pending_email?: string | null;
   first_name: string | null;
   last_name: string | null;
 };
@@ -188,6 +190,8 @@ export async function saveEmployerAccountSettings(input: Partial<EmployerAccount
 export type CandidateAccountSettings = {
   full_name: string;
   email: string;
+  /** A new login email waiting for the user to open its confirmation link. */
+  pending_email?: string | null;
   public_id: string | null;
   contact_number: string | null;
   birthday: string | null;
@@ -1525,4 +1529,11 @@ export async function requestAccountDeletion(reason?: string): Promise<AccountDe
     body: JSON.stringify({ reason: reason || null }),
   }, 'Unable to submit your deletion request.');
   return payload?.request || null;
+}
+
+/** What to tell the user after saving settings that may have requested a new login email. */
+export function pendingEmailNotice(saved: { pending_email?: string | null }): string {
+  return saved.pending_email
+    ? `We sent a confirmation link to ${saved.pending_email}. Your login email changes once you open it.`
+    : '';
 }

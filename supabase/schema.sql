@@ -457,6 +457,9 @@ create policy "Anyone can read active learning resources" on public.learning_res
 drop policy if exists "Users can manage own saved jobs" on public.saved_jobs;
 create policy "Users can manage own saved jobs" on public.saved_jobs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- Superseded by migrations/20261117090000_application_privacy_and_integrity.sql,
+-- which makes applications read-only to clients (writes go through functions)
+-- and stops copying candidate identity onto them. Apply it after this file.
 drop policy if exists "Users can manage own applications" on public.job_applications;
 create policy "Users can manage own applications" on public.job_applications for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 

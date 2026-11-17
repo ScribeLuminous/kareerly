@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { faBriefcase, faBuilding, faChartColumn, faComments, faHouse, faLayerGroup, faStar, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { AppShell, ConfirmDialog, DESKTOP_QUERY, EmptyState, FormField, SkeletonRows, ToastRegion, useMediaQuery, type NextStep, type ToastState } from '../components/ui';
-import { loadApplicationMessages, loadEmployerAccountSettings, loadMessageModeration, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, submitMessageModeration, updateEmployerApplicationStatus, type MessageModerationState, type MessageReportReason } from '../lib/api';
+import { loadApplicationMessages, loadEmployerAccountSettings, loadMessageModeration, pendingEmailNotice, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, submitMessageModeration, updateEmployerApplicationStatus, type MessageModerationState, type MessageReportReason } from '../lib/api';
 import { ReportConversationModal } from '../components/ReportConversationModal';
 import { supabase } from '../lib/supabase';
 import { normalizeEmployerIndustry } from '../lib/employerOptions';
@@ -27,6 +27,7 @@ import { clearJobDraft, hasJobDraftContent, jobDraftKey, useStoredJobDraft, vali
 import {
   applicantTitle,
   daysUntil,
+  EMPLOYER_APPLICATION_COLUMNS,
   EMPLOYER_PAGE_PATHS,
   employerJobEditorIdFromPath,
   employerJobEditorPath,
@@ -49,6 +50,7 @@ import {
   toEmployerJob,
   toMessageEntry,
   todayIso,
+  type ApplicantIdentity,
   type ApplicationMessageRow,
   type CandidateApplication,
   type CandidateStatus,
@@ -279,7 +281,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
         contact_number: accountProfile.contactNumber,
       });
       setCompanyName(saved.company_name || accountProfile.company.trim());
-      showToast('Company profile saved.', 'success');
+      const emailNotice = pendingEmailNotice(saved);
+      showToast(emailNotice ? `Company profile saved. ${emailNotice}` : 'Company profile saved.', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to save company profile.', 'danger');
     } finally {
@@ -520,7 +523,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
       const { data, error } = await supabase
         .from('job_applications')
-        .select('*')
+        .select(EMPLOYER_APPLICATION_COLUMNS)
         .in('job_id', jobIds)
         .order('applied_at', { ascending: false });
 
@@ -537,6 +540,13 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       if (publicIdError) console.warn('Unable to load candidate public IDs:', publicIdError);
       const publicIdsByApplication = new Map<string, string>(
         (Array.isArray(publicIdData) ? publicIdData : []).map((row) => [String(row.application_id), String(row.public_id || '')]),
+      );
+      // Names, emails and locations come only for applicants at Interviewing or later.
+      const { data: identityData, error: identityError } = await supabase.rpc('get_employer_applicant_identities');
+      if (identityError) console.warn('Unable to load revealed applicant details:', identityError);
+      const identitiesByApplication = new Map<string, ApplicantIdentity>(
+        (Array.isArray(identityData) ? identityData as Array<ApplicantIdentity & { application_id: string }> : [])
+          .map((row) => [String(row.application_id), row]),
       );
       // Only conversations the Messages page lists have an open thread to read:
       // a message request was sent, and the applicant is Interviewing or Hired.
@@ -568,7 +578,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
 
       if (!isMounted) return;
       setApplications((current) => rows.map((row) => {
-        const next = toCandidateApplication(row, jobs, messagesByApplication.get(row.id) || [], publicIdsByApplication.get(row.id) || '');
+        const next = toCandidateApplication(row, jobs, messagesByApplication.get(row.id) || [], publicIdsByApplication.get(row.id) || '', identitiesByApplication.get(row.id) || null);
         // A failed refresh keeps this conversation as last loaded instead of emptying it.
         const previous = failedMessageIds.has(row.id) ? current.find((candidate) => candidate.id === row.id) : undefined;
         return previous ? { ...next, messages: previous.messages } : next;
@@ -1141,20 +1151,7 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       return;
     }
 
-    if (isRequest) {
-      const { error: applicationError } = await supabase
-        .from('job_applications')
-        .update({
-          message_request_state: 'pending',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', selectedThreadCandidate.id);
-
-      if (applicationError) {
-        console.warn('Unable to update message request state:', applicationError);
-        showToast('Message saved, but request status could not be updated.', 'warn');
-      }
-    }
+    // The backend records the request as pending when it saves a request.
 
     const entry: MessageEntry = savedMessage ? toMessageEntry(savedMessage as ApplicationMessageRow) : { from: 'employer', text, time: 'Just now' };
     setApplications((current) =>

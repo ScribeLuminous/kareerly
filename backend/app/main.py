@@ -77,7 +77,7 @@ app = FastAPI(title="Kareerly ML Backend")
 
 # Reported by /api/health/config and /api/health/jobs, so a site admin can see
 # which backend code is deployed. Change it when the backend changes.
-BACKEND_VERSION = "2026.10.29-employer-posts-read"
+BACKEND_VERSION = "2026.11.17-application-privacy"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -124,6 +124,10 @@ class MessageModerationRequest(BaseModel):
 
 
 MESSAGE_REPORT_REASONS = {"spam", "harassment", "scam", "inappropriate", "impersonation", "other"}
+
+# "request" opens a conversation (employer only); "message" needs the
+# candidate's acceptance. Nothing else is accepted.
+MESSAGE_KINDS = {"message", "request"}
 
 UNREADABLE_MESSAGE_TEXT = "This message could not be shown. Please contact Kareerly support if this keeps happening."
 
@@ -217,6 +221,8 @@ class AdminJobUpdateRequest(BaseModel):
     company_name: Optional[str] = None
     posting_status: Optional[str] = None
     psoc_unit_code: Optional[str] = None
+    # True hides the post from the public job list and matching (migration 20261117100000).
+    is_test_posting: Optional[bool] = None
 
 
 class AdminApplicationUpdateRequest(BaseModel):
@@ -373,6 +379,16 @@ def _message_block_state(application_id: str, user_id: str) -> dict:
     }
 
 
+def _application_message_request_state(application_id: str) -> str | None:
+    """The application's message request state ('none', 'pending', 'accepted',
+    'declined' or 'ignored'); None when the application does not exist."""
+    query = urllib.parse.urlencode({"id": f"eq.{application_id}", "select": "message_request_state", "limit": "1"})
+    rows = _supabase_request(f"/rest/v1/job_applications?{query}", service_role=True)
+    if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
+        return None
+    return str(rows[0].get("message_request_state") or "none")
+
+
 def _get_message_thread_participant(application_id: str, user_id: str) -> dict:
     """Like _get_authorized_message_thread, but also allows closed threads so a
     participant can still report or unblock after a thread stops being active."""
@@ -449,26 +465,32 @@ def create_application_message(payload: MessageCreateRequest, authorization: Ann
     user_id = _get_authenticated_user_id(authorization)
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication is required.")
+    kind = (payload.message_kind or "message").strip().lower()
+    if kind not in MESSAGE_KINDS:
+        raise HTTPException(status_code=400, detail="Message kind must be 'message' or 'request'.")
     text = payload.message_text.strip()
     if not text or len(text) > 4000:
         raise HTTPException(status_code=400, detail="Message must contain between 1 and 4000 characters.")
+    # Consent is checked for every message: one request while none is open,
+    # then nothing more until the candidate accepts it.
+    request_state = _application_message_request_state(payload.application_id)
+    if request_state is None:
+        raise HTTPException(status_code=404, detail="Application was not found.")
+    if kind == "request" and request_state != "none":
+        raise HTTPException(status_code=409, detail="A message request was already sent for this application.")
     try:
         thread = _get_authorized_message_thread(payload.application_id, user_id)
     except HTTPException as exc:
-        if payload.message_kind != "request" or exc.status_code != 404:
+        if kind != "request" or exc.status_code != 404:
             raise
         thread = _create_employer_message_thread(payload.application_id, user_id)
     sender_role = str(thread["participant_role"])
     if _message_block_state(payload.application_id, user_id)["blocked"]:
         raise HTTPException(status_code=403, detail="Messaging is blocked for this conversation.")
-    if payload.message_kind == "request" and sender_role != "employer":
+    if kind == "request" and sender_role != "employer":
         raise HTTPException(status_code=403, detail="Only the employer can initiate a message request.")
-    if payload.message_kind == "message":
-        state_query = urllib.parse.urlencode({"id": f"eq.{payload.application_id}", "select": "message_request_state", "limit": "1"})
-        state_rows = _supabase_request(f"/rest/v1/job_applications?{state_query}", service_role=True)
-        request_state = state_rows[0].get("message_request_state") if isinstance(state_rows, list) and state_rows else None
-        if request_state != "accepted":
-            raise HTTPException(status_code=403, detail="The candidate must accept the message request before replies can be sent.")
+    if kind == "message" and request_state != "accepted":
+        raise HTTPException(status_code=403, detail="The candidate must accept the message request before replies can be sent.")
     cipher = _message_cipher()
     nonce = os.urandom(12)
     ciphertext = cipher.encrypt(nonce, text.encode("utf-8"), str(thread["id"]).encode("utf-8"))
@@ -481,6 +503,15 @@ def create_application_message(payload: MessageCreateRequest, authorization: Ann
     }
     saved = _supabase_request("/rest/v1/application_messages", method="POST", service_role=True, body=body, prefer="return=representation")
     row = saved[0] if isinstance(saved, list) and saved else body
+    if kind == "request":
+        # Recorded here, not by the employer's browser: clients cannot write
+        # an application's request state (see migration 20261117090000).
+        state_filter = urllib.parse.urlencode({"id": f"eq.{payload.application_id}", "message_request_state": "eq.none"})
+        _supabase_request(
+            f"/rest/v1/job_applications?{state_filter}", method="PATCH", service_role=True,
+            body={"message_request_state": "pending", "updated_at": _safe_timestamp()},
+        )
+        return {**row, "message_text": text, "message_request_state": "pending"}
     return {**row, "message_text": text}
 
 
@@ -727,6 +758,49 @@ def _safe_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+def _confirmed_auth_email(user_id: str, profile_email: object, auth_user: object) -> str:
+    """The account's confirmed login email. profiles.email follows Supabase
+    Auth: after the user confirms an email change, the next settings read
+    copies the new address into their profile."""
+    current = str(profile_email or "")
+    auth_email = str(auth_user.get("email") or "") if isinstance(auth_user, dict) else ""
+    if auth_email and auth_email.lower() != current.lower():
+        _supabase_request(
+            f"/rest/v1/profiles?id=eq.{urllib.parse.quote(user_id, safe='')}", method="PATCH", service_role=True,
+            body={"email": auth_email, "updated_at": _safe_timestamp()},
+        )
+        return auth_email
+    return current
+
+
+def _pending_email(auth_user: object) -> str | None:
+    """A requested login email still waiting for confirmation, if any."""
+    value = auth_user.get("new_email") if isinstance(auth_user, dict) else None
+    return str(value) if value else None
+
+
+def _request_email_change(authorization: str | None, new_email: str) -> None:
+    """Ask Supabase Auth to change the signed-in user's login email.
+
+    Sent with the user's own session, so Supabase emails a confirmation link
+    and the address changes only once it is confirmed. The service role is
+    never used here: an admin update would switch the login email at once,
+    without proving the user owns the new address.
+    """
+    token = (authorization or "").split(" ", 1)[1].strip() if authorization and " " in authorization else ""
+    try:
+        _supabase_request("/auth/v1/user", method="PUT", token=token, body={"email": new_email})
+    except HTTPException as exc:
+        if exc.status_code == 429:
+            raise HTTPException(status_code=429, detail="Too many email change requests. Please wait a few minutes and try again.") from exc
+        if exc.status_code in {400, 422}:
+            raise HTTPException(status_code=400, detail="That email address can't be used. Check it, or use a different address.") from exc
+        raise
+
+
 EMPLOYER_SETTINGS_COLUMNS = (
     "id,user_id,company_name,company_size,industry,business_email,company_location,"
     "company_website,company_description,contact_person_name,contact_role,contact_number,updated_at"
@@ -747,7 +821,9 @@ def _require_employer_profile(user_id: str) -> dict:
     optional_fields = ("company_location", "company_website", "company_description", "contact_person_name", "contact_role", "contact_number")
     return {
         **profile, **{field: profile.get(field) or metadata.get(field) for field in optional_fields},
-        "account_email": user.get("email"), "first_name": user.get("first_name"), "last_name": user.get("last_name"),
+        "account_email": _confirmed_auth_email(user_id, user.get("email"), auth_user),
+        "pending_email": _pending_email(auth_user),
+        "first_name": user.get("first_name"), "last_name": user.get("last_name"),
     }
 
 
@@ -770,26 +846,24 @@ def update_employer_account_settings(payload: EmployerAccountSettingsRequest, au
     body = {key: (value.strip() if isinstance(value, str) else value) for key, value in payload_values.items()}
     if "company_name" in body and not body["company_name"]:
         raise HTTPException(status_code=400, detail="Company name is required.")
-    if "business_email" in body and body["business_email"] and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", body["business_email"]):
+    if "business_email" in body and body["business_email"] and not EMAIL_PATTERN.fullmatch(body["business_email"]):
         raise HTTPException(status_code=400, detail="Enter a valid contact email address.")
-    account_email = str(account_fields.get("account_email") or "").strip()
-    if account_email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", account_email):
+    account_email = str(account_fields.get("account_email") or "").strip().lower()
+    if account_email and not EMAIL_PATTERN.fullmatch(account_email):
         raise HTTPException(status_code=400, detail="Enter a valid account email address.")
+    email_change = bool(account_email) and account_email != str(profile.get("account_email") or "").lower()
     profile_body = {key: str(value or "").strip() for key, value in account_fields.items() if key in {"first_name", "last_name"}}
-    if account_email:
-        profile_body["email"] = account_email
     metadata = {key: value for key, value in body.items() if key != "updated_at"}
     if profile_body:
         profile_body["updated_at"] = _safe_timestamp()
         _supabase_request(f"/rest/v1/profiles?id=eq.{urllib.parse.quote(user_id, safe='')}", method="PATCH", service_role=True, body=profile_body)
         metadata.update({"first_name": profile_body.get("first_name"), "last_name": profile_body.get("last_name"), "role": "employer"})
-        auth_body = {"user_metadata": metadata}
-        if account_email:
-            auth_body["email"] = account_email
-            auth_body["email_confirm"] = True
-        _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body=auth_body)
+        _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"user_metadata": metadata})
     elif metadata:
         _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"user_metadata": {**metadata, "role": "employer"}})
+    if email_change:
+        # The login email changes only after the confirmation link is opened.
+        _request_email_change(authorization, account_email)
     if not body:
         return _require_employer_profile(user_id)
     supported_body = {key: value for key, value in body.items() if key in {"company_name", "company_size", "industry", "business_email"}}
@@ -803,18 +877,24 @@ def update_employer_account_settings(payload: EmployerAccountSettingsRequest, au
 
 
 def _require_candidate_settings(user_id: str) -> dict:
-    user_query = urllib.parse.urlencode({"id": f"eq.{user_id}", "select": "first_name,last_name,email", "limit": "1"})
+    user_query = urllib.parse.urlencode({"id": f"eq.{user_id}", "select": "first_name,last_name,email,role", "limit": "1"})
     users = _supabase_request(f"/rest/v1/profiles?{user_query}", service_role=True)
     user = users[0] if isinstance(users, list) and users else None
     if not isinstance(user, dict):
         raise HTTPException(status_code=404, detail="Candidate profile was not found.")
+    # Saving these settings writes candidate account data, so only candidate
+    # accounts may use them (an employer's role and profile stay untouched).
+    if str(user.get("role") or "") != "candidate":
+        raise HTTPException(status_code=403, detail="These settings are for job seeker accounts.")
     candidate_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "public_id,location", "limit": "1"})
     candidates = _supabase_request(f"/rest/v1/candidate_profiles?{candidate_query}", service_role=True)
     candidate = candidates[0] if isinstance(candidates, list) and candidates else {}
     auth_user = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", service_role=True)
     metadata = auth_user.get("user_metadata") if isinstance(auth_user, dict) and isinstance(auth_user.get("user_metadata"), dict) else {}
     return {
-        "full_name": f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip(), "email": user.get("email"),
+        "full_name": f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip(),
+        "email": _confirmed_auth_email(user_id, user.get("email"), auth_user),
+        "pending_email": _pending_email(auth_user),
         "public_id": candidate.get("public_id"), "birthday": metadata.get("birthday"), "location": candidate.get("location") or metadata.get("location"),
         "contact_number": metadata.get("contact_number"), "address": metadata.get("address"),
         # Older accounts may hold free text; it reads back as the matching list entry.
@@ -844,8 +924,9 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
     email = str(values.pop("email", current.get("email") or "")).strip().lower()
     if not full_name:
         raise HTTPException(status_code=400, detail="Full name is required.")
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+    if not EMAIL_PATTERN.fullmatch(email):
         raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    email_change = email != str(current.get("email") or "").lower()
     attainment_input = str(values.get("highest_educational_attainment") or "").strip()
     attainment = normalize_education_level(attainment_input)
     if attainment_input and not attainment:
@@ -853,7 +934,7 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
     values["highest_educational_attainment"] = attainment
     name_parts = full_name.split(None, 1)
     first_name, last_name = name_parts[0], name_parts[1] if len(name_parts) > 1 else ""
-    profile_body = {"first_name": first_name, "last_name": last_name, "email": email, "updated_at": _safe_timestamp()}
+    profile_body = {"first_name": first_name, "last_name": last_name, "updated_at": _safe_timestamp()}
     _supabase_request(f"/rest/v1/profiles?id=eq.{urllib.parse.quote(user_id, safe='')}", method="PATCH", service_role=True, body=profile_body)
     metadata = {
         "first_name": first_name, "last_name": last_name, "role": "candidate", "birthday": values.get("birthday") or None,
@@ -861,10 +942,13 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
         "highest_educational_attainment": values.get("highest_educational_attainment") or "", "degree_program": values.get("degree_program") or "",
         "school_university": values.get("school_university") or "", "year_graduated": values.get("year_graduated") or "",
     }
-    _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"email": email, "email_confirm": True, "user_metadata": metadata})
+    _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"user_metadata": metadata})
     candidate_body = {"user_id": user_id, "location": values.get("location") or None, "updated_at": _safe_timestamp()}
     query = urllib.parse.urlencode({"on_conflict": "user_id"})
     _supabase_request(f"/rest/v1/candidate_profiles?{query}", method="POST", service_role=True, body=candidate_body, prefer="resolution=merge-duplicates")
+    if email_change:
+        # The login email changes only after the confirmation link is opened.
+        _request_email_change(authorization, email)
     return _require_candidate_settings(user_id)
 
 
@@ -1575,7 +1659,7 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
 @app.patch("/api/admin/jobs")
 def admin_update_job(payload: AdminJobUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
     _require_admin_user(authorization)
-    body: dict[str, str | None] = {key: value.strip() for key, value in {
+    body: dict[str, str | bool | None] = {key: value.strip() for key, value in {
         "job_title": payload.job_title,
         "company_name": payload.company_name,
         "posting_status": payload.posting_status,
@@ -1589,6 +1673,8 @@ def admin_update_job(payload: AdminJobUpdateRequest, authorization: Annotated[Op
             if not occupation["valid"] or occupation["level"] != "unit":
                 raise HTTPException(status_code=400, detail="Enter a valid four-digit PSOC 2012 unit code.")
         body["psoc_unit_code"] = code or None
+    if payload.is_test_posting is not None:
+        body["is_test_posting"] = payload.is_test_posting
     if not body:
         raise HTTPException(status_code=400, detail="No job changes were provided.")
     rows = _supabase_request(f"/rest/v1/employer_job_posts?id=eq.{urllib.parse.quote(payload.job_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")

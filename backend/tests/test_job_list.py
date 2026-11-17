@@ -8,7 +8,7 @@ from backend.app.services import job_list, supabase_jobs
 
 
 def _api(total, *, fail_offsets=()):
-    jobs = [{"job_id": f"JOB-{n:04d}", "job_title": "Role", "created_at": "2026-09-01T00:00:00Z"} for n in range(total)]
+    jobs = [{"job_id": f"JOB-{n:04d}", "job_title": f"Role {n}", "created_at": "2026-09-01T00:00:00Z"} for n in range(total)]
 
     def reply(request, timeout):
         query = dict(item.split("=", 1) for item in request.full_url.split("?", 1)[1].split("&"))

@@ -100,9 +100,6 @@ export type JobApplicationRow = {
   job_id: string;
   job_title?: string | null;
   company_name?: string | null;
-  candidate_name?: string | null;
-  candidate_email?: string | null;
-  candidate_location?: string | null;
   match_score?: number | null;
   matched_skills?: string[] | null;
   missing_skills?: string[] | null;
@@ -399,7 +396,28 @@ export const toMessageEntry = (row: ApplicationMessageRow): MessageEntry => ({
   time: row.created_at ? formatDateLabel(row.created_at.slice(0, 10)) : 'Time unavailable',
 });
 
-export const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob[], messages: ApplicationMessageRow[] = [], publicId = ''): CandidateApplication => {
+/**
+ * A candidate's identity as get_employer_applicant_identities() returns it:
+ * only for applicants who have reached Interviewing. Application rows carry
+ * no identity.
+ */
+export type ApplicantIdentity = {
+  full_name?: string | null;
+  email?: string | null;
+  location?: string | null;
+};
+
+/** The columns the employer workspace reads from job_applications. */
+export const EMPLOYER_APPLICATION_COLUMNS =
+  'id,user_id,job_source,job_id,job_title,company_name,match_score,matched_skills,missing_skills,message_request_state,status,created_at,applied_at,updated_at';
+
+export const toCandidateApplication = (
+  row: JobApplicationRow,
+  jobs: EmployerJob[],
+  messages: ApplicationMessageRow[] = [],
+  publicId = '',
+  identity: ApplicantIdentity | null = null,
+): CandidateApplication => {
   const relatedJob = jobs.find((job) => job.id === row.job_id);
   const status = mapApplicationStatus(row.status);
   const matchedSkills = Array.isArray(row.matched_skills) ? row.matched_skills.filter(Boolean) : [];
@@ -408,7 +426,7 @@ export const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob
   return {
     id: row.id,
     publicId,
-    fullName: row.candidate_name || row.candidate_email || `Candidate ${String(row.user_id || row.id).slice(0, 8)}`,
+    fullName: identity?.full_name || identity?.email || `Candidate ${String(row.user_id || row.id).slice(0, 8)}`,
     role: row.job_title || relatedJob?.title || 'Untitled role',
     jobId: row.job_id,
     applyTimeRankingScore: savedMatchScore(row.match_score),
@@ -420,7 +438,7 @@ export const toCandidateApplication = (row: JobApplicationRow, jobs: EmployerJob
       .filter((value): value is string => Boolean(value))
       .sort()
       .pop() || '',
-    location: row.candidate_location || 'Location not provided',
+    location: identity?.location || 'Location not provided',
     messageRequestState: mapMessageRequestState(row.message_request_state),
     messages: messages.map(toMessageEntry),
   };
