@@ -249,9 +249,6 @@ export type JobApplicationRow = {
   job_id: string;
   job_title?: string | null;
   company_name?: string | null;
-  candidate_name?: string | null;
-  candidate_email?: string | null;
-  candidate_location?: string | null;
   match_score?: number | null;
   matched_skills?: string[] | null;
   missing_skills?: string[] | null;

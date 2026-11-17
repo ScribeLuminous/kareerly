@@ -8,10 +8,11 @@ import { checkCredentialLink } from '../lib/credentialLinks';
 import type { CredentialLinkCheck } from '../lib/evidence';
 import { assessmentDueState, formatAssessmentDue, loadAssessments, type CandidateAssessment } from '../lib/assessmentApi';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
+import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, pendingEmailNotice, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
 import { getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
+import { applicationErrorMessage } from '../lib/applicationErrors';
 import { applyProgressChanges, clearLegacyProgress, diffProgressPart, hasLegacyProgress, hasProgressChanges, loadCandidateProgress, mergeLoadedProgress, PROGRESS_PARTS, readLegacyProgress, saveProgressChanges, type CandidateProgress, type ProgressHelpers } from '../lib/candidateProgress';
 import { updateCandidateProfile } from '../lib/auth';
 import { loadLatestMatchRun, loadLatestResume, saveMatchHistory, saveResumeAnalysis, type ExistingResumeFile, type SavedResumeRecord } from '../lib/userData';
@@ -612,8 +613,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       });
       setAccountIdentity({ name: saved.full_name, email: saved.email });
 
-      setProfileSaveNotice('Personal details saved successfully.');
-      showToast('Personal details saved.', 'success');
+      const emailNotice = pendingEmailNotice(saved);
+      setProfileSaveNotice(emailNotice ? `Personal details saved. ${emailNotice}` : 'Personal details saved successfully.');
+      showToast(emailNotice || 'Personal details saved.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to save personal details.';
       showToast(message, 'danger');
@@ -1499,33 +1501,20 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       return false;
     }
 
-    const payload = {
-      user_id: currentUser.id,
-      job_source: job.jobSource,
-      job_id: job.id,
-      job_title: job.title,
-      company_name: job.company,
-      candidate_name: currentUser.name,
-      candidate_email: currentUser.email,
-      candidate_location: profileForm.location,
-      match_score: job.hasMatchScore ? Math.round(job.matchScore) : null,
-      matched_skills: job.matchedSkills,
-      missing_skills: job.missingSkills,
-      status: 'pending',
-      applied_at: new Date().toISOString(),
-      withdrawn_at: null,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from('job_applications')
-      .upsert(payload, { onConflict: 'user_id,job_source,job_id' })
-      .select('*')
-      .single();
+    // The database checks the job is still open, takes its title and company
+    // from the job post, and reopens a withdrawn application instead of adding one.
+    // The candidate's name and contact details stay on their profile.
+    const { data, error } = await supabase.rpc('submit_job_application', {
+      target_job_source: job.jobSource,
+      target_job_id: job.id,
+      applicant_match_score: job.hasMatchScore ? Math.round(job.matchScore) : null,
+      applicant_matched_skills: job.matchedSkills,
+      applicant_missing_skills: job.missingSkills,
+    });
 
     if (error) {
       console.warn('Unable to submit application:', error);
-      showToast('Unable to submit application. Please try again.', 'danger');
+      showToast(applicationErrorMessage(error, 'Unable to submit application. Please try again.'), 'danger');
       return false;
     }
 
@@ -1570,19 +1559,11 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
   const confirmWithdraw = async () => {
     if (!withdrawTarget) return;
     if (!['Pending', 'Shortlisted', 'Interviewing'].includes(withdrawTarget.status)) return;
-    const { error } = await supabase
-      .from('job_applications')
-      .update({
-        status: 'withdrawn',
-        withdrawn_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', withdrawTarget.id)
-      .eq('user_id', currentUser.id);
+    const { error } = await supabase.rpc('withdraw_job_application', { target_application_id: withdrawTarget.id });
 
     if (error) {
       console.warn('Unable to withdraw application:', error);
-      showToast('Unable to withdraw application. Please try again.', 'danger');
+      showToast(applicationErrorMessage(error, 'Unable to withdraw application. Please try again.'), 'danger');
       return;
     }
 
@@ -1647,14 +1628,13 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
 
   const updateMessageRequestState = async (nextState: 'accepted' | 'declined' | 'ignored') => {
     if (!selectedMessageApp) return;
-    const { error } = await supabase
-      .from('job_applications')
-      .update({ message_request_state: nextState, updated_at: new Date().toISOString() })
-      .eq('id', selectedMessageApp.id)
-      .eq('user_id', currentUser.id);
+    const { error } = await supabase.rpc('respond_to_message_request', {
+      target_application_id: selectedMessageApp.id,
+      response: nextState,
+    });
     if (error) {
       console.warn('Unable to update message request:', error);
-      showToast('Unable to update the message request. Please try again.', 'danger');
+      showToast(applicationErrorMessage(error, 'Unable to update the message request. Please try again.'), 'danger');
       return;
     }
     setApplications((current) => current.map((app) => app.id === selectedMessageApp.id ? { ...app, messageRequestState: nextState } : app));

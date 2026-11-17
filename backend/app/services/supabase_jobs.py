@@ -292,11 +292,44 @@ def fetch_employer_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[
     return _fetch_jobs_table("employer_job_posts", limit=limit, strict=strict)
 
 
+# Everything a candidate sees about a posting. Two postings from the same
+# company that agree on all of it are one opening listed twice (a bulk file
+# uploaded again), and are shown once.
+DUPLICATE_POSTING_FIELDS = (
+    "job_source", "company_name", "job_title", "location", "work_type", "employment_type",
+    "experience_level_required", "salary_min_php", "salary_max_php", "job_description",
+    "responsibilities", "qualifications", "required_skills_comma_separated", "must_have_skill_ids",
+    "nice_to_have_skills_optional", "external_job_link_optional",
+)
+
+
+def _posting_key(row: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(re.sub(r"\s+", " ", _safe_text(row.get(field))).lower() for field in DUPLICATE_POSTING_FIELDS)
+
+
+def drop_duplicate_postings(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each posting once: of identical postings from the same company, the one
+    posted first is kept (applications and saved jobs most likely point at it).
+    Postings from different companies are never merged."""
+    first_posted: dict[tuple[str, ...], dict[str, Any]] = {}
+    for row in rows:
+        key = _posting_key(row)
+        kept = first_posted.get(key)
+        if kept is None or (_safe_text(row.get("created_at")), _safe_text(row.get("job_id"))) < (
+                _safe_text(kept.get("created_at")), _safe_text(kept.get("job_id"))):
+            first_posted[key] = row
+    kept_ids = {id(row) for row in first_posted.values()}
+    deduplicated = [row for row in rows if id(row) in kept_ids]
+    if len(deduplicated) < len(rows):
+        logger.info("Left out %d duplicate job postings", len(rows) - len(deduplicated))
+    return deduplicated
+
+
 def load_internal_jobs_dataframe(limit: int = 5000, *, strict: bool = False) -> pd.DataFrame:
     internal_rows = [_map_internal_job(record) for record in fetch_internal_jobs(limit=limit, strict=strict)]
     employer_rows = [_map_employer_job(record) for record in fetch_employer_jobs(limit=limit, strict=strict)]
     rows = [*internal_rows, *employer_rows]
-    rows = [row for row in rows if row.get("job_id") and row.get("job_title")]
+    rows = drop_duplicate_postings([row for row in rows if row.get("job_id") and row.get("job_title")])
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows)

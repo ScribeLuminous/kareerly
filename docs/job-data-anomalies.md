@@ -318,3 +318,42 @@ area.
   `backend/scripts/sync_reviewed_job_skills.py` writes guarded SQL that brings
   live jobs with a reviewed reference row in line with it, and lists live jobs
   that use unknown or unreviewed skill IDs. See `docs/skill-match-accuracy.md`.
+
+## Live employer posts (2026-11-17)
+
+A read of the public job list on 2026-11-17 (1,723 open jobs: 1,224 employer
+posts, 499 internal) found test and duplicate posts reaching candidates:
+
+| Problem | Posts | Handling |
+|---|---|---|
+| Posts from test companies named "(Test …)" / "(TEST …)" | 27 | Hidden by migration `20261117100000_employer_test_postings.sql` (`is_test_posting`); their owners still see them |
+| Same company posting the same job twice (one bulk file uploaded on 27 and 28 Oct) | 168 | Listed and matched once: `drop_duplicate_postings` in `backend/app/services/supabase_jobs.py` keeps the first-posted copy |
+| The same jobs posted by two companies ("wednesday virtual works" and "LTK Corp.") | 680 | **Needs review.** Not hidden automatically: identical posts from two companies could be real |
+
+To review the cross-company copies, run in the Supabase SQL editor:
+
+```sql
+select a.company_name, b.company_name as also_posted_by, count(*) as identical_posts,
+       min(a.created_at)::date as first_posted
+from public.employer_job_posts a
+join public.employer_job_posts b
+  on a.employer_id < b.employer_id
+ and lower(a.job_title) = lower(b.job_title)
+ and lower(coalesce(a.location, '')) = lower(coalesce(b.location, ''))
+ and coalesce(a.job_description, '') = coalesce(b.job_description, '')
+ and coalesce(a.required_skills, '') = coalesce(b.required_skills, '')
+where a.posting_status = 'active' and b.posting_status = 'active'
+group by 1, 2
+order by identical_posts desc;
+```
+
+If an account turns out to be a test account, hide all of its posts (this
+deletes nothing and can be undone with `false`):
+
+```sql
+update public.employer_job_posts set is_test_posting = true
+where employer_id = (select id from public.employer_profiles where company_name = 'COMPANY NAME HERE');
+```
+
+An admin can also set or clear the mark on one post with
+`PATCH /api/admin/jobs` and `{"job_id": "<post uuid>", "is_test_posting": true}`.

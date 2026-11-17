@@ -111,6 +111,12 @@ psql_ejp -f "$here/../migrations/20261028090000_revoke_anon_table_access.sql"
 psql_ejp -f "$here/../migrations/20261029100000_employer_job_posts_public_read.sql"
 psql_ejp -f "$here/../migrations/20261029100000_employer_job_posts_public_read.sql"
 psql_ejp -f "$here/employer_job_posts_public_read_tests.sql"
+# A post from a "(Test ...)" company, as the test accounts named themselves.
+psql_ejp -c "alter table public.employer_job_posts add column if not exists company_name text; update public.employer_job_posts set company_name = 'Owner Co'; insert into public.employer_job_posts (job_id, employer_id, job_title, company_name, posting_status) values ('EMP-TEST-LABEL', '00000000-0000-0000-0000-0000000000e1', 'Hotel Front Desk Agent', 'Lakeside Web Studio (TEST Luz)', 'active'), ('EMP-TESTING-WORD', '00000000-0000-0000-0000-0000000000e1', 'QA Tester', 'Testing Labs Inc.', 'active')"
+# Applied twice: the migration must be safe to re-run.
+psql_ejp -f "$here/../migrations/20261117100000_employer_test_postings.sql"
+psql_ejp -f "$here/../migrations/20261117100000_employer_test_postings.sql"
+psql_ejp -f "$here/employer_test_postings_tests.sql"
 psql_run -c "create database education_levels"
 psql_edu() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d education_levels -v ON_ERROR_STOP=1 -q "$@"; }
 psql_edu -f "$here/supabase_stub.sql"
@@ -126,4 +132,15 @@ psql_ev -f "$here/supabase_stub.sql"
 psql_ev -f "$here/../migrations/20261028150000_candidate_evidence.sql"
 psql_ev -f "$here/../migrations/20261028150000_candidate_evidence.sql"
 psql_ev -f "$here/candidate_evidence_rls.sql"
+psql_run -c "create database application_privacy"
+psql_app() { PGOPTIONS="-c client_min_messages=warning" psql -h "$work" -p 55432 -U postgres -d application_privacy -v ON_ERROR_STOP=1 -q "$@"; }
+psql_app -f "$here/supabase_stub.sql"
+psql_app -f "$here/employer_evaluation_stub.sql"
+psql_app -f "$here/employer_evaluation_seed.sql"
+psql_app -f "$here/../migrations/20260929090000_employer_structured_evaluation.sql"
+psql_app -f "$here/application_privacy_setup.sql"
+# Applied twice: the migration and its backfill must be safe to re-run.
+psql_app -f "$here/../migrations/20261117090000_application_privacy_and_integrity.sql"
+psql_app -f "$here/../migrations/20261117090000_application_privacy_and_integrity.sql"
+psql_app -f "$here/application_privacy_tests.sql"
 echo "All RLS and evaluation checks passed."
