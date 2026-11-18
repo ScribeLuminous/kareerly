@@ -64,6 +64,45 @@ def _normalize_skill_ids(value: Any) -> str:
     return ";".join(dict.fromkeys(normalized_items))
 
 
+# The labels the employer job form offers (frontend/src/pages/employer/model.ts).
+# Imported and older posts spell the same values differently ("Onsite",
+# "Full-Time", "Entry level"); the job board shows one spelling (audit
+# DATA-03). Matching reads these values with patterns that already treat the
+# spellings alike, so scores do not change. Values with no canonical twin
+# ("Manager", "Flexible", "Field") are kept as they are.
+_WORK_SETUP_LABELS = {"onsite": "On-site", "on site": "On-site", "on-site": "On-site", "remote": "Remote", "hybrid": "Hybrid"}
+_EMPLOYMENT_TYPE_LABELS = {
+    "full time": "Full-time", "full-time": "Full-time", "fulltime": "Full-time",
+    "part time": "Part-time", "part-time": "Part-time", "parttime": "Part-time",
+    "contract": "Contract", "temporary": "Temporary", "internship": "Internship",
+}
+_JOB_LEVEL_LABELS = {
+    "entry": "Entry-level / Fresh Graduate", "entry level": "Entry-level / Fresh Graduate",
+    "entry-level": "Entry-level / Fresh Graduate", "entry-level / fresh graduate": "Entry-level / Fresh Graduate",
+    "junior": "Junior (1-2 yrs)", "junior (1-2 yrs)": "Junior (1-2 yrs)",
+    "mid": "Mid-level (3-5 yrs)", "mid level": "Mid-level (3-5 yrs)", "mid-level": "Mid-level (3-5 yrs)",
+    "mid-level (3-5 yrs)": "Mid-level (3-5 yrs)",
+    "senior": "Senior (5+ yrs)", "senior (5+ yrs)": "Senior (5+ yrs)",
+}
+
+
+def _canonical_label(value: Any, labels: dict[str, str]) -> str:
+    text = _safe_text(value)
+    return labels.get(re.sub(r"\s+", " ", text).lower(), text)
+
+
+def canonical_work_setup(value: Any) -> str:
+    return _canonical_label(value, _WORK_SETUP_LABELS)
+
+
+def canonical_employment_type(value: Any) -> str:
+    return _canonical_label(value, _EMPLOYMENT_TYPE_LABELS)
+
+
+def canonical_job_level(value: Any) -> str:
+    return _canonical_label(value, _JOB_LEVEL_LABELS)
+
+
 def _join_job_text(record: dict[str, Any]) -> str:
     fields = [
         "job_title",
@@ -124,9 +163,9 @@ def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
         "job_title": _safe_text(record.get("job_title")),
         "company_name": _safe_text(record.get("company_name")),
         "location": _safe_text(record.get("location")),
-        "work_type": _safe_text(record.get("work_setup")),
-        "employment_type": _safe_text(record.get("employment_type")),
-        "experience_level_required": _safe_text(record.get("job_level")),
+        "work_type": canonical_work_setup(record.get("work_setup")),
+        "employment_type": canonical_employment_type(record.get("employment_type")),
+        "experience_level_required": canonical_job_level(record.get("job_level")),
         "salary_min_php": _safe_text(record.get("salary_min_php")),
         "salary_max_php": _safe_text(record.get("salary_max_php")),
         "salary_range_monthly_php": _format_salary_range(record),

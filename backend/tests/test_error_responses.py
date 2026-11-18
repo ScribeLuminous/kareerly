@@ -74,3 +74,20 @@ class SupabaseErrorMessageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CompressionTests(unittest.TestCase):
+    def test_large_json_responses_are_gzipped_for_browsers_that_ask(self):
+        client = TestClient(main.app)
+        jobs = [{"job_id": f"J{n}", "job_title": "Data Analyst", "required_skills": ["SQL", "Excel"]} for n in range(300)]
+        with patch("backend.app.main.list_available_jobs", return_value=jobs), \
+             patch("backend.app.main.refresh_jobs_cache_for", return_value=False):
+            zipped = client.get("/api/jobs/list", headers={"Accept-Encoding": "gzip"})
+            plain = client.get("/api/jobs/list", headers={"Accept-Encoding": "identity"})
+        self.assertEqual(zipped.headers.get("content-encoding"), "gzip")
+        self.assertEqual(zipped.json(), plain.json())
+        self.assertNotIn("content-encoding", plain.headers)
+
+    def test_small_responses_are_sent_as_they_are(self):
+        response = TestClient(main.app).get("/api/health", headers={"Accept-Encoding": "gzip"})
+        self.assertNotIn("content-encoding", response.headers)

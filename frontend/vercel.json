@@ -1,3 +1,22 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+        },
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self' 'sha256-qZYdq58zj3i8T97WXN6SA2/gx8tQ1G6u9h3HJi66Lis=' https://utt.impactcdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://dgnxigotdpqiwohocloi.supabase.co wss://dgnxigotdpqiwohocloi.supabase.co https://kareerlyph.cloud.run https://*.impactcdn.com https://*.impact.com; frame-src 'self' blob:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+        }
+      ]
+    }
+  ]
 }
