@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from docx import Document
@@ -38,7 +38,7 @@ from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.skill_variants import load_skill_variants
 from .services.ph_regions import region_name, region_options, resolve_single_region, regions_in_location
-from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, expire_stale_reference_jobs, job_level_thresholds, learning_by_skill_for, refresh_jobs_cache_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, analyze_candidate_job_match, career_area_skills, find_catalogue_job, current_skill_extractor, expire_stale_reference_jobs, job_level_thresholds, learning_by_skill_for, refresh_jobs_cache_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
 from .services.education import normalize_education_level
@@ -65,7 +65,7 @@ from .learning.feedback import (
     find_match_context,
 )
 from .learning.jobs import run_all as run_learning_jobs
-from .learning.ranking_model import clear_ranker_cache
+from .learning.ranking_model import cached_ranker_status, clear_ranker_cache
 from .learning.supabase_client import SupabaseError, SupabaseRest
 
 
@@ -77,7 +77,7 @@ app = FastAPI(title="Kareerly ML Backend")
 
 # Reported by /api/health/config and /api/health/jobs, so a site admin can see
 # which backend code is deployed. Change it when the backend changes.
-BACKEND_VERSION = "2026.11.17-application-privacy"
+BACKEND_VERSION = "2026.11.18-server-scored-applications"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -174,6 +174,11 @@ class CandidateAccountSettingsRequest(BaseModel):
     degree_program: Optional[str] = None
     school_university: Optional[str] = None
     year_graduated: Optional[str] = None
+
+
+class JobApplicationRequest(BaseModel):
+    job_id: str
+    job_source: str = "employer"
 
 
 class MatchFeedbackRequest(BaseModel):
@@ -662,6 +667,50 @@ def _redact_constraint_values(detail: str) -> str:
     return _CONSTRAINT_VALUE_PATTERN.sub(r"\1[redacted]\2", detail)
 
 
+class SupabaseRequestError(HTTPException):
+    """A Supabase error response. ``detail`` keeps Supabase's (redacted) body
+    for the code that inspects it (for example PGRST202 or a named limit);
+    when one reaches the client, only supabase_error_message() is sent."""
+
+
+# SQLSTATEs Kareerly's own database functions raise with a message written for
+# the user ("This application is closed and cannot change stage.").
+_USER_FACING_SQLSTATES = {"22023", "P0001", "P0002", "28000", "42501"}
+_GENERIC_SUPABASE_MESSAGES = {
+    400: "The request could not be completed. Check the details and try again.",
+    401: "Your session has expired. Please log in again.",
+    403: "You do not have access to this.",
+    404: "This was not found. It may have been removed.",
+    409: "This conflicts with a change made meanwhile. Reload and try again.",
+    429: "Too many requests. Please wait a moment and try again.",
+}
+
+
+def supabase_error_message(status_code: int, detail: object) -> str:
+    """What a client sees for a Supabase error: the message of an error one of
+    Kareerly's functions raised on purpose, otherwise a plain message for the
+    status. Table, column, constraint and policy names never leave the API."""
+    try:
+        body = json.loads(detail) if isinstance(detail, str) else detail
+    except ValueError:
+        body = None
+    if isinstance(body, dict):
+        code = str(body.get("code") or "")
+        message = str(body.get("message") or "").strip()
+        internal = message.lower().startswith(("permission denied for", "new row violates", "duplicate key", "relation "))
+        if code in _USER_FACING_SQLSTATES and message and not internal and len(message) <= 300:
+            return message
+    if status_code >= 500:
+        return "The service is temporarily unavailable. Please try again."
+    return _GENERIC_SUPABASE_MESSAGES.get(status_code, _GENERIC_SUPABASE_MESSAGES[400])
+
+
+@app.exception_handler(SupabaseRequestError)
+async def _supabase_error_response(request, exc: SupabaseRequestError):
+    logger.warning("Supabase request failed (%s) for %s: %s", exc.status_code, request.url.path, str(exc.detail)[:500])
+    return JSONResponse(status_code=exc.status_code, content={"detail": supabase_error_message(exc.status_code, exc.detail)})
+
+
 def _supabase_request(
     path: str,
     *,
@@ -703,9 +752,10 @@ def _supabase_request(
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = _redact_constraint_values(exc.read().decode("utf-8", errors="ignore")) or exc.reason
-        raise HTTPException(status_code=exc.code, detail=detail) from exc
+        raise SupabaseRequestError(status_code=exc.code, detail=detail) from exc
     except urllib.error.URLError as exc:
-        raise HTTPException(status_code=503, detail=f"Unable to reach Supabase: {exc.reason}") from exc
+        logger.warning("Unable to reach Supabase: %s", exc.reason)
+        raise HTTPException(status_code=503, detail="Account services are temporarily unavailable. Please try again shortly.") from exc
 
     return json.loads(raw) if raw else None
 
@@ -1504,6 +1554,9 @@ def health_config() -> dict:
         },
         # Local file only; the PSA API is never called while serving requests.
         "psoc_reference": psoc_reference.reference_status(),
+        # The feedback ranker the last match run used; fallback_reason says why
+        # matching ran on the baseline order (for example model_fetch_failed).
+        "ranker": cached_ranker_status(),
     }
 
 
@@ -2387,7 +2440,7 @@ async def analyze_resume(
                 "elapsed_ms": round((time.perf_counter() - analysis_started_at) * 1000, 1),
             },
         )
-        raise HTTPException(status_code=500, detail=f"Resume analysis failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail="We could not analyze this resume right now. Please try again, or upload a text-based PDF or DOCX.") from exc
 
 
 @app.post("/api/certificates/validate")
@@ -2470,7 +2523,7 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Text job matching failed")
-        raise HTTPException(status_code=500, detail=f"Job matching failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail="We could not generate matches right now. Please try again.") from exc
 
     return _apply_report_access_control(result, user_mode, view_mode)
 
@@ -2984,6 +3037,55 @@ def delete_saved_external_job(saved_match_id: str, authorization: Annotated[Opti
     return {"deleted": True, "id": saved_match_id}
 
 
+APPLICATION_JOB_SOURCES = {"employer", "internal"}
+JOB_CLOSED_MESSAGE = "This job is closed or no longer accepting applications."
+
+
+@app.post("/api/candidate/applications")
+async def submit_candidate_application(payload: JobApplicationRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    """Apply for an open job. The match score and the skills found and missing
+    that the employer sees are calculated here with the production matcher,
+    from the candidate's saved resume and confirmed skills; the browser sends
+    only which job (audit APP-01)."""
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    job_id = (payload.job_id or "").strip()
+    job_source = (payload.job_source or "").strip().lower()
+    if not job_id or len(job_id) > 200 or job_source not in APPLICATION_JOB_SOURCES:
+        raise HTTPException(status_code=422, detail="Choose a job to apply for.")
+
+    resume_text, skill_records, preferences, _context = await run_in_threadpool(_load_external_job_candidate, user_id)
+    job = await run_in_threadpool(find_catalogue_job, job_id, job_source)
+    if job is None:
+        raise HTTPException(status_code=404, detail=JOB_CLOSED_MESSAGE)
+    try:
+        scored = await run_in_threadpool(
+            analyze_candidate_job_match, resume_text, job, preferences=preferences, confirmed_skills=skill_records)
+    except MatchingModelUnavailable as exc:
+        raise HTTPException(status_code=503, detail="The matching model is temporarily unavailable. Please try again.") from exc
+    except Exception as exc:
+        logger.exception("Scoring an application failed")
+        raise HTTPException(status_code=500, detail="We could not submit your application right now. Please try again.") from exc
+    match = scored["match"]
+    body = {
+        "applicant_id": user_id,
+        "target_job_source": job_source,
+        "target_job_id": job_id,
+        "applicant_match_score": round(float(match.get("match_percentage") or 0.0)),
+        "applicant_matched_skills": [str(skill) for skill in match.get("matched_skills") or []],
+        "applicant_missing_skills": [str(skill) for skill in match.get("missing_skills") or []],
+    }
+    try:
+        saved = _supabase_request("/rest/v1/rpc/submit_job_application_for", method="POST", service_role=True, body=body)
+    except SupabaseRequestError as exc:
+        if '"23505"' in str(exc.detail):
+            raise HTTPException(status_code=409, detail="You have already applied for this job.") from exc
+        raise HTTPException(status_code=exc.status_code, detail=supabase_error_message(exc.status_code, exc.detail)) from exc
+    application = saved[0] if isinstance(saved, list) and saved else saved
+    return {"application": application}
+
+
 @app.get("/api/candidate/notifications")
 def list_candidate_notifications(authorization: Annotated[Optional[str], Header()] = None) -> list[dict]:
     user_id = _get_authenticated_user_id(authorization)
@@ -3149,7 +3251,8 @@ def _learning_error(exc: Exception) -> HTTPException:
     if isinstance(exc, SupabaseError):
         if exc.status == 409 or "duplicate key" in str(exc):
             return HTTPException(status_code=409, detail="That skill name was already approved.")
-        return HTTPException(status_code=502, detail=f"Learning data store error: {exc}")
+        logger.warning("Learning data store error: %s", exc)
+        return HTTPException(status_code=502, detail="The learning data store could not complete this request. Please try again.")
     return HTTPException(status_code=400, detail=str(exc))
 
 
@@ -3327,9 +3430,6 @@ async def match_from_resume(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except MatchingModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        logger.exception("Resume matching service failed")
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Resume job matching failed")
         raise HTTPException(

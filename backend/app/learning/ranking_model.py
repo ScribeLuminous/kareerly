@@ -21,6 +21,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
+from ..services.match_scoring import aspiration_relevant_min_score
 from .supabase_client import SupabaseError, SupabaseRest, configured_anon_key, configured_url
 
 logger = logging.getLogger(__name__)
@@ -166,13 +167,18 @@ def rank_category(items: List[Dict[str, Any]], category: str, ranker: Ranker = B
             adjustments = [0.0] * len(items)
             effective = Ranker(BASELINE_VERSION, None, "ranker_error")
 
-    # Aspiration's baseline order is preference_alignment, then match_score, then
-    # the shared tie-breakers; Fit-Now's is match_score then the tie-breakers.
+    # Aspiration's baseline order is relevance (match score at or above
+    # ASPIRATION_RELEVANT_MIN_SCORE first), then preference_alignment, then
+    # match_score, then the shared tie-breakers; Fit-Now's is match_score then
+    # the tie-breakers. A learned adjustment moves jobs within a relevance band only.
     secondary = ("match_score",) if category == ASPIRATION else ()
+    relevance_floor = aspiration_relevant_min_score() if category == ASPIRATION else 0.0
 
     def key(pair):
         item, adjustment = pair
+        below_floor = float(item.get("match_score") or 0.0) < relevance_floor
         return (
+            below_floor,
             -(primary_key(item, category) + adjustment),
             *(-float(item.get(name) or 0.0) for name in (*secondary, *TIE_BREAKERS)),
             str(item.get("job_id", "")),
@@ -210,10 +216,15 @@ def load_active_ranker_uncached() -> Ranker:
     mode = os.getenv("KAREERLY_RANKER", "auto").strip().lower()
     if mode in {"baseline", "off", "0", "false"}:
         return Ranker(BASELINE_VERSION, None, "forced_baseline")
-    if not configured_url() or not configured_anon_key():
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not configured_url() or not (service_key or configured_anon_key()):
         return Ranker(BASELINE_VERSION, None, "supabase_not_configured")
     try:
-        rows = SupabaseRest.anon().select("ranking_models", {
+        # ranking_models is not a public table: migration 20261028090000 took
+        # anon's access away, so the backend reads it with its service key.
+        # The public key remains a fallback for setups without one.
+        client = SupabaseRest(configured_url(), service_key, timeout=5.0) if service_key else SupabaseRest.anon()
+        rows = client.select("ranking_models", {
             "select": "version,model_type,params", "status": "eq.active", "limit": "1",
         })
     except SupabaseError as exc:
@@ -229,6 +240,15 @@ def load_active_ranker_uncached() -> Ranker:
     except (TypeError, ValueError) as exc:
         logger.warning("Active ranking model %s is invalid, using baseline: %s", row.get("version"), exc)
         return Ranker(BASELINE_VERSION, None, "invalid_model_params")
+
+
+def cached_ranker_status() -> Dict[str, Any]:
+    """The ranker matching last used, without contacting Supabase (for health checks)."""
+    with _cache_lock:
+        ranker = _cache["ranker"]
+    if ranker is None:
+        return {"loaded": False, "version": None, "fallback_reason": None}
+    return {"loaded": True, "version": ranker.version, "fallback_reason": ranker.fallback_reason or None}
 
 
 def active_ranker() -> Ranker:

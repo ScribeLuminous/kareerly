@@ -266,11 +266,10 @@ test('the employer sees the same 89% and the same matched skills the candidate s
   assert.notEqual(match.percent, 0);
 });
 
-test('an application saves the candidate-side fit score and matched and missing skills verbatim', () => {
+test('an application sends only the job; the backend scores it (audit APP-01)', () => {
   const dashboardSource = readCandidateSource();
-  // Sent to submit_job_application, which saves them as given (score kept within 0-100).
-  assert.match(dashboardSource, /applicant_match_score: job\.hasMatchScore \? Math\.round\(job\.matchScore\) : null,/);
-  assert.match(dashboardSource, /applicant_matched_skills: job\.matchedSkills,\s*applicant_missing_skills: job\.missingSkills,/);
+  assert.match(dashboardSource, /submitJobApplication\(\{ jobId: job\.id, jobSource: job\.jobSource \}\)/);
+  assert.doesNotMatch(dashboardSource, /match_score: job\.hasMatchScore/);
 });
 
 test('starter assessment drafts read naturally and vary per question', () => {
