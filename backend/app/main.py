@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -32,7 +33,7 @@ from pydantic import BaseModel, ValidationError
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, ResumeSummaryRequest, RunMatchesRequest, SkillGapsRequest
 from .services.admin_stats import summarize_match_feedback
 from .services.job_list import list_available_jobs
-from .services.supabase_jobs import catalogue_counts, split_job_sections
+from .services.supabase_jobs import canonical_employment_type, canonical_job_level, canonical_work_setup, catalogue_counts, split_job_sections
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
@@ -67,6 +68,7 @@ from .learning.feedback import (
 from .learning.jobs import run_all as run_learning_jobs
 from .learning.ranking_model import cached_ranker_status, clear_ranker_cache
 from .learning.supabase_client import SupabaseError, SupabaseRest
+from .rate_limit import RateLimitMiddleware
 
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -77,7 +79,7 @@ app = FastAPI(title="Kareerly ML Backend")
 
 # Reported by /api/health/config and /api/health/jobs, so a site admin can see
 # which backend code is deployed. Change it when the backend changes.
-BACKEND_VERSION = "2026.11.18-server-scored-applications"
+BACKEND_VERSION = "2026.11.18-p3-gzip-rate-limits"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -91,6 +93,13 @@ allowed_origins = [
     for origin in frontend_urls.split(",")
     if origin.strip()
 ]
+
+# Innermost, so CORS and compression apply to its 429 answers too (rate_limit.py).
+app.add_middleware(RateLimitMiddleware)
+
+# Match reports (~1.4 MB) and the job list (~2 MB) are JSON that compresses to
+# under a tenth of its size; browsers send Accept-Encoding: gzip on their own.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1203,10 +1212,26 @@ def _admin_select(table: str, select: str = "*", limit: int = 25, order: str | N
     return data if isinstance(data, list) else []
 
 
+# PostgREST returns at most this many rows per request (the project's max-rows
+# setting), whatever limit is asked for. Reading more means paging.
+POSTGREST_PAGE_ROWS = 1000
+
+
+def _rest_rows_all(table: str, params: dict, max_rows: int = 100_000) -> list[dict]:
+    """Every matching row, read a page at a time, so totals are not cut at the
+    page size (audit DATA-02). Pages are ordered so none overlap or are skipped."""
+    rows: list[dict] = []
+    query = {**params, "order": params.get("order") or "id.asc"}
+    while len(rows) < max_rows:
+        page = _rest_rows(table, {**query, "limit": str(POSTGREST_PAGE_ROWS), "offset": str(len(rows))})
+        rows.extend(page)
+        if len(page) < POSTGREST_PAGE_ROWS:
+            break
+    return rows[:max_rows]
+
+
 def _admin_count(table: str) -> int:
-    params = urllib.parse.urlencode({"select": "id", "limit": "10000"})
-    data = _supabase_request(f"/rest/v1/{table}?{params}", service_role=True)
-    return len(data) if isinstance(data, list) else 0
+    return len(_rest_rows_all(table, {"select": "id"}))
 
 
 def _normalize_candidate_skill_ids(raw_skill_ids: list) -> list[str]:
@@ -1371,12 +1396,15 @@ def _apply_report_access_control(
     return result
 
 
+MAX_CERTIFICATE_BYTES = 5 * 1024 * 1024
+
+
 def _is_valid_certificate_pdf(filename: str, file_bytes: bytes) -> tuple[bool, str]:
     lower_name = filename.lower().strip()
     if not lower_name.endswith(".pdf"):
         return False, "Only PDF certificate files are accepted."
 
-    if len(file_bytes) > 5 * 1024 * 1024:
+    if len(file_bytes) > MAX_CERTIFICATE_BYTES:
         return False, "Certificate file must be 5MB or smaller."
 
     if not file_bytes.startswith(b"%PDF"):
@@ -1613,7 +1641,7 @@ def admin_overview(authorization: Annotated[Optional[str], Header()] = None) -> 
     )
 
     role_counts = {"candidate": 0, "employer": 0, "admin": 0}
-    for row in _admin_select("profiles", "id,role", limit=100, order=None):
+    for row in _rest_rows_all("profiles", {"select": "id,role"}):
         role = str(row.get("role", ""))
         if role in role_counts:
             role_counts[role] += 1
@@ -1893,7 +1921,7 @@ def admin_list_users(
             extra[str(row["user_id"])] = {"company_name": row.get("company_name")}
     if ids and role == "candidate":
         counts: dict[str, int] = {}
-        for row in _rest_rows("resumes", {"user_id": _in_filter(ids), "select": "user_id", "limit": "5000"}):
+        for row in _rest_rows_all("resumes", {"user_id": _in_filter(ids), "select": "id,user_id"}):
             counts[str(row["user_id"])] = counts.get(str(row["user_id"]), 0) + 1
         extra = {user_id: {"resume_count": count} for user_id, count in counts.items()}
     pending: set[str] = set()
@@ -2072,7 +2100,7 @@ def admin_list_reports(status: str = "open", authorization: Annotated[Optional[s
                 "status": application.get("status")},
         })
     counts = {name: 0 for name in REPORT_REVIEW_STATUSES}
-    for row in _rest_rows("message_moderation_actions", {"action": "eq.report", "select": "review_status", "limit": "10000"}):
+    for row in _rest_rows_all("message_moderation_actions", {"action": "eq.report", "select": "id,review_status"}):
         if row.get("review_status") in counts:
             counts[row["review_status"]] += 1
     return {"reports": reports, "counts": counts}
@@ -2102,10 +2130,10 @@ def admin_review_report(report_id: str, payload: AdminReviewRequest, authorizati
 @app.get("/api/admin/match-feedback/stats")
 def admin_match_feedback_stats(authorization: Annotated[Optional[str], Header()] = None) -> dict:
     _require_admin_user(authorization)
-    rows = _rest_rows("match_feedback", {
+    rows = _rest_rows_all("match_feedback", {
         "select": "user_id,job_id,job_source,vote,match_category,match_score,ranker_version,created_at,updated_at",
-        "order": "updated_at.desc", "limit": "20000",
-    })
+        "order": "updated_at.desc,id.asc",
+    }, max_rows=20_000)
     summary = summarize_match_feedback(rows)
     flagged = summary["most_downvoted_jobs"]
     titles: dict[tuple[str, str], dict] = {}
@@ -2183,7 +2211,7 @@ def admin_list_deletion_requests(status: str = "pending", authorization: Annotat
     rows = _rest_rows("account_deletion_requests", params)
     people = _profiles_by_id(row.get("user_id") for row in rows)
     counts = {name: 0 for name in DELETION_REQUEST_STATUSES}
-    for row in _rest_rows("account_deletion_requests", {"select": "status", "limit": "10000"}):
+    for row in _rest_rows_all("account_deletion_requests", {"select": "id,status"}):
         if row.get("status") in counts:
             counts[row["status"]] += 1
     return {"requests": [{**row, "user": _person(people.get(str(row.get("user_id"))))} for row in rows], "counts": counts}
@@ -2342,9 +2370,9 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
         "company_name": str(row.get("company_name") or ""),
         "job_category": str(row.get("category_name") or ""),
         "job_subcategory": str(row.get("job_subcategory") or ""),
-        "job_level": str(row.get("job_level") or ""),
-        "work_type": str(row.get("work_setup") or ""),
-        "employment_type": str(row.get("employment_type") or ""),
+        "job_level": canonical_job_level(row.get("job_level")),
+        "work_type": canonical_work_setup(row.get("work_setup")),
+        "employment_type": canonical_employment_type(row.get("employment_type")),
         "location": str(row.get("location") or ""),
         "salary_range_monthly_php": _format_detail_salary(row),
         "job_description": description,
@@ -2450,7 +2478,11 @@ async def validate_certificate_file(
     if not certificate.filename:
         raise HTTPException(status_code=400, detail="Certificate filename is missing.")
 
-    file_bytes = await certificate.read()
+    # Read at most one byte past the limit, so an oversized upload is refused
+    # without holding all of it in memory.
+    file_bytes = await certificate.read(MAX_CERTIFICATE_BYTES + 1)
+    if len(file_bytes) > MAX_CERTIFICATE_BYTES:
+        raise HTTPException(status_code=400, detail="Certificate file must be 5MB or smaller.")
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Uploaded certificate file is empty.")
 

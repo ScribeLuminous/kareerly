@@ -357,3 +357,45 @@ where employer_id = (select id from public.employer_profiles where company_name 
 
 An admin can also set or clear the mark on one post with
 `PATCH /api/admin/jobs` and `{"job_id": "<post uuid>", "is_test_posting": true}`.
+
+## Catalogue data still to review (2026-11-18)
+
+These need someone who knows the jobs and courses; code cannot decide them.
+
+**PSOC codes (audit DATA-04).** No open job carries a `psoc_unit_code`
+(0 of 1,723 on 2026-11-16), so the PSOC 2012 / ISCO-08 reference loaded in
+`backend/data/psoc/` is not used for any job. An admin can set a code per post
+with `PATCH /api/admin/jobs` (`psoc_unit_code`, four digits, validated against
+the reference). To see which titles to code first:
+
+```sql
+select job_title, count(*) as open_posts
+from (
+  select job_title from public.employer_job_posts where posting_status = 'active' and psoc_unit_code is null
+  union all
+  select job_title from public.internal_jobs where posting_status = 'active' and psoc_unit_code is null
+) jobs
+group by job_title order by open_posts desc limit 50;
+```
+
+**Category names (audit DATA-03).** 120 internal jobs use the older 12 group
+names ("Technology/Data/Digital Systems") instead of the 24 career categories,
+and 104 have none. The group names are broader than one category (a data
+analyst and a web developer share "Technology/Data/Digital Systems"), so they
+are not renamed automatically. Spelling variants of level, work setup and
+employment type are now shown in one form (`supabase_jobs.py`).
+
+**Learning catalogue (audit DATA-05, AI-03).** None of the 483 resources passes
+`resource_is_reviewed` (status active, mapping reviewed, review verified, a
+verification date, reviewer and evidence link). Unreviewed rows are still shown,
+labelled, so the learning pages are not empty. To work through them:
+
+```sql
+select status, review_status, skill_id_mapping_status,
+       count(*) as resources,
+       count(*) filter (where coalesce(external_course_or_certification_link, '') = '') as no_link,
+       count(*) filter (where coalesce(level, '') = '') as no_level,
+       count(*) filter (where coalesce(cost_type, '') = '') as no_cost
+from public.learning_resources
+group by 1, 2, 3 order by resources desc;
+```

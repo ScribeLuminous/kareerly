@@ -294,7 +294,9 @@ Why these settings:
 - **`--cpu-boost`**: extra CPU while the container starts, so the warmup
   (about 15 s) finishes sooner.
 - Optionally **`--min-instances 1`** keeps one instance warm, so no report
-  pays a cold start; it is billed while idle.
+  pays a cold start; it is billed while idle. Recommended while people are
+  testing the site: measured on 2026-11-16, the first report after a cold
+  start took about 51 s and later ones 12-13 s.
 
 Build from the repository root so `--source backend` uploads only the backend
 folder; the bundled checkpoint (`backend/trained_models/`, about 90 MB) and

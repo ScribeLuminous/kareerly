@@ -60,5 +60,36 @@ class DuplicatePostingTests(unittest.TestCase):
         self.assertEqual(list(jobs["job_id"]), ["EMP-1"])
 
 
+
+class CatalogueLabelTests(unittest.TestCase):
+    """One spelling per value on the job board (audit DATA-03)."""
+
+    def test_spelling_variants_take_the_employer_form_label(self):
+        from backend.app.services.supabase_jobs import canonical_employment_type, canonical_job_level, canonical_work_setup
+        cases = (
+            (canonical_work_setup, {"Onsite": "On-site", "on site": "On-site", "On-site": "On-site", "remote": "Remote"}),
+            (canonical_employment_type, {"Full-Time": "Full-time", "full time": "Full-time", "Part-Time": "Part-time"}),
+            (canonical_job_level, {"Entry": "Entry-level / Fresh Graduate", "Entry level": "Entry-level / Fresh Graduate",
+                                   "Mid": "Mid-level (3-5 yrs)", "Senior": "Senior (5+ yrs)", "Junior (1-2 yrs)": "Junior (1-2 yrs)"}),
+        )
+        for canonical, mapping in cases:
+            for raw, expected in mapping.items():
+                with self.subTest(raw=raw):
+                    self.assertEqual(canonical(raw), expected)
+
+    def test_values_without_a_canonical_twin_are_kept(self):
+        from backend.app.services.supabase_jobs import canonical_job_level, canonical_work_setup
+        self.assertEqual(canonical_job_level("Manager"), "Manager")
+        self.assertEqual(canonical_work_setup("Field"), "Field")
+        self.assertEqual(canonical_work_setup(None), "")
+
+    def test_matching_reads_the_canonical_labels_as_it_read_the_variants(self):
+        from backend.app.services import matching_service as ms
+        for raw, canonical in (("Entry", "Entry-level / Fresh Graduate"), ("Mid", "Mid-level (3-5 yrs)"), ("Senior", "Senior (5+ yrs)")):
+            self.assertEqual(ms._role_level(raw.lower()), ms._role_level(canonical.lower()))
+        self.assertEqual(ms._work_setups("onsite"), ms._work_setups("on-site"))
+        self.assertEqual(ms._employment_types("full-time"), ms._employment_types("full time"))
+
+
 if __name__ == "__main__":
     unittest.main()
