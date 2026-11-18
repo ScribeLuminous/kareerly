@@ -28,12 +28,22 @@ for (const page of ['../src/pages/Dashboard.tsx', '../src/pages/EmployerDashboar
   });
 }
 
-test('candidates apply, withdraw and answer requests through the application functions', () => {
+test('candidates apply through the backend, and withdraw and answer requests through the application functions', () => {
   const source = read('../src/pages/Dashboard.tsx');
-  for (const fn of ['submit_job_application', 'withdraw_job_application', 'respond_to_message_request']) {
+  for (const fn of ['withdraw_job_application', 'respond_to_message_request']) {
     assert.match(source, new RegExp(`rpc\\('${fn}'`));
   }
+  // Applying sends only the job: the backend calculates the score the employer sees.
+  assert.match(source, /submitJobApplication\(\{ jobId: job\.id, jobSource: job\.jobSource \}\)/);
+  assert.doesNotMatch(source, /rpc\('submit_job_application/);
+  assert.doesNotMatch(source, /applicant_match_score|applicant_matched_skills/);
   assert.doesNotMatch(source, /candidate_(name|email|location)/);
+});
+
+test('the apply request carries no score or skill lists', () => {
+  const api = read('../src/lib/api.ts');
+  const body = api.match(/'\/api\/candidate\/applications', \{[\s\S]*?body: JSON\.stringify\(([^)]*)\)/)[1];
+  assert.equal(body.trim(), '{ job_id: job.jobId, job_source: job.jobSource }');
 });
 
 test('the employer workspace reads identity only from get_employer_applicant_identities', () => {

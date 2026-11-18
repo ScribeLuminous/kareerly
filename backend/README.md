@@ -521,7 +521,10 @@ diagnostic. `docs/matching-diagnosis.md` records the evidence, and
 trained parameters. Apart from that one closest job, no job is promoted to
 fill the Fit-Now view.
 
-Fit-Now is ranked by the composite score and Aspiration by preference alignment then the composite score, with cosine, coverage, preference
+Fit-Now is ranked by the composite score. Aspiration lists jobs scoring at least
+`ASPIRATION_RELEVANT_MIN_SCORE` (0.30, override with
+`KAREERLY_ASPIRATION_RELEVANT_MIN_SCORE`) first and the rest after; within each
+group it ranks by preference alignment then the composite score. Both use cosine, coverage, preference
 alignment and reviewed learning-resource coverage as deterministic tie-breakers.
 Learning availability requires a reviewed skill-ID mapping and a usable provider
 URL, with no keyword or semantic learning model. Match percentages are the

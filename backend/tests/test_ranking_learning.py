@@ -75,6 +75,34 @@ class RankOrderTests(unittest.TestCase):
         self.assertTrue(all(m["ranking_adjustment"] == 0 and m["ranker_version"] == rm.BASELINE_VERSION for m in ranked))
         self.assertEqual([m["rank_position"] for m in ranked], list(range(1, 41)))
 
+    def test_aspiration_lists_relevant_jobs_first_then_by_preference(self):
+        # Audit AI-02: a 5% job that fits every Step 3 answer must not lead a
+        # 64% job that misses one.
+        items = [
+            match("tiny-aligned", "Aspiration", 0.05, 1.0),
+            match("low-aligned", "Aspiration", 0.16, 1.0),
+            match("strong-misaligned", "Aspiration", 0.64, 0.3125),
+            match("fair-aligned", "Aspiration", 0.34, 0.75),
+            match("fair-misaligned", "Aspiration", 0.48, 0.5625),
+        ]
+        ranked = [m["job_id"] for m in rm.rank_category(items, "Aspiration")]
+        self.assertEqual(ranked, ["fair-aligned", "fair-misaligned", "strong-misaligned", "low-aligned", "tiny-aligned"])
+        # Scores and list membership are untouched.
+        self.assertEqual({m["job_id"]: m["match_percentage"] for m in rm.rank_category(items, "Aspiration")},
+                         {m["job_id"]: m["match_percentage"] for m in items})
+
+    def test_the_relevance_floor_is_configurable_and_does_not_touch_fit_now(self):
+        items = [match("low", "Aspiration", 0.16, 1.0), match("high", "Aspiration", 0.64, 0.3)]
+        with patch.dict(os.environ, {"KAREERLY_ASPIRATION_RELEVANT_MIN_SCORE": "0"}):
+            self.assertEqual([m["job_id"] for m in rm.rank_category(items, "Aspiration")], ["low", "high"])
+        fit_now = [match("a", "Fit-Now", 0.25, 1.0), match("b", "Fit-Now", 0.20, 0.0)]
+        self.assertEqual([m["job_id"] for m in rm.rank_category(fit_now, "Fit-Now")], ["a", "b"])
+
+    def test_learned_adjustment_cannot_lift_an_aspiration_job_over_the_floor(self):
+        items = [match("relevant", "Aspiration", 0.31, 0.0), match("weak", "Aspiration", 0.29, 1.0)]
+        ranked = rm.rank_category(items, "Aspiration", rm.Ranker("rank-test", strong_params()))
+        self.assertEqual([m["job_id"] for m in ranked], ["relevant", "weak"])
+
     def test_learned_adjustment_is_bounded_and_keeps_scores(self):
         items = [match("A", "Fit-Now", 0.80, 0.0), match("B", "Fit-Now", 0.78, 1.0), match("C", "Fit-Now", 0.40, 1.0)]
         ranked = rm.rank_category(items, "Fit-Now", rm.Ranker("rank-test", strong_params()))
@@ -131,6 +159,34 @@ class ActiveRankerLoadingTests(unittest.TestCase):
                 ranker = self.load_with(**kwargs)
                 self.assertTrue(ranker.is_baseline)
                 self.assertEqual(ranker.fallback_reason, reason)
+
+    def test_the_service_key_is_used_when_the_backend_has_one(self):
+        # anon cannot read ranking_models (migration 20261028090000).
+        seen = []
+        original_init = rm.SupabaseRest.__init__
+
+        def remember(client, url, key, timeout=15.0):
+            seen.append(key)
+            original_init(client, url, key, timeout)
+
+        row = [{"version": "rank-1", "model_type": rm.MODEL_TYPE, "params": strong_params().as_dict()}]
+        with patch.dict(os.environ, {"SUPABASE_SERVICE_ROLE_KEY": "service"}), \
+             patch.object(rm.SupabaseRest, "__init__", remember):
+            self.assertEqual(self.load_with(row).version, "rank-1")
+        self.assertEqual(seen, ["service"])
+        seen.clear()
+        with patch.dict(os.environ, {"SUPABASE_SERVICE_ROLE_KEY": ""}), \
+             patch.object(rm.SupabaseRest, "__init__", remember):
+            self.load_with(row)
+        self.assertEqual(seen, ["anon"])
+
+    def test_health_status_reads_only_the_cache(self):
+        self.assertEqual(rm.cached_ranker_status(), {"loaded": False, "version": None, "fallback_reason": None})
+        with patch.object(rm, "load_active_ranker_uncached", return_value=rm.Ranker(rm.BASELINE_VERSION, None, "no_active_model")):
+            rm.active_ranker()
+        with patch.object(rm, "load_active_ranker_uncached", side_effect=AssertionError("must not load")):
+            status = rm.cached_ranker_status()
+        self.assertEqual(status, {"loaded": True, "version": rm.BASELINE_VERSION, "fallback_reason": "no_active_model"})
 
     def test_kill_switch_and_unconfigured_supabase(self):
         with patch.dict(os.environ, {"KAREERLY_RANKER": "baseline"}):

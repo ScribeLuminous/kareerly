@@ -87,6 +87,11 @@ FIT_NOW_MIN_SEMANTIC = 0.30
 # related roles from unrelated ones; about 3% of unrelated pairs pass it.
 ASPIRATION_MIN_SEMANTIC = 0.20
 ASPIRATION_MIN_MATCHED_SKILLS = 1
+# Aspiration order: jobs scoring at least this come first, in preference
+# order; the rest follow in the same order. Without it, a 5% job that matched
+# every Step 3 answer outranked a 60% job that missed one (audit AI-02). It
+# only orders the list; which jobs are Aspiration is unchanged.
+ASPIRATION_RELEVANT_MIN_SCORE = 0.30
 
 
 def _configured(name: str, default: float) -> float:
@@ -97,6 +102,10 @@ def _configured(name: str, default: float) -> float:
     if not 0.0 <= value <= 1.0:
         raise RuntimeError(f"{name} must be between zero and one.")
     return value
+
+
+def aspiration_relevant_min_score() -> float:
+    return _configured("KAREERLY_ASPIRATION_RELEVANT_MIN_SCORE", ASPIRATION_RELEVANT_MIN_SCORE)
 
 
 @dataclass(frozen=True)

@@ -84,6 +84,20 @@ async function authenticatedMessageRequest(path: string, options: RequestInit = 
 /** Calls the backend with the signed-in user's token (refreshing it once if stale). */
 export const authenticatedRequest = authenticatedMessageRequest;
 
+/**
+ * Apply for a job. The backend calculates the match score and the skills
+ * found and missing that the employer sees, from the saved resume; only the
+ * job is sent. Resolves to the saved application row.
+ */
+export async function submitJobApplication(job: { jobId: string; jobSource: 'internal' | 'employer' }): Promise<Record<string, unknown>> {
+  const payload = await authenticatedMessageRequest('/api/candidate/applications', {
+    method: 'POST',
+    body: JSON.stringify({ job_id: job.jobId, job_source: job.jobSource }),
+  }, 'Unable to submit application. Please try again.') as { application?: Record<string, unknown> } | null;
+  if (!payload?.application) throw new Error('Unable to submit application. Please try again.');
+  return payload.application;
+}
+
 const MATCH_FEEDBACK_PATH = '/api/candidate/match-feedback';
 
 export async function loadMatchFeedback(): Promise<MatchFeedbackRow[]> {

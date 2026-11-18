@@ -8,7 +8,7 @@ import { checkCredentialLink } from '../lib/credentialLinks';
 import type { CredentialLinkCheck } from '../lib/evidence';
 import { assessmentDueState, formatAssessmentDue, loadAssessments, type CandidateAssessment } from '../lib/assessmentApi';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, pendingEmailNotice, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
+import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSummary, fetchSkillGaps, fetchLiveResumeParserVersion, fetchJobDetails, listCandidateNotifications, loadApplicationMessages, loadCandidateAccountSettings, loadMatchFeedback, loadMessageModeration, markAllCandidateNotificationsRead, markCandidateNotificationRead, pendingEmailNotice, removedSkillIds, requestAccountDeletion, runJobMatches, saveCandidateAccountSettings, sendApplicationMessage, submitJobApplication, submitMessageModeration, validateCertificateFile, type MessageModerationState, type MessageReportReason, type AvailableJobItem, type CandidateNotification } from '../lib/api';
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
 import { getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
@@ -1501,20 +1501,15 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       return false;
     }
 
-    // The database checks the job is still open, takes its title and company
-    // from the job post, and reopens a withdrawn application instead of adding one.
-    // The candidate's name and contact details stay on their profile.
-    const { data, error } = await supabase.rpc('submit_job_application', {
-      target_job_source: job.jobSource,
-      target_job_id: job.id,
-      applicant_match_score: job.hasMatchScore ? Math.round(job.matchScore) : null,
-      applicant_matched_skills: job.matchedSkills,
-      applicant_missing_skills: job.missingSkills,
-    });
-
-    if (error) {
+    // The backend scores the job from the saved resume (the employer sees that
+    // score), checks the job is still open, and reopens a withdrawn
+    // application instead of adding one.
+    let data: Record<string, unknown>;
+    try {
+      data = await submitJobApplication({ jobId: job.id, jobSource: job.jobSource });
+    } catch (error) {
       console.warn('Unable to submit application:', error);
-      showToast(applicationErrorMessage(error, 'Unable to submit application. Please try again.'), 'danger');
+      showToast(error instanceof Error ? error.message : 'Unable to submit application. Please try again.', 'danger');
       return false;
     }
 

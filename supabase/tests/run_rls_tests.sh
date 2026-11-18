@@ -143,4 +143,8 @@ psql_app -f "$here/application_privacy_setup.sql"
 psql_app -f "$here/../migrations/20261117090000_application_privacy_and_integrity.sql"
 psql_app -f "$here/../migrations/20261117090000_application_privacy_and_integrity.sql"
 psql_app -f "$here/application_privacy_tests.sql"
+# Applied twice: the migration must be safe to re-run.
+psql_app -f "$here/../migrations/20261118090000_server_scored_applications.sql"
+psql_app -f "$here/../migrations/20261118090000_server_scored_applications.sql"
+psql_app -f "$here/server_scored_applications_tests.sql"
 echo "All RLS and evaluation checks passed."

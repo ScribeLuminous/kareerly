@@ -55,3 +55,6 @@ update public.job_applications
 grant usage on schema public to anon, authenticated, service_role;
 grant select, insert, update, delete on public.profiles, public.candidate_profiles, public.employer_profiles,
   public.employer_job_posts, public.job_applications, public.internal_jobs to authenticated;
+-- ...and to the backend's service role.
+grant select, insert, update, delete on public.profiles, public.candidate_profiles, public.employer_profiles,
+  public.employer_job_posts, public.job_applications, public.internal_jobs to service_role;

@@ -65,7 +65,9 @@ class ApiRegressionTests(unittest.TestCase):
         with patch('backend.app.main.run_matching', side_effect=RuntimeError('model unavailable')):
             result = self.client.post('/api/matches/run', json={'resume_text_for_matching': 'SQL developer'})
             self.assertEqual(result.status_code, 500)
-            self.assertIn('model unavailable', result.json()['detail'])
+            # The cause is logged, never returned (audit SEC-09).
+            self.assertNotIn('model unavailable', result.json()['detail'])
+            self.assertIn('could not generate matches', result.json()['detail'])
         self.assertEqual(self.client.post('/api/matches/from-resume', files={'file': ('resume.txt', b'text')}).status_code, 400)
 
     def test_refresh_jobs_expires_the_job_cache_only_when_asked(self):
