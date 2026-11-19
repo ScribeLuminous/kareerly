@@ -289,3 +289,45 @@ class MatchFeedbackStatsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AdminRoleChangeTests(unittest.TestCase):
+    """Role changes keep accounts usable and access consistent (audit ADMIN-01)."""
+
+    def call(self, store, json):
+        client = TestClient(main.app)
+        with patch("backend.app.main._supabase_request", side_effect=store), \
+             patch("backend.app.main._require_admin_user", return_value=ADMIN):
+            return client.patch("/api/admin/users", headers=AUTH, json=json)
+
+    def test_promotion_creates_the_new_workspace_profile(self):
+        for user_id, role, table, expected in (
+            (CANDIDATE, "employer", "/rest/v1/employer_profiles?on_conflict=user_id",
+             {"user_id": CANDIDATE, "company_name": "Employer Workspace", "business_email": "cara@example.com"}),
+            (EMPLOYER, "candidate", "/rest/v1/candidate_profiles?on_conflict=user_id", {"user_id": EMPLOYER}),
+        ):
+            with self.subTest(role=role):
+                store = FakeStore()
+                self.assertEqual(self.call(store, {"user_id": user_id, "role": role}).status_code, 200)
+                posts = [body for method, path, body in store.calls if method == "POST" and path == table]
+                self.assertEqual(posts, [expected])
+
+    def test_an_employer_who_owns_job_posts_keeps_the_role(self):
+        store = FakeStore()
+        original = store.__call__
+
+        def with_posts(path, **kwargs):
+            if path.startswith("/rest/v1/employer_job_posts"):
+                store.calls.append((kwargs.get("method", "GET"), path, kwargs.get("body")))
+                return [{"id": "post-1"}]
+            return original(path, **kwargs)
+
+        response = self.call(with_posts, {"user_id": EMPLOYER, "role": "candidate"})
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("job posts", response.json()["detail"])
+        self.assertEqual([call for call in store.calls if call[0] in {"PUT", "PATCH", "POST"}], [])
+
+    def test_an_unchanged_role_creates_nothing(self):
+        store = FakeStore()
+        self.assertEqual(self.call(store, {"user_id": CANDIDATE, "role": "candidate", "first_name": "Cara"}).status_code, 200)
+        self.assertFalse(any(method == "POST" for method, _path, _body in store.calls))

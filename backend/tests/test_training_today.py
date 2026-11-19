@@ -1,8 +1,17 @@
+import importlib.util
 import unittest
-from models.prepare_training_today import split,Extractor
-from models.taxonomy import Taxonomy,Skill
-from models.train_skill_tagger import spans,metrics
-import numpy as np
+
+# The offline training tools need extras the backend does not install
+# (pyarrow, Hugging Face datasets and transformers). Without them this module
+# is skipped with that reason instead of failing to import.
+_MISSING = [name for name in ("pyarrow", "datasets", "transformers") if importlib.util.find_spec(name) is None]
+if _MISSING:
+    raise unittest.SkipTest("model-training extras not installed: " + ", ".join(_MISSING))
+
+from models.prepare_training_today import split,Extractor  # noqa: E402
+from models.taxonomy import Taxonomy,Skill  # noqa: E402
+from models.train_skill_tagger import spans,metrics  # noqa: E402
+import numpy as np  # noqa: E402
 
 class TrainingChecks(unittest.TestCase):
     def test_split_deterministic(self):

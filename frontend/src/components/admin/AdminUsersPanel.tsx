@@ -7,6 +7,7 @@ import { useDebouncedValue, useRowSelection } from './adminHooks';
 import type { AdminPanelProps } from './adminShared';
 import AdminUserEditDialog from './AdminUserEditDialog';
 import type { UserEditChanges } from './AdminUserEditDialog';
+import { STRONG_PASSWORD_MESSAGE } from '../../lib/passwordRules';
 
 type Role = 'candidate' | 'employer' | 'admin';
 type StatusFilter = 'all' | 'active' | 'suspended' | 'deletion';
@@ -114,7 +115,7 @@ export default function AdminUsersPanel({ getToken, notify, onViewResumes, curre
     if (await act(user.id, (token) => updateAdminUser(token, { user_id: user.id, ...changes }), 'User updated.')) setEditing(null);
   };
   const resetPassword = (user: AdminUserRow) => {
-    const password = window.prompt(`New password for ${user.email} (minimum 8 characters)`);
+    const password = window.prompt(`New password for ${user.email} (${STRONG_PASSWORD_MESSAGE})`);
     if (password) void act(user.id, (token) => updateAdminUser(token, { user_id: user.id, password }), 'Password updated.');
   };
   const toggleSuspend = (user: AdminUserRow) => {

@@ -29,6 +29,14 @@ SUPABASE_ANON_KEY = (
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 logger = logging.getLogger(__name__)
 
+# Where the Supabase settings above came from. "built-in default" means neither
+# SUPABASE_URL nor VITE_SUPABASE_URL is set and the code is reading the
+# production project it names, which a staging or local backend should never
+# do silently (audit INFO-02). Reported by /api/health/jobs.
+SUPABASE_CONFIG_SOURCE = "environment" if (os.getenv("SUPABASE_URL") or os.getenv("VITE_SUPABASE_URL")) else "built-in default"
+if SUPABASE_CONFIG_SOURCE != "environment":
+    logger.warning("SUPABASE_URL is not set: the job catalogue is read from the built-in default project %s", SUPABASE_URL)
+
 SKILL_ID_ALIASES = {
     "SK_PYTHON": "SK001",
     "SK_JAVASCRIPT": "SK002",
@@ -320,7 +328,7 @@ def catalogue_counts() -> dict[str, Any]:
             tables[table_name] = {"error": f"HTTP {error.code}: {error.read().decode('utf-8', errors='replace')[:300]}"}
         except (URLError, TimeoutError, OSError) as error:
             tables[table_name] = {"error": f"{type(error).__name__}: {error}"[:300]}
-    return {"supabase_host": urlparse(SUPABASE_URL).netloc, "tables": tables}
+    return {"supabase_host": urlparse(SUPABASE_URL).netloc, "supabase_config": SUPABASE_CONFIG_SOURCE, "tables": tables}
 
 
 def fetch_internal_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[str, Any]]:

@@ -335,6 +335,13 @@ def _clean_extracted_line(value: str) -> str:
     return value.strip(" ,;:-")
 
 
+# "2020 – 2024", "2020-2024", "2021 to 2025"; an ongoing "2023 – Present" has no end year.
+EDUCATION_YEAR_RANGE = re.compile(
+    r"\b(?:19|20)\d{2}\s*(?:[–—-]|to)\s*(?:(?P<end>(?:19|20)\d{2})\b|(?:present|current|now|ongoing)\b)",
+    re.IGNORECASE,
+)
+
+
 def extract_education(resume_text: str, sections: Dict[str, str]) -> List[Dict[str, str]]:
     education_text = next(
         (text for heading, text in sections.items() if heading != "full_text" and any(key in heading for key in ("education", "academic"))),
@@ -369,11 +376,26 @@ def extract_education(resume_text: str, sections: Dict[str, str]) -> List[Dict[s
     year = ""
     education_lines = [line.strip() for line in education_text.splitlines() if line.strip()]
     relevant_lines = []
+    def names_entry(line: str) -> bool:
+        # A line that is part of the degree or school name, or that contains
+        # it ("BS Statistics — Lanao State College" names both).
+        line_key = compact_text(line)
+        return bool(line_key) and any(
+            value and (line_key in compact_text(value) or compact_text(value) in line_key)
+            for value in (degree_program, school))
+
     for index, line in enumerate(education_lines):
-        if (degree_program and compact_text(line) in compact_text(degree_program)) or (school and compact_text(line) in compact_text(school)):
+        if names_entry(line):
             relevant_lines.extend(education_lines[max(0, index - 1):index + 3])
-    year_matches = re.findall(r"\b(?:19|20)\d{2}\b", " ".join(relevant_lines))
-    if year_matches:
+    relevant_text = " ".join(relevant_lines)
+    # The entry's own date range ("2020 – 2024") says when it ended; a year in a
+    # bullet under it ("licensure exam, May 2025") does not. Without a range,
+    # the last year near the entry is used, as before.
+    year_range = EDUCATION_YEAR_RANGE.search(relevant_text)
+    year_matches = re.findall(r"\b(?:19|20)\d{2}\b", relevant_text)
+    if year_range:
+        year = year_range.group("end") if year_range.group("end") else ""
+    elif year_matches:
         year = year_matches[-1]
 
     if not any((degree_program, school, year)):

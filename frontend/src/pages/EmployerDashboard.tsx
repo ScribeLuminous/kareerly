@@ -5,6 +5,7 @@ import { AppShell, ConfirmDialog, DESKTOP_QUERY, EmptyState, FormField, Skeleton
 import { loadApplicationMessages, loadEmployerAccountSettings, loadMessageModeration, pendingEmailNotice, requestAccountDeletion, saveEmployerAccountSettings, sendApplicationMessage, submitMessageModeration, updateEmployerApplicationStatus, type MessageModerationState, type MessageReportReason } from '../lib/api';
 import { ReportConversationModal } from '../components/ReportConversationModal';
 import { supabase } from '../lib/supabase';
+import { isStrongPassword, STRONG_PASSWORD_MESSAGE } from '../lib/passwordRules';
 import { normalizeEmployerIndustry } from '../lib/employerOptions';
 import { joinLocation, splitLocation } from '../lib/phProvinces';
 import { joinJobContent, toListItems } from '../lib/jobDescription';
@@ -295,8 +296,8 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       showToast(passwordForm.next !== passwordForm.confirm ? 'New passwords do not match.' : 'Complete all password fields.', 'warn');
       return;
     }
-    if (passwordForm.next.length < 8) {
-      showToast('New password must be at least 8 characters.', 'warn');
+    if (!isStrongPassword(passwordForm.next)) {
+      showToast(STRONG_PASSWORD_MESSAGE, 'warn');
       return;
     }
     setIsSavingAccount(true);
@@ -780,7 +781,10 @@ function EmployerWorkspace({ employer, onHome, onLogout }: Pick<EmployerDashboar
       const { data, error } = await supabase.from('employer_job_posts').delete().in('job_id', jobIds).select('job_id');
       if (error) {
         console.warn('Unable to delete jobs:', error);
-        showToast('Unable to delete the selected jobs. Please try again.', 'danger');
+        // A job with applicants is kept (migration 20261119090000); the database says why.
+        showToast(error.code === 'P0001' && error.message
+          ? `${error.message} Nothing was deleted.`
+          : 'Unable to delete the selected jobs. Please try again.', 'danger');
         return;
       }
       const deleted = new Set((data || []).map((row) => String(row.job_id)));

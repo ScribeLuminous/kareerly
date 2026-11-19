@@ -18,9 +18,10 @@ import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/us
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { initialRecoveryLink, PASSWORD_RESET_PATH, type RecoveryLink } from './lib/passwordRecoveryLink';
+import { pageTitle } from './lib/pageTitles';
 import { isCandidateWorkspacePath } from './pages/candidate/routes';
 import { isEmployerWorkspacePath } from './pages/employer/routes';
-import { isPublicView, passwordRecoveryPath, PUBLIC_VIEW_PATHS, publicViewFromPath, recoveryAccountFromSearch, type PublicView } from './lib/publicRoutes';
+import { isPublicView, loginPathFor, passwordRecoveryPath, PUBLIC_VIEW_PATHS, publicViewFromPath, recoveryAccountFromSearch, safeNextPath, type PublicView } from './lib/publicRoutes';
 
 // Each workspace loads on demand so phones only download the one they use.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -152,6 +153,12 @@ function AppContent() {
           setAuthRole('admin');
           setView('admin-login');
           if (location.pathname !== '/admin/login') navigate('/admin/login', { replace: true });
+        } else if (isCandidateWorkspacePath(location.pathname) || isEmployerWorkspacePath(location.pathname)) {
+          // A bookmarked or shared workspace page: log in first, then return to it.
+          const account = isEmployerWorkspacePath(location.pathname) ? 'employer' : 'candidate';
+          setAuthRole(account);
+          setView(account === 'employer' ? 'employer-login' : 'candidate-login');
+          navigate(loginPathFor(account, location.pathname), { replace: true });
         } else if (location.pathname !== '/') {
           setView('landing');
           navigate('/', { replace: true });
@@ -208,6 +215,10 @@ function AppContent() {
     // enterPublicView only sets state; listing it would resubscribe on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signedIn, view]);
+
+  useEffect(() => {
+    document.title = pageTitle(view, location.pathname);
+  }, [view, location.pathname]);
 
   useEffect(() => {
     if (window.location.hash === '#admin' && !currentAdmin) {
@@ -364,7 +375,7 @@ function AppContent() {
     const hasSavedResume = await loadLatestResume({ userId: user.id }).then(Boolean, () => true);
     if (hasSavedResume) {
       setView('dashboard');
-      navigate('/candidate/dashboard', { replace: true });
+      navigate(safeNextPath(window.location.search, isCandidateWorkspacePath) || '/candidate/dashboard', { replace: true });
       return;
     }
     startOnboarding();
@@ -381,7 +392,7 @@ function AppContent() {
   const handleEmployerAuthenticated = (employer: EmployerUser) => {
     setCurrentEmployer(employer);
     setView('employer-dashboard');
-    navigate('/employer/dashboard', { replace: true });
+    navigate(safeNextPath(window.location.search, isEmployerWorkspacePath) || '/employer/dashboard', { replace: true });
   };
   const handleCandidateLogout = async () => {
     await signOutCurrentUser().catch((error) => console.warn('Unable to sign out:', error));

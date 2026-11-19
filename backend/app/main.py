@@ -75,11 +75,19 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BACKEND_DIR / ".env")
 
 
-app = FastAPI(title="Kareerly ML Backend")
+# The interactive API docs list every endpoint and schema, so they are off
+# unless KAREERLY_API_DOCS=1 (backend/dev_server.sh sets it for local work).
+API_DOCS_ENABLED = os.getenv("KAREERLY_API_DOCS", "0").strip().lower() in {"1", "true", "yes"}
+app = FastAPI(
+    title="Kareerly ML Backend",
+    docs_url="/docs" if API_DOCS_ENABLED else None,
+    redoc_url="/redoc" if API_DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if API_DOCS_ENABLED else None,
+)
 
 # Reported by /api/health/config and /api/health/jobs, so a site admin can see
 # which backend code is deployed. Change it when the backend changes.
-BACKEND_VERSION = "2026.11.18-p3-gzip-rate-limits"
+BACKEND_VERSION = "2026.11.19-p4-cleanup"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -818,6 +826,9 @@ def _safe_timestamp() -> str:
 
 
 EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+# The sign-up rule (frontend/src/lib/passwordRules.ts), for passwords an admin sets.
+STRONG_PASSWORD = re.compile(r"(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{14,}")
+STRONG_PASSWORD_MESSAGE = "Use at least 14 characters, with an uppercase letter, a number and a symbol."
 
 
 def _confirmed_auth_email(user_id: str, profile_email: object, auth_user: object) -> str:
@@ -1567,7 +1578,6 @@ def health_config() -> dict:
         "allowed_origins": allowed_origins,
         "model": {
             "id": MODEL_ID,
-            "path": str(checkpoint),
             "files_present": not missing,
             "missing_files": missing,
             "loaded": get_bi_encoder.cache_info().currsize > 0,
@@ -1705,8 +1715,8 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
         body["email"] = email
         profile_body["email"] = email
     if payload.password is not None:
-        if len(payload.password) < 8:
-            raise HTTPException(status_code=400, detail="Password must contain at least 8 characters.")
+        if not STRONG_PASSWORD.fullmatch(payload.password):
+            raise HTTPException(status_code=400, detail=STRONG_PASSWORD_MESSAGE)
         body["password"] = payload.password
     for field in ("first_name", "last_name"):
         value = getattr(payload, field)
@@ -1725,8 +1735,17 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
         metadata_changes["role"] = payload.role
     if not body and not profile_body:
         raise HTTPException(status_code=400, detail="No user changes were provided.")
-    if not _rest_rows("profiles", {"id": f"eq.{user_id}", "select": "id", "limit": "1"}):
+    targets = _rest_rows("profiles", {"id": f"eq.{user_id}", "select": "id,role,email", "limit": "1"})
+    if not targets:
         raise HTTPException(status_code=404, detail="User was not found.")
+    current_role = str(targets[0].get("role") or "")
+    role_change = payload.role is not None and payload.role != current_role
+    if role_change and current_role == "employer":
+        # Access to job posts and their applicants follows the employer profile,
+        # not the role, so an employer who still owns posts keeps that access.
+        owner_ids = [row["id"] for row in _rest_rows("employer_profiles", {"user_id": f"eq.{user_id}", "select": "id"}) if row.get("id")]
+        if owner_ids and _rest_rows("employer_job_posts", {"employer_id": _in_filter(owner_ids), "select": "id", "limit": "1"}):
+            raise HTTPException(status_code=409, detail="This employer still owns job posts. Delete or reassign them before changing the role.")
     if metadata_changes:
         auth_user = _supabase_request(f"/auth/v1/admin/users/{quoted}", service_role=True)
         existing = auth_user.get("user_metadata") if isinstance(auth_user, dict) else None
@@ -1734,6 +1753,15 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
     updated = _supabase_request(f"/auth/v1/admin/users/{quoted}", method="PUT", service_role=True, body=body) if body else None
     if profile_body:
         _supabase_request(f"/rest/v1/profiles?id=eq.{quoted}", method="PATCH", service_role=True, body={**profile_body, "updated_at": _safe_timestamp()})
+    if role_change:
+        # The workspace for the new role needs its profile row, as sign-up creates it.
+        if payload.role == "employer":
+            _supabase_request("/rest/v1/employer_profiles?on_conflict=user_id", method="POST", service_role=True,
+                body={"user_id": user_id, "company_name": "Employer Workspace", "business_email": targets[0].get("email")},
+                prefer="resolution=ignore-duplicates")
+        elif payload.role == "candidate":
+            _supabase_request("/rest/v1/candidate_profiles?on_conflict=user_id", method="POST", service_role=True,
+                body={"user_id": user_id}, prefer="resolution=ignore-duplicates")
     return {"user": updated}
 
 

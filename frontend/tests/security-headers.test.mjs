@@ -47,3 +47,16 @@ test('the full policy reaches the services the app uses', () => {
   // Resume previews are blob: iframes.
   assert.ok(policy['frame-src'].includes('blob:'));
 });
+
+test('every new-password form uses the sign-up rule', async () => {
+  const rules = readFileSync(new URL('../src/lib/passwordRules.ts', import.meta.url), 'utf8');
+  assert.match(rules, /\.\{14,\}/);
+  for (const page of ['../src/pages/Dashboard.tsx', '../src/pages/EmployerDashboard.tsx']) {
+    const source = readFileSync(new URL(page, import.meta.url), 'utf8');
+    assert.match(source, /isStrongPassword\(/, page);
+    assert.doesNotMatch(source, /length < 8/, page);
+  }
+  for (const page of ['../src/pages/employer/EmployerAccountPage.tsx', '../src/components/admin/AdminUsersPanel.tsx']) {
+    assert.doesNotMatch(readFileSync(new URL(page, import.meta.url), 'utf8'), /8 characters/, page);
+  }
+});
