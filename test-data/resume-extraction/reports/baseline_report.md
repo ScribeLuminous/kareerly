@@ -160,7 +160,7 @@ inside "digital". Any letter-spaced heading can do this to any resume.
 
 5 of 15 wrong (`resume_analyzer.py:178`): the "Personal details" heading
 (RVK-02, RVK-03), a country (RVK-05, whose real name is letter-spaced), the
-name joined with the job title (RVK-08, "John Huber, UX Designer"), and on
+name joined with the job title (RVK-08, "Name, UX Designer"), and on
 JBS-01 a stray OCR digit beside the name, which makes the line fail the
 no-digits rule.
 

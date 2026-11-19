@@ -18,7 +18,6 @@ from __future__ import annotations
 import csv
 import difflib
 import hashlib
-import io
 import json
 import re
 import shutil
@@ -150,7 +149,6 @@ def digests(text: str) -> tuple[set[str], set[str]]:
 
 def check_structure(doc: dict, sample: dict, skill_ids: set[str], levels: list[str]) -> list[str]:
     errors = []
-    sid = doc.get("sample_id")
     if doc.get("schema_version") != "1.0":
         errors.append("schema_version must be 1.0")
     if (doc.get("content_group") or "") != (sample.get("content_group") or ""):

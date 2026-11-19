@@ -102,7 +102,7 @@ Manual check for the resume-based matching flow:
    bash backend/dev_server.sh start
    ```
 2. Open `/docs` and find `POST /api/matches/from-resume`.
-3. Upload a PDF, DOCX or DOC resume (scanned PDFs are read with OCR).
+3. Upload a PDF, DOCX, DOC, JPG or PNG resume (scanned PDFs, photos and image files are read with OCR).
 4. Provide `preferences` as JSON, for example:
    ```json
    {

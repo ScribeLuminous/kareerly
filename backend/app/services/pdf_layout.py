@@ -11,6 +11,7 @@ is read on its own, and between such lines the left column is read top to
 bottom before the right one. A column is split again if it has a gutter of its
 own, so three-column layouts come out in order too.
 """
+import re
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
@@ -25,6 +26,17 @@ MAX_CROSSING_LINE_SHARE = 0.35
 MIN_COLUMN_CHAR_SHARE = 0.10
 MIN_COLUMN_LINES = 3
 MAX_SPLIT_DEPTH = 2
+# A sidebar of short items (contact lines, skill names, languages) can hold
+# less than MIN_COLUMN_CHAR_SHARE of a page full of job descriptions. It is
+# still a column when it has this share and enough lines, its gutter is clean
+# and wide, and its lines are mostly words rather than dates or numbers.
+MIN_SIDEBAR_CHAR_SHARE = 0.04
+MIN_SIDEBAR_LINES = 6
+MIN_SIDEBAR_GUTTER_WIDTH = 20.0
+_DATE_TOKEN = re.compile(
+    r"^(?:\d[\d./\-–—]*|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?|present|current|now|[-–—|])$",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -116,12 +128,29 @@ def _find_gutter(words: list[Word], lines: list[list[Word]]) -> Optional[tuple[f
         right_chars = sum(len(w.text) for w in words if w.x0 >= gap_end - 1)
         left_lines = sum(1 for line in lines if any(w.x1 <= gap_start + 1 for w in line))
         right_lines = sum(1 for line in lines if any(w.x0 >= gap_end - 1 for w in line))
-        if (
-            left_chars < MIN_COLUMN_CHAR_SHARE * total_chars
-            or right_chars < MIN_COLUMN_CHAR_SHARE * total_chars
-            or left_lines < MIN_COLUMN_LINES
-            or right_lines < MIN_COLUMN_LINES
+        if left_lines < MIN_COLUMN_LINES or right_lines < MIN_COLUMN_LINES:
+            continue
+        # Right-aligned dates are part of the lines they sit on, not a column of
+        # their own: reading them separately would move every date away from
+        # its job or degree.
+        if not _mostly_words([w for w in words if w.x1 <= gap_start + 1]) or not _mostly_words([w for w in words if w.x0 >= gap_end - 1]):
+            continue
+        narrow_ok = True
+        for side_chars, side_lines, side_words in (
+            (left_chars, left_lines, [w for w in words if w.x1 <= gap_start + 1]),
+            (right_chars, right_lines, [w for w in words if w.x0 >= gap_end - 1]),
         ):
+            if side_chars >= MIN_COLUMN_CHAR_SHARE * total_chars:
+                continue
+            if not (
+                side_chars >= MIN_SIDEBAR_CHAR_SHARE * total_chars
+                and side_lines >= MIN_SIDEBAR_LINES
+                and gap_end - gap_start >= MIN_SIDEBAR_GUTTER_WIDTH
+                and min_crossing <= 1
+                and _mostly_words(side_words)
+            ):
+                narrow_ok = False
+        if not narrow_ok:
             continue
         # A gutter is only real if most lines have text on one side of it only.
         one_sided = sum(
@@ -136,6 +165,15 @@ def _find_gutter(words: list[Word], lines: list[list[Word]]) -> Optional[tuple[f
     if best is None:
         return None
     return best[0], best[1]
+
+
+def _mostly_words(words: list[Word]) -> bool:
+    """True for a sidebar of words; False for a column of right-aligned dates or numbers."""
+    tokens = [w.text.strip() for w in words if w.text.strip()]
+    if not tokens:
+        return False
+    dates = sum(1 for token in tokens if _DATE_TOKEN.match(token))
+    return dates <= 0.3 * len(tokens)
 
 
 def _line_text(line: Iterable[Word]) -> str:

@@ -267,7 +267,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     const name = resumePreview.name.toLowerCase();
     const isPdf = resumePreview.mimeType.includes('pdf') || name.endsWith('.pdf');
     const isDocx = resumePreview.mimeType.includes('wordprocessingml') || name.endsWith('.docx');
-    if (!isPdf && !isDocx) return;
+    const isImage = resumePreview.mimeType.startsWith('image/') || /\.(jpe?g|png)$/.test(name);
+    if (!isPdf && !isDocx && !isImage) return;
 
     let cancelled = false;
     let blobUrl = '';
@@ -284,9 +285,9 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
             : `The resume could not be loaded (error ${response.status}). Please try again.`);
           return;
         }
-        if (isPdf) {
+        if (isPdf || isImage) {
           const blob = await response.blob();
-          blobUrl = URL.createObjectURL(blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' }));
+          blobUrl = URL.createObjectURL(isImage || blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' }));
           if (cancelled) { URL.revokeObjectURL(blobUrl); return; }
           setDocxPreviewResult({ url: resumePreview.url, html: '', blobUrl, error: '' });
           return;
@@ -1779,7 +1780,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     }
     const validation = validateResumeFile(file);
     if (!validation.valid) {
-      showToast(validation.error || 'Please upload a PDF, DOCX or DOC file.', 'warn');
+      showToast(validation.error || 'Please upload a PDF, DOCX, DOC, JPG or PNG file.', 'warn');
       return;
     }
     setResumeUploadFile(file);
@@ -2853,6 +2854,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
         const previewName = resumePreview.name.toLowerCase();
         const isPdf = resumePreview.mimeType.includes('pdf') || previewName.endsWith('.pdf');
         const isLegacyWord = resumePreview.mimeType.includes('msword') || previewName.endsWith('.doc');
+        const isImage = resumePreview.mimeType.startsWith('image/') || /\.(jpe?g|png)$/.test(previewName);
         const loaded = docxPreviewResult?.url === resumePreview.url ? docxPreviewResult : null;
         const downloadHref = loaded?.blobUrl || resumePreview.url;
         const downloadLink = <a className="k-link" href={downloadHref} download={resumePreview.name}>Download the resume</a>;
@@ -2880,6 +2882,8 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
                 <button className="k-link" type="button" onClick={() => { setDocxPreviewResult(null); setResumePreviewAttempt((attempt) => attempt + 1); }}>Try again</button>
                 {' · '}{downloadLink}
               </Banner>
+            ) : isImage ? (
+              <img className="mx-auto block h-auto max-w-full" src={loaded.blobUrl} alt={`Preview of ${resumePreview.name}`} />
             ) : isPdf ? (
               <iframe className="cand-resume-preview-frame" src={loaded.blobUrl} title={`Preview of ${resumePreview.name}`} />
             ) : (

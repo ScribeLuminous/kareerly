@@ -15,7 +15,8 @@
   "entity_extraction": "Entity extraction: the text and section are there, but the value is wrong or missing",
   "entry_limit": "Entity extraction: only one education entry is ever returned",
   "entry_split": "Entity extraction: a date line or the wrapped half of a title is returned as an entry of its own",
-  "date_normalization": "Date normalisation: the date is in the text but the extracted year is wrong",
+  "false_value": "Entity extraction: a value is returned that the resume does not contain",
+  "date_normalization": "Date normalisation: the date is in the text but the extracted date is wrong",
   "skill_alias_missing": "Skill normalisation: the resume's wording is not a known alias of the skill",
   "skill_alias_present": "Skill normalisation: an alias is in the text (often an unreviewed candidate alias or a generic word Kareerly filters) but the skill was not returned",
   "skill_false_positive": "Skill normalisation: a skill was returned that the resume does not state"
@@ -23,33 +24,26 @@
  "summary": {
   "as_shipped": {
    "samples": 40,
-   "sec_gt": 265,
-   "sec_found": 93,
-   "sec_gt_supported": 132,
-   "sec_found_supported": 93,
-   "sec_detected": 94,
-   "sec_false_headings": 1,
-   "skill_expected": 98,
-   "skill_found": 20,
-   "skill_false_positives": 2,
-   "skill_acceptable_found": 1,
-   "skill_returned": 23,
-   "skill_expected_without_sk031": 89,
-   "skill_found_without_sk031": 20,
-   "cert_gt": 25,
-   "cert_found": 12,
-   "cert_returned": 76,
-   "cert_false_entries": 64,
-   "cert_year_correct": 1,
+   "sections_gt": 265,
+   "sections_found": 93,
+   "sections_gt_supported": 132,
+   "sections_found_supported": 93,
+   "sections_detected": 94,
+   "sections_false_headings": 1,
+   "skills_expected": 98,
+   "skills_found": 20,
+   "skills_false_positives": 2,
+   "skills_returned": 23,
+   "skills_expected_without_sk031": 89,
+   "skills_found_without_sk031": 20,
+   "certifications_gt": 25,
+   "certifications_found": 12,
+   "certifications_returned": 76,
+   "certifications_false_entries": 64,
+   "certifications_year_correct": 1,
    "full_samples": 15,
    "name_ok": 6,
    "edu_gt": 22,
-   "edu_matched": 9,
-   "edu_degree_program": 3,
-   "edu_school_university": 9,
-   "edu_year_graduated": 1,
-   "edu_highest_educational_attainment": 3,
-   "edu_false_entries": 0,
    "cov_job_title_total": 27,
    "cov_company_total": 27,
    "cov_date_total": 49,
@@ -58,16 +52,10 @@
    "cov_achievement_total": 30,
    "cov_skill_total": 98,
    "cov_name_total": 15,
-   "present_email": 15,
-   "present_location": 15,
-   "present_street_address": 13,
-   "present_summary": 12,
-   "present_work_experience": 15,
-   "present_achievements": 9,
-   "present_references": 7,
-   "present_headline": 5,
-   "template_skill_fp": 0,
-   "template_cert_fp": 0,
+   "edu_matched": 9,
+   "edu_degree_program": 3,
+   "edu_school_university": 9,
+   "edu_highest_educational_attainment": 3,
    "cov_job_title_found": 22,
    "cov_company_found": 22,
    "cov_date_found": 39,
@@ -76,49 +64,128 @@
    "cov_achievement_found": 15,
    "cov_skill_found": 53,
    "cov_name_found": 10,
-   "present_phone": 10,
-   "present_links": 10,
-   "present_training": 4,
-   "present_projects": 2,
-   "present_languages": 9,
    "cov_certification_total": 16,
    "cov_certification_found": 16,
-   "present_interests": 3,
+   "edu_year_graduated": 1,
    "causes": {
-    "intake_rejected": 130,
+    "intake_rejected": 140,
     "section_not_detected": 139,
     "skill_alias_missing": 28,
     "skill_alias_present": 5,
     "date_normalization": 8,
-    "no_extractor": 93,
+    "no_extractor": 126,
     "section_boundary": 48,
     "entry_split": 16,
     "entity_extraction": 25,
     "entry_limit": 6,
     "false_heading": 1,
     "skill_false_positive": 2
+   },
+   "fields": {
+    "full_name": {
+     "annotated": 15,
+     "correct": 6,
+     "false": 0
+    },
+    "email": {
+     "annotated": 15,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 15
+    },
+    "location": {
+     "annotated": 15,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 15
+    },
+    "summary": {
+     "annotated": 12,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 12
+    },
+    "work_experience": {
+     "annotated": 27,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 15
+    },
+    "achievements": {
+     "annotated": 30,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 9
+    },
+    "references": {
+     "annotated": 7,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 7
+    },
+    "street_address": {
+     "annotated": 13,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 13
+    },
+    "headline": {
+     "annotated": 5,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 5
+    },
+    "phone": {
+     "annotated": 10,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 10
+    },
+    "links": {
+     "annotated": 6,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 6
+    },
+    "projects": {
+     "annotated": 2,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 2
+    },
+    "languages": {
+     "annotated": 21,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 9
+    },
+    "interests": {
+     "annotated": 9,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 3
+    }
    }
   },
   "ocr_path": {
    "samples": 40,
-   "sec_gt": 265,
-   "sec_found": 101,
-   "sec_gt_supported": 132,
-   "sec_found_supported": 101,
-   "sec_detected": 103,
-   "sec_false_headings": 2,
-   "skill_expected": 98,
-   "skill_found": 60,
-   "skill_false_positives": 2,
-   "skill_acceptable_found": 1,
-   "skill_returned": 63,
-   "skill_expected_without_sk031": 89,
-   "skill_found_without_sk031": 60,
-   "cert_gt": 25,
-   "cert_found": 12,
-   "cert_returned": 76,
-   "cert_false_entries": 64,
-   "cert_year_correct": 1,
+   "sections_gt": 265,
+   "sections_found": 101,
+   "sections_gt_supported": 132,
+   "sections_found_supported": 101,
+   "sections_detected": 103,
+   "sections_false_headings": 2,
+   "skills_expected": 98,
+   "skills_found": 60,
+   "skills_false_positives": 2,
+   "skills_returned": 63,
+   "skills_expected_without_sk031": 89,
+   "skills_found_without_sk031": 60,
+   "certifications_gt": 25,
+   "certifications_found": 12,
+   "certifications_returned": 76,
+   "certifications_false_entries": 64,
+   "certifications_year_correct": 1,
    "full_samples": 15,
    "name_ok": 10,
    "edu_gt": 22,
@@ -127,7 +194,6 @@
    "edu_school_university": 13,
    "edu_year_graduated": 3,
    "edu_highest_educational_attainment": 6,
-   "edu_false_entries": 0,
    "cov_job_title_total": 27,
    "cov_job_title_found": 27,
    "cov_company_total": 27,
@@ -144,29 +210,13 @@
    "cov_skill_found": 98,
    "cov_name_total": 15,
    "cov_name_found": 15,
-   "present_email": 15,
-   "present_location": 15,
-   "present_street_address": 13,
-   "present_summary": 12,
-   "present_work_experience": 15,
-   "present_achievements": 9,
-   "present_references": 7,
-   "present_headline": 5,
-   "template_skill_fp": 0,
-   "template_cert_fp": 0,
-   "present_phone": 10,
-   "present_links": 10,
-   "present_training": 4,
-   "present_projects": 2,
-   "present_languages": 9,
    "cov_certification_total": 16,
    "cov_certification_found": 16,
-   "present_interests": 3,
    "causes": {
     "section_not_detected": 170,
     "skill_alias_present": 10,
     "entity_extraction": 29,
-    "no_extractor": 129,
+    "no_extractor": 172,
     "false_heading": 2,
     "date_normalization": 10,
     "skill_alias_missing": 28,
@@ -174,6 +224,91 @@
     "entry_split": 16,
     "entry_limit": 6,
     "skill_false_positive": 2
+   },
+   "fields": {
+    "full_name": {
+     "annotated": 15,
+     "correct": 10,
+     "false": 0
+    },
+    "email": {
+     "annotated": 15,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 15
+    },
+    "location": {
+     "annotated": 15,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 15
+    },
+    "summary": {
+     "annotated": 12,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 12
+    },
+    "work_experience": {
+     "annotated": 27,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 15
+    },
+    "achievements": {
+     "annotated": 30,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 9
+    },
+    "references": {
+     "annotated": 7,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 7
+    },
+    "street_address": {
+     "annotated": 13,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 13
+    },
+    "headline": {
+     "annotated": 5,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 5
+    },
+    "phone": {
+     "annotated": 10,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 10
+    },
+    "links": {
+     "annotated": 6,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 6
+    },
+    "projects": {
+     "annotated": 2,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 2
+    },
+    "languages": {
+     "annotated": 21,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 9
+    },
+    "interests": {
+     "annotated": 9,
+     "correct": 0,
+     "false": 0,
+     "not_produced": 3
+    }
    }
   }
  },
@@ -181,20 +316,53 @@
   "JBS-01": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -298,11 +466,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "intake_rejected",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "intake_rejected",
       "detail": ""
@@ -318,7 +481,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "intake_rejected",
       "detail": ""
      }
@@ -335,7 +513,6 @@
      "expected": 9,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 9,
      "found_without_sk031": 0
@@ -349,13 +526,7 @@
     },
     "name": false,
     "education": {
-     "gt": 1,
-     "matched": 0,
-     "degree_program": 0,
-     "school_university": 0,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "gt": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -370,20 +541,53 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -432,11 +636,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
@@ -452,7 +651,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -469,7 +683,6 @@
      "expected": 9,
      "found": 8,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 8,
      "expected_without_sk031": 9,
      "found_without_sk031": 8
@@ -488,8 +701,7 @@
      "degree_program": 1,
      "school_university": 1,
      "year_graduated": 1,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -538,20 +750,53 @@
   "JBS-02": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -655,11 +900,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "intake_rejected",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "intake_rejected",
       "detail": ""
@@ -675,7 +915,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "intake_rejected",
       "detail": ""
      }
@@ -692,7 +947,6 @@
      "expected": 9,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 9,
      "found_without_sk031": 0
@@ -706,13 +960,7 @@
     },
     "name": false,
     "education": {
-     "gt": 1,
-     "matched": 0,
-     "degree_program": 0,
-     "school_university": 0,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "gt": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -727,20 +975,53 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -804,11 +1085,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
@@ -824,7 +1100,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -841,7 +1132,6 @@
      "expected": 9,
      "found": 8,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 8,
      "expected_without_sk031": 9,
      "found_without_sk031": 8
@@ -857,11 +1147,8 @@
     "education": {
      "gt": 1,
      "matched": 1,
-     "degree_program": 0,
      "school_university": 1,
-     "year_graduated": 1,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "year_graduated": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -910,20 +1197,53 @@
   "JBS-03": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -1027,11 +1347,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "intake_rejected",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "intake_rejected",
       "detail": ""
@@ -1047,7 +1362,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "intake_rejected",
       "detail": ""
      }
@@ -1064,7 +1394,6 @@
      "expected": 9,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 9,
      "found_without_sk031": 0
@@ -1078,13 +1407,7 @@
     },
     "name": false,
     "education": {
-     "gt": 1,
-     "matched": 0,
-     "degree_program": 0,
-     "school_university": 0,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "gt": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -1099,20 +1422,53 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -1166,11 +1522,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
@@ -1186,7 +1537,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -1203,7 +1569,6 @@
      "expected": 9,
      "found": 8,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 8,
      "expected_without_sk031": 9,
      "found_without_sk031": 8
@@ -1217,13 +1582,7 @@
     },
     "name": true,
     "education": {
-     "gt": 1,
-     "matched": 0,
-     "degree_program": 0,
-     "school_university": 0,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "gt": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -1272,20 +1631,53 @@
   "JBS-04": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -1389,11 +1781,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "intake_rejected",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "intake_rejected",
       "detail": ""
@@ -1409,7 +1796,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "intake_rejected",
       "detail": ""
      }
@@ -1426,7 +1828,6 @@
      "expected": 9,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 9,
      "found_without_sk031": 0
@@ -1440,13 +1841,7 @@
     },
     "name": false,
     "education": {
-     "gt": 1,
-     "matched": 0,
-     "degree_program": 0,
-     "school_university": 0,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "gt": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -1461,20 +1856,53 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -1523,11 +1951,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
@@ -1543,7 +1966,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -1560,7 +1998,6 @@
      "expected": 9,
      "found": 8,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 8,
      "expected_without_sk031": 9,
      "found_without_sk031": 8
@@ -1578,9 +2015,7 @@
      "matched": 1,
      "degree_program": 1,
      "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -1629,20 +2064,59 @@
   "JBS-05": {
    "as_shipped": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -1771,11 +2245,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "intake_rejected",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "intake_rejected",
       "detail": ""
@@ -1791,7 +2260,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "intake_rejected",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "intake_rejected",
       "detail": ""
      }
@@ -1808,7 +2292,6 @@
      "expected": 9,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 9,
      "found_without_sk031": 0
@@ -1822,13 +2305,7 @@
     },
     "name": false,
     "education": {
-     "gt": 1,
-     "matched": 0,
-     "degree_program": 0,
-     "school_university": 0,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "gt": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -1843,20 +2320,59 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "masked",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "absent",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -1930,11 +2446,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
@@ -1950,7 +2461,22 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "references",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -1967,7 +2493,6 @@
      "expected": 9,
      "found": 8,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 8,
      "expected_without_sk031": 9,
      "found_without_sk031": 8
@@ -1985,9 +2510,7 @@
      "matched": 1,
      "degree_program": 1,
      "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -2064,7 +2587,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2109,7 +2631,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2162,7 +2683,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2207,7 +2727,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2260,7 +2779,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2305,7 +2823,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2358,7 +2875,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2403,7 +2919,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2456,7 +2971,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2501,7 +3015,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2554,7 +3067,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2599,7 +3111,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2652,7 +3163,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2697,7 +3207,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2750,7 +3259,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2795,7 +3303,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2848,7 +3355,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2893,7 +3399,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -2951,7 +3456,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3001,7 +3505,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3069,7 +3572,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3129,7 +3631,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3187,7 +3688,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3237,7 +3737,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3295,7 +3794,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3345,7 +3843,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3398,7 +3895,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3443,7 +3939,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3496,7 +3991,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3541,7 +4035,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3594,7 +4087,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3639,7 +4131,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3692,7 +4183,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3737,7 +4227,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3790,7 +4279,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3835,7 +4323,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3893,7 +4380,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3943,7 +4429,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -3996,7 +4481,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4041,7 +4525,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4099,7 +4582,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4149,7 +4631,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4217,7 +4698,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4277,7 +4757,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4335,7 +4814,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4385,7 +4863,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4448,7 +4925,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4503,7 +4979,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4556,7 +5031,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4601,7 +5075,6 @@
      "expected": 0,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 0,
      "found_without_sk031": 0
@@ -4625,20 +5098,71 @@
   "QRR-01": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "absent",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "not_produced",
-     "projects": "not_produced",
-     "achievements": "not_produced",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "projects": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 4,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -4684,17 +5208,17 @@
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "education.year_graduated",
@@ -4732,17 +5256,32 @@
       "detail": ""
      },
      {
-      "field": "training",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "projects",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -4769,7 +5308,6 @@
      "expected": 7,
      "found": 4,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 4,
      "expected_without_sk031": 6,
      "found_without_sk031": 4
@@ -4787,9 +5325,7 @@
      "matched": 1,
      "degree_program": 1,
      "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -4812,20 +5348,71 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "absent",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "not_produced",
-     "projects": "not_produced",
-     "achievements": "not_produced",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "projects": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 4,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -4871,17 +5458,17 @@
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "education.year_graduated",
@@ -4919,17 +5506,32 @@
       "detail": ""
      },
      {
-      "field": "training",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "projects",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -4956,7 +5558,6 @@
      "expected": 7,
      "found": 4,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 4,
      "expected_without_sk031": 6,
      "found_without_sk031": 4
@@ -4974,9 +5575,7 @@
      "matched": 1,
      "degree_program": 1,
      "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -5007,20 +5606,71 @@
   "QRR-02": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "absent",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "not_produced",
-     "projects": "not_produced",
-     "achievements": "not_produced",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "projects": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 4,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -5066,17 +5716,17 @@
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "education.year_graduated",
@@ -5114,17 +5764,32 @@
       "detail": ""
      },
      {
-      "field": "training",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "projects",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -5151,7 +5816,6 @@
      "expected": 7,
      "found": 4,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 4,
      "expected_without_sk031": 6,
      "found_without_sk031": 4
@@ -5169,9 +5833,7 @@
      "matched": 1,
      "degree_program": 1,
      "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -5194,20 +5856,71 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "absent",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "not_produced",
-     "projects": "not_produced",
-     "achievements": "not_produced",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "not_produced"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "projects": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 4,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "references": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -5253,17 +5966,17 @@
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "section_not_detected",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "education.year_graduated",
@@ -5301,17 +6014,32 @@
       "detail": ""
      },
      {
-      "field": "training",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "projects",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -5338,7 +6066,6 @@
      "expected": 7,
      "found": 4,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 4,
      "expected_without_sk031": 6,
      "found_without_sk031": 4
@@ -5356,9 +6083,7 @@
      "matched": 1,
      "degree_program": 1,
      "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 1,
@@ -5389,20 +6114,53 @@
   "RVK-01": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "absent",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -5506,11 +6264,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "links",
       "cause": "no_extractor",
       "detail": ""
@@ -5521,7 +6274,27 @@
       "detail": ""
      },
      {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -5538,7 +6311,6 @@
      "expected": 5,
      "found": 1,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 1,
      "expected_without_sk031": 4,
      "found_without_sk031": 1
@@ -5554,11 +6326,7 @@
     "education": {
      "gt": 2,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 3,
@@ -5581,20 +6349,53 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "absent",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -5698,11 +6499,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "links",
       "cause": "no_extractor",
       "detail": ""
@@ -5713,7 +6509,27 @@
       "detail": ""
      },
      {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -5730,7 +6546,6 @@
      "expected": 5,
      "found": 1,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 1,
      "expected_without_sk031": 4,
      "found_without_sk031": 1
@@ -5746,11 +6561,7 @@
     "education": {
      "gt": 2,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 3,
@@ -5783,20 +6594,53 @@
   "RVK-02": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "absent",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -5837,12 +6681,12 @@
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
@@ -5905,11 +6749,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "links",
       "cause": "no_extractor",
       "detail": ""
@@ -5920,7 +6759,27 @@
       "detail": ""
      },
      {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -5937,7 +6796,6 @@
      "expected": 5,
      "found": 1,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 1,
      "expected_without_sk031": 4,
      "found_without_sk031": 1
@@ -5953,11 +6811,7 @@
     "education": {
      "gt": 2,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 3,
@@ -5980,20 +6834,53 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "absent",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -6034,12 +6921,12 @@
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
@@ -6102,11 +6989,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "links",
       "cause": "no_extractor",
       "detail": ""
@@ -6117,7 +6999,27 @@
       "detail": ""
      },
      {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -6134,7 +7036,6 @@
      "expected": 5,
      "found": 1,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 1,
      "expected_without_sk031": 4,
      "found_without_sk031": 1
@@ -6150,11 +7051,7 @@
     "education": {
      "gt": 2,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 3,
@@ -6187,20 +7084,53 @@
   "RVK-03": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "absent",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -6241,12 +7171,12 @@
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
@@ -6294,11 +7224,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "links",
       "cause": "no_extractor",
       "detail": ""
@@ -6309,7 +7234,27 @@
       "detail": ""
      },
      {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -6326,7 +7271,6 @@
      "expected": 5,
      "found": 1,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 1,
      "expected_without_sk031": 4,
      "found_without_sk031": 1
@@ -6340,13 +7284,7 @@
     },
     "name": false,
     "education": {
-     "gt": 2,
-     "matched": 0,
-     "degree_program": 0,
-     "school_university": 0,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "gt": 2
     },
     "text_coverage": {
      "job_title_total": 3,
@@ -6369,20 +7307,53 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "absent",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -6423,12 +7394,12 @@
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
@@ -6476,11 +7447,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "links",
       "cause": "no_extractor",
       "detail": ""
@@ -6491,7 +7457,27 @@
       "detail": ""
      },
      {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -6508,7 +7494,6 @@
      "expected": 5,
      "found": 1,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 1,
      "expected_without_sk031": 4,
      "found_without_sk031": 1
@@ -6522,13 +7507,7 @@
     },
     "name": false,
     "education": {
-     "gt": 2,
-     "matched": 0,
-     "degree_program": 0,
-     "school_university": 0,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "gt": 2
     },
     "text_coverage": {
      "job_title_total": 3,
@@ -6561,20 +7540,59 @@
   "RVK-04": {
    "as_shipped": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "not_produced",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -6678,11 +7696,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "links",
       "cause": "no_extractor",
       "detail": ""
@@ -6698,12 +7711,27 @@
       "detail": ""
      },
      {
-      "field": "training",
+      "field": "work_experience",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -6720,7 +7748,6 @@
      "expected": 5,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 4,
      "found_without_sk031": 0
@@ -6736,11 +7763,7 @@
     "education": {
      "gt": 1,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 2,
@@ -6761,20 +7784,59 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "absent",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "not_produced",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "links": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -6878,11 +7940,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "links",
       "cause": "no_extractor",
       "detail": ""
@@ -6898,12 +7955,27 @@
       "detail": ""
      },
      {
-      "field": "training",
+      "field": "work_experience",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -6920,7 +7992,6 @@
      "expected": 5,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 4,
      "found_without_sk031": 0
@@ -6936,11 +8007,7 @@
     "education": {
      "gt": 1,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 2,
@@ -6971,20 +8038,71 @@
   "RVK-05": {
    "as_shipped": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "not_produced",
-     "interests": "not_produced",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 4,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "interests": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -7138,17 +8256,12 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
-      "field": "links",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -7163,12 +8276,52 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "languages",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -7185,7 +8338,6 @@
      "expected": 3,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 2,
      "found_without_sk031": 0
@@ -7201,11 +8353,8 @@
     "education": {
      "gt": 3,
      "matched": 1,
-     "degree_program": 0,
      "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 2,
@@ -7230,20 +8379,71 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "not_produced",
-     "interests": "not_produced",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 4,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "interests": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -7397,17 +8597,12 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
-      "field": "links",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -7422,12 +8617,52 @@
       "detail": ""
      },
      {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "languages",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -7444,7 +8679,6 @@
      "expected": 3,
      "found": 0,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 0,
      "expected_without_sk031": 2,
      "found_without_sk031": 0
@@ -7460,11 +8694,8 @@
     "education": {
      "gt": 3,
      "matched": 1,
-     "degree_program": 0,
      "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 1,
-     "false_entries": 0
+     "highest_educational_attainment": 1
     },
     "text_coverage": {
      "job_title_total": 2,
@@ -7499,20 +8730,71 @@
   "RVK-06": {
    "as_shipped": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "not_produced",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "not_produced",
-     "interests": "not_produced",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "interests": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -7563,17 +8845,17 @@
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
@@ -7696,16 +8978,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
-      "field": "links",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
@@ -7716,7 +8988,17 @@
       "detail": ""
      },
      {
-      "field": "training",
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -7731,7 +9013,27 @@
       "detail": ""
      },
      {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -7748,7 +9050,6 @@
      "expected": 5,
      "found": 2,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 2,
      "expected_without_sk031": 4,
      "found_without_sk031": 2
@@ -7764,11 +9065,7 @@
     "education": {
      "gt": 1,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 2,
@@ -7793,20 +9090,71 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "not_produced",
-     "projects": "absent",
-     "achievements": "not_produced",
-     "languages": "not_produced",
-     "interests": "not_produced",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "achievements": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "interests": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -7857,17 +9205,17 @@
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "certifications"
+      "detail": ""
      },
      {
       "field": "certifications",
       "cause": "entity_extraction",
-      "detail": "training"
+      "detail": ""
      },
      {
       "field": "certifications",
@@ -7990,16 +9338,6 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
-      "field": "links",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
@@ -8010,7 +9348,17 @@
       "detail": ""
      },
      {
-      "field": "training",
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "achievements",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -8025,7 +9373,27 @@
       "detail": ""
      },
      {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -8042,7 +9410,6 @@
      "expected": 5,
      "found": 2,
      "false_positives": 0,
-     "acceptable_found": 0,
      "returned": 2,
      "expected_without_sk031": 4,
      "found_without_sk031": 2
@@ -8058,11 +9425,7 @@
     "education": {
      "gt": 1,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 2,
@@ -8097,20 +9460,65 @@
   "RVK-07": {
    "as_shipped": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "not_produced",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "interests": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -8259,17 +9667,12 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
-      "field": "links",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -8284,7 +9687,32 @@
       "detail": ""
      },
      {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -8301,7 +9729,6 @@
      "expected": 5,
      "found": 4,
      "false_positives": 0,
-     "acceptable_found": 1,
      "returned": 5,
      "expected_without_sk031": 4,
      "found_without_sk031": 4
@@ -8319,9 +9746,7 @@
      "matched": 1,
      "degree_program": 1,
      "school_university": 1,
-     "year_graduated": 1,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "year_graduated": 1
     },
     "text_coverage": {
      "job_title_total": 2,
@@ -8344,20 +9769,65 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "not_produced",
-     "interests": "not_produced",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 1,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 2,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "languages": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "interests": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -8506,17 +9976,12 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
-      "field": "links",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
       "cause": "no_extractor",
       "detail": ""
      },
@@ -8531,7 +9996,32 @@
       "detail": ""
      },
      {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "languages",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
       "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "interests",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -8548,7 +10038,6 @@
      "expected": 5,
      "found": 4,
      "false_positives": 0,
-     "acceptable_found": 1,
      "returned": 5,
      "expected_without_sk031": 4,
      "found_without_sk031": 4
@@ -8566,9 +10055,7 @@
      "matched": 1,
      "degree_program": 1,
      "school_university": 1,
-     "year_graduated": 1,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "year_graduated": 1
     },
     "text_coverage": {
      "job_title_total": 2,
@@ -8601,20 +10088,53 @@
   "RVK-08": {
    "as_shipped": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -8713,22 +10233,27 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
-      "field": "links",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -8745,7 +10270,6 @@
      "expected": 6,
      "found": 3,
      "false_positives": 2,
-     "acceptable_found": 0,
      "returned": 5,
      "expected_without_sk031": 6,
      "found_without_sk031": 3
@@ -8761,11 +10285,7 @@
     "education": {
      "gt": 2,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 3,
@@ -8786,20 +10306,53 @@
    },
    "ocr_path": {
     "fields": {
-     "headline": "not_produced",
-     "email": "not_produced",
-     "phone": "not_produced",
-     "location": "not_produced",
-     "street_address": "not_produced",
-     "links": "not_produced",
-     "summary": "not_produced",
-     "work_experience": "not_produced",
-     "training": "absent",
-     "projects": "absent",
-     "achievements": "absent",
-     "languages": "absent",
-     "interests": "absent",
-     "references": "absent"
+     "full_name": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0
+     },
+     "headline": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "email": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "phone": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "location": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "summary": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "work_experience": {
+      "annotated": 3,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     },
+     "street_address": {
+      "annotated": 1,
+      "correct": 0,
+      "false": 0,
+      "not_produced": true
+     }
     },
     "errors": [
      {
@@ -8898,22 +10451,27 @@
       "detail": ""
      },
      {
-      "field": "street_address",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
-      "field": "links",
-      "cause": "no_extractor",
-      "detail": ""
-     },
-     {
       "field": "summary",
       "cause": "no_extractor",
       "detail": ""
      },
      {
       "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "work_experience",
+      "cause": "no_extractor",
+      "detail": ""
+     },
+     {
+      "field": "street_address",
       "cause": "no_extractor",
       "detail": ""
      }
@@ -8930,7 +10488,6 @@
      "expected": 6,
      "found": 3,
      "false_positives": 2,
-     "acceptable_found": 0,
      "returned": 5,
      "expected_without_sk031": 6,
      "found_without_sk031": 3
@@ -8946,11 +10503,7 @@
     "education": {
      "gt": 2,
      "matched": 1,
-     "degree_program": 0,
-     "school_university": 1,
-     "year_graduated": 0,
-     "highest_educational_attainment": 0,
-     "false_entries": 0
+     "school_university": 1
     },
     "text_coverage": {
      "job_title_total": 3,
