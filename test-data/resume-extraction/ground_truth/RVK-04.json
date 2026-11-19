@@ -1,0 +1,241 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "RVK-04",
+  "content_group": null,
+  "annotation": {
+    "level": "full",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "pdf text layer",
+      "rendered page"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "summary",
+      "heading": "Profile",
+      "region": "main"
+    },
+    {
+      "type": "personal_details",
+      "heading": "Personal details",
+      "region": "sidebar"
+    },
+    {
+      "type": "experience",
+      "heading": "Employment",
+      "region": "main"
+    },
+    {
+      "type": "languages",
+      "heading": "Languages",
+      "region": "sidebar"
+    },
+    {
+      "type": "education",
+      "heading": "Education",
+      "region": "main"
+    },
+    {
+      "type": "training",
+      "heading": "Courses",
+      "region": "main"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "present",
+      "value": "Mia Allen"
+    },
+    "headline": {
+      "status": "absent"
+    },
+    "email": {
+      "status": "present",
+      "sha256": "f3273dd18d95bc19d51d3e6356e4a679e6f13824497272a270e7bb540b0abb9d"
+    },
+    "phone": {
+      "status": "present",
+      "sha256": "39cce90f4c79d18c16c0b77543076d83ef491d9ba1e4ea5e5e5107f9456ff0f4"
+    },
+    "location": {
+      "status": "present",
+      "value": "Los Angeles"
+    },
+    "street_address": {
+      "status": "present",
+      "sha256": "83cd781e0d2b8810694f0e18795971530c3b30bf03adf697a4696227fc843b97"
+    },
+    "links": {
+      "status": "present",
+      "count": 1,
+      "sha256": [
+        "99aaa0779be7bab6595387ab583f4f0b711958dbd3952a5197d39402a230ff06"
+      ]
+    },
+    "personal_details": {
+      "status": "present",
+      "items": [
+        "driving_license",
+        "nationality"
+      ]
+    },
+    "summary": {
+      "status": "present",
+      "section_type": "profile",
+      "value": "Enthusiastic, competent, and energetic Au Pair with a level head and proven record of providing exemplary childcare assistance to families. Well-groomed and eloquent with a diplomatic demeanor. Specialized competencies include tutoring mathematics and science subjects for Elementary School children. A registered play therapist with a Bachelor’s Degree in Early Childhood Development. Fluent in English, French, and German. Transported children daily with a 100% clean driving record."
+    },
+    "work_experience": {
+      "status": "present",
+      "entries": [
+        {
+          "job_title": "Live In Au Pair",
+          "company": "Smith Family",
+          "department": null,
+          "location": "Kansas City",
+          "start_date": "2022-03",
+          "end_date": "2025-12",
+          "is_current": false,
+          "dates_as_written": "Mar 2022 - Dec 2025",
+          "employment_type": null
+        },
+        {
+          "job_title": "Teacher Au Pair",
+          "company": "Bernard Family",
+          "department": null,
+          "location": "Miami",
+          "start_date": "2020-05",
+          "end_date": "2022-02",
+          "is_current": false,
+          "dates_as_written": "May 2020 - Feb 2022",
+          "employment_type": null
+        }
+      ]
+    },
+    "education": {
+      "status": "present",
+      "entries": [
+        {
+          "highest_educational_attainment": "Associate Degree",
+          "degree_program": "Associates Degree in Education",
+          "school_university": "University of Ohio",
+          "year_graduated": "2013",
+          "location": "Springfield",
+          "start_date": "2012-01",
+          "end_date": "2013-07",
+          "dates_as_written": "Jan 2012 - Jul 2013",
+          "honors": null,
+          "in_progress": false
+        }
+      ]
+    },
+    "skills_stated": {
+      "status": "absent"
+    },
+    "certifications": {
+      "status": "present",
+      "entries": [
+        {
+          "title": "Professional Au Pair Certification",
+          "issuer": null,
+          "year": "2019",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "Nov 2019"
+        },
+        {
+          "title": "Certified Advanced Infant Caretaker",
+          "issuer": null,
+          "year": "2018",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "Jun 2018"
+        },
+        {
+          "title": "Child Development Associate (CDA)",
+          "issuer": null,
+          "year": "2013",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "Jun 2013"
+        },
+        {
+          "title": "CPR certification",
+          "issuer": null,
+          "year": "2018",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "Mar 2018"
+        }
+      ]
+    },
+    "training": {
+      "status": "present",
+      "entries": [
+        {
+          "title": "Basic Au Pair Skills Programme",
+          "provider": null,
+          "date": "2016-07",
+          "section": "Courses",
+          "dates_as_written": "Jul 2016"
+        },
+        {
+          "title": "Intermediate Driving Course",
+          "provider": null,
+          "date": "2019-11",
+          "section": "Courses",
+          "dates_as_written": "Nov 2019"
+        }
+      ]
+    },
+    "projects": {
+      "status": "absent"
+    },
+    "achievements": {
+      "status": "absent"
+    },
+    "languages": {
+      "status": "present",
+      "values": [
+        "English",
+        "French",
+        "German"
+      ]
+    },
+    "interests": {
+      "status": "absent"
+    },
+    "references": {
+      "status": "absent"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [
+      "SK059",
+      "SK399",
+      "SK061",
+      "SK085",
+      "SK031"
+    ],
+    "acceptable_skill_ids": [
+      "SK407",
+      "SK096",
+      "SK580",
+      "SK389",
+      "SK392",
+      "SK362"
+    ],
+    "notes": "Childcare, tutoring, CPR, meal preparation and English are named. Play therapy, driving and teaching basic languages are implied."
+  },
+  "notes": [
+    "No skills section; skills_stated is absent and expected skills come from the profile and duties.",
+    "The profile claims a Bachelor's degree in Early Childhood Development that the Education section does not list; only the listed degree is annotated."
+  ]
+}
