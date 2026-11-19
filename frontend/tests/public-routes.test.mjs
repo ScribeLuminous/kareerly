@@ -44,3 +44,38 @@ test('the app gives each signed-out screen its URL and follows Back and Forward'
   // Recovery no longer sends the visitor to "/" while showing the recovery form.
   assert.doesNotMatch(app, /setView\('password-recovery'\);\s*navigate\('\/'/);
 });
+
+test('a login URL returns only to the app\'s own workspace pages', () => {
+  const isCandidatePage = (path) => ['/candidate/dashboard', '/candidate/matches'].includes(path);
+  assert.equal(routes.loginPathFor('candidate', '/candidate/matches'), '/candidate/login?next=%2Fcandidate%2Fmatches');
+  assert.equal(routes.loginPathFor('employer', '/employer/jobs'), '/employer/login?next=%2Femployer%2Fjobs');
+  assert.equal(routes.safeNextPath('?next=%2Fcandidate%2Fmatches', isCandidatePage), '/candidate/matches');
+  assert.equal(routes.safeNextPath('?next=/candidate/matches?tab=x', isCandidatePage), '/candidate/matches');
+  for (const next of ['https://evil.example/candidate/matches', '//evil.example/candidate/matches', '/\\evil.example', '/admin/dashboard', '', 'candidate/matches']) {
+    assert.equal(routes.safeNextPath(`?next=${encodeURIComponent(next)}`, isCandidatePage), null, next);
+  }
+});
+
+test('each screen has its own browser-tab title', async () => {
+  const { outputText } = ts.transpileModule(read('../src/lib/pageTitles.ts'), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+  });
+  const { pageTitle } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+  assert.equal(pageTitle('landing', '/'), 'Kareerly - Find the job that fits you');
+  assert.equal(pageTitle('candidate-login', '/candidate/login'), 'Log in - Kareerly');
+  assert.equal(pageTitle('dashboard', '/candidate/skills/learning'), 'Learning - Kareerly');
+  assert.equal(pageTitle('dashboard', '/candidate/skills'), 'Skills - Kareerly');
+  assert.equal(pageTitle('employer-dashboard', '/employer/jobs/EMP-1/edit'), 'Jobs - Kareerly');
+  assert.equal(pageTitle('employer-dashboard', '/employer/jobs/assessments'), 'Assessment templates - Kareerly');
+  const titles = ['/', '/candidate/login', '/employer/login', '/signup', '/forgot-password'].map((path, i) =>
+    pageTitle(['landing', 'candidate-login', 'employer-login', 'signup-default', 'password-recovery'][i], path));
+  assert.equal(new Set(titles).size, titles.length);
+});
+
+test('signed-out workspace links go to the right login and come back after it', () => {
+  const app = read('../src/App.tsx');
+  assert.match(app, /navigate\(loginPathFor\(account, location\.pathname\), \{ replace: true \}\)/);
+  assert.match(app, /safeNextPath\(window\.location\.search, isCandidateWorkspacePath\) \|\| '\/candidate\/dashboard'/);
+  assert.match(app, /safeNextPath\(window\.location\.search, isEmployerWorkspacePath\) \|\| '\/employer\/dashboard'/);
+  assert.match(app, /document\.title = pageTitle\(view, location\.pathname\)/);
+});

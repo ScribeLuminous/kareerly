@@ -89,7 +89,9 @@ before files were kept), it asks the candidate to upload the resume again.
 
 The only active FastAPI entry point is `backend/app/main.py`.
 
-After the backend starts, open Swagger at:
+After the backend starts, open Swagger at (the API docs are on only when
+`KAREERLY_API_DOCS=1`; `bash backend/dev_server.sh start` sets it, and the
+deployed service leaves it off):
 
 ```text
 http://127.0.0.1:8000/docs

@@ -12,6 +12,7 @@ import { analyzeResume, CONFIRMED_SKILL_LIMIT, fetchAvailableJobs, fetchResumeSu
 import { feedbackErrorMessage, feedbackMapFromRows, matchFeedbackKey, nextMatchVote, type MatchFeedbackStatus, type MatchVote } from '../lib/matchFeedback';
 import { getCareerAreaLabel, normalizeCareerAreaValue } from '../lib/careerAreas';
 import { supabase } from '../lib/supabase';
+import { isStrongPassword, STRONG_PASSWORD_MESSAGE } from '../lib/passwordRules';
 import { applicationErrorMessage } from '../lib/applicationErrors';
 import { applyProgressChanges, clearLegacyProgress, diffProgressPart, hasLegacyProgress, hasProgressChanges, loadCandidateProgress, mergeLoadedProgress, PROGRESS_PARTS, readLegacyProgress, saveProgressChanges, type CandidateProgress, type ProgressHelpers } from '../lib/candidateProgress';
 import { updateCandidateProfile } from '../lib/auth';
@@ -630,7 +631,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
       showToast(accountPassword.next !== accountPassword.confirm ? 'New passwords do not match.' : 'Complete all password fields.', 'warn');
       return;
     }
-    if (accountPassword.next.length < 8) { showToast('New password must be at least 8 characters.', 'warn'); return; }
+    if (!isStrongPassword(accountPassword.next)) { showToast(STRONG_PASSWORD_MESSAGE, 'warn'); return; }
     setIsUpdatingPassword(true);
     try {
       const { error: verifyError } = await supabase.auth.signInWithPassword({ email: displayEmail, password: accountPassword.current });
@@ -1774,8 +1775,7 @@ function CandidateWorkspace({ currentUser, onHome, onUpdateResume, onLogout }: P
     setLoading(true);
     setError(null);
     try {
-      const prefs = state.surveyAnswers || defaultSurveyAnswers;
-      const data = withExtractedEducation(await analyzeResume(resumeFileToAnalyze, prefs));
+      const data = withExtractedEducation(await analyzeResume(resumeFileToAnalyze));
       setResumeAnalyzeData(data);
       const extracted = extractSkillsFromResume(data.parsedResume);
       const baseline = extracted.length > 0 ? extracted : skillNames;

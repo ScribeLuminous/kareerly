@@ -4,6 +4,7 @@ import { CityField, RegionProvinceFields } from '../../components/ProvinceSelect
 import { CONTACT_NUMBER_DIGITS, contactNumberInput } from '../../lib/contactNumber';
 import { canonicalCity } from '../../lib/phCities';
 import { EMPLOYER_COMPANY_SIZES, EMPLOYER_INDUSTRIES } from './model';
+import { STRONG_PASSWORD_MESSAGE } from '../../lib/passwordRules';
 
 export type EmployerAccountForm = {
   company: string;
@@ -142,7 +143,7 @@ export function EmployerAccountPage({ profile, password, isSaving, onProfileChan
               <FormField label="Current password" className="k-span-2">
                 <input className="k-input" type="password" autoComplete="current-password" value={password.current} onChange={(event) => onPasswordChange({ ...password, current: event.target.value })} />
               </FormField>
-              <FormField label="New password" help="At least 8 characters.">
+              <FormField label="New password" help={STRONG_PASSWORD_MESSAGE}>
                 <input className="k-input" type="password" autoComplete="new-password" value={password.next} onChange={(event) => onPasswordChange({ ...password, next: event.target.value })} />
               </FormField>
               <FormField label="Confirm new password">

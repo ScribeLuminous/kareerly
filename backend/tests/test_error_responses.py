@@ -1,5 +1,6 @@
 """Clients get readable errors, never library or database internals (audit ERR-01, SEC-09)."""
 import io
+import os
 import unittest
 import urllib.error
 from pathlib import Path
@@ -91,3 +92,20 @@ class CompressionTests(unittest.TestCase):
     def test_small_responses_are_sent_as_they_are(self):
         response = TestClient(main.app).get("/api/health", headers={"Accept-Encoding": "gzip"})
         self.assertNotIn("content-encoding", response.headers)
+
+
+class ApiDocsTests(unittest.TestCase):
+    """The API docs are opt-in (audit SEC-12)."""
+
+    def test_docs_are_off_by_default(self):
+        # The flag is read when the app is imported; this suite runs without it.
+        if os.getenv("KAREERLY_API_DOCS"):
+            self.skipTest("KAREERLY_API_DOCS is set in this environment")
+        client = TestClient(main.app)
+        for path in ("/docs", "/redoc", "/openapi.json"):
+            self.assertEqual(client.get(path).status_code, 404, path)
+
+    def test_health_config_does_not_reveal_server_paths(self):
+        body = TestClient(main.app).get("/api/health/config").json()
+        self.assertNotIn("path", body["model"])
+        self.assertNotIn("/app/", str(body))

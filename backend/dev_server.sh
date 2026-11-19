@@ -67,7 +67,7 @@ start_server() {
   fi
 
   cd "$ROOT_DIR"
-  nohup "$VENV_PYTHON" -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port "${BACKEND_PORT}" >"$LOG_FILE" 2>&1 &
+  KAREERLY_API_DOCS="${KAREERLY_API_DOCS:-1}" nohup "$VENV_PYTHON" -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port "${BACKEND_PORT}" >"$LOG_FILE" 2>&1 &
   pid=$!
   echo "$pid" >"$PID_FILE"
   sleep 1

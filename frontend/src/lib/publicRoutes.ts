@@ -51,3 +51,20 @@ export function recoveryAccountFromSearch(search: string): AccountKind {
   const account = new URLSearchParams(search).get('account');
   return account === 'employer' || account === 'admin' ? account : 'candidate';
 }
+
+/** The login URL that brings the visitor back to `next` after signing in. */
+export function loginPathFor(account: 'candidate' | 'employer', next: string): string {
+  return `${PUBLIC_VIEW_PATHS[account === 'employer' ? 'employer-login' : 'candidate-login']}?next=${encodeURIComponent(next)}`;
+}
+
+/**
+ * The page a login URL asked to return to, if it is one of the app's own
+ * workspace pages (`isAllowed`); null otherwise, so the parameter can never
+ * send someone to another site.
+ */
+export function safeNextPath(search: string, isAllowed: (path: string) => boolean): string | null {
+  const next = new URLSearchParams(search).get('next') || '';
+  if (!next.startsWith('/') || next.startsWith('//') || next.includes('\\')) return null;
+  const path = next.split(/[?#]/)[0];
+  return isAllowed(path) ? path : null;
+}

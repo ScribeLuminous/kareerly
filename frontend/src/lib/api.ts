@@ -272,7 +272,7 @@ async function fetchWithTimeout(
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(timeoutMessage);
+      throw new Error(timeoutMessage, { cause: error });
     }
     throw error;
   } finally {
@@ -551,7 +551,7 @@ export async function fetchAdminOverview(accessToken: string): Promise<AdminOver
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the FastAPI backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach the FastAPI backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -674,7 +674,7 @@ export async function fetchLiveResumeParserVersion(): Promise<string | null | un
   }
 }
 
-export async function analyzeResume(resumeFile: File, _legacySurveyAnswers?: Partial<SurveyAnswers>): Promise<ResumeAnalysisResult> {
+export async function analyzeResume(resumeFile: File): Promise<ResumeAnalysisResult> {
   const formData = new FormData();
   formData.append('resume', resumeFile);
 
@@ -1216,7 +1216,7 @@ export async function searchSkills(query: string, limit = 20): Promise<{ results
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach skill search backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach skill search backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -1276,7 +1276,7 @@ export async function fetchAvailableJobs(limit = 5000): Promise<{ results: Avail
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach jobs listing backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach jobs listing backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -1301,7 +1301,7 @@ export async function fetchJobDetails(jobId: string, jobSource: 'internal' | 'em
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach jobs detail backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach jobs detail backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -1329,7 +1329,7 @@ export async function validateCertificateFile(certificateFile: File): Promise<{ 
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach certificate validation backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach certificate validation backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
