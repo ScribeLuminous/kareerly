@@ -127,7 +127,7 @@ export default function UploadZone() {
         const readingProblems = extractionWarnings(analysis);
         throw new Error(readingProblems.length > 0
           ? readingProblems.join(' ')
-          : 'No skills were extracted from your resume. Please upload a clearer PDF, DOCX or DOC file.');
+          : 'No skills were extracted from your resume. Please upload a clearer PDF, DOCX, DOC, JPG or PNG file.');
       }
 
       const user = await getCurrentKareerlyUser().catch(() => null);
@@ -192,7 +192,7 @@ export default function UploadZone() {
             >
               Choose file
             </button>
-            <p className="text-xs text-soft-text">PDF, DOCX or DOC · up to 5 MB</p>
+            <p className="text-xs text-soft-text">PDF, DOCX, DOC, JPG or PNG · up to 5 MB</p>
 
             <input
               ref={fileInputRef}

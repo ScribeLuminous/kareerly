@@ -103,7 +103,7 @@ export function ResumeUpdateModal({
             <input type="file" accept={RESUME_FILE_ACCEPT} className="sr-only" onChange={(event) => onPickFile(event.target.files?.[0] ?? null)} />
             <FontAwesomeIcon icon={faUpload} className="h-6 w-6 text-rust" aria-hidden="true" />
             <span className="k-label">Choose a file or drop it here</span>
-            <span className="k-meta">PDF, DOCX or DOC · up to 5 MB · text-based files read best</span>
+            <span className="k-meta">PDF, DOCX, DOC, JPG or PNG · up to 5 MB · text-based files read best</span>
           </label>
           {file && (
             <div className="mt-3 flex items-center gap-3 rounded-[10px] bg-green-l px-3 py-2 text-green">

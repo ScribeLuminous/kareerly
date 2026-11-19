@@ -76,6 +76,11 @@ def _has_fragmented_spacing(text: str) -> bool:
 
     return re.search(r"(?:\b[A-Za-z0-9]\b\s*){5,}", text) is not None
 
+
+# One letter-spaced stretch: five or more single letters in a row, allowing the
+# two-letter pairs that kerning leaves ("E M P L OY M E N T").
+_FRAGMENTED_RUN = re.compile(r"(?:\b[A-Za-z0-9]{1,2}\b[ \t]*){4,}\b[A-Za-z0-9]\b(?:[ \t]*\b[A-Za-z0-9]{1,2}\b)*")
+
 EVIDENCE_WINDOW_CHARS = 60
 
 
@@ -403,23 +408,30 @@ class SkillExtractor:
         if not has_fragmented_spacing:
             return matches
 
-        compact_text = _compact_alias(text)
-
-        if not compact_text:
-            return matches
-
+        # Only the letter-spaced stretches are joined up. Joining the whole
+        # document would find skill names inside ordinary words once one
+        # letter-spaced heading is present ("excel" in "Excelled", "git" in
+        # "digital").
         if self._compact_alias_pattern:
-            for match in self._compact_alias_pattern.finditer(compact_text):
-                compact_alias = match.group(1).lower()
-                for alias in self._compact_alias_map.get(compact_alias, []):
-                    for row_index in self.alias_map.get(alias, []):
-                        key = (row_index, alias, compact_alias)
+            for run in _FRAGMENTED_RUN.finditer(text):
+                tokens = run.group(0).split()
+                singles = sum(1 for token in tokens if len(token) == 1)
+                if singles < 4 or singles < 0.6 * len(tokens):
+                    continue  # ordinary short words ("I am a BS in IT"), not letter-spacing
+                compact_text = _compact_alias(run.group(0))
+                if not compact_text:
+                    continue
+                for match in self._compact_alias_pattern.finditer(compact_text):
+                    compact_alias = match.group(1).lower()
+                    for alias in self._compact_alias_map.get(compact_alias, []):
+                        for row_index in self.alias_map.get(alias, []):
+                            key = (row_index, alias, compact_alias)
 
-                        if key in seen:
-                            continue
+                            if key in seen:
+                                continue
 
-                        seen.add(key)
-                        matches.append((row_index, alias, alias, match.start()))
+                            seen.add(key)
+                            matches.append((row_index, alias, alias, run.start()))
 
         return matches
 
