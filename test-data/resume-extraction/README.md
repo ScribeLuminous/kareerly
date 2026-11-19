@@ -17,7 +17,10 @@ accuracy.
   The files are third-party templates and examples whose redistribution terms
   were not verified, so they are never committed. Keep a copy outside the
   repository; `sha256` in the manifest checks a restored copy.
-- `ground_truth/`: expected output per sample (added in the annotation phase)
+- `ground_truth/`: expected output per sample; format and rules in
+  `ANNOTATION_GUIDE.md`
+- `scripts/validate_ground_truth.py`: checks the annotations, and against the
+  documents themselves when `private/` holds the sample files
 - `reports/`: inventory and evaluation results, by sample ID only
 
 The 180 synthetic resumes in `../synthetic-resumes-180/` are reused by
@@ -56,7 +59,7 @@ Dates and exact titles still need checking against the live pages; see
 `image`, `mixed`), `page_count`, `ocr_required`, `layout_category`, `columns`,
 `has_tables`, `has_text_boxes`, `has_photo`, `has_icons_graphics`, `language`,
 `accepted_by_kareerly` (whether the upload checks accept the file today),
-`ground_truth` (`none`, `partial`, `full`), `split`, `consent_or_license`,
+`ground_truth` (`none`, `layout_only`, `full`), `split`, `consent_or_license`,
 `contains_real_pii` (`n`, `possible`, `y`), `previously_failed_in_kareerly`,
 `evaluation_status`, `notes`.
 
