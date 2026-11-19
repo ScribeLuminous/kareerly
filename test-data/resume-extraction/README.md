@@ -21,6 +21,9 @@ accuracy.
   `ANNOTATION_GUIDE.md`
 - `scripts/validate_ground_truth.py`: checks the annotations, and against the
   documents themselves when `private/` holds the sample files
+- `scripts/run_extraction_eval.py`: scores the current extractor against the
+  ground truth (`reports/baseline_report.md`, `baseline_tables.md`,
+  `baseline_results.json`)
 - `reports/`: inventory and evaluation results, by sample ID only
 
 The 180 synthetic resumes in `../synthetic-resumes-180/` are reused by
