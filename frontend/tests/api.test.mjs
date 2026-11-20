@@ -163,3 +163,8 @@ test('both matching routes keep closest matches, the catalogue status and the no
   }
  } finally { globalThis.fetch = original; }
 });
+test('a requested login email is reported as waiting for confirmation', () => {
+ assert.equal(api.pendingEmailNotice({ pending_email: 'new@example.com' }), 'We sent a confirmation link to new@example.com. Your login email changes once you open it.');
+ assert.equal(api.pendingEmailNotice({ pending_email: null }), '');
+ assert.equal(api.pendingEmailNotice({}), '');
+});

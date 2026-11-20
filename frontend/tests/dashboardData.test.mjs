@@ -206,6 +206,20 @@ test('employer applications keep the apply-time ranking score apart from profile
   assert.equal(active.lastActivity, '2026-09-05T00:00:00Z');
 });
 
+test('employer applicants take name and location only from the revealed identity', () => {
+  // Rows from before the privacy migration may still carry copies; they are ignored.
+  const row = { id: 'app-1', user_id: 'abcdef12-0000', job_id: 'role-1', status: 'pending', candidate_name: 'Old Copy', candidate_location: 'Somewhere' };
+  const masked = employerPage.toCandidateApplication(row, []);
+  assert.equal(masked.fullName, 'Candidate abcdef12');
+  assert.equal(masked.location, 'Location not provided');
+  const revealed = employerPage.toCandidateApplication({ ...row, status: 'interviewing' }, [], [], 'KR-001',
+    { full_name: 'Cara One', email: 'cara@example.com', location: 'Iloilo City, Iloilo' });
+  assert.equal(revealed.fullName, 'Cara One');
+  assert.equal(revealed.location, 'Iloilo City, Iloilo');
+  const emailOnly = employerPage.toCandidateApplication(row, [], [], '', { full_name: null, email: 'cara@example.com' });
+  assert.equal(emailOnly.fullName, 'cara@example.com');
+});
+
 // The employer sees one match figure: the candidate's own fit score at
 // application, the same number the candidate saw. The skills found and not
 // found come from the evidence saved with the application and are listed by
@@ -252,10 +266,10 @@ test('the employer sees the same 89% and the same matched skills the candidate s
   assert.notEqual(match.percent, 0);
 });
 
-test('an application saves the candidate-side fit score and matched and missing skills verbatim', () => {
+test('an application sends only the job; the backend scores it (audit APP-01)', () => {
   const dashboardSource = readCandidateSource();
-  assert.match(dashboardSource, /match_score: job\.hasMatchScore \? Math\.round\(job\.matchScore\) : null,/);
-  assert.match(dashboardSource, /matched_skills: job\.matchedSkills,\s*missing_skills: job\.missingSkills,/);
+  assert.match(dashboardSource, /submitJobApplication\(\{ jobId: job\.id, jobSource: job\.jobSource \}\)/);
+  assert.doesNotMatch(dashboardSource, /match_score: job\.hasMatchScore/);
 });
 
 test('starter assessment drafts read naturally and vary per question', () => {

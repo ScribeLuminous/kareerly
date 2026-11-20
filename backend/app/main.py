@@ -21,7 +21,8 @@ from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from docx import Document
@@ -32,13 +33,13 @@ from pydantic import BaseModel, ValidationError
 from .models.schemas import ExternalJobAnalysisRequest, ExternalJobSaveRequest, ResumeSummaryRequest, RunMatchesRequest, SkillGapsRequest
 from .services.admin_stats import summarize_match_feedback
 from .services.job_list import list_available_jobs
-from .services.supabase_jobs import catalogue_counts, split_job_sections
+from .services.supabase_jobs import canonical_employment_type, canonical_job_level, canonical_work_setup, catalogue_counts, split_job_sections
 from .services.bi_encoder_service import MODEL_ID, get_bi_encoder
 from .services.bi_encoder_service import model_path as bi_encoder_model_path
 from .services.external_job_analysis import analyze_external_job
 from .services.skill_variants import load_skill_variants
 from .services.ph_regions import region_name, region_options, resolve_single_region, regions_in_location
-from .services.matching_service import MatchingModelUnavailable, career_area_skills, current_skill_extractor, expire_stale_reference_jobs, job_level_thresholds, learning_by_skill_for, refresh_jobs_cache_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
+from .services.matching_service import MatchingModelUnavailable, analyze_candidate_job_match, career_area_skills, find_catalogue_job, current_skill_extractor, expire_stale_reference_jobs, job_level_thresholds, learning_by_skill_for, refresh_jobs_cache_for, skill_id_equivalents, prioritize_skill_gaps, run_matching, warm_matching_caches
 from .services import skill_gap_config
 from .services.resume_summary import build_resume_summary
 from .services.education import normalize_education_level
@@ -66,19 +67,28 @@ from .learning.feedback import (
     find_match_context,
 )
 from .learning.jobs import run_all as run_learning_jobs
-from .learning.ranking_model import clear_ranker_cache
+from .learning.ranking_model import cached_ranker_status, clear_ranker_cache
 from .learning.supabase_client import SupabaseError, SupabaseRest
+from .rate_limit import RateLimitMiddleware
 
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BACKEND_DIR / ".env")
 
 
-app = FastAPI(title="Kareerly ML Backend")
+# The interactive API docs list every endpoint and schema, so they are off
+# unless KAREERLY_API_DOCS=1 (backend/dev_server.sh sets it for local work).
+API_DOCS_ENABLED = os.getenv("KAREERLY_API_DOCS", "0").strip().lower() in {"1", "true", "yes"}
+app = FastAPI(
+    title="Kareerly ML Backend",
+    docs_url="/docs" if API_DOCS_ENABLED else None,
+    redoc_url="/redoc" if API_DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if API_DOCS_ENABLED else None,
+)
 
 # Reported by /api/health/config and /api/health/jobs, so a site admin can see
 # which backend code is deployed. Change it when the backend changes.
-BACKEND_VERSION = "2026.10.29-employer-posts-read"
+BACKEND_VERSION = "2026.11.19-p4-cleanup"
 logger = logging.getLogger(__name__)
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 
@@ -92,6 +102,13 @@ allowed_origins = [
     for origin in frontend_urls.split(",")
     if origin.strip()
 ]
+
+# Innermost, so CORS and compression apply to its 429 answers too (rate_limit.py).
+app.add_middleware(RateLimitMiddleware)
+
+# Match reports (~1.4 MB) and the job list (~2 MB) are JSON that compresses to
+# under a tenth of its size; browsers send Accept-Encoding: gzip on their own.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 
 app.add_middleware(
     CORSMiddleware,
@@ -125,6 +142,10 @@ class MessageModerationRequest(BaseModel):
 
 
 MESSAGE_REPORT_REASONS = {"spam", "harassment", "scam", "inappropriate", "impersonation", "other"}
+
+# "request" opens a conversation (employer only); "message" needs the
+# candidate's acceptance. Nothing else is accepted.
+MESSAGE_KINDS = {"message", "request"}
 
 UNREADABLE_MESSAGE_TEXT = "This message could not be shown. Please contact Kareerly support if this keeps happening."
 
@@ -173,6 +194,11 @@ class CandidateAccountSettingsRequest(BaseModel):
     year_graduated: Optional[str] = None
 
 
+class JobApplicationRequest(BaseModel):
+    job_id: str
+    job_source: str = "employer"
+
+
 class MatchFeedbackRequest(BaseModel):
     job_id: str
     job_source: str = "internal"
@@ -218,6 +244,8 @@ class AdminJobUpdateRequest(BaseModel):
     company_name: Optional[str] = None
     posting_status: Optional[str] = None
     psoc_unit_code: Optional[str] = None
+    # True hides the post from the public job list and matching (migration 20261117100000).
+    is_test_posting: Optional[bool] = None
 
 
 class AdminApplicationUpdateRequest(BaseModel):
@@ -374,6 +402,16 @@ def _message_block_state(application_id: str, user_id: str) -> dict:
     }
 
 
+def _application_message_request_state(application_id: str) -> str | None:
+    """The application's message request state ('none', 'pending', 'accepted',
+    'declined' or 'ignored'); None when the application does not exist."""
+    query = urllib.parse.urlencode({"id": f"eq.{application_id}", "select": "message_request_state", "limit": "1"})
+    rows = _supabase_request(f"/rest/v1/job_applications?{query}", service_role=True)
+    if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
+        return None
+    return str(rows[0].get("message_request_state") or "none")
+
+
 def _get_message_thread_participant(application_id: str, user_id: str) -> dict:
     """Like _get_authorized_message_thread, but also allows closed threads so a
     participant can still report or unblock after a thread stops being active."""
@@ -450,26 +488,32 @@ def create_application_message(payload: MessageCreateRequest, authorization: Ann
     user_id = _get_authenticated_user_id(authorization)
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication is required.")
+    kind = (payload.message_kind or "message").strip().lower()
+    if kind not in MESSAGE_KINDS:
+        raise HTTPException(status_code=400, detail="Message kind must be 'message' or 'request'.")
     text = payload.message_text.strip()
     if not text or len(text) > 4000:
         raise HTTPException(status_code=400, detail="Message must contain between 1 and 4000 characters.")
+    # Consent is checked for every message: one request while none is open,
+    # then nothing more until the candidate accepts it.
+    request_state = _application_message_request_state(payload.application_id)
+    if request_state is None:
+        raise HTTPException(status_code=404, detail="Application was not found.")
+    if kind == "request" and request_state != "none":
+        raise HTTPException(status_code=409, detail="A message request was already sent for this application.")
     try:
         thread = _get_authorized_message_thread(payload.application_id, user_id)
     except HTTPException as exc:
-        if payload.message_kind != "request" or exc.status_code != 404:
+        if kind != "request" or exc.status_code != 404:
             raise
         thread = _create_employer_message_thread(payload.application_id, user_id)
     sender_role = str(thread["participant_role"])
     if _message_block_state(payload.application_id, user_id)["blocked"]:
         raise HTTPException(status_code=403, detail="Messaging is blocked for this conversation.")
-    if payload.message_kind == "request" and sender_role != "employer":
+    if kind == "request" and sender_role != "employer":
         raise HTTPException(status_code=403, detail="Only the employer can initiate a message request.")
-    if payload.message_kind == "message":
-        state_query = urllib.parse.urlencode({"id": f"eq.{payload.application_id}", "select": "message_request_state", "limit": "1"})
-        state_rows = _supabase_request(f"/rest/v1/job_applications?{state_query}", service_role=True)
-        request_state = state_rows[0].get("message_request_state") if isinstance(state_rows, list) and state_rows else None
-        if request_state != "accepted":
-            raise HTTPException(status_code=403, detail="The candidate must accept the message request before replies can be sent.")
+    if kind == "message" and request_state != "accepted":
+        raise HTTPException(status_code=403, detail="The candidate must accept the message request before replies can be sent.")
     cipher = _message_cipher()
     nonce = os.urandom(12)
     ciphertext = cipher.encrypt(nonce, text.encode("utf-8"), str(thread["id"]).encode("utf-8"))
@@ -482,6 +526,15 @@ def create_application_message(payload: MessageCreateRequest, authorization: Ann
     }
     saved = _supabase_request("/rest/v1/application_messages", method="POST", service_role=True, body=body, prefer="return=representation")
     row = saved[0] if isinstance(saved, list) and saved else body
+    if kind == "request":
+        # Recorded here, not by the employer's browser: clients cannot write
+        # an application's request state (see migration 20261117090000).
+        state_filter = urllib.parse.urlencode({"id": f"eq.{payload.application_id}", "message_request_state": "eq.none"})
+        _supabase_request(
+            f"/rest/v1/job_applications?{state_filter}", method="PATCH", service_role=True,
+            body={"message_request_state": "pending", "updated_at": _safe_timestamp()},
+        )
+        return {**row, "message_text": text, "message_request_state": "pending"}
     return {**row, "message_text": text}
 
 
@@ -632,6 +685,50 @@ def _redact_constraint_values(detail: str) -> str:
     return _CONSTRAINT_VALUE_PATTERN.sub(r"\1[redacted]\2", detail)
 
 
+class SupabaseRequestError(HTTPException):
+    """A Supabase error response. ``detail`` keeps Supabase's (redacted) body
+    for the code that inspects it (for example PGRST202 or a named limit);
+    when one reaches the client, only supabase_error_message() is sent."""
+
+
+# SQLSTATEs Kareerly's own database functions raise with a message written for
+# the user ("This application is closed and cannot change stage.").
+_USER_FACING_SQLSTATES = {"22023", "P0001", "P0002", "28000", "42501"}
+_GENERIC_SUPABASE_MESSAGES = {
+    400: "The request could not be completed. Check the details and try again.",
+    401: "Your session has expired. Please log in again.",
+    403: "You do not have access to this.",
+    404: "This was not found. It may have been removed.",
+    409: "This conflicts with a change made meanwhile. Reload and try again.",
+    429: "Too many requests. Please wait a moment and try again.",
+}
+
+
+def supabase_error_message(status_code: int, detail: object) -> str:
+    """What a client sees for a Supabase error: the message of an error one of
+    Kareerly's functions raised on purpose, otherwise a plain message for the
+    status. Table, column, constraint and policy names never leave the API."""
+    try:
+        body = json.loads(detail) if isinstance(detail, str) else detail
+    except ValueError:
+        body = None
+    if isinstance(body, dict):
+        code = str(body.get("code") or "")
+        message = str(body.get("message") or "").strip()
+        internal = message.lower().startswith(("permission denied for", "new row violates", "duplicate key", "relation "))
+        if code in _USER_FACING_SQLSTATES and message and not internal and len(message) <= 300:
+            return message
+    if status_code >= 500:
+        return "The service is temporarily unavailable. Please try again."
+    return _GENERIC_SUPABASE_MESSAGES.get(status_code, _GENERIC_SUPABASE_MESSAGES[400])
+
+
+@app.exception_handler(SupabaseRequestError)
+async def _supabase_error_response(request, exc: SupabaseRequestError):
+    logger.warning("Supabase request failed (%s) for %s: %s", exc.status_code, request.url.path, str(exc.detail)[:500])
+    return JSONResponse(status_code=exc.status_code, content={"detail": supabase_error_message(exc.status_code, exc.detail)})
+
+
 def _supabase_request(
     path: str,
     *,
@@ -673,9 +770,10 @@ def _supabase_request(
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = _redact_constraint_values(exc.read().decode("utf-8", errors="ignore")) or exc.reason
-        raise HTTPException(status_code=exc.code, detail=detail) from exc
+        raise SupabaseRequestError(status_code=exc.code, detail=detail) from exc
     except urllib.error.URLError as exc:
-        raise HTTPException(status_code=503, detail=f"Unable to reach Supabase: {exc.reason}") from exc
+        logger.warning("Unable to reach Supabase: %s", exc.reason)
+        raise HTTPException(status_code=503, detail="Account services are temporarily unavailable. Please try again shortly.") from exc
 
     return json.loads(raw) if raw else None
 
@@ -728,6 +826,52 @@ def _safe_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+# The sign-up rule (frontend/src/lib/passwordRules.ts), for passwords an admin sets.
+STRONG_PASSWORD = re.compile(r"(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{14,}")
+STRONG_PASSWORD_MESSAGE = "Use at least 14 characters, with an uppercase letter, a number and a symbol."
+
+
+def _confirmed_auth_email(user_id: str, profile_email: object, auth_user: object) -> str:
+    """The account's confirmed login email. profiles.email follows Supabase
+    Auth: after the user confirms an email change, the next settings read
+    copies the new address into their profile."""
+    current = str(profile_email or "")
+    auth_email = str(auth_user.get("email") or "") if isinstance(auth_user, dict) else ""
+    if auth_email and auth_email.lower() != current.lower():
+        _supabase_request(
+            f"/rest/v1/profiles?id=eq.{urllib.parse.quote(user_id, safe='')}", method="PATCH", service_role=True,
+            body={"email": auth_email, "updated_at": _safe_timestamp()},
+        )
+        return auth_email
+    return current
+
+
+def _pending_email(auth_user: object) -> str | None:
+    """A requested login email still waiting for confirmation, if any."""
+    value = auth_user.get("new_email") if isinstance(auth_user, dict) else None
+    return str(value) if value else None
+
+
+def _request_email_change(authorization: str | None, new_email: str) -> None:
+    """Ask Supabase Auth to change the signed-in user's login email.
+
+    Sent with the user's own session, so Supabase emails a confirmation link
+    and the address changes only once it is confirmed. The service role is
+    never used here: an admin update would switch the login email at once,
+    without proving the user owns the new address.
+    """
+    token = (authorization or "").split(" ", 1)[1].strip() if authorization and " " in authorization else ""
+    try:
+        _supabase_request("/auth/v1/user", method="PUT", token=token, body={"email": new_email})
+    except HTTPException as exc:
+        if exc.status_code == 429:
+            raise HTTPException(status_code=429, detail="Too many email change requests. Please wait a few minutes and try again.") from exc
+        if exc.status_code in {400, 422}:
+            raise HTTPException(status_code=400, detail="That email address can't be used. Check it, or use a different address.") from exc
+        raise
+
+
 EMPLOYER_SETTINGS_COLUMNS = (
     "id,user_id,company_name,company_size,industry,business_email,company_location,"
     "company_website,company_description,contact_person_name,contact_role,contact_number,updated_at"
@@ -748,7 +892,9 @@ def _require_employer_profile(user_id: str) -> dict:
     optional_fields = ("company_location", "company_website", "company_description", "contact_person_name", "contact_role", "contact_number")
     return {
         **profile, **{field: profile.get(field) or metadata.get(field) for field in optional_fields},
-        "account_email": user.get("email"), "first_name": user.get("first_name"), "last_name": user.get("last_name"),
+        "account_email": _confirmed_auth_email(user_id, user.get("email"), auth_user),
+        "pending_email": _pending_email(auth_user),
+        "first_name": user.get("first_name"), "last_name": user.get("last_name"),
     }
 
 
@@ -771,26 +917,24 @@ def update_employer_account_settings(payload: EmployerAccountSettingsRequest, au
     body = {key: (value.strip() if isinstance(value, str) else value) for key, value in payload_values.items()}
     if "company_name" in body and not body["company_name"]:
         raise HTTPException(status_code=400, detail="Company name is required.")
-    if "business_email" in body and body["business_email"] and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", body["business_email"]):
+    if "business_email" in body and body["business_email"] and not EMAIL_PATTERN.fullmatch(body["business_email"]):
         raise HTTPException(status_code=400, detail="Enter a valid contact email address.")
-    account_email = str(account_fields.get("account_email") or "").strip()
-    if account_email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", account_email):
+    account_email = str(account_fields.get("account_email") or "").strip().lower()
+    if account_email and not EMAIL_PATTERN.fullmatch(account_email):
         raise HTTPException(status_code=400, detail="Enter a valid account email address.")
+    email_change = bool(account_email) and account_email != str(profile.get("account_email") or "").lower()
     profile_body = {key: str(value or "").strip() for key, value in account_fields.items() if key in {"first_name", "last_name"}}
-    if account_email:
-        profile_body["email"] = account_email
     metadata = {key: value for key, value in body.items() if key != "updated_at"}
     if profile_body:
         profile_body["updated_at"] = _safe_timestamp()
         _supabase_request(f"/rest/v1/profiles?id=eq.{urllib.parse.quote(user_id, safe='')}", method="PATCH", service_role=True, body=profile_body)
         metadata.update({"first_name": profile_body.get("first_name"), "last_name": profile_body.get("last_name"), "role": "employer"})
-        auth_body = {"user_metadata": metadata}
-        if account_email:
-            auth_body["email"] = account_email
-            auth_body["email_confirm"] = True
-        _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body=auth_body)
+        _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"user_metadata": metadata})
     elif metadata:
         _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"user_metadata": {**metadata, "role": "employer"}})
+    if email_change:
+        # The login email changes only after the confirmation link is opened.
+        _request_email_change(authorization, account_email)
     if not body:
         return _require_employer_profile(user_id)
     supported_body = {key: value for key, value in body.items() if key in {"company_name", "company_size", "industry", "business_email"}}
@@ -804,18 +948,24 @@ def update_employer_account_settings(payload: EmployerAccountSettingsRequest, au
 
 
 def _require_candidate_settings(user_id: str) -> dict:
-    user_query = urllib.parse.urlencode({"id": f"eq.{user_id}", "select": "first_name,last_name,email", "limit": "1"})
+    user_query = urllib.parse.urlencode({"id": f"eq.{user_id}", "select": "first_name,last_name,email,role", "limit": "1"})
     users = _supabase_request(f"/rest/v1/profiles?{user_query}", service_role=True)
     user = users[0] if isinstance(users, list) and users else None
     if not isinstance(user, dict):
         raise HTTPException(status_code=404, detail="Candidate profile was not found.")
+    # Saving these settings writes candidate account data, so only candidate
+    # accounts may use them (an employer's role and profile stay untouched).
+    if str(user.get("role") or "") != "candidate":
+        raise HTTPException(status_code=403, detail="These settings are for job seeker accounts.")
     candidate_query = urllib.parse.urlencode({"user_id": f"eq.{user_id}", "select": "public_id,location", "limit": "1"})
     candidates = _supabase_request(f"/rest/v1/candidate_profiles?{candidate_query}", service_role=True)
     candidate = candidates[0] if isinstance(candidates, list) and candidates else {}
     auth_user = _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", service_role=True)
     metadata = auth_user.get("user_metadata") if isinstance(auth_user, dict) and isinstance(auth_user.get("user_metadata"), dict) else {}
     return {
-        "full_name": f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip(), "email": user.get("email"),
+        "full_name": f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip(),
+        "email": _confirmed_auth_email(user_id, user.get("email"), auth_user),
+        "pending_email": _pending_email(auth_user),
         "public_id": candidate.get("public_id"), "birthday": metadata.get("birthday"), "location": candidate.get("location") or metadata.get("location"),
         "contact_number": metadata.get("contact_number"), "address": metadata.get("address"),
         # Older accounts may hold free text; it reads back as the matching list entry.
@@ -845,8 +995,9 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
     email = str(values.pop("email", current.get("email") or "")).strip().lower()
     if not full_name:
         raise HTTPException(status_code=400, detail="Full name is required.")
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+    if not EMAIL_PATTERN.fullmatch(email):
         raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    email_change = email != str(current.get("email") or "").lower()
     attainment_input = str(values.get("highest_educational_attainment") or "").strip()
     attainment = normalize_education_level(attainment_input)
     if attainment_input and not attainment:
@@ -854,7 +1005,7 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
     values["highest_educational_attainment"] = attainment
     name_parts = full_name.split(None, 1)
     first_name, last_name = name_parts[0], name_parts[1] if len(name_parts) > 1 else ""
-    profile_body = {"first_name": first_name, "last_name": last_name, "email": email, "updated_at": _safe_timestamp()}
+    profile_body = {"first_name": first_name, "last_name": last_name, "updated_at": _safe_timestamp()}
     _supabase_request(f"/rest/v1/profiles?id=eq.{urllib.parse.quote(user_id, safe='')}", method="PATCH", service_role=True, body=profile_body)
     metadata = {
         "first_name": first_name, "last_name": last_name, "role": "candidate", "birthday": values.get("birthday") or None,
@@ -862,10 +1013,13 @@ def update_candidate_account_settings(payload: CandidateAccountSettingsRequest, 
         "highest_educational_attainment": values.get("highest_educational_attainment") or "", "degree_program": values.get("degree_program") or "",
         "school_university": values.get("school_university") or "", "year_graduated": values.get("year_graduated") or "",
     }
-    _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"email": email, "email_confirm": True, "user_metadata": metadata})
+    _supabase_request(f"/auth/v1/admin/users/{urllib.parse.quote(user_id, safe='')}", method="PUT", service_role=True, body={"user_metadata": metadata})
     candidate_body = {"user_id": user_id, "location": values.get("location") or None, "updated_at": _safe_timestamp()}
     query = urllib.parse.urlencode({"on_conflict": "user_id"})
     _supabase_request(f"/rest/v1/candidate_profiles?{query}", method="POST", service_role=True, body=candidate_body, prefer="resolution=merge-duplicates")
+    if email_change:
+        # The login email changes only after the confirmation link is opened.
+        _request_email_change(authorization, email)
     return _require_candidate_settings(user_id)
 
 
@@ -1070,10 +1224,26 @@ def _admin_select(table: str, select: str = "*", limit: int = 25, order: str | N
     return data if isinstance(data, list) else []
 
 
+# PostgREST returns at most this many rows per request (the project's max-rows
+# setting), whatever limit is asked for. Reading more means paging.
+POSTGREST_PAGE_ROWS = 1000
+
+
+def _rest_rows_all(table: str, params: dict, max_rows: int = 100_000) -> list[dict]:
+    """Every matching row, read a page at a time, so totals are not cut at the
+    page size (audit DATA-02). Pages are ordered so none overlap or are skipped."""
+    rows: list[dict] = []
+    query = {**params, "order": params.get("order") or "id.asc"}
+    while len(rows) < max_rows:
+        page = _rest_rows(table, {**query, "limit": str(POSTGREST_PAGE_ROWS), "offset": str(len(rows))})
+        rows.extend(page)
+        if len(page) < POSTGREST_PAGE_ROWS:
+            break
+    return rows[:max_rows]
+
+
 def _admin_count(table: str) -> int:
-    params = urllib.parse.urlencode({"select": "id", "limit": "10000"})
-    data = _supabase_request(f"/rest/v1/{table}?{params}", service_role=True)
-    return len(data) if isinstance(data, list) else 0
+    return len(_rest_rows_all(table, {"select": "id"}))
 
 
 def _normalize_candidate_skill_ids(raw_skill_ids: list) -> list[str]:
@@ -1238,12 +1408,15 @@ def _apply_report_access_control(
     return result
 
 
+MAX_CERTIFICATE_BYTES = 5 * 1024 * 1024
+
+
 def _is_valid_certificate_pdf(filename: str, file_bytes: bytes) -> tuple[bool, str]:
     lower_name = filename.lower().strip()
     if not lower_name.endswith(".pdf"):
         return False, "Only PDF certificate files are accepted."
 
-    if len(file_bytes) > 5 * 1024 * 1024:
+    if len(file_bytes) > MAX_CERTIFICATE_BYTES:
         return False, "Certificate file must be 5MB or smaller."
 
     if not file_bytes.startswith(b"%PDF"):
@@ -1406,7 +1579,6 @@ def health_config() -> dict:
         "allowed_origins": allowed_origins,
         "model": {
             "id": MODEL_ID,
-            "path": str(checkpoint),
             "files_present": not missing,
             "missing_files": missing,
             "loaded": get_bi_encoder.cache_info().currsize > 0,
@@ -1421,6 +1593,9 @@ def health_config() -> dict:
         },
         # Local file only; the PSA API is never called while serving requests.
         "psoc_reference": psoc_reference.reference_status(),
+        # The feedback ranker the last match run used; fallback_reason says why
+        # matching ran on the baseline order (for example model_fetch_failed).
+        "ranker": cached_ranker_status(),
     }
 
 
@@ -1477,7 +1652,7 @@ def admin_overview(authorization: Annotated[Optional[str], Header()] = None) -> 
     )
 
     role_counts = {"candidate": 0, "employer": 0, "admin": 0}
-    for row in _admin_select("profiles", "id,role", limit=100, order=None):
+    for row in _rest_rows_all("profiles", {"select": "id,role"}):
         role = str(row.get("role", ""))
         if role in role_counts:
             role_counts[role] += 1
@@ -1541,8 +1716,8 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
         body["email"] = email
         profile_body["email"] = email
     if payload.password is not None:
-        if len(payload.password) < 8:
-            raise HTTPException(status_code=400, detail="Password must contain at least 8 characters.")
+        if not STRONG_PASSWORD.fullmatch(payload.password):
+            raise HTTPException(status_code=400, detail=STRONG_PASSWORD_MESSAGE)
         body["password"] = payload.password
     for field in ("first_name", "last_name"):
         value = getattr(payload, field)
@@ -1561,8 +1736,17 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
         metadata_changes["role"] = payload.role
     if not body and not profile_body:
         raise HTTPException(status_code=400, detail="No user changes were provided.")
-    if not _rest_rows("profiles", {"id": f"eq.{user_id}", "select": "id", "limit": "1"}):
+    targets = _rest_rows("profiles", {"id": f"eq.{user_id}", "select": "id,role,email", "limit": "1"})
+    if not targets:
         raise HTTPException(status_code=404, detail="User was not found.")
+    current_role = str(targets[0].get("role") or "")
+    role_change = payload.role is not None and payload.role != current_role
+    if role_change and current_role == "employer":
+        # Access to job posts and their applicants follows the employer profile,
+        # not the role, so an employer who still owns posts keeps that access.
+        owner_ids = [row["id"] for row in _rest_rows("employer_profiles", {"user_id": f"eq.{user_id}", "select": "id"}) if row.get("id")]
+        if owner_ids and _rest_rows("employer_job_posts", {"employer_id": _in_filter(owner_ids), "select": "id", "limit": "1"}):
+            raise HTTPException(status_code=409, detail="This employer still owns job posts. Delete or reassign them before changing the role.")
     if metadata_changes:
         auth_user = _supabase_request(f"/auth/v1/admin/users/{quoted}", service_role=True)
         existing = auth_user.get("user_metadata") if isinstance(auth_user, dict) else None
@@ -1570,13 +1754,22 @@ def admin_update_user(payload: AdminUserUpdateRequest, authorization: Annotated[
     updated = _supabase_request(f"/auth/v1/admin/users/{quoted}", method="PUT", service_role=True, body=body) if body else None
     if profile_body:
         _supabase_request(f"/rest/v1/profiles?id=eq.{quoted}", method="PATCH", service_role=True, body={**profile_body, "updated_at": _safe_timestamp()})
+    if role_change:
+        # The workspace for the new role needs its profile row, as sign-up creates it.
+        if payload.role == "employer":
+            _supabase_request("/rest/v1/employer_profiles?on_conflict=user_id", method="POST", service_role=True,
+                body={"user_id": user_id, "company_name": "Employer Workspace", "business_email": targets[0].get("email")},
+                prefer="resolution=ignore-duplicates")
+        elif payload.role == "candidate":
+            _supabase_request("/rest/v1/candidate_profiles?on_conflict=user_id", method="POST", service_role=True,
+                body={"user_id": user_id}, prefer="resolution=ignore-duplicates")
     return {"user": updated}
 
 
 @app.patch("/api/admin/jobs")
 def admin_update_job(payload: AdminJobUpdateRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
     _require_admin_user(authorization)
-    body: dict[str, str | None] = {key: value.strip() for key, value in {
+    body: dict[str, str | bool | None] = {key: value.strip() for key, value in {
         "job_title": payload.job_title,
         "company_name": payload.company_name,
         "posting_status": payload.posting_status,
@@ -1590,6 +1783,8 @@ def admin_update_job(payload: AdminJobUpdateRequest, authorization: Annotated[Op
             if not occupation["valid"] or occupation["level"] != "unit":
                 raise HTTPException(status_code=400, detail="Enter a valid four-digit PSOC 2012 unit code.")
         body["psoc_unit_code"] = code or None
+    if payload.is_test_posting is not None:
+        body["is_test_posting"] = payload.is_test_posting
     if not body:
         raise HTTPException(status_code=400, detail="No job changes were provided.")
     rows = _supabase_request(f"/rest/v1/employer_job_posts?id=eq.{urllib.parse.quote(payload.job_id, safe='')}", method="PATCH", service_role=True, body=body, prefer="return=representation")
@@ -1755,7 +1950,7 @@ def admin_list_users(
             extra[str(row["user_id"])] = {"company_name": row.get("company_name")}
     if ids and role == "candidate":
         counts: dict[str, int] = {}
-        for row in _rest_rows("resumes", {"user_id": _in_filter(ids), "select": "user_id", "limit": "5000"}):
+        for row in _rest_rows_all("resumes", {"user_id": _in_filter(ids), "select": "id,user_id"}):
             counts[str(row["user_id"])] = counts.get(str(row["user_id"]), 0) + 1
         extra = {user_id: {"resume_count": count} for user_id, count in counts.items()}
     pending: set[str] = set()
@@ -1934,7 +2129,7 @@ def admin_list_reports(status: str = "open", authorization: Annotated[Optional[s
                 "status": application.get("status")},
         })
     counts = {name: 0 for name in REPORT_REVIEW_STATUSES}
-    for row in _rest_rows("message_moderation_actions", {"action": "eq.report", "select": "review_status", "limit": "10000"}):
+    for row in _rest_rows_all("message_moderation_actions", {"action": "eq.report", "select": "id,review_status"}):
         if row.get("review_status") in counts:
             counts[row["review_status"]] += 1
     return {"reports": reports, "counts": counts}
@@ -1964,10 +2159,10 @@ def admin_review_report(report_id: str, payload: AdminReviewRequest, authorizati
 @app.get("/api/admin/match-feedback/stats")
 def admin_match_feedback_stats(authorization: Annotated[Optional[str], Header()] = None) -> dict:
     _require_admin_user(authorization)
-    rows = _rest_rows("match_feedback", {
+    rows = _rest_rows_all("match_feedback", {
         "select": "user_id,job_id,job_source,vote,match_category,match_score,ranker_version,created_at,updated_at",
-        "order": "updated_at.desc", "limit": "20000",
-    })
+        "order": "updated_at.desc,id.asc",
+    }, max_rows=20_000)
     summary = summarize_match_feedback(rows)
     flagged = summary["most_downvoted_jobs"]
     titles: dict[tuple[str, str], dict] = {}
@@ -2045,7 +2240,7 @@ def admin_list_deletion_requests(status: str = "pending", authorization: Annotat
     rows = _rest_rows("account_deletion_requests", params)
     people = _profiles_by_id(row.get("user_id") for row in rows)
     counts = {name: 0 for name in DELETION_REQUEST_STATUSES}
-    for row in _rest_rows("account_deletion_requests", {"select": "status", "limit": "10000"}):
+    for row in _rest_rows_all("account_deletion_requests", {"select": "id,status"}):
         if row.get("status") in counts:
             counts[row["status"]] += 1
     return {"requests": [{**row, "user": _person(people.get(str(row.get("user_id"))))} for row in rows], "counts": counts}
@@ -2204,9 +2399,9 @@ def job_detail(job_id: str, job_source: str = "internal") -> dict:
         "company_name": str(row.get("company_name") or ""),
         "job_category": str(row.get("category_name") or ""),
         "job_subcategory": str(row.get("job_subcategory") or ""),
-        "job_level": str(row.get("job_level") or ""),
-        "work_type": str(row.get("work_setup") or ""),
-        "employment_type": str(row.get("employment_type") or ""),
+        "job_level": canonical_job_level(row.get("job_level")),
+        "work_type": canonical_work_setup(row.get("work_setup")),
+        "employment_type": canonical_employment_type(row.get("employment_type")),
         "location": str(row.get("location") or ""),
         "salary_range_monthly_php": _format_detail_salary(row),
         "job_description": description,
@@ -2302,7 +2497,7 @@ async def analyze_resume(
                 "elapsed_ms": round((time.perf_counter() - analysis_started_at) * 1000, 1),
             },
         )
-        raise HTTPException(status_code=500, detail=f"Resume analysis failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail="We could not analyze this resume right now. Please try again, or upload a text-based PDF or DOCX.") from exc
 
 
 @app.post("/api/certificates/validate")
@@ -2312,7 +2507,11 @@ async def validate_certificate_file(
     if not certificate.filename:
         raise HTTPException(status_code=400, detail="Certificate filename is missing.")
 
-    file_bytes = await certificate.read()
+    # Read at most one byte past the limit, so an oversized upload is refused
+    # without holding all of it in memory.
+    file_bytes = await certificate.read(MAX_CERTIFICATE_BYTES + 1)
+    if len(file_bytes) > MAX_CERTIFICATE_BYTES:
+        raise HTTPException(status_code=400, detail="Certificate file must be 5MB or smaller.")
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Uploaded certificate file is empty.")
 
@@ -2385,7 +2584,7 @@ async def run_matches(payload: RunMatchesRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Text job matching failed")
-        raise HTTPException(status_code=500, detail=f"Job matching failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail="We could not generate matches right now. Please try again.") from exc
 
     return _apply_report_access_control(result, user_mode, view_mode)
 
@@ -2899,6 +3098,55 @@ def delete_saved_external_job(saved_match_id: str, authorization: Annotated[Opti
     return {"deleted": True, "id": saved_match_id}
 
 
+APPLICATION_JOB_SOURCES = {"employer", "internal"}
+JOB_CLOSED_MESSAGE = "This job is closed or no longer accepting applications."
+
+
+@app.post("/api/candidate/applications")
+async def submit_candidate_application(payload: JobApplicationRequest, authorization: Annotated[Optional[str], Header()] = None) -> dict:
+    """Apply for an open job. The match score and the skills found and missing
+    that the employer sees are calculated here with the production matcher,
+    from the candidate's saved resume and confirmed skills; the browser sends
+    only which job (audit APP-01)."""
+    user_id = _get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    job_id = (payload.job_id or "").strip()
+    job_source = (payload.job_source or "").strip().lower()
+    if not job_id or len(job_id) > 200 or job_source not in APPLICATION_JOB_SOURCES:
+        raise HTTPException(status_code=422, detail="Choose a job to apply for.")
+
+    resume_text, skill_records, preferences, _context = await run_in_threadpool(_load_external_job_candidate, user_id)
+    job = await run_in_threadpool(find_catalogue_job, job_id, job_source)
+    if job is None:
+        raise HTTPException(status_code=404, detail=JOB_CLOSED_MESSAGE)
+    try:
+        scored = await run_in_threadpool(
+            analyze_candidate_job_match, resume_text, job, preferences=preferences, confirmed_skills=skill_records)
+    except MatchingModelUnavailable as exc:
+        raise HTTPException(status_code=503, detail="The matching model is temporarily unavailable. Please try again.") from exc
+    except Exception as exc:
+        logger.exception("Scoring an application failed")
+        raise HTTPException(status_code=500, detail="We could not submit your application right now. Please try again.") from exc
+    match = scored["match"]
+    body = {
+        "applicant_id": user_id,
+        "target_job_source": job_source,
+        "target_job_id": job_id,
+        "applicant_match_score": round(float(match.get("match_percentage") or 0.0)),
+        "applicant_matched_skills": [str(skill) for skill in match.get("matched_skills") or []],
+        "applicant_missing_skills": [str(skill) for skill in match.get("missing_skills") or []],
+    }
+    try:
+        saved = _supabase_request("/rest/v1/rpc/submit_job_application_for", method="POST", service_role=True, body=body)
+    except SupabaseRequestError as exc:
+        if '"23505"' in str(exc.detail):
+            raise HTTPException(status_code=409, detail="You have already applied for this job.") from exc
+        raise HTTPException(status_code=exc.status_code, detail=supabase_error_message(exc.status_code, exc.detail)) from exc
+    application = saved[0] if isinstance(saved, list) and saved else saved
+    return {"application": application}
+
+
 @app.get("/api/candidate/notifications")
 def list_candidate_notifications(authorization: Annotated[Optional[str], Header()] = None) -> list[dict]:
     user_id = _get_authenticated_user_id(authorization)
@@ -3064,7 +3312,8 @@ def _learning_error(exc: Exception) -> HTTPException:
     if isinstance(exc, SupabaseError):
         if exc.status == 409 or "duplicate key" in str(exc):
             return HTTPException(status_code=409, detail="That skill name was already approved.")
-        return HTTPException(status_code=502, detail=f"Learning data store error: {exc}")
+        logger.warning("Learning data store error: %s", exc)
+        return HTTPException(status_code=502, detail="The learning data store could not complete this request. Please try again.")
     return HTTPException(status_code=400, detail=str(exc))
 
 
@@ -3242,9 +3491,6 @@ async def match_from_resume(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except MatchingModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        logger.exception("Resume matching service failed")
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Resume job matching failed")
         raise HTTPException(

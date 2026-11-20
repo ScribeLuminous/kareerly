@@ -32,6 +32,7 @@ from .match_scoring import (
     LOW_MATCH,
     MatchThresholds,
     SkillEvidence,
+    aspiration_relevant_min_score,
     match_reason,
     score_match,
 )
@@ -528,7 +529,8 @@ def extract_resume_text(file_bytes: bytes, filename: str) -> str:
     except ResumeFileError:
         raise
     except Exception as exc:
-        raise RuntimeError(f"Could not read the resume file: {exc}") from exc
+        logger.exception("Reading the uploaded resume failed")
+        raise ResumeFileError("We could not read this resume file. Please upload a text-based PDF or DOCX.") from exc
 
     if len(clean_text(text)) < 50:
         detail = " ".join(extraction.warnings)
@@ -617,6 +619,28 @@ def load_reference_jobs() -> pd.DataFrame:
         JOBS_SOURCE = _jobs_cache["source"]
     # Callers add columns to the frame, so never hand out the cached object itself.
     return cached.copy()
+
+
+def find_catalogue_job(job_id: str, job_source: str) -> Optional[Dict[str, Any]]:
+    """One open job from the prepared catalogue, as matching scores it; None
+    when it is not open. A job posted since the catalogue was cached is read
+    by reloading once."""
+    job_id = clean_text(job_id)
+    if not job_id:
+        return None
+
+    def lookup(jobs: pd.DataFrame) -> Optional[Dict[str, Any]]:
+        if jobs.empty or "job_id" not in jobs.columns:
+            return None
+        rows = jobs[jobs["job_id"].astype(str) == job_id]
+        if "job_source" in rows.columns:
+            rows = rows[rows["job_source"].astype(str) == job_source]
+        return rows.iloc[0].to_dict() if not rows.empty else None
+
+    found = lookup(load_reference_jobs())
+    if found is None and refresh_jobs_cache_for([job_id]):
+        found = lookup(load_reference_jobs())
+    return found
 
 
 def clear_reference_jobs_cache() -> None:
@@ -2550,7 +2574,7 @@ def match_text_to_jobs(
             },
             "aspiration_rules": {
                 "basis": "Step 3 career area",
-                "ordering": "preference alignment (job level, work setup, salary, employment type fit first), then match score",
+                "ordering": f"jobs with a match score of {aspiration_relevant_min_score():.0%} or more first; within each group, preference alignment (job level, work setup, salary, employment type fit first), then match score",
                 "resume_role": "score, order and skill gaps only",
                 # Used only when no career area is known for the candidate or the job.
                 "fallback_min_cosine": thresholds.aspiration_min_semantic,

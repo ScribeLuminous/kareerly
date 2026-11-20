@@ -249,9 +249,6 @@ export type JobApplicationRow = {
   job_id: string;
   job_title?: string | null;
   company_name?: string | null;
-  candidate_name?: string | null;
-  candidate_email?: string | null;
-  candidate_location?: string | null;
   match_score?: number | null;
   matched_skills?: string[] | null;
   missing_skills?: string[] | null;
@@ -858,19 +855,19 @@ export function extractEducationFromSavedText(resumeText: string): ExtractedEduc
       attainment: "Bachelor's Degree",
     },
     {
-      pattern: /\b(?:bachelor(?:'s)?|baccalaureate)\s+(?:of|in)\s+([a-z][a-z &,/()\-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
+      pattern: /\b(?:bachelor(?:'s)?|baccalaureate)\s+(?:of|in)\s+([a-z][a-z &,/()-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
       attainment: "Bachelor's Degree",
     },
     {
-      pattern: /\bmaster(?:'s)?\s+(?:of|in)\s+([a-z][a-z &,/()\-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
+      pattern: /\bmaster(?:'s)?\s+(?:of|in)\s+([a-z][a-z &,/()-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
       attainment: "Master's Degree",
     },
     {
-      pattern: /\b(?:doctorate|doctor|phd)\s+(?:of|in)?\s*([a-z][a-z &,/()\-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
+      pattern: /\b(?:doctorate|doctor|phd)\s+(?:of|in)?\s*([a-z][a-z &,/()-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
       attainment: 'Doctorate Degree',
     },
     {
-      pattern: /\bassociate(?:'s)?\s+(?:of|in)\s+([a-z][a-z &,/()\-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
+      pattern: /\bassociate(?:'s)?\s+(?:of|in)\s+([a-z][a-z &,/()-]{2,80}?)(?=\s+(?:contact|experiences?|skills?|certifications?|projects?|education)\b|$)/i,
       attainment: 'Associate Degree',
     },
   ];

@@ -84,6 +84,20 @@ async function authenticatedMessageRequest(path: string, options: RequestInit = 
 /** Calls the backend with the signed-in user's token (refreshing it once if stale). */
 export const authenticatedRequest = authenticatedMessageRequest;
 
+/**
+ * Apply for a job. The backend calculates the match score and the skills
+ * found and missing that the employer sees, from the saved resume; only the
+ * job is sent. Resolves to the saved application row.
+ */
+export async function submitJobApplication(job: { jobId: string; jobSource: 'internal' | 'employer' }): Promise<Record<string, unknown>> {
+  const payload = await authenticatedMessageRequest('/api/candidate/applications', {
+    method: 'POST',
+    body: JSON.stringify({ job_id: job.jobId, job_source: job.jobSource }),
+  }, 'Unable to submit application. Please try again.') as { application?: Record<string, unknown> } | null;
+  if (!payload?.application) throw new Error('Unable to submit application. Please try again.');
+  return payload.application;
+}
+
 const MATCH_FEEDBACK_PATH = '/api/candidate/match-feedback';
 
 export async function loadMatchFeedback(): Promise<MatchFeedbackRow[]> {
@@ -170,6 +184,8 @@ export type EmployerAccountSettings = {
   contact_role: string | null;
   contact_number: string | null;
   account_email: string | null;
+  /** A new login email waiting for the user to open its confirmation link. */
+  pending_email?: string | null;
   first_name: string | null;
   last_name: string | null;
 };
@@ -188,6 +204,8 @@ export async function saveEmployerAccountSettings(input: Partial<EmployerAccount
 export type CandidateAccountSettings = {
   full_name: string;
   email: string;
+  /** A new login email waiting for the user to open its confirmation link. */
+  pending_email?: string | null;
   public_id: string | null;
   contact_number: string | null;
   birthday: string | null;
@@ -254,7 +272,7 @@ async function fetchWithTimeout(
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(timeoutMessage);
+      throw new Error(timeoutMessage, { cause: error });
     }
     throw error;
   } finally {
@@ -533,7 +551,7 @@ export async function fetchAdminOverview(accessToken: string): Promise<AdminOver
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach the FastAPI backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach the FastAPI backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -656,7 +674,7 @@ export async function fetchLiveResumeParserVersion(): Promise<string | null | un
   }
 }
 
-export async function analyzeResume(resumeFile: File, _legacySurveyAnswers?: Partial<SurveyAnswers>): Promise<ResumeAnalysisResult> {
+export async function analyzeResume(resumeFile: File): Promise<ResumeAnalysisResult> {
   const formData = new FormData();
   formData.append('resume', resumeFile);
 
@@ -1198,7 +1216,7 @@ export async function searchSkills(query: string, limit = 20): Promise<{ results
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach skill search backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach skill search backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -1258,7 +1276,7 @@ export async function fetchAvailableJobs(limit = 5000): Promise<{ results: Avail
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach jobs listing backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach jobs listing backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -1283,7 +1301,7 @@ export async function fetchJobDetails(jobId: string, jobSource: 'internal' | 'em
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach jobs detail backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach jobs detail backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -1311,7 +1329,7 @@ export async function validateCertificateFile(certificateFile: File): Promise<{ 
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes('timed out')) throw error;
-    throw new Error('Cannot reach certificate validation backend. Check the configured API URL and run npm run dev to start the local backend.');
+    throw new Error('Cannot reach certificate validation backend. Check the configured API URL and run npm run dev to start the local backend.', { cause: error });
   }
 
   if (!response.ok) {
@@ -1525,4 +1543,11 @@ export async function requestAccountDeletion(reason?: string): Promise<AccountDe
     body: JSON.stringify({ reason: reason || null }),
   }, 'Unable to submit your deletion request.');
   return payload?.request || null;
+}
+
+/** What to tell the user after saving settings that may have requested a new login email. */
+export function pendingEmailNotice(saved: { pending_email?: string | null }): string {
+  return saved.pending_email
+    ? `We sent a confirmation link to ${saved.pending_email}. Your login email changes once you open it.`
+    : '';
 }

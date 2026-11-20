@@ -44,3 +44,10 @@ test('sign-up without a session asks the new user to confirm their email first',
   globalThis.signUpResponse = { data: { user, session: { user } }, error: null };
   assert.equal((await auth.signUpEmployer(input)).needsEmailConfirmation, false);
 });
+
+test('a role taken from editable user metadata never opens the admin view', () => {
+  assert.equal(auth.metadataFallbackRole('admin'), 'candidate');
+  assert.equal(auth.metadataFallbackRole('employer'), 'employer');
+  assert.equal(auth.metadataFallbackRole('candidate'), 'candidate');
+  assert.equal(auth.metadataFallbackRole(undefined), 'candidate');
+});
