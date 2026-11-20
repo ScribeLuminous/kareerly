@@ -1,0 +1,248 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "RVK-07",
+  "content_group": null,
+  "annotation": {
+    "level": "full",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "pdf text layer",
+      "rendered page"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "summary",
+      "heading": "Profile",
+      "region": "main"
+    },
+    {
+      "type": "contact",
+      "heading": "Details",
+      "region": "sidebar"
+    },
+    {
+      "type": "experience",
+      "heading": "Employment History",
+      "region": "main"
+    },
+    {
+      "type": "links",
+      "heading": "Links",
+      "region": "sidebar"
+    },
+    {
+      "type": "skills",
+      "heading": "Skills",
+      "region": "sidebar"
+    },
+    {
+      "type": "languages",
+      "heading": "Languages",
+      "region": "sidebar"
+    },
+    {
+      "type": "education",
+      "heading": "Education",
+      "region": "main"
+    },
+    {
+      "type": "interests",
+      "heading": "Hobbies",
+      "region": "sidebar"
+    },
+    {
+      "type": "training",
+      "heading": "Courses",
+      "region": "main"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "present",
+      "value": "Kristen Connelly"
+    },
+    "headline": {
+      "status": "present",
+      "value": "Video Product Assistant",
+      "as_printed": "VIDEO PRODUCT ASSISTANT"
+    },
+    "email": {
+      "status": "present",
+      "sha256": "f3273dd18d95bc19d51d3e6356e4a679e6f13824497272a270e7bb540b0abb9d"
+    },
+    "phone": {
+      "status": "present",
+      "sha256": "09e57eed11fdf2a036b3654b1fd29640993a828b2a24dc3f3fd8578bf483a646"
+    },
+    "location": {
+      "status": "present",
+      "value": "Los Angeles, CA, United States"
+    },
+    "street_address": {
+      "status": "present",
+      "sha256": "5dc649a773eda373cb3c797707a3cf567a5003ebca26dc819b0850ea2b6ba49c"
+    },
+    "links": {
+      "status": "present",
+      "count": 4,
+      "note": "link labels only: LinkedIn, Resume Templates, Build this template, Pinterest"
+    },
+    "personal_details": {
+      "status": "present",
+      "items": [
+        "driving_license",
+        "place_of_birth"
+      ]
+    },
+    "summary": {
+      "status": "present",
+      "section_type": "profile",
+      "value": "Three-year online Video Production Assistant for commercials and short films. Competent with Premiere Pro for trimming short segments to required lengths. 20% more likes and comments due to re-sequenced scenes to enhance audience satisfaction."
+    },
+    "work_experience": {
+      "status": "present",
+      "entries": [
+        {
+          "job_title": "Video Production Assistant",
+          "company": "Blue Penguin Designs",
+          "department": null,
+          "location": "Bar Bigha",
+          "start_date": "2021-02",
+          "end_date": "present",
+          "is_current": true,
+          "dates_as_written": "FEBRUARY 2021 — PRESENT",
+          "employment_type": null
+        },
+        {
+          "job_title": "Video Production Assistant",
+          "company": "Botle Bob Advertising",
+          "department": null,
+          "location": "Opelousas",
+          "start_date": "2019-01",
+          "end_date": "2021-02",
+          "is_current": false,
+          "dates_as_written": "JANUARY 2019 — FEBRUARY 2021",
+          "employment_type": null
+        }
+      ]
+    },
+    "education": {
+      "status": "present",
+      "entries": [
+        {
+          "highest_educational_attainment": "Some College",
+          "degree_program": "BA in Film and Television",
+          "school_university": "Boston University",
+          "year_graduated": null,
+          "location": "Boston",
+          "start_date": "2021-02",
+          "end_date": "present",
+          "dates_as_written": "FEBRUARY 2021 — PRESENT",
+          "honors": null,
+          "in_progress": true
+        },
+        {
+          "highest_educational_attainment": null,
+          "degree_program": "Advanced Course in Digital Video Editing",
+          "school_university": "ADMEC Multimedia Institute",
+          "year_graduated": "2018",
+          "location": "Online",
+          "start_date": "2018-01",
+          "end_date": "2018-07",
+          "dates_as_written": "JANUARY 2018 — JULY 2018",
+          "honors": null,
+          "in_progress": false
+        }
+      ]
+    },
+    "skills_stated": {
+      "status": "present",
+      "values": [
+        "Call Sheets & Sides",
+        "Adobe Premiere Pro",
+        "Camera Boom, Light Boom, Mic Boom",
+        "DaVinci Resolve"
+      ]
+    },
+    "certifications": {
+      "status": "present",
+      "entries": [
+        {
+          "title": "Hootsuite Certified Professional",
+          "issuer": "Hootsuite Media",
+          "year": "2021",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "JANUARY 2020 — FEBRUARY 2021"
+        },
+        {
+          "title": "Adobe CS5 Certified",
+          "issuer": "University of Delaware",
+          "year": "2020",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "JANUARY 2020 — DECEMBER 2020"
+        }
+      ]
+    },
+    "training": {
+      "status": "absent"
+    },
+    "projects": {
+      "status": "absent"
+    },
+    "achievements": {
+      "status": "absent"
+    },
+    "languages": {
+      "status": "present",
+      "values": [
+        "English",
+        "Dutch; Flemish"
+      ]
+    },
+    "interests": {
+      "status": "present",
+      "values": [
+        "Mountainbiking",
+        "Track Athletics",
+        "Choir"
+      ]
+    },
+    "references": {
+      "status": "absent"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [
+      "SK664",
+      "SK039",
+      "SK043",
+      "SK676",
+      "SK031"
+    ],
+    "acceptable_skill_ids": [
+      "SK038",
+      "SK358",
+      "SK337",
+      "SK164",
+      "SK040",
+      "SK034",
+      "SK041"
+    ],
+    "notes": "Premiere Pro, video editing, audio editing, Hootsuite and English are named. Photography, equipment set-up, DaVinci Resolve/Avid (media software) and scriptwriting are implied."
+  },
+  "notes": [
+    "The BA is in progress (FEBRUARY 2021 — PRESENT), so the level is 'Some College' and there is no graduation year.",
+    "A second line under the ADMEC course repeats it with '2015 –'; it is a description line, not a third education entry.",
+    "The source writes 'Adobe CS5 Certified,,' with a doubled comma."
+  ]
+}

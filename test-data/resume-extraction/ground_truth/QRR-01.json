@@ -1,0 +1,241 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "QRR-01",
+  "content_group": "qarera",
+  "annotation": {
+    "level": "full",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "docx text",
+      "rendered page"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "summary",
+      "heading": "CAREER OBJECTIVE",
+      "region": "main"
+    },
+    {
+      "type": "education",
+      "heading": "EDUCATION",
+      "region": "main"
+    },
+    {
+      "type": "experience",
+      "heading": "ON-THE-JOB TRAINING (OJT)",
+      "region": "main"
+    },
+    {
+      "type": "achievements",
+      "heading": "LEADERSHIP & ACTIVITIES",
+      "region": "main"
+    },
+    {
+      "type": "training",
+      "heading": "SEMINARS & TRAININGS",
+      "region": "main"
+    },
+    {
+      "type": "skills",
+      "heading": "SKILLS",
+      "region": "main"
+    },
+    {
+      "type": "references",
+      "heading": "CHARACTER REFERENCES",
+      "region": "main"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "present",
+      "value": "Maria Clara Santos"
+    },
+    "headline": {
+      "status": "absent"
+    },
+    "email": {
+      "status": "present",
+      "sha256": "722e783b87b3beb241874d2bcf3507c1a259bf6b22b9c21e2b4c6a823c204aed"
+    },
+    "phone": {
+      "status": "present",
+      "sha256": "7b0f3460b105dfa9af1dc747e68f8ca571b88b5aaf88ceee486bd1e90adeb3ee"
+    },
+    "location": {
+      "status": "present",
+      "value": "Quezon City, Metro Manila"
+    },
+    "street_address": {
+      "status": "absent"
+    },
+    "links": {
+      "status": "present",
+      "count": 1,
+      "sha256": [
+        "6f0b42bdc1c2a5aee1014dd5459ff6974a464202fd204d1ef5a5b70930d94655"
+      ]
+    },
+    "personal_details": {
+      "status": "absent"
+    },
+    "summary": {
+      "status": "present",
+      "section_type": "objective",
+      "value": "BS Accountancy graduate (Cum Laude, Polytechnic University of the Philippines) with completed OJT at an auditing firm and CPA board exam scheduled for October 2026. Seeking an audit associate or accounting staff role in Metro Manila."
+    },
+    "work_experience": {
+      "status": "present",
+      "entries": [
+        {
+          "job_title": "Audit Intern",
+          "company": "Reyes, Dizon & Co., CPAs",
+          "department": null,
+          "location": "Makati",
+          "start_date": "2025-02",
+          "end_date": "2025-06",
+          "is_current": false,
+          "dates_as_written": "Feb – Jun 2025",
+          "employment_type": "internship (OJT, 600 hours)"
+        }
+      ]
+    },
+    "education": {
+      "status": "present",
+      "entries": [
+        {
+          "highest_educational_attainment": "Bachelor's Degree",
+          "degree_program": "BS Accountancy",
+          "school_university": "Polytechnic University of the Philippines",
+          "year_graduated": "2025",
+          "location": "Manila",
+          "start_date": "2021",
+          "end_date": "2025",
+          "dates_as_written": "2021 – 2025",
+          "honors": "Cum Laude (GWA 1.45)",
+          "in_progress": false
+        }
+      ]
+    },
+    "skills_stated": {
+      "status": "present",
+      "values": [
+        "Excel (pivot tables, lookups)",
+        "QuickBooks",
+        "Xero (basic)",
+        "SAP exposure from coursework",
+        "Working papers",
+        "vouching",
+        "bank reconciliations",
+        "PPE lapsing schedules"
+      ]
+    },
+    "certifications": {
+      "status": "absent"
+    },
+    "training": {
+      "status": "present",
+      "entries": [
+        {
+          "title": "PFRS Updates Seminar",
+          "provider": "PICPA",
+          "date": "2025-03",
+          "section": "SEMINARS & TRAININGS",
+          "dates_as_written": "March 2025"
+        },
+        {
+          "title": "QuickBooks Online basic training",
+          "provider": null,
+          "date": "2025",
+          "section": "SEMINARS & TRAININGS",
+          "dates_as_written": "2025"
+        },
+        {
+          "title": "Basic Data Analytics for Accountants",
+          "provider": "DAP",
+          "date": "2024",
+          "section": "SEMINARS & TRAININGS",
+          "dates_as_written": "2024"
+        }
+      ]
+    },
+    "projects": {
+      "status": "present",
+      "entries": [
+        {
+          "name": "Thesis: audit analytics adoption among Metro Manila SMEs",
+          "context": "academic thesis",
+          "section": "EDUCATION"
+        }
+      ]
+    },
+    "achievements": {
+      "status": "present",
+      "entries": [
+        {
+          "text": "Dean's Lister, 6 consecutive semesters",
+          "section": "EDUCATION"
+        },
+        {
+          "text": "Treasurer, Junior Philippine Institute of Accountants (JPIA) chapter — managed a ₱120,000 annual budget",
+          "section": "LEADERSHIP & ACTIVITIES"
+        },
+        {
+          "text": "Organized three inter-school accounting quiz bees with 200+ participants",
+          "section": "LEADERSHIP & ACTIVITIES"
+        },
+        {
+          "text": "Student volunteer, university community tax-assistance drive (2024, 2025)",
+          "section": "LEADERSHIP & ACTIVITIES"
+        }
+      ]
+    },
+    "languages": {
+      "status": "present",
+      "values": [
+        "English",
+        "Filipino"
+      ]
+    },
+    "interests": {
+      "status": "absent"
+    },
+    "references": {
+      "status": "present",
+      "value": "available_on_request"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [
+      "SK629",
+      "SK652",
+      "SK653",
+      "SK684",
+      "SK187",
+      "SK260",
+      "SK031"
+    ],
+    "acceptable_skill_ids": [
+      "SK197",
+      "SK186",
+      "SK012",
+      "SK005",
+      "SK256",
+      "SK013"
+    ],
+    "notes": "Excel, QuickBooks, Xero, SAP, audit work and accounting are named; English is listed with fluency. Bank reconciliations (bookkeeping), data analytics (training) and PFRS (IFRS-based) are implied."
+  },
+  "notes": [
+    "'CPA board exam scheduled' is a plan, not a licence, so certifications are absent.",
+    "Languages appear inside the SKILLS section ('English and Filipino — fluent'), not under their own heading.",
+    "QuickBooks Online basic training was 'completed with certificate' but is listed as a training, so it is annotated as training."
+  ]
+}

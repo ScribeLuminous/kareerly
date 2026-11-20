@@ -521,7 +521,7 @@ def extract_resume_text(file_bytes: bytes, filename: str) -> str:
     text see the same words, tables, text boxes and OCR output included.
     """
     if resume_extension(filename) not in SUPPORTED_RESUME_EXTENSIONS:
-        raise ValueError("Unsupported file format. Please upload a readable PDF, DOCX or DOC file.")
+        raise ValueError("Unsupported file format. Please upload a readable PDF, DOCX, DOC, JPG or PNG file.")
 
     extractor = current_skill_extractor()
     try:
@@ -535,7 +535,7 @@ def extract_resume_text(file_bytes: bytes, filename: str) -> str:
     if len(clean_text(text)) < 50:
         detail = " ".join(extraction.warnings)
         raise ValueError(
-            detail or "The resume text is too short or unreadable. Please upload a clearer PDF, DOCX or DOC resume."
+            detail or "The resume text is too short or unreadable. Please upload a clearer PDF, DOCX, DOC, JPG or PNG resume."
         )
 
     return text

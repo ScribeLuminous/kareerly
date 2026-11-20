@@ -53,6 +53,7 @@ from .services.resume_parser import (
     MAX_RESUME_BYTES,
     RESUME_PARSER_VERSION,
     SUPPORTED_RESUME_EXTENSIONS,
+    UPLOAD_FORMATS_MESSAGE,
     ResumeFileError,
     resume_extension,
 )
@@ -2453,7 +2454,7 @@ async def analyze_resume(
     if resume_extension(resume.filename) not in SUPPORTED_RESUME_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail="Please upload a PDF, DOCX or DOC resume.",
+            detail=UPLOAD_FORMATS_MESSAGE,
         )
 
     file_bytes = await _read_resume_upload(resume)
@@ -3426,7 +3427,7 @@ async def match_from_resume(
         raise HTTPException(status_code=400, detail="Resume filename is missing.")
 
     if resume_extension(file.filename) not in SUPPORTED_RESUME_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Please upload a PDF, DOCX or DOC resume.")
+        raise HTTPException(status_code=400, detail=UPLOAD_FORMATS_MESSAGE)
 
     try:
         preferences_payload = json.loads(preferences or "{}")

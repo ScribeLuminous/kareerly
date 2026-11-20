@@ -1,0 +1,238 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "RVK-01",
+  "content_group": "acctmgr",
+  "annotation": {
+    "level": "full",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "pdf text layer",
+      "rendered page"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "skills",
+      "heading": "SKILLS",
+      "region": "sidebar"
+    },
+    {
+      "type": "languages",
+      "heading": "LANGUAGES",
+      "region": "sidebar"
+    },
+    {
+      "type": "experience",
+      "heading": "EMPLOYMENT",
+      "region": "main"
+    },
+    {
+      "type": "education",
+      "heading": "EDUCATION",
+      "region": "main"
+    },
+    {
+      "type": "training",
+      "heading": "COURSES",
+      "region": "main"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "present",
+      "value": "Michelle Smith",
+      "as_printed": "MICHELLE SMITH"
+    },
+    "headline": {
+      "status": "absent"
+    },
+    "email": {
+      "status": "present",
+      "sha256": "f3273dd18d95bc19d51d3e6356e4a679e6f13824497272a270e7bb540b0abb9d"
+    },
+    "phone": {
+      "status": "present",
+      "sha256": "39cce90f4c79d18c16c0b77543076d83ef491d9ba1e4ea5e5e5107f9456ff0f4"
+    },
+    "location": {
+      "status": "present",
+      "value": "Los Angeles, CA"
+    },
+    "street_address": {
+      "status": "present",
+      "sha256": "482af741e1742fcb9af82b401a83daa7c2a459f6561d33ae8a9a011bae0bec12"
+    },
+    "links": {
+      "status": "present",
+      "count": 2,
+      "sha256": [
+        "235c254cc6a3fb3a58a3951679e44b55bea271b7be11b824d6ce7e3b6d36913b",
+        "99aaa0779be7bab6595387ab583f4f0b711958dbd3952a5197d39402a230ff06"
+      ]
+    },
+    "personal_details": {
+      "status": "present",
+      "items": [
+        "place_of_birth",
+        "nationality"
+      ]
+    },
+    "summary": {
+      "status": "absent"
+    },
+    "work_experience": {
+      "status": "present",
+      "entries": [
+        {
+          "job_title": "Global Key Account Manager",
+          "company": "Inash Oil & Petroleum",
+          "department": null,
+          "location": "Dallas, TX",
+          "start_date": "2022-09",
+          "end_date": "2025-04",
+          "is_current": false,
+          "dates_as_written": "Sep 2022 - Apr 2025",
+          "employment_type": null
+        },
+        {
+          "job_title": "Regional Account Manager",
+          "company": "Asol Lubricants",
+          "department": null,
+          "location": "Austin, TX",
+          "start_date": "2018-12",
+          "end_date": "2022-08",
+          "is_current": false,
+          "dates_as_written": "Dec 2018 - Aug 2022",
+          "employment_type": null
+        },
+        {
+          "job_title": "Account Manager",
+          "company": "Presidion Petroleum",
+          "department": null,
+          "location": "San Antonio, TX",
+          "start_date": "2015-02",
+          "end_date": "2017-11",
+          "is_current": false,
+          "dates_as_written": "Feb 2015 - Nov 2017",
+          "employment_type": null
+        }
+      ]
+    },
+    "education": {
+      "status": "present",
+      "entries": [
+        {
+          "highest_educational_attainment": "Bachelor's Degree",
+          "degree_program": "Bachelor Degree in Advertising and Marketing",
+          "school_university": "University of Denver",
+          "year_graduated": "2017",
+          "location": "Denver",
+          "start_date": "2014-04",
+          "end_date": "2017-01",
+          "dates_as_written": "Apr 2014 - Jan 2017",
+          "honors": null,
+          "in_progress": false
+        },
+        {
+          "highest_educational_attainment": null,
+          "degree_program": "Advanced Diploma in Global Customer Relationship Management",
+          "school_university": "Business College of New York",
+          "year_graduated": "2019",
+          "location": "Brooklyn",
+          "start_date": null,
+          "end_date": "2019-04",
+          "dates_as_written": "Apr 2019",
+          "honors": null,
+          "in_progress": false
+        }
+      ]
+    },
+    "skills_stated": {
+      "status": "present",
+      "values": [
+        "Client Relationship Management",
+        "Team Leadership",
+        "Strategic Planning",
+        "Networking",
+        "Talent Development",
+        "Sales Growth"
+      ],
+      "levels_shown": true
+    },
+    "certifications": {
+      "status": "present",
+      "entries": [
+        {
+          "title": "Certified Key Accounts Manager (CKAM)",
+          "issuer": "Udemy",
+          "year": "2016",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "May 2016"
+        },
+        {
+          "title": "Certificate in Project Management",
+          "issuer": "Certified Institute of Project Managers (CIPM)",
+          "year": "2021",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "Nov 2021"
+        }
+      ]
+    },
+    "training": {
+      "status": "absent"
+    },
+    "projects": {
+      "status": "absent"
+    },
+    "achievements": {
+      "status": "absent"
+    },
+    "languages": {
+      "status": "present",
+      "values": [
+        "English",
+        "Spanish"
+      ]
+    },
+    "interests": {
+      "status": "absent"
+    },
+    "references": {
+      "status": "absent"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [
+      "SK276",
+      "SK261",
+      "SK023",
+      "SK215",
+      "SK031"
+    ],
+    "acceptable_skill_ids": [
+      "SK121",
+      "SK030",
+      "SK029",
+      "SK283",
+      "SK271",
+      "SK303",
+      "SK219",
+      "SK281"
+    ],
+    "notes": "Client relationship management, managing a team, sales and project management (certificate) are named. 'Networking' is professional networking and must NOT map to Network Administration (SK009). Strategic Planning, Talent Development and Sales Growth have no canonical skill."
+  },
+  "notes": [
+    "Both COURSES items are named certifications, so they are annotated as certifications; the section type follows the heading ('training').",
+    "The Advanced Diploma has no matching Kareerly education level, so highest_educational_attainment is null.",
+    "The third job line repeats the company ('Account Manager at Presidion Petroleum, San Antonio, TX')."
+  ]
+}
