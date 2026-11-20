@@ -57,6 +57,14 @@ function normalizeRole(value: unknown): AuthRole {
   return value === 'employer' || value === 'admin' || value === 'candidate' ? value : 'candidate';
 }
 
+// user_metadata can be edited by the signed-in user, so it is only a fallback
+// for showing a workspace when the profile cannot be read, and never grants
+// the admin view (profiles.role, which clients cannot change, decides that).
+export function metadataFallbackRole(value: unknown): AuthRole {
+  const role = normalizeRole(value);
+  return role === 'admin' ? 'candidate' : role;
+}
+
 function mapAuthUser(user: SupabaseUser): KareerlyUser {
   const metadata = user.user_metadata || {};
   const firstName = typeof metadata.first_name === 'string' ? metadata.first_name : '';
@@ -67,7 +75,7 @@ function mapAuthUser(user: SupabaseUser): KareerlyUser {
     id: user.id,
     email,
     name: getFullName(firstName, lastName, email),
-    role: normalizeRole(metadata.role),
+    role: metadataFallbackRole(metadata.role),
     birthday: typeof metadata.birthday === 'string' ? metadata.birthday : null,
     company: typeof metadata.company_name === 'string' ? metadata.company_name : undefined,
   };

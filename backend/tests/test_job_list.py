@@ -8,7 +8,7 @@ from backend.app.services import job_list, supabase_jobs
 
 
 def _api(total, *, fail_offsets=()):
-    jobs = [{"job_id": f"JOB-{n:04d}", "job_title": "Role", "created_at": "2026-09-01T00:00:00Z"} for n in range(total)]
+    jobs = [{"job_id": f"JOB-{n:04d}", "job_title": f"Role {n}", "created_at": "2026-09-01T00:00:00Z"} for n in range(total)]
 
     def reply(request, timeout):
         query = dict(item.split("=", 1) for item in request.full_url.split("?", 1)[1].split("&"))
@@ -86,3 +86,11 @@ class CatalogueCountTests(TestCase):
         self.assertEqual(report["tables"]["internal_jobs"], {"open_jobs": 619})
         self.assertIn("HTTP 401", report["tables"]["employer_job_posts"]["error"])
         self.assertIn("permission denied", report["tables"]["employer_job_posts"]["error"])
+
+
+class CatalogueConfigTests(TestCase):
+    def test_health_reports_where_the_supabase_settings_came_from(self):
+        with mock.patch.object(supabase_jobs, "urlopen", side_effect=supabase_jobs.URLError("offline")):
+            counts = supabase_jobs.catalogue_counts()
+        self.assertIn(counts["supabase_config"], {"environment", "built-in default"})
+        self.assertEqual(counts["supabase_config"], supabase_jobs.SUPABASE_CONFIG_SOURCE)

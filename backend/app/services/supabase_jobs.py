@@ -29,6 +29,14 @@ SUPABASE_ANON_KEY = (
 PHILIPPINE_TIMEZONE = ZoneInfo("Asia/Manila")
 logger = logging.getLogger(__name__)
 
+# Where the Supabase settings above came from. "built-in default" means neither
+# SUPABASE_URL nor VITE_SUPABASE_URL is set and the code is reading the
+# production project it names, which a staging or local backend should never
+# do silently (audit INFO-02). Reported by /api/health/jobs.
+SUPABASE_CONFIG_SOURCE = "environment" if (os.getenv("SUPABASE_URL") or os.getenv("VITE_SUPABASE_URL")) else "built-in default"
+if SUPABASE_CONFIG_SOURCE != "environment":
+    logger.warning("SUPABASE_URL is not set: the job catalogue is read from the built-in default project %s", SUPABASE_URL)
+
 SKILL_ID_ALIASES = {
     "SK_PYTHON": "SK001",
     "SK_JAVASCRIPT": "SK002",
@@ -62,6 +70,45 @@ def _normalize_skill_ids(value: Any) -> str:
         normalized_items.append(SKILL_ID_ALIASES.get(skill_id, skill_id))
 
     return ";".join(dict.fromkeys(normalized_items))
+
+
+# The labels the employer job form offers (frontend/src/pages/employer/model.ts).
+# Imported and older posts spell the same values differently ("Onsite",
+# "Full-Time", "Entry level"); the job board shows one spelling (audit
+# DATA-03). Matching reads these values with patterns that already treat the
+# spellings alike, so scores do not change. Values with no canonical twin
+# ("Manager", "Flexible", "Field") are kept as they are.
+_WORK_SETUP_LABELS = {"onsite": "On-site", "on site": "On-site", "on-site": "On-site", "remote": "Remote", "hybrid": "Hybrid"}
+_EMPLOYMENT_TYPE_LABELS = {
+    "full time": "Full-time", "full-time": "Full-time", "fulltime": "Full-time",
+    "part time": "Part-time", "part-time": "Part-time", "parttime": "Part-time",
+    "contract": "Contract", "temporary": "Temporary", "internship": "Internship",
+}
+_JOB_LEVEL_LABELS = {
+    "entry": "Entry-level / Fresh Graduate", "entry level": "Entry-level / Fresh Graduate",
+    "entry-level": "Entry-level / Fresh Graduate", "entry-level / fresh graduate": "Entry-level / Fresh Graduate",
+    "junior": "Junior (1-2 yrs)", "junior (1-2 yrs)": "Junior (1-2 yrs)",
+    "mid": "Mid-level (3-5 yrs)", "mid level": "Mid-level (3-5 yrs)", "mid-level": "Mid-level (3-5 yrs)",
+    "mid-level (3-5 yrs)": "Mid-level (3-5 yrs)",
+    "senior": "Senior (5+ yrs)", "senior (5+ yrs)": "Senior (5+ yrs)",
+}
+
+
+def _canonical_label(value: Any, labels: dict[str, str]) -> str:
+    text = _safe_text(value)
+    return labels.get(re.sub(r"\s+", " ", text).lower(), text)
+
+
+def canonical_work_setup(value: Any) -> str:
+    return _canonical_label(value, _WORK_SETUP_LABELS)
+
+
+def canonical_employment_type(value: Any) -> str:
+    return _canonical_label(value, _EMPLOYMENT_TYPE_LABELS)
+
+
+def canonical_job_level(value: Any) -> str:
+    return _canonical_label(value, _JOB_LEVEL_LABELS)
 
 
 def _join_job_text(record: dict[str, Any]) -> str:
@@ -124,9 +171,9 @@ def _map_job_record(record: dict[str, Any], source: str) -> dict[str, str]:
         "job_title": _safe_text(record.get("job_title")),
         "company_name": _safe_text(record.get("company_name")),
         "location": _safe_text(record.get("location")),
-        "work_type": _safe_text(record.get("work_setup")),
-        "employment_type": _safe_text(record.get("employment_type")),
-        "experience_level_required": _safe_text(record.get("job_level")),
+        "work_type": canonical_work_setup(record.get("work_setup")),
+        "employment_type": canonical_employment_type(record.get("employment_type")),
+        "experience_level_required": canonical_job_level(record.get("job_level")),
         "salary_min_php": _safe_text(record.get("salary_min_php")),
         "salary_max_php": _safe_text(record.get("salary_max_php")),
         "salary_range_monthly_php": _format_salary_range(record),
@@ -281,7 +328,7 @@ def catalogue_counts() -> dict[str, Any]:
             tables[table_name] = {"error": f"HTTP {error.code}: {error.read().decode('utf-8', errors='replace')[:300]}"}
         except (URLError, TimeoutError, OSError) as error:
             tables[table_name] = {"error": f"{type(error).__name__}: {error}"[:300]}
-    return {"supabase_host": urlparse(SUPABASE_URL).netloc, "tables": tables}
+    return {"supabase_host": urlparse(SUPABASE_URL).netloc, "supabase_config": SUPABASE_CONFIG_SOURCE, "tables": tables}
 
 
 def fetch_internal_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[str, Any]]:
@@ -292,11 +339,44 @@ def fetch_employer_jobs(limit: int = 500, *, strict: bool = False) -> list[dict[
     return _fetch_jobs_table("employer_job_posts", limit=limit, strict=strict)
 
 
+# Everything a candidate sees about a posting. Two postings from the same
+# company that agree on all of it are one opening listed twice (a bulk file
+# uploaded again), and are shown once.
+DUPLICATE_POSTING_FIELDS = (
+    "job_source", "company_name", "job_title", "location", "work_type", "employment_type",
+    "experience_level_required", "salary_min_php", "salary_max_php", "job_description",
+    "responsibilities", "qualifications", "required_skills_comma_separated", "must_have_skill_ids",
+    "nice_to_have_skills_optional", "external_job_link_optional",
+)
+
+
+def _posting_key(row: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(re.sub(r"\s+", " ", _safe_text(row.get(field))).lower() for field in DUPLICATE_POSTING_FIELDS)
+
+
+def drop_duplicate_postings(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each posting once: of identical postings from the same company, the one
+    posted first is kept (applications and saved jobs most likely point at it).
+    Postings from different companies are never merged."""
+    first_posted: dict[tuple[str, ...], dict[str, Any]] = {}
+    for row in rows:
+        key = _posting_key(row)
+        kept = first_posted.get(key)
+        if kept is None or (_safe_text(row.get("created_at")), _safe_text(row.get("job_id"))) < (
+                _safe_text(kept.get("created_at")), _safe_text(kept.get("job_id"))):
+            first_posted[key] = row
+    kept_ids = {id(row) for row in first_posted.values()}
+    deduplicated = [row for row in rows if id(row) in kept_ids]
+    if len(deduplicated) < len(rows):
+        logger.info("Left out %d duplicate job postings", len(rows) - len(deduplicated))
+    return deduplicated
+
+
 def load_internal_jobs_dataframe(limit: int = 5000, *, strict: bool = False) -> pd.DataFrame:
     internal_rows = [_map_internal_job(record) for record in fetch_internal_jobs(limit=limit, strict=strict)]
     employer_rows = [_map_employer_job(record) for record in fetch_employer_jobs(limit=limit, strict=strict)]
     rows = [*internal_rows, *employer_rows]
-    rows = [row for row in rows if row.get("job_id") and row.get("job_title")]
+    rows = drop_duplicate_postings([row for row in rows if row.get("job_id") and row.get("job_title")])
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows)

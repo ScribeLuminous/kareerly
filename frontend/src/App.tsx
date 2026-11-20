@@ -18,8 +18,10 @@ import { loadLatestResume, saveMatchHistory, saveResumeAnalysis } from './lib/us
 import type { KareerlyUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { initialRecoveryLink, PASSWORD_RESET_PATH, type RecoveryLink } from './lib/passwordRecoveryLink';
+import { pageTitle } from './lib/pageTitles';
 import { isCandidateWorkspacePath } from './pages/candidate/routes';
 import { isEmployerWorkspacePath } from './pages/employer/routes';
+import { isPublicView, loginPathFor, passwordRecoveryPath, PUBLIC_VIEW_PATHS, publicViewFromPath, recoveryAccountFromSearch, safeNextPath, type PublicView } from './lib/publicRoutes';
 
 // Each workspace loads on demand so phones only download the one they use.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -112,6 +114,23 @@ function AppContent() {
     }
   };
 
+  // Show the public screen a URL names, with the account kind it is for.
+  const enterPublicView = (publicView: PublicView, search: string) => {
+    if (publicView === 'candidate-login' || publicView === 'candidate-signup') setAuthRole('candidate');
+    if (publicView === 'employer-login' || publicView === 'employer-signup') setAuthRole('employer');
+    if (publicView === 'admin-login') setAuthRole('admin');
+    if (publicView === 'password-recovery') setAuthRole(recoveryAccountFromSearch(search));
+    // A guest reloading their report finds it again (it is kept in browser storage).
+    if (publicView === 'onboarding') restoreGuestReport();
+    setView(publicView);
+  };
+
+  // Moves to a public screen and gives it its own URL, so Back and refresh keep it.
+  const goToPublicView = (publicView: PublicView, path: string = PUBLIC_VIEW_PATHS[publicView]) => {
+    setView(publicView);
+    if (`${window.location.pathname}${window.location.search}` !== path) navigate(path);
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -125,18 +144,21 @@ function AppContent() {
       .then((user) => {
         if (!isMounted) return;
         if (initialRecoveryLink.kind !== 'none') return;
+        const publicView = publicViewFromPath(location.pathname);
         if (user) {
           applyAuthenticatedUser(user);
-        } else if (location.pathname === '/candidate/login') {
-          setAuthRole('candidate');
-          setView('candidate-login');
-        } else if (location.pathname === '/employer/login') {
-          setAuthRole('employer');
-          setView('employer-login');
+        } else if (publicView) {
+          enterPublicView(publicView, location.search);
         } else if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) {
           setAuthRole('admin');
           setView('admin-login');
           if (location.pathname !== '/admin/login') navigate('/admin/login', { replace: true });
+        } else if (isCandidateWorkspacePath(location.pathname) || isEmployerWorkspacePath(location.pathname)) {
+          // A bookmarked or shared workspace page: log in first, then return to it.
+          const account = isEmployerWorkspacePath(location.pathname) ? 'employer' : 'candidate';
+          setAuthRole(account);
+          setView(account === 'employer' ? 'employer-login' : 'candidate-login');
+          navigate(loginPathFor(account, location.pathname), { replace: true });
         } else if (location.pathname !== '/') {
           setView('landing');
           navigate('/', { replace: true });
@@ -176,6 +198,27 @@ function AppContent() {
       data.subscription.unsubscribe();
     };
   }, []);
+
+  // Back and Forward between the signed-out screens (they fire popstate; the
+  // app's own navigate() calls do not). Signed-in workspaces keep their own
+  // routing, so this does nothing once someone is signed in.
+  const signedIn = Boolean(currentUser || currentEmployer || currentAdmin);
+  useEffect(() => {
+    const onHistoryMove = () => {
+      if (signedIn) return;
+      const publicView = publicViewFromPath(window.location.pathname);
+      if (!publicView || !isPublicView(view) || publicView === view) return;
+      enterPublicView(publicView, window.location.search);
+    };
+    window.addEventListener('popstate', onHistoryMove);
+    return () => window.removeEventListener('popstate', onHistoryMove);
+    // enterPublicView only sets state; listing it would resubscribe on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn, view]);
+
+  useEffect(() => {
+    document.title = pageTitle(view, location.pathname);
+  }, [view, location.pathname]);
 
   useEffect(() => {
     if (window.location.hash === '#admin' && !currentAdmin) {
@@ -278,33 +321,37 @@ function AppContent() {
     } else if (options.step) {
       goToStep(options.step);
     }
-    setView('onboarding');
+    if (currentUser) {
+      setView('onboarding');
+      return;
+    }
+    goToPublicView('onboarding');
   };
   const showCandidateSignIn = () => {
     setAuthRole('candidate');
-    setView('candidate-login');
-    navigate('/candidate/login');
+    goToPublicView('candidate-login');
   };
   const showEmployerSignIn = () => {
     setAuthRole('employer');
-    setView('employer-login');
-    navigate('/employer/login');
+    goToPublicView('employer-login');
   };
   const showAdminSignIn = () => {
     setAuthRole('admin');
-    setView('admin-login');
-    navigate('/admin/login');
+    goToPublicView('admin-login');
   };
   const showCandidateSignUp = () => {
     setAuthRole('candidate');
-    setView('candidate-signup');
+    goToPublicView('candidate-signup');
   };
   const showEmployerSignUp = () => {
     setAuthRole('employer');
-    setView('employer-signup');
+    goToPublicView('employer-signup');
   };
   const showSignUpDefault = () => {
-    setView('signup-default');
+    goToPublicView('signup-default');
+  };
+  const showPasswordRecovery = () => {
+    goToPublicView('password-recovery', passwordRecoveryPath(authRole));
   };
   const showDashboard = () => {
     if (!currentUser) {
@@ -328,7 +375,7 @@ function AppContent() {
     const hasSavedResume = await loadLatestResume({ userId: user.id }).then(Boolean, () => true);
     if (hasSavedResume) {
       setView('dashboard');
-      navigate('/candidate/dashboard', { replace: true });
+      navigate(safeNextPath(window.location.search, isCandidateWorkspacePath) || '/candidate/dashboard', { replace: true });
       return;
     }
     startOnboarding();
@@ -345,7 +392,7 @@ function AppContent() {
   const handleEmployerAuthenticated = (employer: EmployerUser) => {
     setCurrentEmployer(employer);
     setView('employer-dashboard');
-    navigate('/employer/dashboard', { replace: true });
+    navigate(safeNextPath(window.location.search, isEmployerWorkspacePath) || '/employer/dashboard', { replace: true });
   };
   const handleCandidateLogout = async () => {
     await signOutCurrentUser().catch((error) => console.warn('Unable to sign out:', error));
@@ -403,7 +450,7 @@ function AppContent() {
   const requestNewResetLink = () => {
     setRecoveryLink({ kind: 'none' });
     setView('password-recovery');
-    navigate('/', { replace: true });
+    navigate(passwordRecoveryPath(authRole), { replace: true });
   };
 
   if (isRestoringSession) {
@@ -433,7 +480,7 @@ function AppContent() {
           onAuthenticated={handleLoginAuthenticated}
           onCreateAccount={showSignUpDefault}
           onEmployerLogin={showEmployerSignIn}
-          onResetPassword={() => setView('password-recovery')}
+          onResetPassword={showPasswordRecovery}
           onHome={showHome}
         />
       )}
@@ -442,7 +489,7 @@ function AppContent() {
           onAuthenticated={handleLoginAuthenticated}
           onCreateAccount={showEmployerSignUp}
           onCandidateLogin={showCandidateSignIn}
-          onResetPassword={() => setView('password-recovery')}
+          onResetPassword={showPasswordRecovery}
           onHome={showHome}
         />
       )}
@@ -452,7 +499,7 @@ function AppContent() {
           onAuthenticated={handleLoginAuthenticated}
           onCreateAccount={showSignUpDefault}
           onSwitchRole={showCandidateSignIn}
-          onResetPassword={() => setView('password-recovery')}
+          onResetPassword={showPasswordRecovery}
           onHome={showHome}
         />
       )}

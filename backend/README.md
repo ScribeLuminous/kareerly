@@ -89,7 +89,9 @@ before files were kept), it asks the candidate to upload the resume again.
 
 The only active FastAPI entry point is `backend/app/main.py`.
 
-After the backend starts, open Swagger at:
+After the backend starts, open Swagger at (the API docs are on only when
+`KAREERLY_API_DOCS=1`; `bash backend/dev_server.sh start` sets it, and the
+deployed service leaves it off):
 
 ```text
 http://127.0.0.1:8000/docs
@@ -294,7 +296,9 @@ Why these settings:
 - **`--cpu-boost`**: extra CPU while the container starts, so the warmup
   (about 15 s) finishes sooner.
 - Optionally **`--min-instances 1`** keeps one instance warm, so no report
-  pays a cold start; it is billed while idle.
+  pays a cold start; it is billed while idle. Recommended while people are
+  testing the site: measured on 2026-11-16, the first report after a cold
+  start took about 51 s and later ones 12-13 s.
 
 Build from the repository root so `--source backend` uploads only the backend
 folder; the bundled checkpoint (`backend/trained_models/`, about 90 MB) and
@@ -521,7 +525,10 @@ diagnostic. `docs/matching-diagnosis.md` records the evidence, and
 trained parameters. Apart from that one closest job, no job is promoted to
 fill the Fit-Now view.
 
-Fit-Now is ranked by the composite score and Aspiration by preference alignment then the composite score, with cosine, coverage, preference
+Fit-Now is ranked by the composite score. Aspiration lists jobs scoring at least
+`ASPIRATION_RELEVANT_MIN_SCORE` (0.30, override with
+`KAREERLY_ASPIRATION_RELEVANT_MIN_SCORE`) first and the rest after; within each
+group it ranks by preference alignment then the composite score. Both use cosine, coverage, preference
 alignment and reviewed learning-resource coverage as deterministic tie-breakers.
 Learning availability requires a reviewed skill-ID mapping and a usable provider
 URL, with no keyword or semantic learning model. Match percentages are the

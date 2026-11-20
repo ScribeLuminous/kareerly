@@ -125,6 +125,16 @@ def normalize_extracted_text(text: str) -> str:
 # UPLOAD CHECKS
 # ============================================================
 
+UNREADABLE_PDF_MESSAGE = (
+    "This PDF could not be read. It may be damaged or incomplete. "
+    "Please save or export it again, or upload a DOCX version."
+)
+UNREADABLE_DOCX_MESSAGE = (
+    "This Word document could not be read. It may be damaged. "
+    "Please save it again, or upload a PDF version."
+)
+
+
 class ResumeFileError(ValueError):
     """An upload that cannot be read; the message is safe to show the user."""
 
@@ -370,7 +380,10 @@ def extract_pdf_document(source: Union[str, BinaryIO, bytes], use_ocr: bool = Tr
     except ResumeFileError:
         raise
     except Exception as exc:
-        raise RuntimeError(f"Failed to read PDF: {exc}") from exc
+        # A damaged or cut-off file: the user can fix it, so it is their error
+        # to see, without the PDF library's wording.
+        logger.warning("Unreadable PDF upload: %s", exc)
+        raise ResumeFileError(UNREADABLE_PDF_MESSAGE) from exc
 
     result = ResumeExtraction(text="", source_format="pdf")
     pages_to_read = min(page_count, MAX_RESUME_PAGES)
@@ -681,7 +694,8 @@ def extract_docx_document(source: Union[str, BinaryIO, bytes], use_ocr: bool = T
     except ResumeFileError:
         raise
     except Exception as exc:
-        raise RuntimeError(f"Failed to read DOCX: {exc}") from exc
+        logger.warning("Unreadable DOCX upload: %s", exc)
+        raise ResumeFileError(UNREADABLE_DOCX_MESSAGE) from exc
 
 
 def extract_text_from_docx(source: Union[str, BinaryIO, bytes]) -> str:

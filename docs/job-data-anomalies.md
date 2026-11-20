@@ -318,3 +318,84 @@ area.
   `backend/scripts/sync_reviewed_job_skills.py` writes guarded SQL that brings
   live jobs with a reviewed reference row in line with it, and lists live jobs
   that use unknown or unreviewed skill IDs. See `docs/skill-match-accuracy.md`.
+
+## Live employer posts (2026-11-17)
+
+A read of the public job list on 2026-11-17 (1,723 open jobs: 1,224 employer
+posts, 499 internal) found test and duplicate posts reaching candidates:
+
+| Problem | Posts | Handling |
+|---|---|---|
+| Posts from test companies named "(Test …)" / "(TEST …)" | 27 | Hidden by migration `20261117100000_employer_test_postings.sql` (`is_test_posting`); their owners still see them |
+| Same company posting the same job twice (one bulk file uploaded on 27 and 28 Oct) | 168 | Listed and matched once: `drop_duplicate_postings` in `backend/app/services/supabase_jobs.py` keeps the first-posted copy |
+| The same jobs posted by two companies ("wednesday virtual works" and "LTK Corp.") | 680 | **Needs review.** Not hidden automatically: identical posts from two companies could be real |
+
+To review the cross-company copies, run in the Supabase SQL editor:
+
+```sql
+select a.company_name, b.company_name as also_posted_by, count(*) as identical_posts,
+       min(a.created_at)::date as first_posted
+from public.employer_job_posts a
+join public.employer_job_posts b
+  on a.employer_id < b.employer_id
+ and lower(a.job_title) = lower(b.job_title)
+ and lower(coalesce(a.location, '')) = lower(coalesce(b.location, ''))
+ and coalesce(a.job_description, '') = coalesce(b.job_description, '')
+ and coalesce(a.required_skills, '') = coalesce(b.required_skills, '')
+where a.posting_status = 'active' and b.posting_status = 'active'
+group by 1, 2
+order by identical_posts desc;
+```
+
+If an account turns out to be a test account, hide all of its posts (this
+deletes nothing and can be undone with `false`):
+
+```sql
+update public.employer_job_posts set is_test_posting = true
+where employer_id = (select id from public.employer_profiles where company_name = 'COMPANY NAME HERE');
+```
+
+An admin can also set or clear the mark on one post with
+`PATCH /api/admin/jobs` and `{"job_id": "<post uuid>", "is_test_posting": true}`.
+
+## Catalogue data still to review (2026-11-18)
+
+These need someone who knows the jobs and courses; code cannot decide them.
+
+**PSOC codes (audit DATA-04).** No open job carries a `psoc_unit_code`
+(0 of 1,723 on 2026-11-16), so the PSOC 2012 / ISCO-08 reference loaded in
+`backend/data/psoc/` is not used for any job. An admin can set a code per post
+with `PATCH /api/admin/jobs` (`psoc_unit_code`, four digits, validated against
+the reference). To see which titles to code first:
+
+```sql
+select job_title, count(*) as open_posts
+from (
+  select job_title from public.employer_job_posts where posting_status = 'active' and psoc_unit_code is null
+  union all
+  select job_title from public.internal_jobs where posting_status = 'active' and psoc_unit_code is null
+) jobs
+group by job_title order by open_posts desc limit 50;
+```
+
+**Category names (audit DATA-03).** 120 internal jobs use the older 12 group
+names ("Technology/Data/Digital Systems") instead of the 24 career categories,
+and 104 have none. The group names are broader than one category (a data
+analyst and a web developer share "Technology/Data/Digital Systems"), so they
+are not renamed automatically. Spelling variants of level, work setup and
+employment type are now shown in one form (`supabase_jobs.py`).
+
+**Learning catalogue (audit DATA-05, AI-03).** None of the 483 resources passes
+`resource_is_reviewed` (status active, mapping reviewed, review verified, a
+verification date, reviewer and evidence link). Unreviewed rows are still shown,
+labelled, so the learning pages are not empty. To work through them:
+
+```sql
+select status, review_status, skill_id_mapping_status,
+       count(*) as resources,
+       count(*) filter (where coalesce(external_course_or_certification_link, '') = '') as no_link,
+       count(*) filter (where coalesce(level, '') = '') as no_level,
+       count(*) filter (where coalesce(cost_type, '') = '') as no_cost
+from public.learning_resources
+group by 1, 2, 3 order by resources desc;
+```

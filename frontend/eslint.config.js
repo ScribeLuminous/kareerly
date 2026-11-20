@@ -18,5 +18,14 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // React Compiler advisories from eslint-plugin-react-hooks 7. They flag
+      // patterns that can cost extra renders, not wrong results, and the
+      // remaining cases sit in the large dashboard pages. They stay visible as
+      // warnings until those components are refactored with tests around them.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/immutability': 'warn',
+    },
   },
 ])
