@@ -2,6 +2,10 @@ const RESUME_TYPES: Record<string, string[]> = {
   pdf: ['application/pdf'],
   docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
   doc: ['application/msword'],
+  // Photos and scans of a printed resume are read with text recognition (OCR).
+  jpg: ['image/jpeg'],
+  jpeg: ['image/jpeg'],
+  png: ['image/png'],
 };
 
 export const validateResumeFile = (file: File | null): { valid: boolean; error?: string } => {
@@ -20,7 +24,7 @@ export const validateResumeFile = (file: File | null): { valid: boolean; error?:
   // so the extension decides; the server checks the file's contents.
   const allowedTypes = RESUME_TYPES[extension];
   if (!allowedTypes || (file.type && file.type !== 'application/octet-stream' && !allowedTypes.includes(file.type))) {
-    return { valid: false, error: 'Please upload a PDF, DOCX or DOC file.' };
+    return { valid: false, error: 'Please upload a PDF, DOCX, DOC, JPG or PNG file.' };
   }
 
   return { valid: true };

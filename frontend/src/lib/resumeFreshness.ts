@@ -2,9 +2,9 @@ import type { ResumeAnalysisResult } from '../types';
 
 // Must match RESUME_PARSER_VERSION in backend/app/services/resume_parser.py
 // (tests/resumeFreshness.test.mjs checks this).
-export const CURRENT_RESUME_PARSER_VERSION = '2026.09-ocr-columns-doc';
+export const CURRENT_RESUME_PARSER_VERSION = '2026.11-sections-fields-images';
 
-export const RESUME_FILE_ACCEPT = '.pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword';
+export const RESUME_FILE_ACCEPT = '.pdf,.docx,.doc,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,image/jpeg,image/png';
 
 export type SavedResumeFreshness = {
   // Read by an older parser: skills from scanned pages, columns, split words,

@@ -1,0 +1,270 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "RVK-05",
+  "content_group": null,
+  "annotation": {
+    "level": "full",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "pdf text layer",
+      "rendered page"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "contact",
+      "heading": "DETAILS",
+      "region": "sidebar"
+    },
+    {
+      "type": "summary",
+      "heading": "PROFILE",
+      "region": "main"
+    },
+    {
+      "type": "experience",
+      "heading": "EMPLOYMENT HISTORY",
+      "region": "main"
+    },
+    {
+      "type": "links",
+      "heading": "LINKS",
+      "region": "sidebar"
+    },
+    {
+      "type": "skills",
+      "heading": "SKILLS",
+      "region": "sidebar"
+    },
+    {
+      "type": "interests",
+      "heading": "HOBBIES",
+      "region": "sidebar"
+    },
+    {
+      "type": "languages",
+      "heading": "LANGUAGES",
+      "region": "sidebar"
+    },
+    {
+      "type": "education",
+      "heading": "EDUCATION",
+      "region": "main"
+    },
+    {
+      "type": "achievements",
+      "heading": "ACHIEVEMENTS",
+      "region": "main"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "present",
+      "value": "Robert Cooper",
+      "as_printed": "R O B E R T C O O P E R (letter-spaced)"
+    },
+    "headline": {
+      "status": "present",
+      "value": "Security Guard"
+    },
+    "email": {
+      "status": "present",
+      "sha256": "f3273dd18d95bc19d51d3e6356e4a679e6f13824497272a270e7bb540b0abb9d"
+    },
+    "phone": {
+      "status": "present",
+      "sha256": "09e57eed11fdf2a036b3654b1fd29640993a828b2a24dc3f3fd8578bf483a646"
+    },
+    "location": {
+      "status": "present",
+      "value": "Los Angeles, CA, United States"
+    },
+    "street_address": {
+      "status": "present",
+      "sha256": "5dc649a773eda373cb3c797707a3cf567a5003ebca26dc819b0850ea2b6ba49c"
+    },
+    "links": {
+      "status": "present",
+      "count": 4,
+      "note": "link labels only: LinkedIn, Pinterest, Resume Templates, Build this template"
+    },
+    "personal_details": {
+      "status": "present",
+      "items": [
+        "place_of_birth",
+        "driving_license"
+      ]
+    },
+    "summary": {
+      "status": "present",
+      "section_type": "profile",
+      "value": "Safety conscious, attentive Security Guard with eight years experience in protecting and guarding VIP individuals in the military and defense sectors. Proficient at observing surroundings and immediate settings for possible threats of nonhuman and human nature. Presently finishing a bachelor’s in criminal justice and qualified as a CPO (Certified Protection Guard)."
+    },
+    "work_experience": {
+      "status": "present",
+      "entries": [
+        {
+          "job_title": "Security Guard",
+          "company": "ADT Security",
+          "department": null,
+          "location": "Port Washington",
+          "start_date": "2021-01",
+          "end_date": "2022-04",
+          "is_current": false,
+          "dates_as_written": "January 2021 — April 2022",
+          "employment_type": null
+        },
+        {
+          "job_title": "Security Guard",
+          "company": "Copwatch",
+          "department": null,
+          "location": "Jogbani",
+          "start_date": "2020-01",
+          "end_date": "2022-04",
+          "is_current": false,
+          "dates_as_written": "January 2020 — April 2022",
+          "employment_type": null
+        }
+      ]
+    },
+    "education": {
+      "status": "present",
+      "entries": [
+        {
+          "highest_educational_attainment": null,
+          "degree_program": "Certified Protection Guard Program (CPOP)",
+          "school_university": "International Foundation for Protection Guards",
+          "year_graduated": "2022",
+          "location": "Alexandria",
+          "start_date": "2021-01",
+          "end_date": "2022-04",
+          "dates_as_written": "January 2021 — April 2022",
+          "honors": null,
+          "in_progress": false
+        },
+        {
+          "highest_educational_attainment": null,
+          "degree_program": "Security Guard Certificate Program (SOCP)",
+          "school_university": "ASIS International",
+          "year_graduated": "2022",
+          "location": "North Naples",
+          "start_date": "2022-04",
+          "end_date": "2022-04",
+          "dates_as_written": "April 2022 — April 2022",
+          "honors": null,
+          "in_progress": false
+        },
+        {
+          "highest_educational_attainment": null,
+          "degree_program": "S.A.F.E. Approach Level II Training",
+          "school_university": "Hawaii Western College",
+          "year_graduated": "2019",
+          "location": null,
+          "start_date": "2015-01",
+          "end_date": "2019-11",
+          "dates_as_written": "January 2015 — November 2019",
+          "honors": null,
+          "in_progress": false
+        }
+      ]
+    },
+    "skills_stated": {
+      "status": "present",
+      "values": [
+        "Investigation skills",
+        "Safety compliance",
+        "Criminal justice knowledge",
+        "Restraining devices",
+        "Martial arts/Physical combat training"
+      ]
+    },
+    "certifications": {
+      "status": "present",
+      "entries": [
+        {
+          "title": "CPO (Certified Protection Guard)",
+          "issuer": null,
+          "year": null,
+          "kind": "certification",
+          "section": "PROFILE",
+          "dates_as_written": null
+        }
+      ]
+    },
+    "training": {
+      "status": "absent"
+    },
+    "projects": {
+      "status": "absent"
+    },
+    "achievements": {
+      "status": "present",
+      "entries": [
+        {
+          "text": "Decreased theft of hotel items like linen, towels, décor pieces, and cutlery by 73% by improving vigilance strategies, particularly for guests leaving the hotel.",
+          "section": "ACHIEVEMENTS"
+        },
+        {
+          "text": "Enhancing detection/monitoring procedures by having 15 360 degrees CCTV cameras installed at the back of shopping aisles and in storerooms, which cut product stock theft by 93%.",
+          "section": "ACHIEVEMENTS"
+        },
+        {
+          "text": "Introduced inventive loss prevention techniques by installing an X-ray scanning system at every entrance and exit in the building, which reduced theft by 28%.",
+          "section": "ACHIEVEMENTS"
+        },
+        {
+          "text": "Improved access control, which reduced unauthorized entry and solicitation by 26% using an announcement notification app, where visitors may be admitted/ declined entry straight from the employee’s smart device.",
+          "section": "ACHIEVEMENTS"
+        }
+      ]
+    },
+    "languages": {
+      "status": "present",
+      "values": [
+        "English",
+        "Spanish",
+        "Italian"
+      ]
+    },
+    "interests": {
+      "status": "present",
+      "values": [
+        "Running",
+        "Mtb",
+        "Enduro"
+      ]
+    },
+    "references": {
+      "status": "absent"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [
+      "SK117",
+      "SK615",
+      "SK031"
+    ],
+    "acceptable_skill_ids": [
+      "SK602",
+      "SK112",
+      "SK621",
+      "SK091",
+      "SK118",
+      "SK074",
+      "SK245"
+    ],
+    "notes": "Security monitoring (surveillance, CCTV monitoring), criminal law (course curriculum) and English are named. Safety compliance, emergency response and equipment maintenance are implied."
+  },
+  "notes": [
+    "The EDUCATION section lists certificate programmes, not degrees; they are annotated as education because the resume places them there, with no education level.",
+    "The profile mentions an unfinished bachelor's in criminal justice, which the Education section does not list.",
+    "The CPO credential is stated only in the profile."
+  ]
+}

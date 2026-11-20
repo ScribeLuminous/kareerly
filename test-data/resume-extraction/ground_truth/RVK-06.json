@@ -1,0 +1,272 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "RVK-06",
+  "content_group": null,
+  "annotation": {
+    "level": "full",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "pdf text layer",
+      "rendered page"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "summary",
+      "heading": "Profile",
+      "region": "main"
+    },
+    {
+      "type": "contact",
+      "heading": "Details",
+      "region": "sidebar"
+    },
+    {
+      "type": "experience",
+      "heading": "Employment History",
+      "region": "main"
+    },
+    {
+      "type": "links",
+      "heading": "Links",
+      "region": "sidebar"
+    },
+    {
+      "type": "skills",
+      "heading": "Skills",
+      "region": "sidebar"
+    },
+    {
+      "type": "interests",
+      "heading": "Hobbies",
+      "region": "sidebar"
+    },
+    {
+      "type": "education",
+      "heading": "Education",
+      "region": "main"
+    },
+    {
+      "type": "languages",
+      "heading": "Languages",
+      "region": "sidebar"
+    },
+    {
+      "type": "training",
+      "heading": "Courses",
+      "region": "main"
+    },
+    {
+      "type": "achievements",
+      "heading": "Achievements",
+      "region": "main"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "present",
+      "value": "Jason Miller"
+    },
+    "headline": {
+      "status": "present",
+      "value": "Amazon Associate"
+    },
+    "email": {
+      "status": "present",
+      "sha256": "f3273dd18d95bc19d51d3e6356e4a679e6f13824497272a270e7bb540b0abb9d"
+    },
+    "phone": {
+      "status": "present",
+      "sha256": "09e57eed11fdf2a036b3654b1fd29640993a828b2a24dc3f3fd8578bf483a646"
+    },
+    "location": {
+      "status": "present",
+      "value": "Los Angeles, CA, United States"
+    },
+    "street_address": {
+      "status": "present",
+      "sha256": "5dc649a773eda373cb3c797707a3cf567a5003ebca26dc819b0850ea2b6ba49c"
+    },
+    "links": {
+      "status": "present",
+      "count": 4,
+      "note": "link labels only: LinkedIn, Pinterest, Resume Templates, Build this template"
+    },
+    "personal_details": {
+      "status": "present",
+      "items": [
+        "place_of_birth",
+        "driving_license"
+      ]
+    },
+    "summary": {
+      "status": "present",
+      "section_type": "profile",
+      "value": "Experienced Amazon Associate with five years’ tenure in a shipping yard setting, maintaining an average picking/packing speed of 98%. Holds a zero error% score in adhering to packing specs and 97% error-free ratio on packing records. Completed a certificate in Warehouse Sanitation and has a valid commercial driver’s license."
+    },
+    "work_experience": {
+      "status": "present",
+      "entries": [
+        {
+          "job_title": "Amazon Warehouse Associate",
+          "company": "Amazon",
+          "department": null,
+          "location": "Miami Gardens",
+          "start_date": "2021-01",
+          "end_date": "2022-07",
+          "is_current": false,
+          "dates_as_written": "January 2021 — July 2022",
+          "employment_type": null
+        },
+        {
+          "job_title": "Laboratory Inventory Assistant",
+          "company": "Dunrea Laboratories",
+          "department": null,
+          "location": "Orlando",
+          "start_date": "2019-01",
+          "end_date": "2020-12",
+          "is_current": false,
+          "dates_as_written": "January 2019 — December 2020",
+          "employment_type": null
+        }
+      ]
+    },
+    "education": {
+      "status": "present",
+      "entries": [
+        {
+          "highest_educational_attainment": "Associate Degree",
+          "degree_program": "Associates Degree in Logistics and Supply Chain Fundamentals",
+          "school_university": "Atlanta Technical College",
+          "year_graduated": "2022",
+          "location": "Atlanta",
+          "start_date": "2021-01",
+          "end_date": "2022-07",
+          "dates_as_written": "January 2021 — July 2022",
+          "honors": null,
+          "in_progress": false
+        }
+      ]
+    },
+    "skills_stated": {
+      "status": "present",
+      "values": [
+        "Cleaning Equipment",
+        "Mathematics",
+        "Deep Sanitation Practices"
+      ],
+      "note": "The source lists 'Cleaning Equipment' three times; duplicates removed."
+    },
+    "certifications": {
+      "status": "present",
+      "entries": [
+        {
+          "title": "Online Graduate Certificate in Warehousing & Supply Chain Management",
+          "issuer": "Southern New Hampshire University (SNHU)",
+          "year": "2022",
+          "kind": "certification",
+          "section": "Courses",
+          "dates_as_written": "July 2022 — July 2022"
+        },
+        {
+          "title": "Certificate in Warehouse Sanitation",
+          "issuer": null,
+          "year": null,
+          "kind": "certification",
+          "section": "Profile",
+          "dates_as_written": null
+        },
+        {
+          "title": "Commercial driver’s license",
+          "issuer": null,
+          "year": null,
+          "kind": "license",
+          "section": "Profile",
+          "dates_as_written": null
+        }
+      ]
+    },
+    "training": {
+      "status": "present",
+      "entries": [
+        {
+          "title": "Warehousing, Operations, and Disposal Course",
+          "provider": "Graduate School USA",
+          "date": "2021",
+          "section": "Courses",
+          "dates_as_written": "January 2021 — May 2021"
+        }
+      ]
+    },
+    "projects": {
+      "status": "absent"
+    },
+    "achievements": {
+      "status": "present",
+      "entries": [
+        {
+          "text": "Decrease the errors rate and QC several more orders that we ship per day.",
+          "section": "Achievements"
+        },
+        {
+          "text": "Awarded \"Employee of the month\" due to consistent attendance, punctuality, and performance.",
+          "section": "Achievements"
+        },
+        {
+          "text": "Managed workflow of associates for the FC.",
+          "section": "Achievements"
+        }
+      ]
+    },
+    "languages": {
+      "status": "present",
+      "values": [
+        "English",
+        "Spanish"
+      ]
+    },
+    "interests": {
+      "status": "present",
+      "values": [
+        "Action Cricket",
+        "Rugby",
+        "Athletics"
+      ]
+    },
+    "references": {
+      "status": "absent"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [
+      "SK099",
+      "SK098",
+      "SK553",
+      "SK577",
+      "SK031"
+    ],
+    "acceptable_skill_ids": [
+      "SK093",
+      "SK693",
+      "SK094",
+      "SK076",
+      "SK211",
+      "SK555",
+      "SK218",
+      "SK241",
+      "SK580",
+      "SK091"
+    ],
+    "notes": "Warehouse work, inventory management, supply chain management (certificate) and supply chain principles (minor) are named. Packing, order picking, QC, Kaizen/5S/Kanban and the commercial licence are implied."
+  },
+  "notes": [
+    "Two credentials (warehouse sanitation certificate, commercial driver's licence) are stated only in the profile."
+  ]
+}
