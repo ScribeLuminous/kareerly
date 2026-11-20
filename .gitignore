@@ -43,6 +43,11 @@ backend/data/corpus/
 # Listing export from: python -m backend.scripts.import_jooble_jobs --csv ...
 jooble_listings*.csv
 
+# Resume extraction samples: third-party templates and any real resumes stay
+# on the maintainer's machine. Only the manifest, ground truth and reports are
+# committed (see test-data/resume-extraction/README.md).
+test-data/resume-extraction/private/
+
 # Runtime files and private uploads
 uploads/
 backend/uploads/

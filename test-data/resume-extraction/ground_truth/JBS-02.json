@@ -1,0 +1,209 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "JBS-02",
+  "content_group": "jobstreet",
+  "annotation": {
+    "level": "full",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "image (read by eye)",
+      "tesseract output (cross-check)"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "summary",
+      "heading": "CAREER OBJECTIVE",
+      "region": "label_column"
+    },
+    {
+      "type": "skills",
+      "heading": "TECHNICAL SKILLS",
+      "region": "label_column"
+    },
+    {
+      "type": "skills",
+      "heading": "PERSONAL SKILLS",
+      "region": "label_column"
+    },
+    {
+      "type": "education",
+      "heading": "EDUCATION",
+      "region": "label_column"
+    },
+    {
+      "type": "achievements",
+      "heading": "ACHIEVEMENTS / RESPONSIBILITIES",
+      "region": "label_column"
+    },
+    {
+      "type": "experience",
+      "heading": "PRE-PROFESSIONAL EXPERIENCE",
+      "region": "label_column"
+    },
+    {
+      "type": "references",
+      "heading": "REFERENCES",
+      "region": "label_column"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "present",
+      "value": "John David Alonzo"
+    },
+    "headline": {
+      "status": "absent"
+    },
+    "email": {
+      "status": "present",
+      "sha256": "a2f479b7384f92af42e291be2b845a0b0ced9457f2370dc8884425b4e6280220"
+    },
+    "phone": {
+      "status": "masked",
+      "as_printed": "0917 - XXX - XXXX"
+    },
+    "location": {
+      "status": "present",
+      "value": "Pasig, Philippines"
+    },
+    "street_address": {
+      "status": "present",
+      "sha256": "c9c9366cbec00704b26ad4bbc09f3bb2497348079b0ccd9b98cec7a458a28a89"
+    },
+    "links": {
+      "status": "absent"
+    },
+    "personal_details": {
+      "status": "present",
+      "items": [
+        "date_of_birth"
+      ],
+      "date_of_birth_sha256": "d9686ca0dd0891f0978063e82c0bb1a810b3a59804bdf6296e88a4082e8f45e3"
+    },
+    "summary": {
+      "status": "present",
+      "value": "Seeking a challenging career with a progressive organization that can benefit from my technical skills and abilities in the field of information technology (IT).",
+      "section_type": "objective"
+    },
+    "work_experience": {
+      "status": "present",
+      "entries": [
+        {
+          "job_title": "Technical Support Intern",
+          "company": "Xerox Business Services Philippines Inc.",
+          "department": "IT Department",
+          "location": null,
+          "start_date": "2014-06",
+          "end_date": "2015-02",
+          "is_current": false,
+          "dates_as_written": "June 2014 – Feb 2015",
+          "employment_type": "internship"
+        }
+      ]
+    },
+    "education": {
+      "status": "present",
+      "entries": [
+        {
+          "highest_educational_attainment": "Bachelor's Degree",
+          "degree_program": "BS in Information and Communications Engineering",
+          "school_university": "Rizal Technological University",
+          "year_graduated": "2015",
+          "location": "Boni Avenue, Mandaluyong City",
+          "start_date": "2010",
+          "end_date": "2015",
+          "dates_as_written": "(2010 – 2015)",
+          "honors": null,
+          "in_progress": false
+        }
+      ]
+    },
+    "skills_stated": {
+      "status": "present",
+      "values": [
+        "Hardware troubleshooting",
+        "Network troubleshooting",
+        "Programming (Java, C++, Visual Basic, Android Programming Language)",
+        "Microsoft Office (MS Word, Excel, Powerpoint, Internet)",
+        "Adobe Creative Suite (Photoshop, InDesign, After Effects, Dreamweaver)",
+        "Excellent written and verbal communication skills",
+        "Highly organized and efficient",
+        "Ability to work independently and as part of a team",
+        "Proven leadership skills and ability to motivate"
+      ]
+    },
+    "certifications": {
+      "status": "absent"
+    },
+    "training": {
+      "status": "absent"
+    },
+    "projects": {
+      "status": "absent"
+    },
+    "achievements": {
+      "status": "present",
+      "entries": [
+        {
+          "text": "President, Association of Computer Students (2014 - 2015)",
+          "section": "ACHIEVEMENTS / RESPONSIBILITIES"
+        },
+        {
+          "text": "Lay-out Artist, The Guardian Student Magazine (2012 - 2014)",
+          "section": "ACHIEVEMENTS / RESPONSIBILITIES"
+        },
+        {
+          "text": "Vice Governor, College of Engineering and Industrial Technology (2014 - 2015)",
+          "section": "ACHIEVEMENTS / RESPONSIBILITIES"
+        }
+      ]
+    },
+    "languages": {
+      "status": "absent"
+    },
+    "interests": {
+      "status": "absent"
+    },
+    "references": {
+      "status": "present",
+      "value": "available_on_request"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [
+      "SK007",
+      "SK133",
+      "SK697",
+      "SK165",
+      "SK628",
+      "SK629",
+      "SK662",
+      "SK667",
+      "SK665"
+    ],
+    "acceptable_skill_ids": [
+      "SK009",
+      "SK186",
+      "SK197",
+      "SK325",
+      "SK003",
+      "SK020",
+      "SK121",
+      "SK174"
+    ],
+    "notes": "Java, C++, programming, Microsoft Office, Excel, Photoshop, InDesign and After Effects are named; Technical Support from the internship title and 'Level 1 support'. Network troubleshooting, Dreamweaver, communication and leadership are implied or generic and are not penalised either way."
+  },
+  "notes": [
+    "Phone number is masked in the source; it is not scored.",
+    "The achievements are student leadership roles listed under ACHIEVEMENTS / RESPONSIBILITIES.",
+    "Grayscale image; headings sit in a left label column level with their first content line."
+  ]
+}

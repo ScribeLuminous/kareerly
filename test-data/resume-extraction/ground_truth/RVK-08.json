@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "RVK-08",
+  "content_group": null,
+  "annotation": {
+    "level": "full",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "pdf text layer (pdfplumber)",
+      "rendered page"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "personal_details",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "links",
+      "heading": "LINKS",
+      "region": "label_column",
+      "note": "letter-spaced"
+    },
+    {
+      "type": "summary",
+      "heading": "PROFILE",
+      "region": "label_column",
+      "note": "letter-spaced; text starts on the same line"
+    },
+    {
+      "type": "experience",
+      "heading": "EMPLOYMENT HISTORY",
+      "region": "label_column",
+      "note": "letter-spaced"
+    },
+    {
+      "type": "education",
+      "heading": "EDUCATION",
+      "region": "label_column",
+      "note": "letter-spaced"
+    },
+    {
+      "type": "skills",
+      "heading": "SKILLS",
+      "region": "label_column",
+      "note": "letter-spaced; on page 2"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "present",
+      "value": "John Huber",
+      "as_printed": "John Huber, UX Designer"
+    },
+    "headline": {
+      "status": "present",
+      "value": "UX Designer"
+    },
+    "email": {
+      "status": "present",
+      "sha256": "f3273dd18d95bc19d51d3e6356e4a679e6f13824497272a270e7bb540b0abb9d"
+    },
+    "phone": {
+      "status": "present",
+      "sha256": "a0236c27f6aa62b4285f363fd51a4be13f54752ee5b91222be8422e174024f68"
+    },
+    "location": {
+      "status": "present",
+      "value": "New York, USA"
+    },
+    "street_address": {
+      "status": "present",
+      "sha256": "15aca679fa8ebcb7abf651105be81b9512962f658a7f3c767e8c6222a16dea2a"
+    },
+    "links": {
+      "status": "present",
+      "count": 3,
+      "note": "link labels only: Make this resume, Resume Templates, Build this resume"
+    },
+    "personal_details": {
+      "status": "present",
+      "items": [
+        "date_of_birth",
+        "nationality",
+        "place_of_birth",
+        "driving_license"
+      ],
+      "date_of_birth_sha256": "3d5203dc311ef0013dc6a0e447058d2d80a1f5479c04a98cac1ef2f4552de47b",
+      "note": "printed as '1989/20/03' (year/day/month)"
+    },
+    "summary": {
+      "status": "present",
+      "section_type": "profile",
+      "value": "Proactive and detailed UX Designer with 7+ years of proven end-to-end experience delivering enjoyable web and mobile products for FinTech. Clear understanding of technologies allows seamless collaboration with developers, while strong communication skills ensure transparency with stakeholders. Up-to-date knowledge of Adobe Photoshop, Illustrator, Sketch, and InVision."
+    },
+    "work_experience": {
+      "status": "present",
+      "entries": [
+        {
+          "job_title": "UX Designer",
+          "company": "Real Vision Group",
+          "department": null,
+          "location": "New York",
+          "start_date": "2024-10",
+          "end_date": "present",
+          "is_current": true,
+          "dates_as_written": "Oct 2024 — Present",
+          "employment_type": null
+        },
+        {
+          "job_title": "UX Designer",
+          "company": "S&P Global",
+          "department": null,
+          "location": "New York",
+          "start_date": "2022-02",
+          "end_date": "2024-09",
+          "is_current": false,
+          "dates_as_written": "Feb 2022 — Sep 2024",
+          "employment_type": null
+        },
+        {
+          "job_title": "Junior UX Designer",
+          "company": "Status",
+          "department": null,
+          "location": "New York",
+          "start_date": "2020-11",
+          "end_date": "2022-01",
+          "is_current": false,
+          "dates_as_written": "Nov 2020 — Jan 2022",
+          "employment_type": null
+        }
+      ]
+    },
+    "education": {
+      "status": "present",
+      "entries": [
+        {
+          "highest_educational_attainment": "Master's Degree",
+          "degree_program": "Masters Degree in Human Computer Interaction (HCI)",
+          "school_university": "Pratt Institute",
+          "year_graduated": "2022",
+          "location": null,
+          "start_date": "2020-12",
+          "end_date": "2022-05",
+          "dates_as_written": "Dec 2020 — May 2022",
+          "honors": null,
+          "in_progress": false
+        },
+        {
+          "highest_educational_attainment": "Bachelor's Degree",
+          "degree_program": "Bachelor's Degree in Interaction Design",
+          "school_university": "Pratt Institute",
+          "year_graduated": "2020",
+          "location": "New York",
+          "start_date": "2016-07",
+          "end_date": "2020-11",
+          "dates_as_written": "Jul 2016 — Nov 2020",
+          "honors": null,
+          "in_progress": false
+        }
+      ]
+    },
+    "skills_stated": {
+      "status": "present",
+      "values": [
+        "HTML5, CSS, JavaScript",
+        "Adobe Suite",
+        "Sketch, InVision, Balsamiq",
+        "Self-motivated",
+        "Effective communicator",
+        "Team oriented",
+        "Time management"
+      ],
+      "levels_shown": true
+    },
+    "certifications": {
+      "status": "absent"
+    },
+    "training": {
+      "status": "absent"
+    },
+    "projects": {
+      "status": "absent"
+    },
+    "achievements": {
+      "status": "absent"
+    },
+    "languages": {
+      "status": "absent"
+    },
+    "interests": {
+      "status": "absent"
+    },
+    "references": {
+      "status": "absent"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [
+      "SK677",
+      "SK002",
+      "SK662",
+      "SK663",
+      "SK042",
+      "SK347"
+    ],
+    "acceptable_skill_ids": [
+      "SK137",
+      "SK325",
+      "SK193",
+      "SK658",
+      "SK003",
+      "SK005",
+      "SK661",
+      "SK020"
+    ],
+    "notes": "HTML/CSS, JavaScript, Photoshop, Illustrator, UI redesign and interactive prototypes are named. Usability/A-B testing, site analytics and documentation are implied. Sketch, InVision and Balsamiq have no canonical skill."
+  },
+  "notes": [
+    "pypdf splits kerned words ('New Y ork', 'FinT ech'); pdfplumber reads them whole. Annotated values use the visible text.",
+    "The skills section is on page 2, which holds only 165 letters."
+  ]
+}

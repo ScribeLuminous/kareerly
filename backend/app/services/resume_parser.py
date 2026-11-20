@@ -21,9 +21,12 @@ logger = logging.getLogger(__name__)
 # Bumped whenever extraction changes in a way that can change the skills read
 # from the same file. A saved analysis with an older version was read by an
 # older parser, so the dashboard offers to read the original file again.
-RESUME_PARSER_VERSION = "2026.09-ocr-columns-doc"
+RESUME_PARSER_VERSION = "2026.11-sections-fields-images"
 
-SUPPORTED_RESUME_EXTENSIONS = {"pdf", "docx", "doc"}
+# Photos and scans of a printed resume are read with text recognition (OCR).
+IMAGE_RESUME_EXTENSIONS = {"jpg", "jpeg", "png"}
+SUPPORTED_RESUME_EXTENSIONS = {"pdf", "docx", "doc"} | IMAGE_RESUME_EXTENSIONS
+UPLOAD_FORMATS_MESSAGE = "Please upload a PDF, DOCX, DOC, JPG or PNG resume."
 MAX_RESUME_BYTES = 5 * 1024 * 1024
 MAX_DOCX_ENTRIES = 2000
 MAX_DOCX_UNCOMPRESSED_BYTES = 60 * 1024 * 1024
@@ -144,7 +147,7 @@ def validate_resume_upload(filename: str, file_bytes: bytes) -> str:
     """The file's real format ("pdf", "docx" or "doc"), checked by content, not only by name."""
     extension = resume_extension(filename)
     if extension not in SUPPORTED_RESUME_EXTENSIONS:
-        raise ResumeFileError("Please upload a PDF, DOCX or DOC resume.")
+        raise ResumeFileError(UPLOAD_FORMATS_MESSAGE)
     if not file_bytes:
         raise ResumeFileError("Uploaded resume file is empty.")
     if len(file_bytes) > MAX_RESUME_BYTES:
@@ -157,16 +160,22 @@ def validate_resume_upload(filename: str, file_bytes: bytes) -> str:
         actual = "docx"
     elif file_bytes.startswith(OLE_SIGNATURE):
         actual = "doc"
+    elif file_bytes.startswith(b"\xff\xd8\xff"):
+        actual = "jpg"
+    elif file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        actual = "png"
     else:
         actual = ""
 
     if extension == "pdf" and actual != "pdf":
-        raise ResumeFileError("This file is not a valid PDF. Please upload a PDF, DOCX or DOC resume.")
+        raise ResumeFileError(f"This file is not a valid PDF. {UPLOAD_FORMATS_MESSAGE}")
     if extension in {"docx", "doc"} and actual not in {"docx", "doc"}:
         if file_bytes.lstrip()[:5] == b"{\\rtf":
             raise ResumeFileError("This file is an RTF document. Please save it as DOCX or PDF and upload it again.")
-        raise ResumeFileError("This file is not a valid Word document. Please upload a PDF, DOCX or DOC resume.")
-    # A .docx renamed to .doc (or the reverse) is read as what it really is.
+        raise ResumeFileError(f"This file is not a valid Word document. {UPLOAD_FORMATS_MESSAGE}")
+    if extension in IMAGE_RESUME_EXTENSIONS and actual not in {"jpg", "png"}:
+        raise ResumeFileError(f"This file is not a valid JPG or PNG image. {UPLOAD_FORMATS_MESSAGE}")
+    # A .docx renamed to .doc, or a PNG named .jpg (and the reverse), is read as what it really is.
     return actual
 
 
@@ -181,7 +190,7 @@ def _check_docx_archive(file_bytes: bytes) -> None:
                 raise ResumeFileError("This Word document is too large to read once unpacked.")
             names = {entry.filename for entry in entries}
             if "word/document.xml" not in names:
-                raise ResumeFileError("This file is not a valid Word document. Please upload a PDF, DOCX or DOC resume.")
+                raise ResumeFileError(f"This file is not a valid Word document. {UPLOAD_FORMATS_MESSAGE}")
             if "EncryptionInfo" in names:
                 raise ResumeFileError("This Word document is password-protected. Please remove the password and upload it again.")
     except zipfile.BadZipFile as exc:
@@ -205,6 +214,7 @@ class ResumeExtraction:
     ocr_images: int = 0
     column_pages: list[int] = field(default_factory=list)
     ocr_status: str = "not_needed"
+    kerning_pages: list[int] = field(default_factory=list)
 
     def metadata(self) -> dict[str, Any]:
         return {
@@ -216,6 +226,7 @@ class ResumeExtraction:
             "ocr_pages": list(self.ocr_pages),
             "ocr_images": self.ocr_images,
             "multi_column_pages": list(self.column_pages),
+            "kerning_repaired_pages": list(self.kerning_pages),
         }
 
 
@@ -251,15 +262,38 @@ def _usable_chars(text: str) -> int:
     return sum(len(word) for word in re.findall(r"[A-Za-z]{2,}", text))
 
 
+# A round or square bullet that OCR reads as a letter or symbol ("e Hardware
+# troubleshooting", "« Network"), followed by the item's first word.
+_OCR_BULLET = re.compile(r"^(?:[eo°•●▪■◦*+«»©®>~]|\(\s*\)|\[\s*\])\s+(?=[A-Z0-9(\"'])")
+# Runs of bracket and underscore noise that a table border or rule leaves between words.
+_OCR_RULE_NOISE = re.compile(r"(?<=\s)[_|\[\]{}]+(?:\s+[_|\[\]{}\-]+)*(?=\s)")
+# A date or year: such lines are mostly digits, but they are the dates of jobs and degrees.
+_OCR_DATE = re.compile(
+    r"\b(?:19|20)\d{2}\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}\b",
+    re.IGNORECASE,
+)
+
+
 def _ocr_lines(text: str) -> list[str]:
-    """OCR output without the noise lines a photo, border or logo produces."""
+    """OCR output without the noise lines a photo, border or logo produces.
+
+    Lines that are mostly digits are dropped as noise unless they hold a date
+    or year ("(June 2014 - Feb 2015)", "Students (2014 - 2015)"): those are the
+    dates of the jobs and degrees above them.
+    """
     lines = []
     for line in normalize_extracted_text(text).splitlines():
         line = re.sub(r"[ \t]+", " ", line).strip(" |_~-=")
+        line = _OCR_RULE_NOISE.sub(" ", f" {line} ").strip()
+        line = _OCR_BULLET.sub("", line)
+        line = re.sub(r" {2,}", " ", line)
         if not line:
             continue
         letters = sum(char.isalpha() for char in line)
         words = re.findall(r"[A-Za-z]{2,}", line)
+        if _OCR_DATE.search(line) and (letters >= 3 or re.search(r"(?:19|20)\d{2}\D+(?:19|20)\d{2}", line)):
+            lines.append(line)
+            continue
         if letters < 3 or letters < 0.5 * len(line.replace(" ", "")) or not any(len(word) >= 3 for word in words):
             continue
         lines.append(line)
@@ -290,6 +324,30 @@ def _pdf_layout_text(plumber_pdf: Any, page_index: int) -> tuple[Optional[str], 
     except Exception:
         pass
     return None, False
+
+
+# A capital letter split from the rest of its word ("Y ork", "W orking",
+# "FinT ech"): pypdf turns the tight letter spacing (kerning) of some PDF
+# writers into spaces. "A team" and "I have" are ordinary words.
+_KERNING_SPLIT = re.compile(r"(?<![A-Za-z])(?!(?:A|I) )[A-Z] [a-z]{2,}|[a-z][A-Z] [a-z]{2,}")
+# Split words on a page before the page is re-read, and the share of them the
+# second reader must remove: one or two hits are often real ("P&L accountability").
+MIN_KERNING_SPLITS = 3
+
+
+def _repair_kerning(plumber_pdf: Any, page_index: int, page_text: str, result: "ResumeExtraction") -> str:
+    """The page's text from pdfplumber when pypdf split many words at kerned letters."""
+    splits = len(_KERNING_SPLIT.findall(page_text or ""))
+    if plumber_pdf is None or splits < MIN_KERNING_SPLITS:
+        return page_text
+    try:
+        alternative = plumber_pdf.pages[page_index].extract_text(x_tolerance=1.5) or ""
+    except Exception:
+        return page_text
+    if len(_KERNING_SPLIT.findall(alternative)) * 3 <= splits and _usable_chars(alternative) >= 0.9 * _usable_chars(page_text):
+        result.kerning_pages.append(page_index + 1)
+        return alternative
+    return page_text
 
 
 def _render_pdf_page(pdfium_doc: Any, page_index: int) -> Any:
@@ -352,6 +410,8 @@ def extract_pdf_document(source: Union[str, BinaryIO, bytes], use_ocr: bool = Tr
             if is_multi_column and _usable_chars(layout_text) >= 0.8 * _usable_chars(page_text):
                 page_text = layout_text or ""
                 result.column_pages.append(page_index + 1)
+            else:
+                page_text = _repair_kerning(plumber_pdf, page_index, page_text, result)
             page_text = _CID_MARKER.sub(" ", page_text)
             if _usable_chars(page_text) < MIN_USABLE_PAGE_CHARS:
                 scanned_pages.append(page_index)
@@ -666,6 +726,82 @@ def extract_doc_document(data: bytes, use_ocr: bool = True) -> ResumeExtraction:
 
 
 # ============================================================
+# IMAGES (JPG, PNG): photos and scans of a printed resume
+# ============================================================
+
+IMAGE_OCR_UNAVAILABLE_WARNING = (
+    "This resume is an image, but text recognition (OCR) is not available right now, so it could not be read. "
+    "Upload a text-based PDF or DOCX, or add your skills manually."
+)
+IMAGE_OCR_USED_WARNING = (
+    "This resume is an image, so it was read with text recognition (OCR). "
+    "Check the extracted details and add any that were missed."
+)
+IMAGE_OCR_FAILED_WARNING = (
+    "Text recognition (OCR) could not read this image. Upload a sharper, well-lit photo or scan taken straight on, "
+    "a text-based PDF or a DOCX, or add your skills manually."
+)
+# Text recognition reads small text poorly; narrower images are enlarged first.
+MIN_OCR_IMAGE_WIDTH = 1600
+
+
+def prepare_image_for_ocr(image: Any) -> Any:
+    """A photo or scan made ready for recognition: upright, grayscale, readable size, full contrast.
+
+    Phones record rotation in EXIF instead of rotating the pixels, so a photo
+    taken sideways is turned upright first. Small screenshots are enlarged;
+    contrast is stretched so grey text on a shadowed page stands out.
+    """
+    from PIL import Image, ImageOps
+
+    image = ImageOps.exif_transpose(image)
+    if image.mode in {"RGBA", "LA", "P"}:
+        # Transparent areas become white, not black.
+        rgba = image.convert("RGBA")
+        background = Image.new("RGB", rgba.size, "white")
+        background.paste(rgba, mask=rgba.split()[-1])
+        image = background
+    image = image.convert("L")
+    width, height = image.size
+    if 0 < width < MIN_OCR_IMAGE_WIDTH:
+        scale = min(MIN_OCR_IMAGE_WIDTH / width, 3.0)
+        if width * height * scale * scale <= ocr.OCR_MAX_PIXELS:
+            image = image.resize((int(width * scale), int(height * scale)))
+    return ImageOps.autocontrast(image, cutoff=1)
+
+
+def extract_image_document(data: bytes, kind: str, use_ocr: bool = True) -> ResumeExtraction:
+    """Text of a resume photo or scan (JPG or PNG), read with text recognition."""
+    result = ResumeExtraction(text="", source_format=kind, method="ocr", pages_read=1)
+    image = ocr.open_image_safely(data)
+    if image is None:
+        raise ResumeFileError("This image could not be opened. Please upload a JPG or PNG under 5MB, or a PDF or DOCX.")
+    if not use_ocr:
+        result.ocr_status = "skipped"
+        return result
+    if not ocr.ocr_available():
+        result.ocr_status = "unavailable"
+        result.warnings.append(IMAGE_OCR_UNAVAILABLE_WARNING)
+        return result
+    try:
+        lines = _ocr_lines(ocr.ocr_image(prepare_image_for_ocr(image), ocr.OcrBudget()))
+    except Exception:  # OcrFailed, OcrUnavailable, or an image that would not convert
+        result.ocr_status = "failed"
+        result.warnings.append(IMAGE_OCR_FAILED_WARNING)
+        return result
+    text = "\n".join(lines)[:MAX_RESUME_TEXT_CHARS]
+    if _usable_chars(text) < MIN_USABLE_PAGE_CHARS:
+        result.ocr_status = "no_text"
+        result.warnings.append(IMAGE_OCR_FAILED_WARNING)
+    else:
+        result.ocr_status = "used"
+        result.ocr_pages = [1]
+        result.warnings.append(IMAGE_OCR_USED_WARNING)
+    result.text = normalize_extracted_text(text)
+    return result
+
+
+# ============================================================
 # ENTRY POINTS
 # ============================================================
 
@@ -688,6 +824,8 @@ def extract_resume_document(
         result = extract_pdf_document(file_bytes, use_ocr=use_ocr)
     elif kind == "docx":
         result = extract_docx_document(file_bytes, use_ocr=use_ocr)
+    elif kind in {"jpg", "png"}:
+        result = extract_image_document(file_bytes, kind, use_ocr=use_ocr)
     else:
         result = extract_doc_document(file_bytes, use_ocr=use_ocr)
     if split_word_vocabulary:

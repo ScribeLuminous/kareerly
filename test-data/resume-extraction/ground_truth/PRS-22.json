@@ -1,0 +1,124 @@
+{
+  "schema_version": "1.0",
+  "sample_id": "PRS-22",
+  "content_group": null,
+  "annotation": {
+    "level": "layout_only",
+    "annotator": "Claude (AI-assisted, single annotator)",
+    "review_status": "unreviewed",
+    "annotated_on": "2026-11-19",
+    "sources_checked": [
+      "docx text",
+      "page rendered with LibreOffice"
+    ]
+  },
+  "sections": [
+    {
+      "type": "contact",
+      "heading": null,
+      "region": "header"
+    },
+    {
+      "type": "summary",
+      "heading": "01 SUMMARY",
+      "region": "label_column"
+    },
+    {
+      "type": "education",
+      "heading": "02 EDUCATION",
+      "region": "label_column"
+    },
+    {
+      "type": "experience",
+      "heading": "03 EXPERIENCE",
+      "region": "label_column"
+    },
+    {
+      "type": "achievements",
+      "heading": "03 AWARDS",
+      "region": "label_column"
+    },
+    {
+      "type": "skills",
+      "heading": "04 SKILLS",
+      "region": "label_column"
+    },
+    {
+      "type": "interests",
+      "heading": "05 INTERESTS",
+      "region": "label_column"
+    }
+  ],
+  "fields": {
+    "full_name": {
+      "status": "placeholder",
+      "as_printed": "Your Name"
+    },
+    "headline": {
+      "status": "placeholder"
+    },
+    "email": {
+      "status": "placeholder"
+    },
+    "phone": {
+      "status": "placeholder"
+    },
+    "location": {
+      "status": "absent"
+    },
+    "street_address": {
+      "status": "absent"
+    },
+    "links": {
+      "status": "absent"
+    },
+    "personal_details": {
+      "status": "absent"
+    },
+    "summary": {
+      "status": "placeholder"
+    },
+    "work_experience": {
+      "status": "placeholder",
+      "entry_count": 2
+    },
+    "education": {
+      "status": "placeholder",
+      "entry_count": 2
+    },
+    "skills_stated": {
+      "status": "placeholder"
+    },
+    "certifications": {
+      "status": "absent"
+    },
+    "training": {
+      "status": "absent"
+    },
+    "projects": {
+      "status": "absent"
+    },
+    "achievements": {
+      "status": "placeholder",
+      "entry_count": 3
+    },
+    "languages": {
+      "status": "absent"
+    },
+    "interests": {
+      "status": "placeholder"
+    },
+    "references": {
+      "status": "absent"
+    }
+  },
+  "skills": {
+    "expected_skill_ids": [],
+    "acceptable_skill_ids": [],
+    "notes": "Placeholder text names no skills; any skill extracted is a false positive."
+  },
+  "notes": [
+    "Blank template: field values are placeholders (Lorem ipsum, 'Your Name', 'MONTH 20XX'). Scored for sections, entry counts and false positives only.",
+    "Headings sit in a table column of their own, numbered '01'–'05' (two are numbered '03' in the source)."
+  ]
+}
