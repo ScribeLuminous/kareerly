@@ -4,7 +4,7 @@
   "content_group": "jobstreet",
   "annotation": {
     "level": "full",
-    "annotator": "Claude (AI-assisted, single annotator)",
+    "annotator": "AI-assisted, single annotator",
     "review_status": "unreviewed",
     "annotated_on": "2026-11-19",
     "sources_checked": [

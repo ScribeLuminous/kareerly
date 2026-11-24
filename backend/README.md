@@ -130,13 +130,6 @@ Quick import check:
 backend/.venv/bin/python -c "from backend.app.main import app; print(app.title)"
 ```
 
-Optional Google Programmable Search API:
-
-```bash
-export GOOGLE_CSE_API_KEY="your_api_key"
-export GOOGLE_CSE_ID="your_search_engine_id"
-```
-
 The legacy raw source dataset is retained locally at:
 
 ```text
