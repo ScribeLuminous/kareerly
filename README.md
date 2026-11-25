@@ -9,10 +9,6 @@ each match in terms of matched and missing skills, and recommends learning resou
 for the skills still to build. Employers post jobs and review applicants
 skills-first, with identity details withheld until the interview stage.
 
-This repository is the official source code for the thesis. Submission details
-(title, group members, repository access) are in
-[`THESIS_SUBMISSION.md`](THESIS_SUBMISSION.md).
-
 ---
 
 ## Contents
@@ -62,9 +58,8 @@ The platform has three roles: **candidates**, **employers** and
 
 ## 2. Research objectives
 
-The system was built to address the objectives below, as reflected in the
-thesis title and implemented in this repository. The formal wording of the
-objectives and research questions is in the approved thesis manuscript.
+The system was built to address the objectives below, as implemented in this
+repository.
 
 1. Extract skills from resumes of varied formats and layouts and normalize them
    to a canonical skill taxonomy.
@@ -337,12 +332,11 @@ kareerly/
 │   └── resume-extraction/     extraction QA: manifest, ground truth, reports
 ├── docs/                      technical documentation (index: docs/README.md)
 ├── .github/workflows/         scheduled learning jobs and job import
-├── README.md
-└── THESIS_SUBMISSION.md
+└── README.md
 ```
 
 The layout follows the deployed architecture (frontend on Vercel, backend on
-Cloud Run). Folders were not moved for submission, because the Dockerfile, CI
+Cloud Run). Folders should stay where they are, because the Dockerfile, CI
 workflows and Python imports depend on these paths.
 
 ## 13. Installation
@@ -507,8 +501,5 @@ Step-by-step deployment and troubleshooting:
   reported as real job-seeker results.
 - **Bundle size:** the production frontend bundle has one chunk over 500 kB
   (a build warning, not an error).
-- **Archived notes:** [`docs/archive/MANUSCRIPT_CRITICAL_REVISIONS.md`](docs/archive/MANUSCRIPT_CRITICAL_REVISIONS.md)
-  describes an earlier Cross-Encoder design and does **not** describe the
-  submitted system.
 
 More technical documentation is indexed in [`docs/README.md`](docs/README.md).

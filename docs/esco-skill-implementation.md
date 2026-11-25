@@ -5,7 +5,7 @@ Branch `krly/esco-skill-implementation`. Kareerly's curated skills
 ESCO v1.2.1 URIs are reference links. The fine-tuned all-MiniLM-L6-v2 model
 and every match threshold are unchanged. Inputs: `Kareerly_ESCO_v1.2.1_en_csv.zip`
 (SHA-256 `9608b20a…21ad`, not committed) and `Kareerly_ESCO_Skill_Audit.docx`,
-whose counts were re-checked against the repository (section 9).
+whose counts were re-checked against the repository (section 8).
 
 ## 1. One shared skill resolver
 
@@ -165,7 +165,7 @@ whose skill list was filled from a category template, which is not evidence.
 Caveat: the curated rows' skill lists were written by the catalogue curator
 in Kareerly skill names; they are not purely provider text.
 
-Figures after adding Node.js, MySQL, C++ and C# (section 11); four draft
+Figures after adding Node.js, MySQL, C++ and C# (section 10); four draft
 labels that said "not in taxonomy" for those names were changed to the new
 skills.
 
@@ -190,31 +190,7 @@ Quality Control only through "Kaizen suggestions" matching an unreviewed ESCO
 label; the resume never names quality control. Not material; no threshold
 change.
 
-## 8. Thesis text to revise (Kareerly_Chapters_1-5_IterativeIncremental_Revised.docx)
-
-Paragraph numbers are the order of text blocks in the file.
-
-1. **[47], [98], [451], [459]** describe PSOC–ESCO as an offline "workbook".
-   What exists: ESCO v1.2.1 labels inside the curated skills file and alias
-   file; a PSOC 2012 importer that calls the PSA API offline; no runtime PSOC
-   use. Revise after Phase 2; do not describe PSOC as integrated.
-2. **[531]** "No generative language model is used in this feature." Gemma
-   parses pasted postings and may word the explanation when configured; the
-   score, category, gaps and resources are deterministic. The fallback now
-   classifies required/preferred by headings.
-3. **[297], [816]** describe three tiers ending in a same-category fallback.
-   The category fallback and placeholder courses are removed; a gap without a
-   resource that teaches it shows none.
-4. **[171]–[173], [178]** "matched against the aliases, ESCO labels …" and
-   "every detected mention is mapped to one canonical skill ID linked to
-   PSOC, ISCO-08, and ESCO". Now: only verified names are matched; ESCO
-   alternative labels are review candidates; 68 skills have no ESCO link.
-5. **[459]** "422 ESCO links are automatically generated and awaiting
-   review" — still true; add that they are inactive for text matching.
-6. **[888]–[891]** Chapter IV placeholders: not filled. The section 6 figures
-   use draft labels and must not be reported until the labels are reviewed.
-
-## 9. Audit claims checked against the repository
+## 8. Audit claims checked against the repository
 
 Confirmed: 694 skills (422 auto_generated_review, 164 reviewed, 77
 manual_review, 25 mapped, 6 partial_match); 621 skills with an ESCO URI, all
@@ -222,7 +198,7 @@ present in v1.2.1 with identical preferred labels; 10 duplicate-URI pairs;
 73 without a URI, of which the 5 listed link confidently; ESCO 13,960 rows /
 13,939 URIs; SEO's ESCO concept lists SEM as an alternative label.
 
-## 10. Commands run
+## 9. Commands run
 
 - `backend/.venv/bin/python -m pytest backend/tests --ignore=backend/tests/test_training_today.py`
   (the 14 failures also on `main` are listed in the final report)
@@ -231,7 +207,7 @@ present in v1.2.1 with identical preferred labels; 10 duplicate-URI pairs;
 - `backend/.venv/bin/python -m backend.scripts.unreviewed_skill_dependencies --output …`
 - frontend: `npm run build`, `npx eslint`, `npm test`
 
-## 11. Additions after the first push
+## 10. Additions after the first push
 
 - **Node.js (SK695), MySQL (SK696), C++ (SK697), C# (SK698)** are curated
   skills. Before, "NodeJS" named nothing and SQL/MySQL, C++/C# looked

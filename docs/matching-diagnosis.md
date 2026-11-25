@@ -134,8 +134,8 @@ Fit-Now job, which is a valid outcome.
 - **On these labels the fine-tuned model does not beat TF-IDF** (NDCG@10 0.856
   vs 0.889). The labels come from job titles, and resumes state their target
   title, which favours lexical matching. Even so, this data gives no evidence
-  that fine-tuning improved role-level retrieval, and the thesis should not
-  claim it does. No retraining was done because the model separated the groups
+  that fine-tuning improved role-level retrieval, and that should not be
+  claimed. No retraining was done because the model separated the groups
   adequately once the inputs were fixed.
 - Training review:
   - The data splits are resume-level with deduplicated job groups, and

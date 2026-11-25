@@ -1,4 +1,4 @@
-"""The thesis's shared fine-tuned MiniLM encoder and frozen input representation."""
+"""Kareerly's shared fine-tuned MiniLM encoder and frozen input representation."""
 from __future__ import annotations
 
 import json

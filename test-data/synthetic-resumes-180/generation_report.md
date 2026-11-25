@@ -1,6 +1,6 @@
 # Synthetic resume dataset: generation and QA report
 
-System-test fixtures for Kareerly. Not training, validation or thesis evaluation data. All people, employers, schools, emails and phone numbers are fictional.
+System-test fixtures for Kareerly. Not training, validation or evaluation data. All people, employers, schools, emails and phone numbers are fictional.
 
 ## Overall
 
@@ -446,4 +446,4 @@ These are documented, not changed, as the task requires for the model, threshold
 
 ## Research and data integrity
 
-These 180 resumes are synthetic system-test fixtures. They must not be added to fine-tuning, validation or held-out thesis test data, used for checkpoint selection, presented as real Filipino job seekers, used to report or adjust thesis metrics, or mixed with production candidate records. No model, checkpoint, threshold, gate, skill-coverage rule, PSOC/ISCO/ESCO mapping, job catalog, production database or thesis dataset was changed. PSOC/ISCO codes are left empty: jobs carry no reviewed PSOC codes, and the repository's documentation states PSOC feeds no matching, skill-gap or learning logic, so a code derived from a title alone would be unreviewed.
+These 180 resumes are synthetic system-test fixtures. They must not be added to fine-tuning, validation or held-out test data, used for checkpoint selection, presented as real Filipino job seekers, used to report or adjust evaluation metrics, or mixed with production candidate records. No model, checkpoint, threshold, gate, skill-coverage rule, PSOC/ISCO/ESCO mapping, job catalog, production database or evaluation dataset was changed. PSOC/ISCO codes are left empty: jobs carry no reviewed PSOC codes, and the repository's documentation states PSOC feeds no matching, skill-gap or learning logic, so a code derived from a title alone would be unreviewed.
