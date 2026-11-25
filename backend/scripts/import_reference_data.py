@@ -209,7 +209,7 @@ def _get_json(url: str, token: str, *, timeout: float, retries: int, backoff: fl
     safe_url = redact(url, token)
     last = ""
     for attempt in range(retries + 1):
-        request = urllib.request.Request(url, headers={"User-Agent": "Kareerly thesis research"})
+        request = urllib.request.Request(url, headers={"User-Agent": "Kareerly reference import"})
         try:
             with opener(request, timeout=timeout) as response:
                 return json.loads(response.read())

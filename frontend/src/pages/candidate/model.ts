@@ -268,8 +268,8 @@ export const SKILL_PROGRESS_PERCENT: Record<SkillProgressStatus, number> = {
   covered: 100,
 };
 
-// Skill Development Progress Labels (thesis table): the label for a 0-100 score.
-// The paper lists four ranges up to 75%; 76-100% is labelled "Skill Covered".
+// Skill Development Progress Labels: the label for a 0-100 score.
+// Four ranges cover up to 75%; 76-100% is labelled "Skill Covered".
 export function skillProgressLabel(percent: number): string {
   if (percent <= 0) return 'Not Started / Missing';
   if (percent <= 25) return 'Foundation Progress';

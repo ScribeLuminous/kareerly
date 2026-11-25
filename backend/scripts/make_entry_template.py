@@ -53,7 +53,7 @@ JOB_COLUMNS = [
     ("source_url", False, "Link to the posting.", None),
     ("source_note", False, "Anything worth recording about the source.", None),
     ("posting_status", True, "", ("active", "closed", "draft")),
-    ("is_synthetic_seed", True, "TRUE for made-up seed data, FALSE for a real posting. Keep honest: the thesis reports this.", ("TRUE", "FALSE")),
+    ("is_synthetic_seed", True, "TRUE for made-up seed data, FALSE for a real posting. Keep honest: reports depend on this.", ("TRUE", "FALSE")),
 ]
 
 CERTIFICATION_COLUMNS = [
@@ -86,7 +86,7 @@ INSTRUCTIONS = [
     ("Skill IDs", "must_have_skill_ids (jobs) and skill_ids (certifications) drive the whole system: a job only credits a candidate for skills listed by ID, and a certification only closes a gap for the IDs it lists. Find them on the Skills sheet (filter by name) and separate several with semicolons, e.g. SK029;SK276."),
     ("Skills that are missing", "If no Kareerly skill fits, leave the ID out, put the wording in required_skills or skills_youll_gain, and note it. Missing skills are added from ESCO in a separate review."),
     ("PSOC", "psoc_unit_code on the Jobs sheet is optional and not yet stored in the database. It is here so occupations can be attached later without re-typing the jobs."),
-    ("Honesty", "is_synthetic_seed must be TRUE for invented rows. The thesis distinguishes real postings from seed data."),
+    ("Honesty", "is_synthetic_seed must be TRUE for invented rows. Reports distinguish real postings from seed data."),
     ("When you are done", "Send the file back and it can be checked (IDs exist, no duplicate job_id, required fields filled) before anything is written to Supabase."),
 ]
 

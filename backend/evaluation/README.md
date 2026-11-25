@@ -1,6 +1,6 @@
 # Evaluation assets
 
-This folder contains thesis evaluation scripts, expected outputs, synthetic samples, and unique source data retained for reproducibility.
+This folder contains evaluation scripts, expected outputs, synthetic samples, and unique source data retained for reproducibility.
 
 - `sample_resumes/`: synthetic/mock evaluation resumes
 - `source_data/`: original raw source datasets not used by the runtime. Kept on the maintainer's machine only; it is git-ignored and not in the repository.

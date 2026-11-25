@@ -1,4 +1,4 @@
-"""Offline contracts for the thesis bi-encoder and transparent matching rules."""
+"""Offline contracts for the Kareerly bi-encoder and transparent matching rules."""
 import io
 import os
 from pathlib import Path

@@ -331,7 +331,7 @@ test('Learning shows 5 skills with courses before "Show N more skills"', () => {
   assert.doesNotMatch(html, />Show courses for</);
 });
 
-test('skill progress labels follow the thesis ranges (0 / 1-25 / 26-50 / 51-75)', () => {
+test('skill progress labels follow the defined ranges (0 / 1-25 / 26-50 / 51-75)', () => {
   const source = readFileSync(new URL('../src/pages/candidate/model.ts', import.meta.url), 'utf8');
   const body = source.slice(source.indexOf('export function skillProgressLabel'));
   const fn = new Function(`${ts.transpileModule(body.slice(0, body.indexOf('\n}\n') + 3).replace('export ', ''), { compilerOptions: { target: 'es2020' } }).outputText}; return skillProgressLabel;`)();

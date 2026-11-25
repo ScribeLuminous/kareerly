@@ -64,7 +64,7 @@ def main():
         notes[key.strip()] = body.strip()
 
     out = ["# Synthetic resume dataset: generation and QA report", "",
-           "System-test fixtures for Kareerly. Not training, validation or thesis evaluation data. "
+           "System-test fixtures for Kareerly. Not training, validation or evaluation data. "
            "All people, employers, schools, emails and phone numbers are fictional.", ""]
 
     # Overall
