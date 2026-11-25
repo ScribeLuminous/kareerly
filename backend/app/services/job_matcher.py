@@ -153,7 +153,7 @@ def career_preference_alignment_score(job: pd.Series, preferences: Optional[dict
 
 
 def progress_label(score: float) -> str:
-    """Skill Development Progress Labels (thesis table), by 0-100 score."""
+    """Skill Development Progress Labels, by 0-100 score."""
     if score <= 0:
         return "Not Started / Missing"
     if score <= 25:

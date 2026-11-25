@@ -5,7 +5,7 @@ region filtering and category-boundary checks. Every person, employer, email
 address and phone number in this folder is fictional.
 
 **Not research data.** Do not add these resumes to model training, validation
-or held-out thesis test sets, use them for checkpoint selection, or report
+or held-out test sets, use them for checkpoint selection, or report
 metrics on them as if they were real job seekers. Never use the contact
 details to send email or SMS or to place calls.
 

@@ -16,7 +16,7 @@ across candidates, across runs, and against a fixed threshold — which is what
 makes "no strong matches" an answer the system is allowed to give.
 
 Reported alongside: Expected Calibration Error and the reliability curve, which
-is the single strongest before/after figure available for the manuscript.
+is the single strongest before/after figure available.
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ def expected_calibration_error(
 
 
 def minmax_baseline(logits: Sequence[float]) -> np.ndarray:
-    """The v1 behaviour, kept so the manuscript can report it as a baseline."""
+    """The v1 behaviour, kept so it can be reported as a baseline."""
     z = np.asarray(logits, dtype=float)
     if z.size == 0:
         return z

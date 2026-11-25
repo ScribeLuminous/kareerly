@@ -1,7 +1,6 @@
 // The one place match thresholds live. The Candidates page, Home and Insights
 // all read from here, so a tier means the same thing everywhere. The bands
-// follow the thesis manuscript (Table 11): Top 90%+, Good 70-89%, Partial
-// under 70%. An applicant with no recorded skill evidence has no band at all.
+// are: Top 90%+, Good 70-89%, Partial under 70%. An applicant with no recorded skill evidence has no band at all.
 
 export const TOP_MATCH_PERCENT = 90;
 export const GOOD_MATCH_PERCENT = 70;

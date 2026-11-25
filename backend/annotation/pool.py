@@ -6,7 +6,7 @@ system under comparison, union them, and judge only the union. Anything no
 system retrieved is assumed non-relevant, which is a known and accepted
 approximation in IR evaluation.
 
-Two design rules that matter for the thesis, both implemented here:
+Two design rules that matter for the evaluation, both implemented here:
 
   BLINDING. `contributed_by` records which system found a pair and at what
   rank, but the annotation view never shows it. If an annotator can tell that
