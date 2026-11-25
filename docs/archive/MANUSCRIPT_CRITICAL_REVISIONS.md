@@ -1,5 +1,13 @@
 # Kareerly Critical Manuscript Revisions
 
+> **Archived — superseded.** These notes were written while the matching design
+> used a Cross-Encoder (`cross-encoder/ms-marco-MiniLM-L6-v2`). The final
+> implementation and approved thesis use a fine-tuned all-MiniLM-L6-v2
+> Sentence-Transformer **bi-encoder** with cosine similarity and rule-based skill
+> explanations (see `backend/README.md#production-matching-algorithm`). The
+> Cross-Encoder specification below does not describe the submitted system. The
+> research-question, evaluation and ground-truth sections are kept for reference.
+
 This document provides manuscript-ready corrections for Research Questions 3 and 5, a formal specification of the Kareerly matching algorithm, and a ground-truth protocol for ranking evaluation. The recommended algorithm specification is designed to remain faithful to Kareerly's explainable, skills-centered, privacy-conscious goals while making the study reproducible and defensible.
 
 ## 1. Recommended Research Question Revisions
