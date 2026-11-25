@@ -2,6 +2,9 @@
 
 **AI-Powered Job Matching and Skill Gap Analysis with Personalized Upskilling Recommendations**
 
+by: Antoque, Dustine Faith | Macatuno, John Marco
+BSCS 4IS2 | LSPU SAN PABLO
+
 Kareerly is a web-based career platform for Philippine job seekers and employers.
 A candidate uploads a resume. Kareerly reads it, finds the candidate's skills,
 matches them to job postings with a fine-tuned Sentence-Transformer model, explains
