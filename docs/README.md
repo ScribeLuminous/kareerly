@@ -47,12 +47,6 @@ testing. The documents below give the details behind each part of the system.
 | [`../test-data/synthetic-resumes-180/README.md`](../test-data/synthetic-resumes-180/README.md) | 180 fictional resumes used for system tests |
 | [`../test-data/resume-extraction/README.md`](../test-data/resume-extraction/README.md) | Resume extraction QA: samples, ground truth and reports |
 
-## Archive
-
-| Document | Contents |
-|---|---|
-| [`archive/MANUSCRIPT_CRITICAL_REVISIONS.md`](archive/MANUSCRIPT_CRITICAL_REVISIONS.md) | Earlier manuscript revision notes. **Superseded**: they describe a Cross-Encoder design that is not the submitted system |
-
 Dated documents (for example "2026-09-24") record the state of the system on
 that date. Where they differ from the code, the code and the main README are
 current.
